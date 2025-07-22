@@ -72,9 +72,9 @@
     const errorDiv = document.getElementById('errorMessage');
     let accounts = [];
 
-    // Auto-load Americas.csv from Dropbox
+    // Auto-load Americas.csv from Dropbox with CORS proxy
     window.addEventListener('load', () => {
-      const csvUrl = 'https://www.dropbox.com/scl/fi/oswozvdw829odrxt6ybbn/Americas.csv?rlkey=8sxomvjbeb1o5zabzdlo8prku&st=cu82byz5&dl=1';
+      const csvUrl = 'https://cors-anywhere.herokuapp.com/https://www.dropbox.com/scl/fi/oswozvdw829odrxt6ybbn/Americas.csv?rlkey=8sxomvjbeb1o5zabzdlo8prku&st=cu82byz5&dl=1';
       console.log('Attempting to fetch', csvUrl);
       fetch(csvUrl)
         .then(response => {
@@ -106,7 +106,7 @@
         })
         .catch(error => {
           console.error('Error loading CSV:', error);
-          errorDiv.textContent = 'Error loading Americas.csv from Dropbox. Check the URL.';
+          errorDiv.textContent = 'Error loading Americas.csv from Dropbox. Check the URL or CORS proxy.';
         });
     });
 
