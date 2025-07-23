@@ -7,8 +7,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
-    input { padding: 5px; font-size: 16px; width: 300px; }
-    .details { margin-top: 10px; font-weight: bold; }
+    input { padding: 5px; font-size: 16px; width: 300px; margin-bottom: 10px; }
+    label { font-weight: bold; display: block; margin-top: 10px; }
     .error { color: red; }
     .password-prompt { display: none; margin-bottom: 10px; }
     .password-prompt.active { display: block; }
@@ -25,10 +25,17 @@
   <datalist id="accountOptions"></datalist>
 
   <div class="details">
-    <p>Account Owner: <span id="owner"></span></p>
-    <p>Manager: <span id="manager"></span></p>
-    <p>Account PAM: <span id="pam"></span></p>
-    <p>Type: <span id="type"></span></p>
+    <label>Account Owner:</label>
+    <input type="text" id="owner" readonly />
+
+    <label>Manager:</label>
+    <input type="text" id="manager" readonly />
+
+    <label>Account PAM:</label>
+    <input type="text" id="pam" readonly />
+
+    <label>Type:</label>
+    <input type="text" id="type" readonly />
   </div>
 
   <div class="error" id="errorMessage"></div>
@@ -57,7 +64,7 @@
     }
 
     function loadData() {
-      const csvUrl = 'https://jwsiejk.github.io/account-lookup/Americas.csv';
+      const csvUrl = 'https://jwsiejk.github.io/accountlist/Americas.csv';
 
       fetch(csvUrl)
         .then(response => {
@@ -110,12 +117,12 @@
       const selected = this.value.trim();
       const account = accounts.find(a => a.name === selected);
       if (account) {
-        ownerSpan.textContent = account.owner;
-        managerSpan.textContent = account.manager;
-        pamSpan.textContent = account.pam;
-        typeSpan.textContent = account.type;
+        ownerSpan.value = account.owner;
+        managerSpan.value = account.manager;
+        pamSpan.value = account.pam;
+        typeSpan.value = account.type;
       } else {
-        ownerSpan.textContent = managerSpan.textContent = pamSpan.textContent = typeSpan.textContent = 'N/A';
+        ownerSpan.value = managerSpan.value = pamSpan.value = typeSpan.value = '';
       }
     });
 
