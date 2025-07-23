@@ -95,8 +95,8 @@
 
     // Auto-load Americas.csv from Dropbox with CORS proxy and fallback
     function loadData() {
-      const csvUrl = 'https://https://www.dropbox.com/scl/fi/oswozvdw829odrxt6ybbn/Americas.csv?rlkey=8sxomvjbeb1o5zabzdlo8prku&st=bvxvoenu&dl=1';
-      const fallbackUrl = 'https://crossorigin.me/https://www.dropbox.com/scl/fi/oswozvdw829odrxt6ybbn/Americas.csv?rlkey=8sxomvjbeb1o5zabzdlo8prku&st=bvxvoenu&dl=1';
+      const csvUrl = 'https://cors-anywhere.herokuapp.com/https://www.dropbox.com/scl/fi/oswozvdw829odrxt6ybbn/Americas.csv?rlkey=8sxomvjbeb1o5zabzdlo8prku&dl=1';
+      const fallbackUrl = 'https://crossorigin.me/https://www.dropbox.com/scl/fi/oswozvdw829odrxt6ybbn/Americas.csv?rlkey=8sxomvjbeb1o5zabzdlo8prku&dl=1';
       console.log('Attempting to fetch', csvUrl);
       fetch(csvUrl, { mode: 'cors' })
         .then(response => {
