@@ -48,17 +48,11 @@
     input { padding: 5px; font-size: 16px; width: 300px; }
     .details { margin-top: 10px; font-weight: bold; }
     .error { color: red; }
-    .password-prompt { display: none; margin-bottom: 10px; }
-    .password-prompt.active { display: block; }
   </style>
 </head>
 <body>
-  <div class="password-prompt" id="passwordPrompt">
-    <input type="password" id="passwordInput" placeholder="Enter password">
-    <button onclick="checkPassword()">Submit</button>
-  </div>
   <h2>Search Account</h2>
-  <input type="text" id="accountInput" list="accountOptions" placeholder="Start typing to search..." disabled>
+  <input type="text" id="accountInput" list="accountOptions" placeholder="Start typing to search...">
   <datalist id="accountOptions"></datalist>
   <div class="details">
     <p>Account Owner: <span id="owner"></span></p>
@@ -69,57 +63,27 @@
   <div class="error" id="errorMessage"></div>
 
   <script>
-    // Account data and password
+    // Account data
     const accountInput = document.getElementById('accountInput');
     const ownerSpan = document.getElementById('owner');
     const managerSpan = document.getElementById('manager');
     const pamSpan = document.getElementById('pam');
     const typeSpan = document.getElementById('type');
     const errorDiv = document.getElementById('errorMessage');
-    const passwordPrompt = document.getElementById('passwordPrompt');
-    const passwordInput = document.getElementById('passwordInput');
     let accounts = [];
-    const correctPassword = 'team2025'; // Change this to your desired password
 
-    // Password check function
-    function checkPassword() {
-      if (passwordInput.value === correctPassword) {
-        passwordPrompt.classList.remove('active');
-        accountInput.disabled = false;
-        loadData();
-      } else {
-        errorDiv.textContent = 'Incorrect password. Try again.';
-      }
-      passwordInput.value = '';
-    }
-
-    // Auto-load Americas.csv from Dropbox with CORS proxy and fallback
-    function loadData() {
-      const csvUrl = 'https://www.dropbox.com/scl/fi/oswozvdw829odrxt6ybbn/Americas.csv?rlkey=8sxomvjbeb1o5zabzdlo8prku&st=5snc1tyi&dl=1';
-      const fallbackUrl = 'https://crossorigin.me/https://https://www.dropbox.com/scl/fi/oswozvdw829odrxt6ybbn/Americas.csv?rlkey=8sxomvjbeb1o5zabzdlo8prku&st=5snc1tyi&dl=1';
+    // Auto-load Americas.csv from Dropbox with CORS proxy
+    window.addEventListener('load', () => {
+      const csvUrl = 'https://cors-anywhere.herokuapp.com/https://www.dropbox.com/scl/fi/oswozvdw829odrxt6ybbn/Americas.csv?rlkey=8sxomvjbeb1o5zabzdlo8prku&st=cu82byz5&dl=1';
       console.log('Attempting to fetch', csvUrl);
-      fetch(csvUrl, { mode: 'cors' })
+      fetch(csvUrl)
         .then(response => {
           console.log('Fetch response status:', response.status);
           console.log('Fetch response URL:', response.url);
-          console.log('Fetch response headers:', Object.fromEntries(response.headers));
           if (!response.ok) {
-            throw new Error(`Primary fetch failed: ${response.status}, URL: ${response.url}`);
+            throw new Error(`HTTP error! Status: ${response.status}, URL: ${response.url}`);
           }
           return response.text();
-        })
-        .catch(error => {
-          console.error('Primary fetch error:', error);
-          console.log('Falling back to', fallbackUrl);
-          return fetch(fallbackUrl, { mode: 'cors' })
-            .then(fallbackResponse => {
-              console.log('Fallback response status:', fallbackResponse.status);
-              console.log('Fallback response URL:', fallbackResponse.url);
-              if (!fallbackResponse.ok) {
-                throw new Error(`Fallback fetch failed: ${fallbackResponse.status}, URL: ${fallbackResponse.url}`);
-              }
-              return fallbackResponse.text();
-            });
         })
         .then(text => {
           const rows = parseCSV(text);
@@ -142,10 +106,9 @@
         })
         .catch(error => {
           console.error('Error loading CSV:', error);
-          errorDiv.textContent = 'Error loading Americas.csv from Dropbox. Check the URL or proxies.';
+          errorDiv.textContent = 'Error loading Americas.csv from Dropbox. Check the URL or CORS proxy.';
         });
-
-    }
+    });
 
     // Parse CSV with quoted field support
     function parseCSV(text) {
@@ -205,11 +168,6 @@
       } else {
         ownerSpan.textContent = managerSpan.textContent = pamSpan.textContent = typeSpan.textContent = 'N/A';
       }
-    });
-
-    // Show password prompt on load
-    window.addEventListener('load', () => {
-      passwordPrompt.classList.add('active');
     });
   </script>
 </body>
