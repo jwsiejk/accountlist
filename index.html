@@ -1,47 +1,8 @@
-<script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
-        }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
-
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
-
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
-
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-        </script><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Account Search</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <style>
@@ -55,18 +16,21 @@
 </head>
 <body>
   <div class="password-prompt" id="passwordPrompt">
-    <input type="password" id="passwordInput" placeholder="Enter password">
+    <input type="password" id="passwordInput" placeholder="Enter password" />
     <button onclick="checkPassword()">Submit</button>
   </div>
+
   <h2>Search Account</h2>
-  <input type="text" id="accountInput" list="accountOptions" placeholder="Start typing to search..." disabled>
+  <input type="text" id="accountInput" list="accountOptions" placeholder="Start typing to search..." disabled />
   <datalist id="accountOptions"></datalist>
+
   <div class="details">
     <p>Account Owner: <span id="owner"></span></p>
     <p>Manager: <span id="manager"></span></p>
     <p>Account PAM: <span id="pam"></span></p>
     <p>Type: <span id="type"></span></p>
   </div>
+
   <div class="error" id="errorMessage"></div>
 
   <script>
@@ -93,17 +57,14 @@
     }
 
     function loadData() {
-      const csvUrl = 'https://raw.githubusercontent.com/username/repository/main/Americas.csv';
-      console.log('Attempting to fetch', csvUrl);
+      const csvUrl = 'https://jwsiejk.github.io/account-lookup/Americas.csv';
+
       fetch(csvUrl)
         .then(response => {
-          console.log('Response Status:', response.status, response.statusText);
-          console.log('Response Headers:', Object.fromEntries(response.headers));
           if (!response.ok) throw new Error(`Fetch failed: ${response.status} ${response.statusText}`);
           return response.text();
         })
         .then(text => {
-          console.log('Received data length:', text.length);
           Papa.parse(text, {
             complete: result => {
               const rows = result.data;
@@ -118,7 +79,6 @@
                 pam: row[3] || 'N/A',
                 type: row[4] || 'N/A'
               })).filter(account => account.name);
-              console.log('Loaded Accounts:', accounts);
               populateDropdown();
               errorDiv.textContent = '';
             },
@@ -130,7 +90,7 @@
         })
         .catch(error => {
           console.error('Error loading CSV:', error);
-          errorDiv.textContent = 'Error loading Americas.csv. Check the file.';
+          errorDiv.textContent = 'Error loading Americas.csv. Check the file path.';
         });
     }
 
@@ -141,17 +101,14 @@
         if (account.name) {
           const option = document.createElement('option');
           option.value = account.name;
-          console.log('Dropdown Option:', account.name);
           datalist.appendChild(option);
         }
       });
     }
 
-    accountInput.addEventListener('change', function() {
+    accountInput.addEventListener('change', function () {
       const selected = this.value.trim();
-      console.log('Selected Value:', selected);
       const account = accounts.find(a => a.name === selected);
-      console.log('Found Account:', account);
       if (account) {
         ownerSpan.textContent = account.owner;
         managerSpan.textContent = account.manager;
