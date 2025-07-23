@@ -93,23 +93,33 @@
       passwordInput.value = '';
     }
 
-    // Auto-load Americas.csv from Dropbox directly
+    // Auto-load Americas.csv from Dropbox with CORS proxy and fallback
     function loadData() {
-      const csvUrl = 'https://www.dropbox.com/scl/fi/oswozvdw829odrxt6ybbn/Americas.csv?rlkey=8sxomvjbeb1o5zabzdlo8prku&dl=1';
+      const csvUrl = 'https://cors-anywhere.herokuapp.com/https://www.dropbox.com/scl/fi/oswozvdw829odrxt6ybbn/Americas.csv?rlkey=8sxomvjbeb1o5zabzdlo8prku&dl=1';
+      const fallbackUrl = 'https://crossorigin.me/https://www.dropbox.com/scl/fi/oswozvdw829odrxt6ybbn/Americas.csv?rlkey=8sxomvjbeb1o5zabzdlo8prku&dl=1';
       console.log('Attempting to fetch', csvUrl);
-      fetch(csvUrl)
+      fetch(csvUrl, { mode: 'cors' })
         .then(response => {
           console.log('Fetch response status:', response.status);
           console.log('Fetch response URL:', response.url);
           console.log('Fetch response headers:', Object.fromEntries(response.headers));
           if (!response.ok) {
-            throw new Error(`Fetch failed: ${response.status}, URL: ${response.url}`);
+            throw new Error(`Primary fetch failed: ${response.status}, URL: ${response.url}`);
           }
           return response.text();
         })
         .catch(error => {
-          console.error('Fetch error:', error);
-          errorDiv.textContent = 'Error loading Americas.csv from Dropbox. Direct fetch failed.';
+          console.error('Primary fetch error:', error);
+          console.log('Falling back to', fallbackUrl);
+          return fetch(fallbackUrl, { mode: 'cors' })
+            .then(fallbackResponse => {
+              console.log('Fallback response status:', fallbackResponse.status);
+              console.log('Fallback response URL:', fallbackResponse.url);
+              if (!fallbackResponse.ok) {
+                throw new Error(`Fallback fetch failed: ${fallbackResponse.status}, URL: ${fallbackResponse.url}`);
+              }
+              return fallbackResponse.text();
+            });
         })
         .then(text => {
           const rows = parseCSV(text);
@@ -129,6 +139,10 @@
           console.log('Loaded Accounts:', accounts);
           populateDropdown();
           errorDiv.textContent = '';
+        })
+        .catch(error => {
+          console.error('Error loading CSV:', error);
+          errorDiv.textContent = 'Error loading Americas.csv from Dropbox. Check the URL or proxies.';
         });
     }
 
