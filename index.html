@@ -7,8 +7,39 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
-    input { padding: 5px; font-size: 16px; width: 300px; margin-bottom: 10px; }
-    label { font-weight: bold; display: block; margin-top: 10px; }
+    input.copy-field {
+      padding: 5px;
+      font-size: 16px;
+      width: 300px;
+      margin-bottom: 5px;
+    }
+    .copy-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-bottom: 10px;
+    }
+    .copy-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 2px;
+      display: flex;
+      align-items: center;
+    }
+    .copy-btn svg {
+      width: 18px;
+      height: 18px;
+      stroke: #333;
+    }
+    .copy-btn:hover svg {
+      stroke: #007acc;
+    }
+    label {
+      font-weight: bold;
+      display: block;
+      margin-top: 10px;
+    }
     .error { color: red; }
     .password-prompt { display: none; margin-bottom: 10px; }
     .password-prompt.active { display: block; }
@@ -26,16 +57,48 @@
 
   <div class="details">
     <label>Account Owner:</label>
-    <input type="text" id="owner" readonly />
+    <div class="copy-wrapper">
+      <input type="text" id="owner" class="copy-field" readonly />
+      <button class="copy-btn" onclick="copyToClipboard('owner')" title="Copy">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <rect x="9" y="2" width="6" height="4" rx="1" />
+          <path d="M5 8h14v14H5z" />
+        </svg>
+      </button>
+    </div>
 
     <label>Manager:</label>
-    <input type="text" id="manager" readonly />
+    <div class="copy-wrapper">
+      <input type="text" id="manager" class="copy-field" readonly />
+      <button class="copy-btn" onclick="copyToClipboard('manager')" title="Copy">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <rect x="9" y="2" width="6" height="4" rx="1" />
+          <path d="M5 8h14v14H5z" />
+        </svg>
+      </button>
+    </div>
 
     <label>Account PAM:</label>
-    <input type="text" id="pam" readonly />
+    <div class="copy-wrapper">
+      <input type="text" id="pam" class="copy-field" readonly />
+      <button class="copy-btn" onclick="copyToClipboard('pam')" title="Copy">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <rect x="9" y="2" width="6" height="4" rx="1" />
+          <path d="M5 8h14v14H5z" />
+        </svg>
+      </button>
+    </div>
 
     <label>Type:</label>
-    <input type="text" id="type" readonly />
+    <div class="copy-wrapper">
+      <input type="text" id="type" class="copy-field" readonly />
+      <button class="copy-btn" onclick="copyToClipboard('type')" title="Copy">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <rect x="9" y="2" width="6" height="4" rx="1" />
+          <path d="M5 8h14v14H5z" />
+        </svg>
+      </button>
+    </div>
   </div>
 
   <div class="error" id="errorMessage"></div>
@@ -125,6 +188,15 @@
         ownerSpan.value = managerSpan.value = pamSpan.value = typeSpan.value = '';
       }
     });
+
+    function copyToClipboard(fieldId) {
+      const input = document.getElementById(fieldId);
+      if (input && input.value) {
+        navigator.clipboard.writeText(input.value)
+          .then(() => console.log(`Copied ${fieldId}: ${input.value}`))
+          .catch(err => console.error('Copy failed:', err));
+      }
+    }
 
     window.addEventListener('load', () => {
       passwordPrompt.classList.add('active');
