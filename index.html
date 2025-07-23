@@ -50,22 +50,23 @@
     .error { color: red; }
     .password-prompt { display: none; margin-bottom: 10px; }
     .password-prompt.active { display: block; }
-    .copy-button {
-      padding: 2px 5px;
-      font-size: 12px;
-      margin-left: 5px;
-      cursor: pointer;
-      background-color: #f0f0f0;
-      border: 1px solid #ccc;
-      border-radius: 3px;
-    }
-    .copy-button:hover {
-      background-color: #e0e0e0;
-    }
     .option-container {
       display: flex;
       align-items: center;
       margin: 2px 0;
+    }
+    .copy-text {
+      padding: 5px;
+      font-size: 14px;
+      width: 200px;
+      margin-left: 5px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      background-color: #f9f9f9;
+    }
+    .copy-text:focus {
+      outline: none;
+      border-color: #4CAF50;
     }
   </style>
 </head>
@@ -111,10 +112,10 @@
       passwordInput.value = '';
     }
 
-    // Auto-load Americas.csv from Dropbox with CORS proxy and fallback
+    // Auto-load Americas.csv from the updated Dropbox link with CORS proxy and fallback
     function loadData() {
-      const csvUrl = 'https://cors-anywhere.herokuapp.com/https://www.dropbox.com/scl/fi/oswozvdw829odrxt6ybbn/Americas.csv?rlkey=8sxomvjbeb1o5zabzdlo8prku&dl=1';
-      const fallbackUrl = 'https://crossorigin.me/https://www.dropbox.com/scl/fi/oswozvdw829odrxt6ybbn/Americas.csv?rlkey=8sxomvjbeb1o5zabzdlo8prku&dl=1';
+      const csvUrl = 'https://cors-anywhere.herokuapp.com/https://www.dropbox.com/scl/fo/cgh12z1al9gy026frtf20/AAg4d7dc21cSUIIY0txxnMU?rlkey=9vtvwmooohzvuqtzznsrwk6d8&st=kt0y1nas&dl=1';
+      const fallbackUrl = 'https://crossorigin.me/https://www.dropbox.com/scl/fo/cgh12z1al9gy026frtf20/AAg4d7dc21cSUIIY0txxnMU?rlkey=9vtvwmooohzvuqtzznsrwk6d8&st=kt0y1nas&dl=1';
       console.log('Attempting to fetch', csvUrl);
       fetch(csvUrl, { mode: 'cors' })
         .then(response => {
@@ -194,7 +195,7 @@
       return rows;
     }
 
-    // Populate datalist with account names and copy buttons
+    // Populate datalist with account names and text boxes
     function populateDropdown() {
       const datalist = document.getElementById('accountOptions');
       datalist.innerHTML = '';
@@ -207,20 +208,19 @@
           option.value = account.name;
           console.log('Dropdown Option:', account.name);
           
-          const copyButton = document.createElement('button');
-          copyButton.className = 'copy-button';
-          copyButton.textContent = 'Copy Text';
-          copyButton.onclick = (e) => {
-            e.preventDefault(); // Prevent option selection
-            navigator.clipboard.writeText(account.name).then(() => {
-              console.log('Copied:', account.name);
-            }).catch(err => {
-              console.error('Failed to copy:', err);
-            });
+          const copyText = document.createElement('input');
+          copyText.className = 'copy-text';
+          copyText.type = 'text';
+          copyText.value = account.name;
+          copyText.readOnly = true;
+          copyText.onclick = () => {
+            copyText.select();
+            document.execCommand('copy');
+            console.log('Copied:', account.name);
           };
 
           optionContainer.appendChild(option);
-          optionContainer.appendChild(copyButton);
+          optionContainer.appendChild(copyText);
           datalist.appendChild(optionContainer);
         }
       });
