@@ -55,18 +55,17 @@
       align-items: center;
       margin: 2px 0;
     }
-    .copy-text {
-      padding: 5px;
-      font-size: 14px;
-      width: 200px;
+    .copy-button {
+      padding: 2px 5px;
+      font-size: 12px;
       margin-left: 5px;
+      cursor: pointer;
+      background-color: #f0f0f0;
       border: 1px solid #ccc;
       border-radius: 3px;
-      background-color: #f9f9f9;
     }
-    .copy-text:focus {
-      outline: none;
-      border-color: #4CAF50;
+    .copy-button:hover {
+      background-color: #e0e0e0;
     }
   </style>
 </head>
@@ -195,7 +194,7 @@
       return rows;
     }
 
-    // Populate datalist with account names and text boxes
+    // Populate datalist with account names and copy buttons
     function populateDropdown() {
       const datalist = document.getElementById('accountOptions');
       datalist.innerHTML = '';
@@ -208,19 +207,20 @@
           option.value = account.name;
           console.log('Dropdown Option:', account.name);
           
-          const copyText = document.createElement('input');
-          copyText.className = 'copy-text';
-          copyText.type = 'text';
-          copyText.value = account.name;
-          copyText.readOnly = true;
-          copyText.onclick = () => {
-            copyText.select();
-            document.execCommand('copy');
-            console.log('Copied:', account.name);
+          const copyButton = document.createElement('button');
+          copyButton.className = 'copy-button';
+          copyButton.textContent = 'Copy';
+          copyButton.onclick = (e) => {
+            e.preventDefault(); // Prevent option selection
+            navigator.clipboard.writeText(account.name).then(() => {
+              console.log('Copied:', account.name);
+            }).catch(err => {
+              console.error('Failed to copy:', err);
+            });
           };
 
           optionContainer.appendChild(option);
-          optionContainer.appendChild(copyText);
+          optionContainer.appendChild(copyButton);
           datalist.appendChild(optionContainer);
         }
       });
