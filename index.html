@@ -1,170 +1,167 @@
-<script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
-        }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
 
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
-
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
-
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-        </script><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Account Search</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Account Lookup</title>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    input { padding: 5px; font-size: 16px; width: 300px; }
-    .details { margin-top: 10px; font-weight: bold; }
-    .error { color: red; }
-    .password-prompt { display: none; margin-bottom: 10px; }
-    .password-prompt.active { display: block; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2em;
+    }
+    h2 {
+      margin-bottom: 0.5em;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 0.5em;
+      font-size: 1em;
+      margin-bottom: 1em;
+    }
+    .details {
+      font-weight: bold;
+    }
+    .output-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 0.5em;
+    }
+    .output-label {
+      width: 140px;
+    }
+    .output-box {
+      display: flex;
+      align-items: center;
+      background: #f8f9fa;
+      padding: 5px 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-weight: normal;
+      position: relative;
+    }
+    .copy-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      margin-left: 8px;
+      padding: 2px;
+    }
+    .copy-btn svg {
+      width: 16px;
+      height: 16px;
+      fill: #6c757d;
+    }
+    .copy-btn:hover svg {
+      fill: #343a40;
+    }
+    .tooltip {
+      visibility: hidden;
+      background-color: #343a40;
+      color: #fff;
+      text-align: center;
+      border-radius: 4px;
+      padding: 3px 6px;
+      font-size: 0.8em;
+      position: absolute;
+      z-index: 1;
+      top: -30px;
+      right: 0;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .output-box:hover .tooltip {
+      visibility: visible;
+      opacity: 1;
+    }
   </style>
 </head>
 <body>
   <div class="password-prompt" id="passwordPrompt">
-    <input type="password" id="passwordInput" placeholder="Enter password">
-    <button onclick="checkPassword()">Submit</button>
+    <h2>Search Account</h2>
+    <input type="text" id="accountInput" list="accountOptions" placeholder="Start typing to search...">
+    <datalist id="accountOptions"></datalist>
+    <div class="details" id="outputDetails"></div>
   </div>
-  <h2>Search Account</h2>
-  <input type="text" id="accountInput" list="accountOptions" placeholder="Start typing to search..." disabled>
-  <datalist id="accountOptions"></datalist>
-  <div class="details">
-    <p>Account Owner: <span id="owner"></span></p>
-    <p>Manager: <span id="manager"></span></p>
-    <p>Account PAM: <span id="pam"></span></p>
-    <p>Type: <span id="type"></span></p>
-  </div>
-  <div class="error" id="errorMessage"></div>
 
   <script>
-    const accountInput = document.getElementById('accountInput');
-    const ownerSpan = document.getElementById('owner');
-    const managerSpan = document.getElementById('manager');
-    const pamSpan = document.getElementById('pam');
-    const typeSpan = document.getElementById('type');
-    const errorDiv = document.getElementById('errorMessage');
-    const passwordPrompt = document.getElementById('passwordPrompt');
-    const passwordInput = document.getElementById('passwordInput');
-    let accounts = [];
-    const correctPassword = 'team2025';
+    const csvUrl = 'https://jwsiejk.github.io/accountlist/Americas.csv';
 
-    function checkPassword() {
-      if (passwordInput.value === correctPassword) {
-        passwordPrompt.classList.remove('active');
-        accountInput.disabled = false;
-        loadData();
-      } else {
-        errorDiv.textContent = 'Incorrect password. Try again.';
-      }
-      passwordInput.value = '';
-    }
+    fetch(csvUrl)
+      .then(response => {
+        if (!response.ok) throw new Error(`Fetch failed: ${response.status} ${response.statusText}`);
+        return response.text();
+      })
+      .then(text => {
+        Papa.parse(text, {
+          complete: result => {
+            const rows = result.data;
+            const header = rows[0];
+            const accountIndex = header.indexOf('Account Name');
+            const ownerIndex = header.indexOf('Account Owner');
+            const managerIndex = header.indexOf('Manager');
+            const pamIndex = header.indexOf('Account PAM');
+            const typeIndex = header.indexOf('Type');
 
-    function loadData() {
-      const csvUrl = 'https://raw.githubusercontent.com/jwsiejk/accountlist/main/Americas.csv';
-      console.log('Attempting to fetch', csvUrl);
-      fetch(csvUrl)
-        .then(response => {
-          console.log('Response Status:', response.status, response.statusText);
-          console.log('Response Headers:', Object.fromEntries(response.headers));
-          if (!response.ok) throw new Error(`Fetch failed: ${response.status} ${response.statusText}`);
-          return response.text();
-        })
-        .then(text => {
-          console.log('Received data length:', text.length);
-          Papa.parse(text, {
-            complete: result => {
-              const rows = result.data;
-              if (rows.length < 2) {
-                errorDiv.textContent = 'Invalid CSV file: No data rows.';
-                return;
+            const accountInput = document.getElementById('accountInput');
+            const options = document.getElementById('accountOptions');
+            const outputDetails = document.getElementById('outputDetails');
+
+            rows.slice(1).forEach(row => {
+              const option = document.createElement('option');
+              option.value = row[accountIndex];
+              options.appendChild(option);
+            });
+
+            accountInput.addEventListener('input', () => {
+              const value = accountInput.value.toLowerCase();
+              const row = rows.find(r => r[accountIndex] && r[accountIndex].toLowerCase() === value);
+              outputDetails.innerHTML = '';
+
+              if (row) {
+                outputDetails.appendChild(createOutputRow('Account Owner:', row[ownerIndex]));
+                outputDetails.appendChild(createOutputRow('Manager:', row[managerIndex]));
+                outputDetails.appendChild(createOutputRow('Account PAM:', row[pamIndex]));
+                outputDetails.appendChild(createOutputRow('Type:', row[typeIndex]));
               }
-              accounts = rows.slice(1).map(row => ({
-                name: row[0] || '',
-                owner: row[1] || 'N/A',
-                manager: row[2] || 'N/A',
-                pam: row[3] || 'N/A',
-                type: row[4] || 'N/A'
-              })).filter(account => account.name);
-              console.log('Loaded Accounts:', accounts);
-              populateDropdown();
-              errorDiv.textContent = '';
-            },
-            error: err => {
-              console.error('PapaParse error:', err);
-              errorDiv.textContent = 'Error parsing CSV file.';
+            });
+
+            function createOutputRow(label, value) {
+              const div = document.createElement('div');
+              div.className = 'output-row';
+
+              const labelSpan = document.createElement('span');
+              labelSpan.className = 'output-label';
+              labelSpan.textContent = label;
+
+              const valueBox = document.createElement('span');
+              valueBox.className = 'output-box';
+              valueBox.textContent = value;
+
+              const tooltip = document.createElement('span');
+              tooltip.className = 'tooltip';
+              tooltip.textContent = 'Copy to clipboard';
+              valueBox.appendChild(tooltip);
+
+              const button = document.createElement('button');
+              button.className = 'copy-btn';
+              button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 18H8V7h11v16z"/></svg>`;
+              button.addEventListener('click', () => {
+                navigator.clipboard.writeText(value).then(() => {
+                  tooltip.textContent = 'Copied!';
+                  setTimeout(() => tooltip.textContent = 'Copy to clipboard', 1500);
+                });
+              });
+
+              valueBox.appendChild(button);
+              div.appendChild(labelSpan);
+              div.appendChild(valueBox);
+              return div;
             }
-          });
-        })
-        .catch(error => {
-          console.error('Error loading CSV:', error);
-          errorDiv.textContent = 'Error loading Americas.csv. Check the file.';
+          }
         });
-    }
-
-    function populateDropdown() {
-      const datalist = document.getElementById('accountOptions');
-      datalist.innerHTML = '';
-      accounts.forEach(account => {
-        if (account.name) {
-          const option = document.createElement('option');
-          option.value = account.name;
-          console.log('Dropdown Option:', account.name);
-          datalist.appendChild(option);
-        }
       });
-    }
-
-    accountInput.addEventListener('change', function() {
-      const selected = this.value.trim();
-      console.log('Selected Value:', selected);
-      const account = accounts.find(a => a.name === selected);
-      console.log('Found Account:', account);
-      if (account) {
-        ownerSpan.textContent = account.owner;
-        managerSpan.textContent = account.manager;
-        pamSpan.textContent = account.pam;
-        typeSpan.textContent = account.type;
-      } else {
-        ownerSpan.textContent = managerSpan.textContent = pamSpan.textContent = typeSpan.textContent = 'N/A';
-      }
-    });
-
-    window.addEventListener('load', () => {
-      passwordPrompt.classList.add('active');
-    });
   </script>
 </body>
 </html>
