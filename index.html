@@ -2,137 +2,69 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Account Search</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <meta charset="UTF-8">
+  <title>Opportunity Registration Summary</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    input { padding: 5px; font-size: 16px; width: 300px; }
-    .details { margin-top: 10px; font-weight: bold; }
-    .details p { margin: 5px 0; }
-    .error { color: red; }
-    .password-prompt { display: none; margin-bottom: 10px; }
-    .password-prompt.active { display: block; }
-    .copy-button {
-      margin-left: 10px;
-      padding: 2px 6px;
-      font-size: 14px;
-      cursor: pointer;
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f2f2f2;
+      padding: 40px;
+    }
+    .container {
+      background: white;
+      padding: 20px;
+      max-width: 500px;
+      margin: auto;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+    }
+    label, input {
+      margin: 5px 0;
+    }
+    button {
+      margin-top: 10px;
+      padding: 10px;
+    }
+    #result {
+      margin-top: 20px;
     }
   </style>
 </head>
 <body>
-  <div class="password-prompt" id="passwordPrompt">
-    <input type="password" id="passwordInput" placeholder="Enter password">
-    <button onclick="checkPassword()">Submit</button>
+  <div class="container">
+    <h1>Opportunity Registration Summary</h1>
+    <form id="dateForm">
+      <label for="start">Start Date (MM/DD/YYYY):</label>
+      <input type="text" id="start" required>
+      <label for="end">End Date (MM/DD/YYYY):</label>
+      <input type="text" id="end" required>
+      <button type="submit">Submit</button>
+    </form>
+    <div id="result"></div>
   </div>
-  <h2>Search Account</h2>
-  <input type="text" id="accountInput" list="accountOptions" placeholder="Start typing to search..." disabled>
-  <datalist id="accountOptions"></datalist>
-  <div class="details">
-    <p>Account Owner: <span id="owner"></span><button class="copy-button" onclick="copyToClipboard('owner')">Copy</button></p>
-    <p>Manager: <span id="manager"></span><button class="copy-button" onclick="copyToClipboard('manager')">Copy</button></p>
-    <p>Account PAM: <span id="pam"></span><button class="copy-button" onclick="copyToClipboard('pam')">Copy</button></p>
-    <p>Type: <span id="type"></span><button class="copy-button" onclick="copyToClipboard('type')">Copy</button></p>
-  </div>
-  <div class="error" id="errorMessage"></div>
-
   <script>
-    const accountInput = document.getElementById('accountInput');
-    const ownerSpan = document.getElementById('owner');
-    const managerSpan = document.getElementById('manager');
-    const pamSpan = document.getElementById('pam');
-    const typeSpan = document.getElementById('type');
-    const errorDiv = document.getElementById('errorMessage');
-    const passwordPrompt = document.getElementById('passwordPrompt');
-    const passwordInput = document.getElementById('passwordInput');
-    let accounts = [];
-    const correctPassword = 'team2025';
+    document.getElementById('dateForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const start = document.getElementById('start').value;
+      const end = document.getElementById('end').value;
 
-    function checkPassword() {
-      if (passwordInput.value === correctPassword) {
-        passwordPrompt.classList.remove('active');
-        accountInput.disabled = false;
-        loadData();
-      } else {
-        errorDiv.textContent = 'Incorrect password. Try again.';
-      }
-      passwordInput.value = '';
-    }
-
-    function loadData() {
-      const csvUrl = 'https://raw.githubusercontent.com/jwsiejk/accountlist/main/Americas.csv';
-      fetch(csvUrl)
-        .then(response => {
-          if (!response.ok) throw new Error(`Fetch failed: ${response.status} ${response.statusText}`);
-          return response.text();
-        })
-        .then(text => {
-          Papa.parse(text, {
-            complete: result => {
-              const rows = result.data;
-              if (rows.length < 2) {
-                errorDiv.textContent = 'Invalid CSV file: No data rows.';
-                return;
-              }
-              accounts = rows.slice(1).map(row => ({
-                name: row[0] || '',
-                owner: row[1] || 'N/A',
-                manager: row[2] || 'N/A',
-                pam: row[3] || 'N/A',
-                type: row[4] || 'N/A'
-              })).filter(account => account.name);
-              populateDropdown();
-              errorDiv.textContent = '';
-            },
-            error: err => {
-              errorDiv.textContent = 'Error parsing CSV file.';
-            }
-          });
-        })
-        .catch(error => {
-          errorDiv.textContent = 'Error loading Americas.csv. Check the file.';
-        });
-    }
-
-    function populateDropdown() {
-      const datalist = document.getElementById('accountOptions');
-      datalist.innerHTML = '';
-      accounts.forEach(account => {
-        if (account.name) {
-          const option = document.createElement('option');
-          option.value = account.name;
-          datalist.appendChild(option);
-        }
+      const response = await fetch('/filter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ start, end })
       });
-    }
 
-    accountInput.addEventListener('change', function() {
-      const selected = this.value.trim();
-      const account = accounts.find(a => a.name === selected);
-      if (account) {
-        ownerSpan.textContent = account.owner;
-        managerSpan.textContent = account.manager;
-        pamSpan.textContent = account.pam;
-        typeSpan.textContent = account.type;
-      } else {
-        ownerSpan.textContent = managerSpan.textContent = pamSpan.textContent = typeSpan.textContent = 'N/A';
-      }
-    });
-
-    function copyToClipboard(id) {
-      const text = document.getElementById(id).textContent;
-      navigator.clipboard.writeText(text).then(() => {
-        const button = document.querySelector(`button[onclick="copyToClipboard('${id}')"]`);
-        const original = button.textContent;
-        button.textContent = 'Copied!';
-        setTimeout(() => button.textContent = original, 1500);
-      });
-    }
-
-    window.addEventListener('load', () => {
-      passwordPrompt.classList.add('active');
+      const result = await response.json();
+      document.getElementById('result').innerHTML = `
+        <p><strong>Total Opportunities:</strong> ${result.total}</p>
+        <p><strong>Registered:</strong> ${result.registered}</p>
+        <p><strong>Not Registered:</strong> ${result.not_registered}</p>
+        <p><strong>Percent Registered:</strong> ${result.percent_registered}</p>
+      `;
     });
   </script>
 </body>
