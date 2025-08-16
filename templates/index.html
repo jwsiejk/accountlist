@@ -38,41 +38,37 @@
     .links a{color:var(--pure-orange); text-decoration:underline; text-underline-offset:2px}
     .links a:hover{color:var(--pure-orange-700)}
 
-    /* tighter grid for the event cards */
+    /* ========== MARKETING EVENTS LAYOUT (FLEX, LEFT-PACKED, SNUG) ========== */
     .events{
-      display: grid;
-      grid-auto-flow: row dense;
-      grid-auto-rows: min-content;
-      grid-template-columns: repeat(auto-fill, 220px); /* fixed card width */
-      justify-content: start;     /* pack to the left */
-      justify-items: start;       /* cards don’t stretch */
-      gap: 6px;                   /* small, uniform gap */
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;                 /* small, uniform gap between cards */
       margin-top: 6px;
       list-style: none;
       padding: 0;
     }
-    .month{
-      grid-column:1 / -1;
+    /* fixed card width so rows pack tightly; tweak 220 -> 210 if you want even tighter */
+    .events > .event{ width: 220px; }
+    /* month header breaks to a new line and spans full width */
+    .events > .month{
+      flex-basis: 100%;
       font-weight:800; color:#1f2937;
       margin:10px 2px 3px; padding-top:5px;
       border-top:1px dashed var(--slate-200);
       letter-spacing:.02em; font-size:11px; text-transform:uppercase;
     }
 
+    /* Internal card: stripe | text (content width) | date chip */
     .event{
-       position: relative;
-  display: grid;
-  grid-template-columns: 3px max-content auto; /* stripe | text (content) | date */
-  align-items: center;
-  justify-items: start;                         /* prevents date chip from stretching */
-  background: #fff;
-  border: 1px solid var(--slate-200);
-  border-radius: 6px;
-  padding: 2px 4px;
-  column-gap: 2px;                              /* was gap:4px */
-  row-gap: 0;
-  box-shadow: 0 2px 6px rgba(15,17,21,.05);
-  
+      position:relative;
+      display:grid;
+      grid-template-columns:3px max-content auto; /* stripe | text (content) | date */
+      align-items:center;
+      justify-items:start;                         /* prevents date chip from stretching */
+      background:#fff; border:1px solid var(--slate-200); border-radius:6px;
+      padding:2px 4px;
+      column-gap:2px; row-gap:0;
+      box-shadow:0 2px 6px rgba(15,17,21,.05);
     }
     .stripe{ width:3px; height:100%; background:var(--pure-orange); border-radius:6px; }
     .event.past{opacity:.5}
@@ -96,15 +92,15 @@
       max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
     }
 
-   .datebox{
-  display: inline-flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  width: auto; min-width: auto;        /* <-- important */
-  padding: 2px 6px; line-height: 1;
-  justify-self: end;
-}
-.datebox .day { font-size: 11px; font-weight: 800; }
-.datebox .mon { font-size: 8px; letter-spacing: .06em; }
+    .datebox{
+      display:inline-flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      width:auto; min-width:auto;          /* content width only */
+      padding:2px 6px; line-height:1;
+      justify-self:end;
+    }
+    .datebox .day { font-size:11px; font-weight:800; }
+    .datebox .mon { font-size:8px; letter-spacing:.06em; margin-top:0; }
   </style>
 </head>
 <body>
@@ -160,7 +156,7 @@
     // Events (ISO dates) + location chips (two long titles split into title + sub).
     var marketingEvents = [
       { title: "NorCal Lunch & Learn",                     date: "2025-08-19", loc: "NorCal" },
-      { title: "MI Portworx",                              date: "2025-08-19", loc: "MI", sub:"Enablement" },  // <-- fixed brace
+      { title: "MI Portworx",                              date: "2025-08-19", loc: "MI", sub:"Enablement" },
       { title: "CO Golf Tournament",                       date: "2025-08-25", loc: "CO" },
       { title: "CO Fly Fishing",                           date: "2025-09-12", loc: "CO" },
       { title: "NYC Pure Accelerate",                      date: "2025-09-25", loc: "NYC" },
