@@ -22,76 +22,56 @@
     .pill .dot{width:8px;height:8px;border-radius:999px;background:#fff;opacity:.9}
     .hero h1{margin:8px 0 0;font-size:26px}
     .hero p{margin:8px 0 0;color:var(--slate-600)}
-    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:18px}
-    @media (max-width:980px){.grid{grid-template-columns:1fr 1fr}}
-    @media (max-width:640px){.grid{grid-template-columns:1fr}}
-    .card{background:var(--card);border:1px solid var(--slate-200);border-radius:16px;box-shadow:0 10px 30px rgba(15,17,21,.06);padding:16px;display:flex;flex-direction:column;gap:10px}
-    .card h3{margin:0;font-size:16px;color:var(--ink-900);letter-spacing:.01em}
+
+    /* Stacked sections */
+    .stack{display:flex;flex-direction:column;gap:16px;margin-top:18px}
+    .card{
+      background:var(--card);border:1px solid var(--slate-200);border-radius:16px;
+      box-shadow:0 10px 30px rgba(15,17,21,.06);padding:18px 16px;min-height:110px;
+      display:flex;flex-direction:column;justify-content:center;
+    }
+    .card h3{margin:0 0 6px 0;font-size:18px;letter-spacing:.01em}
     .muted{color:var(--slate-600);font-size:13px}
-    .link{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:12px;text-decoration:none;color:#fff;background:var(--pure-orange);border:1px solid var(--pure-orange);padding:12px 14px;border-radius:12px;font-weight:700;box-shadow:0 8px 20px rgba(240,78,35,.25);transition:transform .04s ease, background .12s ease}
-    .link:hover{background:var(--pure-orange-700);transform:translateY(-1px)}
-    .pill-badge{font-size:12px;padding:4px 8px;border-radius:999px;background:#fff;color:var(--pure-orange);border:1px solid #ffd5c9;white-space:nowrap}
-    .kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:6px}
-    .kpi{background:linear-gradient(180deg,#2b2f36,#1d2127);color:#fff;border-radius:14px;padding:14px 12px;text-align:center;border:1px solid #3d434e}
-    .kpi.gray{background:linear-gradient(180deg,#6b7280,#4b5563);border-color:#7c828f}
-    .kpi.orange{background:var(--pure-orange);border-color:#d9431c}
-    .kpi small{display:block;color:#e5e7eb;opacity:.9}.kpi strong{display:block;font-size:20px;margin-top:6px}
-    footer{margin-top:28px;text-align:center;color:var(--slate-600);font-size:12px}
   </style>
 </head>
 <body>
   <div class="wrap">
+    <!-- Brand bar -->
     <div class="brandbar">
-      <div class="logos"><img src="/static/pure-storage-logo.png" alt="Pure Storage" class="logo"></div>
-      <div class="logos"><img src="/static/trace3-logo.png" alt="TRACE3" class="logo trace3"></div>
+      <div class="logos"><img src="/static/pure-storage-logo.svg" alt="Pure Storage" class="logo" onerror="this.style.display='none'"></div>
+      <div class="logos"><img src="/static/trace3-logo.png" alt="TRACE3" class="logo trace3" onerror="this.style.display='none'"></div>
     </div>
 
+    <!-- Hero -->
     <section class="hero" aria-label="Portal header">
       <div class="pill"><span class="dot" aria-hidden="true"></span>Trace3 × Pure Portal</div>
       <h1>Welcome</h1>
       <p class="muted">Updates, quick links, and tools for the Trace3 team.</p>
     </section>
 
-    <section class="kpis" aria-label="Highlights">
-      <div class="kpi gray"><small>FY26 Pipeline</small><strong>$66M</strong></div>
-      <div class="kpi"><small>% to Bookings Goal</small><strong>49%</strong></div>
-      <div class="kpi orange"><small>Trace3 Sellers to Goal</small><strong>52%</strong></div>
-    </section>
-
-    <section class="grid" aria-label="Portal sections">
+    <!-- Stacked white sections -->
+    <section class="stack" aria-label="Sections">
       <article class="card">
-        <h3>Account Tools</h3>
-        <p class="muted">Search accounts for AE / RSD / Regional PAM details.</p>
-        <a class="link" href="{{ url_for('account_search') }}">
-          <span>Account Search</span><span class="pill-badge">Requires password</span>
-        </a>
+        <h3>Sales</h3>
+        <div class="muted">Add links, dashboards, and collateral for the sales team.</div>
       </article>
 
       <article class="card">
-        <h3>Latest Updates</h3>
-        <ul class="muted" style="margin:0 0 6px 16px; padding:0; line-height:1.6;">
-          <li>Add your latest notes or announcements here.</li>
-          <li>Link to presentations, playbooks, or recordings.</li>
-        </ul>
-        <a class="link" href="#" onclick="alert('Wire this to your updates page or doc.');return false;">
-          <span>View All Updates</span><span aria-hidden="true">↗</span>
-        </a>
+        <h3>Marketing</h3>
+        <div class="muted">Announcements, campaigns, brand assets, and outreach tools.</div>
       </article>
 
       <article class="card">
-        <h3>Important Links</h3>
-        <div class="muted">
-          <div>• Pure Partner Portal</div>
-          <div>• Trace3 Resources</div>
-          <div>• Training & Enablement</div>
-        </div>
-        <a class="link" href="#" onclick="alert('Replace with your landing page of links.');return false;">
-          <span>Open Links</span><span aria-hidden="true">↗</span>
-        </a>
+        <h3>Pre-Sales</h3>
+        <div class="muted">Tools and enablement for SEs: sizing, POVs, demos, and playbooks.</div>
+      </article>
+
+      <article class="card">
+        <h3>Services</h3>
+        <div class="muted">Install guides, delivery checklists, and support workflows.</div>
       </article>
     </section>
 
-    <footer>Portal theme styled to match the Pure × Trace3 look & feel.</footer>
   </div>
 </body>
 </html>
