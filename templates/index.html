@@ -38,33 +38,39 @@
     .links a{color:var(--pure-orange); text-decoration:underline; text-underline-offset:2px}
     .links a:hover{color:var(--pure-orange-700)}
 
-    /* Marketing events — compact + responsive grid */
+    /* Marketing events — ultra-compact + responsive grid with month headers */
     .events{
       display:grid;
-      grid-template-columns:1fr;       /* phones: 1 col */
-      gap:6px;                          /* tight gap */
+      grid-template-columns:1fr;           /* phones: 1 col */
+      gap:4px;
       margin-top:6px;
     }
     @media (min-width:900px){
-      .events{ grid-template-columns:repeat(2, minmax(240px,1fr)); gap:8px; }
+      .events{ grid-template-columns:repeat(2, minmax(220px,1fr)); gap:6px; }
     }
     @media (min-width:1400px){
-      .events{ grid-template-columns:repeat(3, minmax(240px,1fr)); gap:10px; }
+      .events{ grid-template-columns:repeat(3, minmax(220px,1fr)); gap:8px; }
+    }
+    /* Month header spans all columns */
+    .month{
+      grid-column:1 / -1;
+      font-weight:800; color:#1f2937;
+      margin:12px 2px 4px; padding-top:6px;
+      border-top:1px dashed var(--slate-200);
+      letter-spacing:.02em; font-size:12px; text-transform:uppercase;
     }
     .event{
-      display:grid; grid-template-columns:64px 1fr; gap:8px; align-items:center;
-      background:#fff; border:1px solid var(--slate-200); border-radius:8px;
-      padding:6px 8px; box-shadow:0 4px 10px rgba(15,17,21,.05);
+      display:grid; grid-template-columns:4px 1fr; gap:8px; align-items:center;
+      background:#fff; border:1px solid var(--slate-200); border-radius:7px;
+      padding:6px 8px; box-shadow:0 3px 8px rgba(15,17,21,.05);
     }
-    .event.past{opacity:.6}
-    .date-badge{
-      min-width:60px; text-align:center; background:var(--pure-orange); color:#fff;
-      border-radius:7px; padding:5px 5px; font-weight:800; box-shadow:0 4px 10px rgba(240,78,35,.2);
+    .event::before{
+      content:""; display:block; width:4px; height:100%;
+      background:var(--pure-orange); border-radius:6px;
     }
-    .date-badge .mon{font-size:9px; letter-spacing:.06em; text-transform:uppercase; opacity:.95}
-    .date-badge .day{font-size:14px; line-height:1; margin-top:2px}
-    .event .title{font-weight:700; letter-spacing:.01em; font-size:13px}
-    .event .meta{color:var(--slate-600); font-size:11px; margin-top:1px}
+    .event.past{opacity:.55}
+    .event .title{font-weight:700; letter-spacing:.01em; font-size:12px}
+    .event .meta{color:var(--slate-600); font-size:10px; margin-top:2px}
   </style>
 </head>
 <body>
@@ -94,7 +100,7 @@
       <article class="card">
         <h3>Marketing</h3>
         <div class="muted">Announcements, campaigns, brand assets, and outreach tools.</div>
-        <!-- Compact, responsive events grid -->
+        <!-- Compact, responsive events grid with month headers -->
         <ul class="events" id="marketingEvents" role="list"></ul>
       </article>
 
@@ -119,7 +125,7 @@
 
   <!-- Render marketing events -->
   <script>
-    // Edit your events here (ISO dates). They render sorted by date.
+    // Edit your events here (ISO dates). They render sorted and grouped by month.
     var marketingEvents = [
       { title: "NorCal Lunch & Learn",                     date: "2025-08-19" },
       { title: "MI Portworx Enablement",                   date: "2025-08-19" },
@@ -131,22 +137,28 @@
       { title: "GA Celebrity Chef Executive Dinner — P+R", date: "2025-10-26" }
     ];
 
+    // Sort by date ascending
     marketingEvents.sort(function(a,b){ return new Date(a.date) - new Date(b.date); });
 
     var list = document.getElementById("marketingEvents");
     var today = new Date(); today.setHours(0,0,0,0);
 
+    // Group by "Mon YYYY" and render
+    var currentGroup = "";
     marketingEvents.forEach(function(ev){
       var d = new Date(ev.date);
-      var mon = d.toLocaleString("en-US",{ month:"short" });
-      var day = d.getDate();
+      var monthKey = d.toLocaleString("en-US",{ month:"short", year:"numeric" }); // e.g., "Aug 2025"
+      if (monthKey !== currentGroup) {
+        currentGroup = monthKey;
+        var header = document.createElement("li");
+        header.className = "month";
+        header.textContent = currentGroup;
+        list.appendChild(header);
+      }
       var li = document.createElement("li");
       li.className = "event" + (d < today ? " past" : "");
       li.innerHTML =
-        '<div class="date-badge">' +
-          '<div class="mon">' + mon + '</div>' +
-          '<div class="day">' + day + '</div>' +
-        '</div>' +
+        '<div></div>' + /* stripe is via ::before; empty grid cell keeps layout tidy */
         '<div class="info">' +
           '<div class="title">' + ev.title + '</div>' +
           '<div class="meta">' + d.toLocaleDateString("en-US",{ weekday:"short", month:"short", day:"numeric" }) + '</div>' +
