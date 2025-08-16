@@ -37,6 +37,23 @@
     .links{margin:8px 0 0 0; padding-left:18px; line-height:1.6}
     .links a{color:var(--pure-orange); text-decoration:underline; text-underline-offset:2px}
     .links a:hover{color:var(--pure-orange-700)}
+
+    /* Marketing events list */
+    .events{display:flex;flex-direction:column;gap:12px;margin-top:8px}
+    .event{
+      display:grid;grid-template-columns:110px 1fr;gap:14px;align-items:center;
+      background:#fff;border:1px solid var(--slate-200);border-radius:12px;
+      padding:12px 14px;box-shadow:0 8px 24px rgba(15,17,21,.05);
+    }
+    .event.past{opacity:.6}
+    .date-badge{
+      min-width:96px;text-align:center;background:var(--pure-orange);color:#fff;
+      border-radius:10px;padding:10px 8px;font-weight:800;box-shadow:0 6px 16px rgba(240,78,35,.25);
+    }
+    .date-badge .mon{font-size:12px;letter-spacing:.06em;text-transform:uppercase;opacity:.95}
+    .date-badge .day{font-size:22px;line-height:1;margin-top:4px}
+    .event .title{font-weight:800;letter-spacing:.01em}
+    .event .meta{color:var(--slate-600);font-size:13px;margin-top:2px}
   </style>
 </head>
 <body>
@@ -66,6 +83,8 @@
       <article class="card">
         <h3>Marketing</h3>
         <div class="muted">Announcements, campaigns, brand assets, and outreach tools.</div>
+        <!-- Modern events list (auto-sorted by date) -->
+        <ul class="events" id="marketingEvents" role="list"></ul>
       </article>
 
       <article class="card">
@@ -86,5 +105,44 @@
     </section>
 
   </div>
+
+  <!-- Render marketing events -->
+  <script>
+    // Edit your events here (ISO dates). They render sorted by date.
+    var marketingEvents = [
+      { title: "NorCal Lunch & Learn",                     date: "2025-08-19" },
+      { title: "MI Portworx Enablement",                   date: "2025-08-19" },
+      { title: "CO Golf Tournament",                       date: "2025-08-25" },
+      { title: "CO Fly Fishing",                           date: "2025-09-12" },
+      { title: "NYC Pure Accelerate",                      date: "2025-09-25" },
+      { title: "T3 Evolve",                                date: "2025-09-30" },
+      { title: "TX A&M Tailgate — Pure + Rubrik",          date: "2025-10-11" },
+      { title: "GA Celebrity Chef Executive Dinner — P+R", date: "2025-10-26" }
+    ];
+
+    // Sort and render
+    marketingEvents.sort(function(a,b){ return new Date(a.date) - new Date(b.date); });
+
+    var list = document.getElementById("marketingEvents");
+    var today = new Date(); today.setHours(0,0,0,0);
+
+    marketingEvents.forEach(function(ev){
+      var d = new Date(ev.date);
+      var mon = d.toLocaleString("en-US",{ month:"short" });
+      var day = d.getDate();
+      var li = document.createElement("li");
+      li.className = "event" + (d < today ? " past" : "");
+      li.innerHTML =
+        '<div class="date-badge">' +
+          '<div class="mon">' + mon + '</div>' +
+          '<div class="day">' + day + '</div>' +
+        '</div>' +
+        '<div class="info">' +
+          '<div class="title">' + ev.title + '</div>' +
+          '<div class="meta">' + d.toLocaleDateString("en-US",{ weekday:"short", month:"short", day:"numeric" }) + '</div>' +
+        '</div>';
+      list.appendChild(li);
+    });
+  </script>
 </body>
 </html>
