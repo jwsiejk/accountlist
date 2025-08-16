@@ -99,7 +99,7 @@
         <input id="accountInput" class="input" placeholder="Start typing to search..." autocomplete="off" disabled/>
         <div id="taList" class="ta-list" hidden></div>
       </div>
-      <div class="status" id="statusLine">Locked • v1.6-fix</div>
+      <div class="status" id="statusLine">Locked • v1.8-not-assigned-email</div>
 
       <div class="grid" aria-live="polite">
         <div class="field">
@@ -176,13 +176,21 @@
     let ready = false;
 
     function setValues({owner='—',manager='—',pam='—',email='—'}={}) {
-      ownerSpan.textContent = owner || '—';
+      // Normalize owner: if it's the Salesforce service account, treat as Not Assigned
+      const ownerNorm = (owner || '').toString().trim();
+      const isService = ownerNorm.toLowerCase() === 'salesforce service account';
+      const ownerOut = ownerNorm ? (isService ? 'Not Assigned' : ownerNorm) : '';
+      ownerSpan.textContent = ownerOut || '—';
+      // Email: if service account, leave blank; otherwise show link or '—'
+      const emailNorm = (email || '').toString().trim();
+      const emailOut = isService ? '' : emailNorm;
+      const showDash = !isService;
       managerSpan.textContent = manager || '—';
       pamSpan.textContent = pam || '—';
-      if (email && email.includes('@')) {
-        emailSpan.innerHTML = `<a href="mailto:${email}">${email}</a>`;
+      if (emailOut && emailOut.includes('@')) {
+        emailSpan.innerHTML = `<a href="mailto:${emailOut}">${emailOut}</a>`;
       } else {
-        emailSpan.textContent = email || '—';
+        emailSpan.textContent = showDash ? (emailOut || '—') : '';
       }
     }
 
@@ -194,7 +202,7 @@
     function unlock() {
       passwordRow.style.display = 'none';
       accountInput.disabled = false;
-      ok('Ready • v1.6-fix');
+      ok('Ready • v1.8-not-assigned-email');
       loadData();
     }
     function checkPassword() {
@@ -253,12 +261,12 @@
     }
 
     async function loadData() {
-      ok('Loading CSV… • v1.6-fix');
+      ok('Loading CSV… • v1.8-not-assigned-email');
       try {
         const text = await fetchFirstWorking(CSV_URLS);
         await processCSVText(text);
       } catch (e) {
-        ok('Locked • v1.6-fix');
+        ok('Locked • v1.8-not-assigned-email');
         err('Network load failed. Place "Americas.csv" next to this HTML or use the ?csv= query param to point at a URL.');
       }
     }
@@ -286,7 +294,7 @@
       })).filter(a => a.name);
 
       ready = true;
-      ok(`Loaded ${accounts.length.toLocaleString()} accounts • v1.6-fix`);
+      ok(`Loaded ${accounts.length.toLocaleString()} accounts • v1.8-not-assigned-email`);
     }
 
     // Typeahead dropdown
