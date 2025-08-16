@@ -122,6 +122,9 @@
     /* Password gate */
     .gate{ margin-bottom:16px; display:flex; gap:8px; align-items:center; }
     .gate .input{max-width:280px}
+    .eye{
+      margin-left:-40px; cursor:pointer; user-select:none; color:#94a3b8;
+    }
     /* Typeahead dropdown */
     .ta-wrap{position:relative}
     .ta-list{
@@ -141,7 +144,7 @@
       <div class="topbar">
         <h1>Search Account</h1>
         <div>
-          <button id="copyAllBtn" class="btn" type="button" title="Copy all fields">
+          <button id="copyAllBtn" class="btn" type="button" title="Copy all fields (Slack markup)">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
               <path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1Zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm-2 6H10v2h7v-2Z"/>
             </svg>
@@ -151,12 +154,15 @@
       </div>
 
       <div class="gate" id="passwordRow">
-        <input type="password" id="passwordInput" class="input" placeholder="Enter password"/>
-        <button id="passwordBtn" class="btn" type="button" aria-label="Submit password">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-          Submit
-        </button>
-        <span id="gateMsg" class="muted">Locked until password is entered.</span>
+        <div style="position:relative; display:flex; gap:8px; align-items:center;">
+          <input type="password" id="passwordInput" class="input" placeholder="Enter password"/>
+          <span id="togglePw" class="eye" title="Show/Hide">👁️</span>
+          <button id="passwordBtn" class="btn" type="button" aria-label="Submit password">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            Submit
+          </button>
+        </div>
+        <span id="gateMsg" class="muted">Locked. Enter password to continue.</span>
       </div>
 
       <div class="hint">Type 2+ characters to search. Select from the dropdown.</div>
@@ -214,10 +220,12 @@
     // ---------------- Configuration ----------------
     const ENABLE_PASSWORD = true;
     const PASSWORD_VALUE = 'team2025';
+    const BUILD_VERSION = 'v1.5-locked-default';
 
     const urlParams = new URLSearchParams(window.location.search);
     const CSV_OVERRIDE = urlParams.get('csv');
     const PW_OVERRIDE = urlParams.get('pw') || urlParams.get('unlock');
+
     const CSV_URLS = (CSV_OVERRIDE && CSV_OVERRIDE.trim()) ?
       [CSV_OVERRIDE.trim()] :
       ['Americas.csv', './Americas.csv', 'https://raw.githubusercontent.com/jwsiejk/accountlist/main/Americas.csv'];
@@ -232,14 +240,13 @@
     const emailSpan = document.getElementById('email');
     const errorDiv = document.getElementById('errorMessage');
     const statusLine = document.getElementById('statusLine');
-    const BUILD_VERSION = 'v1.3-slack-copyall';
-
     const copyAllBtn = document.getElementById('copyAllBtn');
 
     const passwordRow = document.getElementById('passwordRow');
     const passwordInput = document.getElementById('passwordInput');
     const passwordBtn = document.getElementById('passwordBtn');
     const gateMsg = document.getElementById('gateMsg');
+    const togglePw = document.getElementById('togglePw');
 
     let accounts = [];
     let ready = false;
@@ -258,32 +265,36 @@
     function ok(msg) { statusLine.textContent = (msg ? msg + ' • ' : '') + BUILD_VERSION; }
     function err(msg) { errorDiv.textContent = msg; }
 
-    function checkPassword() {
-      const entered = (passwordInput.value || '').trim();
-      if (!ENABLE_PASSWORD || entered === PASSWORD_VALUE) {
-        passwordRow.style.display = 'none';
-        accountInput.disabled = false;
-        loadData();
-      } else {
-        gateMsg.textContent = 'Incorrect password. Double-check spacing/caps and try again.';
-        gateMsg.style.color = '#b91c1c';
-      }
-      passwordInput.value = '';
-    }
-    if (!ENABLE_PASSWORD) {
-      passwordRow.style.display = 'none';
-      accountInput.disabled = false;
-    }
-    passwordBtn.addEventListener('click', checkPassword);
-    passwordInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') checkPassword(); });
-    // Auto-unlock via query param (?pw=team2025 or ?unlock=team2025)
-    if (ENABLE_PASSWORD && (PW_OVERRIDE || '').trim() === PASSWORD_VALUE) {
+    function unlock() {
       passwordRow.style.display = 'none';
       accountInput.disabled = false;
       loadData();
     }
 
+    function checkPassword() {
+      const entered = (passwordInput.value || '').trim(); // trim spaces
+      if (entered === PASSWORD_VALUE) {
+        unlock();
+      } else {
+        gateMsg.textContent = 'Incorrect password. Check for extra spaces/caps and try again.';
+        gateMsg.style.color = '#b91c1c';
+      }
+      passwordInput.value = '';
+    }
+    passwordBtn.addEventListener('click', checkPassword);
+    passwordInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') checkPassword(); });
 
+    // Show/Hide password
+    togglePw.addEventListener('click', () => {
+      passwordInput.type = passwordInput.type === 'password' ? 'text' : 'password';
+    });
+
+    // Auto-unlock via query param if provided
+    if (ENABLE_PASSWORD && (PW_OVERRIDE || '').trim() === PASSWORD_VALUE) {
+      unlock();
+    }
+
+    // Header finder (case-insensitive)
     const findHeader = (fields, candidates) => {
       const lower = fields.map(f => (f||'').toString().trim().toLowerCase());
       for (const c of candidates) {
@@ -350,8 +361,8 @@
         email: row[emailH] || ''
       })).filter(a => a.name);
 
-      ok(`Loaded ${accounts.length.toLocaleString()} accounts. Type to search.`);
       ready = true;
+      ok(`Loaded ${accounts.length.toLocaleString()} accounts. Type to search.`);
     }
 
     // Typeahead
@@ -413,7 +424,6 @@
       });
     });
 
-    
     // Copy All handler (Slack markup: bold + mailto link)
     copyAllBtn.addEventListener('click', () => {
       const account = (accountInput.value || '').trim();
@@ -422,15 +432,13 @@
       const manager = (managerSpan.textContent || '').trim();
       const pam = (pamSpan.textContent || '').trim();
 
-      // Build Slack-friendly block
       const lines = [];
       if (account) lines.push(`*${account}*`);
       const emailSlack = email ? `<mailto:${email}|${email}>` : '';
       lines.push(`• *Pure AE:* ${owner || ''}${emailSlack ? `  |  ${emailSlack}` : ''}`);
       lines.push(`• *Pure RSD:* ${manager || ''}`);
       lines.push(`• *Regional PAM:* ${pam || ''}`);
-
-      const out = lines.join('\n');
+      const out = lines.join('\\n');
 
       navigator.clipboard.writeText(out).then(() => {
         const original = copyAllBtn.innerHTML;
@@ -438,10 +446,11 @@
         setTimeout(() => copyAllBtn.innerHTML = original, 1200);
       });
     });
-    });
 
-    // Auto-load if password disabled; otherwise wait for user to unlock
-    if (!ENABLE_PASSWORD) loadData();
+    // If password disabled via code (shouldn't be), ensure we DON'T auto-load
+    if (!ENABLE_PASSWORD) {
+      // do nothing: we always want the gate for this build
+    }
   </script>
 </body>
 </html>
