@@ -141,10 +141,11 @@
       <div class="topbar">
         <h1>Search Account</h1>
         <div>
-          <input id="fileInput" type="file" accept=".csv" hidden/>
-          <button id="uploadBtn" class="btn" type="button" title="Load a local CSV">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 16a1 1 0 0 1-1-1V7.41L8.7 9.7a1 1 0 1 1-1.4-1.4l4-4a1 1 0 0 1 1.4 0l4 4a1 1 0 1 1-1.4 1.4L13 7.4V15a1 1 0 0 1-1 1Zm-7 3a1 1 0 1 1 0-2h14a1 1 0 1 1 0 2H5Z"/></svg>
-            Load CSV
+          <button id="copyAllBtn" class="btn" type="button" title="Copy all fields">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1Zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm-2 6H10v2h7v-2Z"/>
+            </svg>
+            Copy All
           </button>
         </div>
       </div>
@@ -166,7 +167,7 @@
       </div>
       <div class="status" id="statusLine">Loading…</div>
 
-      <!-- Desired visual layout:
+      <!-- Layout:
            Row 1: Pure AE | Pure AE Email
            Row 2: Pure RSD (full width)
            Row 3: Regional PAM (full width)
@@ -230,14 +231,12 @@
     const emailSpan = document.getElementById('email');
     const errorDiv = document.getElementById('errorMessage');
     const statusLine = document.getElementById('statusLine');
+    const copyAllBtn = document.getElementById('copyAllBtn');
 
     const passwordRow = document.getElementById('passwordRow');
     const passwordInput = document.getElementById('passwordInput');
     const passwordBtn = document.getElementById('passwordBtn');
     const gateMsg = document.getElementById('gateMsg');
-
-    const fileInput = document.getElementById('fileInput');
-    const uploadBtn = document.getElementById('uploadBtn');
 
     let accounts = [];
     let ready = false;
@@ -314,7 +313,7 @@
         await processCSVText(text);
       } catch (e) {
         ok('');
-        err('Network load failed. Click “Load CSV” and pick the file from your computer, or place "Americas.csv" next to this HTML.');
+        err('Network load failed. Place "Americas.csv" next to this HTML or use the ?csv= query param to point at a URL.');
       }
     }
 
@@ -340,27 +339,9 @@
         email: row[emailH] || ''
       })).filter(a => a.name);
 
-      ready = true;
       ok(`Loaded ${accounts.length.toLocaleString()} accounts. Type to search.`);
+      ready = true;
     }
-
-    // Upload fallback
-    uploadBtn.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', (e) => {
-      const f = e.target.files && e.target.files[0];
-      if (!f) return;
-      ok('Parsing uploaded CSV…');
-      const reader = new FileReader();
-      reader.onload = async () => {
-        try {
-          await processCSVText(reader.result);
-          err(''); // clear any previous error
-        } catch (ex) {
-          err('Could not parse the uploaded CSV. Make sure it is a comma-separated file with headers.');
-        }
-      };
-      reader.readAsText(f);
-    });
 
     // Typeahead
     const taList = document.getElementById('taList');
@@ -413,13 +394,39 @@
       const targetId = btn.getAttribute('data-target');
       if (!targetId) return;
       const el = document.getElementById(targetId);
-      // For email, copy text content only (not the mailto)
       const text = el ? (el.textContent || el.innerText || '').trim() : '';
       if (!text) return;
       navigator.clipboard.writeText(text).then(()=>{
         btn.classList.add('ok');
         setTimeout(()=> btn.classList.remove('ok'), 800);
       });
+    });
+
+    
+    // Copy All handler (Slack markup: bold + mailto link)
+    copyAllBtn.addEventListener('click', () => {
+      const account = (accountInput.value || '').trim();
+      const owner = (ownerSpan.textContent || '').trim();
+      const email = (emailSpan.textContent || '').trim();
+      const manager = (managerSpan.textContent || '').trim();
+      const pam = (pamSpan.textContent || '').trim();
+
+      // Build Slack-friendly block
+      const lines = [];
+      if (account) lines.push(`*${account}*`);
+      const emailSlack = email ? `<mailto:${email}|${email}>` : '';
+      lines.push(`• *Pure AE:* ${owner || ''}${emailSlack ? `  |  ${emailSlack}` : ''}`);
+      lines.push(`• *Pure RSD:* ${manager || ''}`);
+      lines.push(`• *Regional PAM:* ${pam || ''}`);
+
+      const out = lines.join('\n');
+
+      navigator.clipboard.writeText(out).then(() => {
+        const original = copyAllBtn.innerHTML;
+        copyAllBtn.innerHTML = '✓ Copied';
+        setTimeout(() => copyAllBtn.innerHTML = original, 1200);
+      });
+    });
     });
 
     // Auto-load if password disabled; otherwise wait for user to unlock
