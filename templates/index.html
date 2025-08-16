@@ -38,10 +38,8 @@
     .links a{color:var(--pure-orange); text-decoration:underline; text-underline-offset:2px}
     .links a:hover{color:var(--pure-orange-700)}
 
-    /* Marketing events — ultra-compact, responsive grid, left stripe, date badge, chips */
-    .events{
-      display:grid; grid-template-columns:1fr; gap:3px; margin-top:6px;
-    }
+    /* Marketing events — ultra-compact, responsive; stripe, centered chip, right date badge */
+    .events{ display:grid; grid-template-columns:1fr; gap:3px; margin-top:6px; }
     @media (min-width:700px){  .events{ grid-template-columns:repeat(2,minmax(180px,1fr)); gap:4px; } }
     @media (min-width:1000px){ .events{ grid-template-columns:repeat(3,minmax(160px,1fr)); gap:5px; } }
     @media (min-width:1300px){ .events{ grid-template-columns:repeat(4,minmax(150px,1fr)); gap:6px; } }
@@ -57,23 +55,33 @@
 
     .event{
       position:relative;
-      display:grid; grid-template-columns:3px 1fr auto; align-items:center;
+      display:grid; grid-template-columns:1fr auto; align-items:center; /* text + datebadge */
       background:#fff; border:1px solid var(--slate-200); border-radius:6px;
       padding:3px 5px; gap:6px; box-shadow:0 2px 6px rgba(15,17,21,.05);
-      min-height:54px;
+      min-height:54px; padding-left:6px; /* tiny space after stripe */
     }
+    /* orange stripe */
     .event::before{
-      content:""; display:block; width:3px; height:100%;
+      content:""; position:absolute; left:0; top:0; bottom:0; width:3px;
       background:var(--pure-orange); border-radius:6px;
     }
     .event.past{opacity:.5}
 
+    .info{min-width:0} /* allow text clamp */
     .event .title{
-      font-weight:700; letter-spacing:.01em; font-size:11px; line-height:1.1;
+      font-weight:700; letter-spacing:.01em; font-size:11px; line-height:1.15;
       display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+      margin:0;
     }
-    .event .meta{color:var(--slate-600); font-size:9px; margin-top:2px}
+    /* centered location chip */
+    .chips{display:flex; justify-content:center; gap:4px; flex-wrap:wrap; margin-top:3px}
+    .chip{
+      font-size:9px; padding:1px 5px; border-radius:999px;
+      background:#fff; color:#0f1115; border:1px solid var(--slate-300);
+      max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
 
+    /* right date badge (kept, meta line removed) */
     .datebox{
       text-align:center; min-width:38px;
       background:#fff; border:1px solid var(--slate-200); border-radius:5px;
@@ -81,13 +89,6 @@
     }
     .datebox .day{font-size:11px; font-weight:800; color:#0f1115}
     .datebox .mon{font-size:8px; letter-spacing:.06em; text-transform:uppercase; color:#4b5563; margin-top:1px}
-
-    .chips{display:flex; gap:4px; flex-wrap:wrap; margin-top:3px}
-    .chip{
-      font-size:9px; padding:1px 5px; border-radius:999px;
-      background:#fff; color:#0f1115; border:1px solid var(--slate-300);
-      max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-    }
   </style>
 </head>
 <body>
@@ -174,16 +175,13 @@
       }
       var li = document.createElement("li");
       li.className = "event" + (d < today ? " past" : "");
-      var weekday = d.toLocaleDateString("en-US",{ weekday:"short" });
-      var mon     = d.toLocaleDateString("en-US",{ month:"short" });
-      var day     = d.getDate();
+      var mon = d.toLocaleDateString("en-US",{ month:"short" });
+      var day = d.getDate();
 
       li.innerHTML =
-        '<div></div>' + /* left stripe cell */
         '<div class="info">' +
           '<div class="title">' + ev.title + '</div>' +
           '<div class="chips">' + (ev.loc ? ('<span class="chip">' + ev.loc + '</span>') : '') + '</div>' +
-          '<div class="meta">' + weekday + ', ' + mon + ' ' + day + '</div>' +
         '</div>' +
         '<div class="datebox" aria-label="Event date"><div class="day">' + day + '</div><div class="mon">' + mon + '</div></div>';
 
