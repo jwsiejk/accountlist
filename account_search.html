@@ -217,6 +217,7 @@
 
     const urlParams = new URLSearchParams(window.location.search);
     const CSV_OVERRIDE = urlParams.get('csv');
+    const PW_OVERRIDE = urlParams.get('pw') || urlParams.get('unlock');
     const CSV_URLS = (CSV_OVERRIDE && CSV_OVERRIDE.trim()) ?
       [CSV_OVERRIDE.trim()] :
       ['Americas.csv', './Americas.csv', 'https://raw.githubusercontent.com/jwsiejk/accountlist/main/Americas.csv'];
@@ -231,6 +232,8 @@
     const emailSpan = document.getElementById('email');
     const errorDiv = document.getElementById('errorMessage');
     const statusLine = document.getElementById('statusLine');
+    const BUILD_VERSION = 'v1.3-slack-copyall';
+
     const copyAllBtn = document.getElementById('copyAllBtn');
 
     const passwordRow = document.getElementById('passwordRow');
@@ -252,16 +255,17 @@
       }
     }
 
-    function ok(msg) { statusLine.textContent = msg; }
+    function ok(msg) { statusLine.textContent = (msg ? msg + ' • ' : '') + BUILD_VERSION; }
     function err(msg) { errorDiv.textContent = msg; }
 
     function checkPassword() {
-      if (!ENABLE_PASSWORD || passwordInput.value === PASSWORD_VALUE) {
+      const entered = (passwordInput.value || '').trim();
+      if (!ENABLE_PASSWORD || entered === PASSWORD_VALUE) {
         passwordRow.style.display = 'none';
         accountInput.disabled = false;
         loadData();
       } else {
-        gateMsg.textContent = 'Incorrect password. Try again.';
+        gateMsg.textContent = 'Incorrect password. Double-check spacing/caps and try again.';
         gateMsg.style.color = '#b91c1c';
       }
       passwordInput.value = '';
@@ -272,6 +276,13 @@
     }
     passwordBtn.addEventListener('click', checkPassword);
     passwordInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') checkPassword(); });
+    // Auto-unlock via query param (?pw=team2025 or ?unlock=team2025)
+    if (ENABLE_PASSWORD && (PW_OVERRIDE || '').trim() === PASSWORD_VALUE) {
+      passwordRow.style.display = 'none';
+      accountInput.disabled = false;
+      loadData();
+    }
+
 
     const findHeader = (fields, candidates) => {
       const lower = fields.map(f => (f||'').toString().trim().toLowerCase());
