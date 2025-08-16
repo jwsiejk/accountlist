@@ -43,10 +43,10 @@
 .events{
   display: grid;
   grid-template-columns: 1fr;      /* phones: 1 col */
-  gap: 2px;                        /* was 3px */
-  margin-top: 4px;                 /* was 6px */
-  list-style: none;
-  padding: 0;
+  column-gap: 2px; row-gap: 0;
+  align-items: center;
+  justify-items: start;          /* <-- prevents items (esp. datebox) from stretching */
+  padding: 2px 4px;
 }
 @media (min-width:700px){
   .events{ grid-template-columns: repeat(2, minmax(160px, 1fr)); gap: 3px; }   /* was 180px / 4px */
@@ -81,10 +81,10 @@
     .event.past{opacity:.5}
 
      .info{
-       display:flex;
-       flex-direction:column;
-       width: max-content;       /* shrink to fit title + chip */
-       max-width: 16ch;          /* wrap long names; adjust 14–18ch to taste */
+       display: flex;
+       flex-direction: column;
+       width: max-content;            /* shrink to content */
+       max-width: 16ch;               /* wrap long names; tweak 14–18ch to taste */
        min-width: 0;
     }
     .title{
@@ -102,12 +102,18 @@
     }
 
     .datebox{
-      text-align:center; min-width:26px;
-      background:#fff; border:1px solid var(--slate-200); border-radius:5px;
-      padding:2px 4px; line-height:1; box-shadow:0 2px 5px rgba(15,17,21,.05);
+      display: inline-flex;          /* width = content + padding */
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: auto;
+      min-width: auto;               /* <-- remove any fixed min-width */
+      padding: 2px 6px;              /* same visual size as before */
+      line-height: 1;
+      justify-self: end;             /* anchor to right edge, but don’t stretch */
     }
-    .datebox .day{font-size:11px; font-weight:800; color:#0f1115}
-    .datebox .mon{font-size:8px; letter-spacing:.06em; text-transform:uppercase; color:#4b5563; margin-top:1px}
+    .datebox .day { font-size: 11px; font-weight: 800; }
+    .datebox .mon { font-size: 8px; letter-spacing: .06em; margin-top: 0; }
   </style>
 </head>
 <body>
