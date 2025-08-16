@@ -38,22 +38,33 @@
     .links a{color:var(--pure-orange); text-decoration:underline; text-underline-offset:2px}
     .links a:hover{color:var(--pure-orange-700)}
 
-    /* Marketing events list */
-    .events{display:flex;flex-direction:column;gap:12px;margin-top:8px}
+    /* Marketing events — compact + responsive grid */
+    .events{
+      display:grid;
+      grid-template-columns:1fr;       /* phones: 1 col */
+      gap:6px;                          /* tight gap */
+      margin-top:6px;
+    }
+    @media (min-width:900px){
+      .events{ grid-template-columns:repeat(2, minmax(240px,1fr)); gap:8px; }
+    }
+    @media (min-width:1400px){
+      .events{ grid-template-columns:repeat(3, minmax(240px,1fr)); gap:10px; }
+    }
     .event{
-      display:grid;grid-template-columns:110px 1fr;gap:14px;align-items:center;
-      background:#fff;border:1px solid var(--slate-200);border-radius:12px;
-      padding:12px 14px;box-shadow:0 8px 24px rgba(15,17,21,.05);
+      display:grid; grid-template-columns:64px 1fr; gap:8px; align-items:center;
+      background:#fff; border:1px solid var(--slate-200); border-radius:8px;
+      padding:6px 8px; box-shadow:0 4px 10px rgba(15,17,21,.05);
     }
     .event.past{opacity:.6}
     .date-badge{
-      min-width:96px;text-align:center;background:var(--pure-orange);color:#fff;
-      border-radius:10px;padding:10px 8px;font-weight:800;box-shadow:0 6px 16px rgba(240,78,35,.25);
+      min-width:60px; text-align:center; background:var(--pure-orange); color:#fff;
+      border-radius:7px; padding:5px 5px; font-weight:800; box-shadow:0 4px 10px rgba(240,78,35,.2);
     }
-    .date-badge .mon{font-size:12px;letter-spacing:.06em;text-transform:uppercase;opacity:.95}
-    .date-badge .day{font-size:22px;line-height:1;margin-top:4px}
-    .event .title{font-weight:800;letter-spacing:.01em}
-    .event .meta{color:var(--slate-600);font-size:13px;margin-top:2px}
+    .date-badge .mon{font-size:9px; letter-spacing:.06em; text-transform:uppercase; opacity:.95}
+    .date-badge .day{font-size:14px; line-height:1; margin-top:2px}
+    .event .title{font-weight:700; letter-spacing:.01em; font-size:13px}
+    .event .meta{color:var(--slate-600); font-size:11px; margin-top:1px}
   </style>
 </head>
 <body>
@@ -83,7 +94,7 @@
       <article class="card">
         <h3>Marketing</h3>
         <div class="muted">Announcements, campaigns, brand assets, and outreach tools.</div>
-        <!-- Modern events list (auto-sorted by date) -->
+        <!-- Compact, responsive events grid -->
         <ul class="events" id="marketingEvents" role="list"></ul>
       </article>
 
@@ -120,7 +131,6 @@
       { title: "GA Celebrity Chef Executive Dinner — P+R", date: "2025-10-26" }
     ];
 
-    // Sort and render
     marketingEvents.sort(function(a,b){ return new Date(a.date) - new Date(b.date); });
 
     var list = document.getElementById("marketingEvents");
