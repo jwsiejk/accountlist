@@ -3,97 +3,177 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Account Search</title>
-  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="%237c3aed"/><path d="M18 40h14l-7-16-7 16Z" fill="white"/></svg>'/>
+  <title>Account Search • Trace3 × Pure</title>
+  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="%23f04e23"/><circle cx="46" cy="18" r="10" fill="white" stroke="%23f04e23" stroke-width="4"/></svg>'/>
   <style>
-    :root{--bg:#f6f7fb;--card:#ffffff;--text:#0f172a;--muted:#64748b;--border:#e5e7eb;--accent:#7c3aed;--accent-ghost:#ede9fe;--ok:#16a34a;--danger:#b91c1c}
-    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif;padding:32px 16px}
-    .wrap{max-width:900px;margin:0 auto}.card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 10px 30px rgba(2,6,23,.06);padding:24px}
-    .topbar{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:8px} h1{font-size:22px;margin:0}
-    .hint{color:var(--muted);font-size:13px;margin-top:6px;margin-bottom:16px}.row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
-    .input{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:12px;outline:none;background:#fff;font-size:16px}
-    .input:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-ghost)}
-    .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 12px;font-weight:600;font-size:14px;color:var(--accent);background:var(--accent-ghost);border:1px solid #ddd6fe;border-radius:10px;cursor:pointer;transition:transform .04s ease, background .2s ease, color .2s ease}
-    .btn:active{transform:scale(.98)} .btn svg{width:16px;height:16px;flex:0 0 16px}
-    .grid{margin-top:18px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-    @media (max-width:700px){.grid{grid-template-columns:1fr}.span2{grid-column:auto}} .span2{grid-column:1 / -1}
-    .field{position:relative;border:1px solid var(--border);border-radius:12px;padding:12px 14px 14px 14px;background:#fff;min-height:72px}
-    .label{font-weight:700;font-size:12px;letter-spacing:.02em;text-transform:uppercase;color:#475569;margin-bottom:6px}
+    :root{
+      --pure-orange:#f04e23;      /* primary */
+      --pure-orange-700:#d9431c;  /* hover/darken */
+      --ink-900:#0f1115;
+      --slate-800:#1d2127;
+      --slate-700:#374151;
+      --slate-600:#4b5563;
+      --slate-300:#d1d5db;
+      --slate-200:#e5e7eb;
+      --bg:#f6f7fb;
+      --card:#ffffff;
+      --ok:#16a34a;
+      --danger:#b91c1c;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink-900);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif}
+
+    .wrap{max-width:1040px;margin:0 auto;padding:28px 16px 40px;}
+
+    /* Brand bar */
+    .brandbar{
+      background:#fff;border-bottom:4px solid var(--pure-orange);
+      border-radius:14px;box-shadow:0 10px 30px rgba(15,17,21,.06);
+      padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:16px
+    }
+    .brandbar .logos{display:flex;align-items:center;gap:14px}
+    .logo{height:28px;display:block}
+    .logo.trace3{height:36px}
+
+    /* Header row */
+    .header{
+      margin-top:16px;background:linear-gradient(180deg,#fff 0%, #fff 60%, #fdf2ec 100%);
+      border:1px solid var(--slate-200);border-radius:16px;padding:18px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap
+    }
+    .title{font-weight:800;letter-spacing:.02em}
+    .btn{
+      display:inline-flex;align-items:center;gap:8px;
+      padding:10px 12px;font-weight:700;font-size:14px;color:#fff;
+      background:var(--pure-orange);border:1px solid var(--pure-orange);
+      border-radius:12px;cursor:pointer;box-shadow:0 8px 20px rgba(240,78,35,.25);
+      transition:transform .04s ease, background .12s ease;
+    }
+    .btn:hover{background:var(--pure-orange-700);transform:translateY(-1px)}
+    .ghost{background:#fff;color:var(--pure-orange);border-color:#ffd5c9}
+
+    /* Password gate */
+    .gate{margin-top:14px;display:flex;gap:8px;align-items:center}
+    .input{
+      width:100%;max-width:320px;padding:12px 14px;border:1px solid var(--slate-200);
+      border-radius:12px;background:#fff;font-size:16px;outline:none;
+    }
+    .input:focus{border-color:var(--pure-orange);box-shadow:0 0 0 4px #fde3db}
+
+    .status{margin-top:6px;color:var(--slate-600);font-size:12px}
+
+    /* Search row */
+    .row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;margin-top:14px}
+    .ta-wrap{position:relative}
+    .ta-list{
+      position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--slate-200);
+      border-radius:12px;margin-top:6px;max-height:280px;overflow:auto;box-shadow:0 12px 24px rgba(2,6,23,.08);z-index:20
+    }
+    .ta-item{padding:10px 12px;cursor:pointer}
+    .ta-item:hover{background:#f1f5f9}
+
+    /* Card grid */
+    .grid{margin-top:16px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+    @media (max-width:780px){.grid{grid-template-columns:1fr}.span2{grid-column:auto}}
+    .span2{grid-column:1/-1}
+
+    .field{
+      position:relative;background:var(--card);border:1px solid var(--slate-200);border-radius:16px;
+      box-shadow:0 10px 30px rgba(15,17,21,.06);padding:14px 14px 16px 14px;min-height:72px
+    }
+    .label{font-weight:800;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:#475569;margin-bottom:6px}
     .value{font-weight:600;font-size:16px;color:#0b1220;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:36px}
-    .value a{color:inherit;text-decoration:none;border-bottom:1px dotted #cbd5e1}.value a:hover{border-bottom-color:var(--accent)}
-    .copy{position:absolute;top:10px;right:10px;display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border-radius:8px;background:transparent;border:1px solid transparent;color:#64748b;opacity:.45;cursor:pointer;transition:opacity .15s ease, transform .04s ease, background .2s ease}
-    .field:hover .copy,.copy:focus{opacity:1} .copy:hover{background:#f8fafc} .copy:active{transform:scale(.96)} .copy svg{width:16px;height:16px} .copy.ok{color:var(--ok);background:#ecfdf5;border-color:#bbf7d0;opacity:1}
-    .error{margin-top:12px;color:var(--danger);font-weight:600} .muted{color:var(--muted);font-size:13px}
-    .ta-wrap{position:relative} .ta-list{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:12px;margin-top:6px;max-height:280px;overflow:auto;box-shadow:0 12px 24px rgba(2,6,23,.08);z-index:20}
-    .ta-item{padding:10px 12px;cursor:pointer}.ta-item:hover{background:#f1f5f9} .status{margin-top:8px;font-size:12px;color:var(--muted)}
-    .gate{display:flex;gap:8px;align-items:center;margin-bottom:12px}
-    .eye{margin-left:-40px;cursor:pointer;user-select:none;color:#94a3b8}
+    .value a{color:inherit;text-decoration:none;border-bottom:1px dotted #cbd5e1}
+    .value a:hover{border-bottom-color:var(--pure-orange)}
+
+    /* Subtle copy icon button */
+    .copy{
+      position:absolute;top:10px;right:10px;display:inline-flex;align-items:center;justify-content:center;
+      width:28px;height:28px;padding:0;border-radius:8px;background:transparent;border:1px solid transparent;
+      color:#64748b;opacity:.45;cursor:pointer;transition:opacity .15s ease, transform .04s ease, background .2s ease;
+    }
+    .field:hover .copy,.copy:focus{opacity:1}
+    .copy:hover{background:#f8fafc}
+    .copy:active{transform:scale(.96)}
+    .copy svg{width:16px;height:16px}
+    .copy.ok{color:var(--ok);background:#ecfdf5;border-color:#bbf7d0;opacity:1}
+
+    footer{margin-top:22px;text-align:center;color:var(--slate-600);font-size:12px}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="card">
-      <div class="topbar">
-        <h1>Account Search</h1>
+    <!-- Brand bar -->
+    <div class="brandbar">
+      <div class="logos">
+        <a href="/" title="Back to Portal"><img src="/static/pure-storage-logo.svg" alt="Pure Storage" class="logo"></a>
+      </div>
+      <div class="logos">
+        <img src="/static/trace3-logo.png" alt="TRACE3" class="logo trace3">
+      </div>
+    </div>
+
+    <!-- Header -->
+    <div class="header">
+      <div class="title">Account Search</div>
+      <div>
         <button id="copyAllBtn" class="btn" type="button" title="Copy all fields (Slack markup)">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1Zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm-2 6H10v2h7v-2Z"/></svg>
+          <!-- icon -->
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:16px;height:16px"><path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1Zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm-2 6H10v2h7v-2Z"/></svg>
           Copy All
         </button>
       </div>
-
-      <div class="gate" id="passwordRow">
-        <div style="position:relative;display:flex;gap:8px;align-items:center;">
-          <input type="password" id="passwordInput" class="input" placeholder="Enter password"/>
-          <span id="togglePw" class="eye" title="Show/Hide">👁️</span>
-          <button id="passwordBtn" class="btn" type="button">Submit</button>
-        </div>
-        <span id="gateMsg" class="muted">Locked • account-search v2.2</span>
-      </div>
-
-      <div class="hint">Type 2+ characters to search. Select from the dropdown.</div>
-
-      <div class="row ta-wrap">
-        <input id="accountInput" class="input" placeholder="Start typing to search..." autocomplete="off" disabled/>
-        <div id="taList" class="ta-list" hidden></div>
-      </div>
-      <div class="status" id="statusLine"></div>
-
-      <div class="grid" aria-live="polite">
-        <div class="field">
-          <div class="label">Pure AE</div>
-          <div class="value" id="owner">—</div>
-          <button class="copy" data-target="owner" aria-label="Copy Pure AE" title="Copy">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1Zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm0 16H8V7h11v14Z"/></svg>
-          </button>
-        </div>
-
-        <div class="field">
-          <div class="label">Pure AE Email</div>
-          <div class="value" id="email">—</div>
-          <button class="copy" data-target="email" aria-label="Copy Pure AE Email" title="Copy">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1Zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm0 16H8V7h11v14Z"/></svg>
-          </button>
-        </div>
-
-        <div class="field span2">
-          <div class="label">Pure RSD</div>
-          <div class="value" id="manager">—</div>
-          <button class="copy" data-target="manager" aria-label="Copy Pure RSD" title="Copy">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1Zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm0 16H8V7h11v14Z"/></svg>
-          </button>
-        </div>
-
-        <div class="field span2">
-          <div class="label">Regional PAM</div>
-          <div class="value" id="pam">—</div>
-          <button class="copy" data-target="pam" aria-label="Copy Regional PAM" title="Copy">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1Zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm0 16H8V7h11v14Z"/></svg>
-          </button>
-        </div>
-      </div>
-
-      <div class="error" id="errorMessage"></div>
     </div>
+
+    <!-- Password gate -->
+    <div class="gate" id="passwordRow">
+      <input type="password" id="passwordInput" class="input" placeholder="Enter password"/>
+      <button id="passwordBtn" class="btn" type="button">Submit</button>
+      <span id="gateMsg" class="status">Locked • account-search v2.3</span>
+    </div>
+
+    <!-- Search -->
+    <div class="row ta-wrap">
+      <input id="accountInput" class="input" placeholder="Start typing to search..." autocomplete="off" disabled/>
+      <div id="taList" class="ta-list" hidden></div>
+    </div>
+    <div class="status" id="statusLine"></div>
+
+    <!-- Fields -->
+    <section class="grid" aria-live="polite">
+      <div class="field">
+        <div class="label">Pure AE</div>
+        <div class="value" id="owner">—</div>
+        <button class="copy" data-target="owner" aria-label="Copy Pure AE" title="Copy">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1Zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm0 16H8V7h11v14Z"/></svg>
+        </button>
+      </div>
+
+      <div class="field">
+        <div class="label">Pure AE Email</div>
+        <div class="value" id="email">—</div>
+        <button class="copy" data-target="email" aria-label="Copy Pure AE Email" title="Copy">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1Zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm0 16H8V7h11v14Z"/></svg>
+        </button>
+      </div>
+
+      <div class="field span2">
+        <div class="label">Pure RSD</div>
+        <div class="value" id="manager">—</div>
+        <button class="copy" data-target="manager" aria-label="Copy Pure RSD" title="Copy">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1Zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm0 16H8V7h11v14Z"/></svg>
+        </button>
+      </div>
+
+      <div class="field span2">
+        <div class="label">Regional PAM</div>
+        <div class="value" id="pam">—</div>
+        <button class="copy" data-target="pam" aria-label="Copy Regional PAM" title="Copy">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1Zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm0 16H8V7h11v14Z"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <footer>Styled to match Pure × Trace3. Logos expected in <code>/static</code>.</footer>
   </div>
 
   <script>
@@ -109,12 +189,11 @@
     const copyAllBtn = document.getElementById('copyAllBtn');
     const taList = document.getElementById('taList');
 
-    // Password gate elements
+    // Password gate
     const passwordRow = document.getElementById('passwordRow');
     const passwordInput = document.getElementById('passwordInput');
     const passwordBtn = document.getElementById('passwordBtn');
     const gateMsg = document.getElementById('gateMsg');
-    const togglePw = document.getElementById('togglePw');
 
     function setValues({owner='—',manager='—',pam='—',email='—'}={}){
       ownerSpan.textContent = owner || '—';
@@ -126,117 +205,108 @@
         emailSpan.textContent = email || '—';
       }
     }
-    function err(msg){ errorDiv.textContent = msg; }
 
     async function fetchJSON(url){
-      const r = await fetch(url, { credentials:'omit' });
-      if (!r.ok) throw new Error('HTTP '+r.status);
+      const r = await fetch(url,{credentials:'omit'});
+      if(!r.ok) throw new Error('HTTP '+r.status);
       return await r.json();
     }
 
     function renderSuggestions(items){
-      if (!items.length){ taList.hidden = true; taList.innerHTML = ''; return; }
+      if(!items.length){ taList.hidden=true; taList.innerHTML=''; return; }
       taList.innerHTML = items.map(n => `<div class="ta-item" data-name="${n.replace(/"/g,'&quot;')}">${n}</div>`).join('');
-      taList.hidden = false;
+      taList.hidden=false;
     }
 
     async function onType(){
       const s = accountInput.value.trim();
-      if (s.length < 2){ taList.hidden = true; taList.innerHTML = ''; return; }
+      if(s.length<2){ taList.hidden=true; taList.innerHTML=''; return; }
       try{
         const data = await fetchJSON(`/api/search?q=${encodeURIComponent(s)}`);
-        renderSuggestions(data.items || []);
-        statusLine.textContent = 'Ready • account-search v2.2';
+        renderSuggestions(data.items||[]);
+        statusLine.textContent = 'Ready • account-search v2.3';
       }catch(e){
-        err('Search failed.');
+        statusLine.textContent = 'Search failed.';
       }
     }
     accountInput.addEventListener('input', onType);
-    document.addEventListener('click', (e)=>{ if (!e.target.closest('.ta-wrap')) taList.hidden = true; });
+    document.addEventListener('click', (e)=>{ if(!e.target.closest('.ta-wrap')) taList.hidden=true; });
     taList.addEventListener('click', async (e)=>{
-      const item = e.target.closest('.ta-item');
-      if (!item) return;
+      const item = e.target.closest('.ta-item'); if(!item) return;
       accountInput.value = item.getAttribute('data-name');
-      taList.hidden = true; taList.innerHTML = '';
+      taList.hidden=true; taList.innerHTML='';
       await fetchDetails();
     });
     accountInput.addEventListener('keydown', async (e)=>{
-      if (e.key === 'Enter'){
+      if(e.key==='Enter'){
         const first = taList.querySelector('.ta-item');
-        if (first){
+        if(first){
           accountInput.value = first.getAttribute('data-name');
-          taList.hidden = true; taList.innerHTML = '';
+          taList.hidden=true; taList.innerHTML='';
           await fetchDetails();
         }
       }
     });
 
     async function fetchDetails(){
-      const name = accountInput.value.trim();
-      if (!name) return;
+      const name = accountInput.value.trim(); if(!name) return;
       try{
         const data = await fetchJSON(`/api/get?name=${encodeURIComponent(name)}`);
-        if (!data.found){ setValues({owner:'—', manager:'—', pam:'—', email:'—'}); return; }
-        setValues({owner:data.owner, manager:data.manager, pam:data.pam, email:data.email});
-        err('');
+        if(!data.found){ setValues({owner:'—',manager:'—',pam:'—',email:'—'}); return; }
+        setValues({owner:data.owner,manager:data.manager,pam:data.pam,email=data.email});
       }catch(e){
-        err('Lookup failed.');
+        statusLine.textContent = 'Lookup failed.';
       }
     }
 
     // Copy buttons
-    document.addEventListener('click', (e)=>{
-      const btn = e.target.closest('.copy');
-      if (!btn) return;
-      const targetId = btn.getAttribute('data-target');
-      const el = document.getElementById(targetId);
-      const text = el ? (el.textContent || el.innerText || '').trim() : '';
-      if (!text) return;
+    document.addEventListener('click',(e)=>{
+      const btn = e.target.closest('.copy'); if(!btn) return;
+      const id = btn.getAttribute('data-target');
+      const el = document.getElementById(id);
+      const text = el ? (el.textContent||el.innerText||'').trim() : '';
+      if(!text) return;
       navigator.clipboard.writeText(text).then(()=>{
-        btn.classList.add('ok');
-        setTimeout(()=> btn.classList.remove('ok'), 800);
+        btn.classList.add('ok'); setTimeout(()=>btn.classList.remove('ok'),800);
       });
     });
 
     // Copy All (Slack markup)
-    copyAllBtn.addEventListener('click', ()=>{
-      const account = (accountInput.value || '').trim();
-      const owner = (ownerSpan.textContent || '').trim();
-      const email = (emailSpan.textContent || '').trim();
-      const manager = (managerSpan.textContent || '').trim();
-      const pam = (pamSpan.textContent || '').trim();
+    copyAllBtn.addEventListener('click',()=>{
+      const account = (accountInput.value||'').trim();
+      const owner = (ownerSpan.textContent||'').trim();
+      const email = (emailSpan.textContent||'').trim();
+      const manager = (managerSpan.textContent||'').trim();
+      const pam = (pamSpan.textContent||'').trim();
       const lines = [];
-      if (account) lines.push(`*${account}*`);
+      if(account) lines.push(`*${account}*`);
       const emailSlack = email ? `<mailto:${email}|${email}>` : '';
       lines.push(`• *Pure AE:* ${owner || ''}${emailSlack ? `  |  ${emailSlack}` : ''}`);
       lines.push(`• *Pure RSD:* ${manager || ''}`);
       lines.push(`• *Regional PAM:* ${pam || ''}`);
       navigator.clipboard.writeText(lines.join('\n')).then(()=>{
-        const original = copyAllBtn.innerHTML;
-        copyAllBtn.innerHTML = '✓ Copied';
-        setTimeout(()=> copyAllBtn.innerHTML = original, 1200);
+        const original = copyAllBtn.innerHTML; copyAllBtn.innerHTML='✓ Copied';
+        setTimeout(()=> copyAllBtn.innerHTML=original,1200);
       });
     });
 
-    // Password gate behavior (page-level only)
+    // Gate behavior
     function unlock(){
-      passwordRow.style.display = 'none';
-      accountInput.disabled = false;
-      statusLine.textContent = 'Ready • account-search v2.2';
+      passwordRow.style.display='none';
+      accountInput.disabled=false;
+      statusLine.textContent='Ready • account-search v2.3';
     }
     function checkPassword(){
-      const entered = (passwordInput.value || '').trim();
-      if (entered === PASSWORD_VALUE){
-        unlock();
-      }else{
-        gateMsg.textContent = 'Incorrect password. Check caps/spaces.';
-        gateMsg.style.color = '#b91c1c';
+      const entered = (passwordInput.value||'').trim();
+      if(entered===PASSWORD_VALUE){ unlock(); }
+      else{
+        gateMsg.textContent='Incorrect password. Check caps/spaces.';
+        gateMsg.style.color='#b91c1c';
       }
-      passwordInput.value = '';
+      passwordInput.value='';
     }
     passwordBtn.addEventListener('click', checkPassword);
-    passwordInput.addEventListener('keydown', e => { if (e.key === 'Enter') checkPassword(); });
-    togglePw.addEventListener('click', ()=> { passwordInput.type = passwordInput.type === 'password' ? 'text' : 'password'; });
+    passwordInput.addEventListener('keydown', e=>{ if(e.key==='Enter') checkPassword(); });
   </script>
 </body>
 </html>
