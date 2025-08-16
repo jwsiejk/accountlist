@@ -1,5 +1,5 @@
 import os
-import psycopg2
+import psycopg
 from flask import Flask, request, jsonify, render_template, send_from_directory
 from flask_cors import CORS
 
@@ -9,7 +9,7 @@ def get_db_conn():
     dsn = os.getenv("DATABASE_URL")
     if not dsn:
         raise RuntimeError("DATABASE_URL is not set")
-    return psycopg2.connect(dsn)
+    return psycopg.connect(dsn)
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 # If you will serve the UI from the same Render service, CORS can be permissive or limited.
