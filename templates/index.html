@@ -38,20 +38,15 @@
     .links a{color:var(--pure-orange); text-decoration:underline; text-underline-offset:2px}
     .links a:hover{color:var(--pure-orange-700)}
 
-    /* Marketing events — ultra-compact + responsive grid with month headers */
+    /* Marketing events — ultra-compact, responsive grid, left stripe, date badge, chips */
     .events{
       display:grid;
-      grid-template-columns:1fr;           /* phones: 1 col */
-      gap:4px;
-      margin-top:6px;
+      grid-template-columns:1fr;                 /* phones: 1 col */
+      gap:4px; margin-top:6px;
     }
-    @media (min-width:900px){
-      .events{ grid-template-columns:repeat(2, minmax(220px,1fr)); gap:6px; }
-    }
-    @media (min-width:1400px){
-      .events{ grid-template-columns:repeat(3, minmax(220px,1fr)); gap:8px; }
-    }
-    /* Month header spans all columns */
+    @media (min-width:900px){  .events{ grid-template-columns:repeat(2,minmax(220px,1fr)); gap:6px; } }
+    @media (min-width:1400px){ .events{ grid-template-columns:repeat(3,minmax(220px,1fr)); gap:8px; } }
+
     .month{
       grid-column:1 / -1;
       font-weight:800; color:#1f2937;
@@ -59,18 +54,35 @@
       border-top:1px dashed var(--slate-200);
       letter-spacing:.02em; font-size:12px; text-transform:uppercase;
     }
+
     .event{
-      display:grid; grid-template-columns:4px 1fr; gap:8px; align-items:center;
-      background:#fff; border:1px solid var(--slate-200); border-radius:7px;
-      padding:6px 8px; box-shadow:0 3px 8px rgba(15,17,21,.05);
+      position:relative;
+      display:grid; grid-template-columns:4px 1fr auto; align-items:center;
+      background:#fff; border:1px solid var(--slate-200); border-radius:8px;
+      padding:6px 8px; gap:8px; box-shadow:0 3px 8px rgba(15,17,21,.05);
     }
     .event::before{
       content:""; display:block; width:4px; height:100%;
       background:var(--pure-orange); border-radius:6px;
     }
     .event.past{opacity:.55}
-    .event .title{font-weight:700; letter-spacing:.01em; font-size:12px}
+
+    .event .title{font-weight:700; letter-spacing:.01em; font-size:12px; line-height:1.15}
     .event .meta{color:var(--slate-600); font-size:10px; margin-top:2px}
+
+    .datebox{
+      text-align:center; min-width:46px;
+      background:#fff; border:1px solid var(--slate-200); border-radius:6px;
+      padding:4px 6px; line-height:1; box-shadow:0 2px 6px rgba(15,17,21,.05);
+    }
+    .datebox .day{font-size:14px; font-weight:800; color:#0f1115}
+    .datebox .mon{font-size:9px; letter-spacing:.06em; text-transform:uppercase; color:#4b5563; margin-top:1px}
+
+    .chips{display:flex; gap:6px; flex-wrap:wrap; margin-top:4px}
+    .chip{
+      font-size:10px; padding:2px 6px; border-radius:999px;
+      background:#fff; color:#0f1115; border:1px solid var(--slate-300);
+    }
   </style>
 </head>
 <body>
@@ -125,16 +137,16 @@
 
   <!-- Render marketing events -->
   <script>
-    // Edit your events here (ISO dates). They render sorted and grouped by month.
+    // Maintain events here (ISO dates). Added 'loc' for the chip.
     var marketingEvents = [
-      { title: "NorCal Lunch & Learn",                     date: "2025-08-19" },
-      { title: "MI Portworx Enablement",                   date: "2025-08-19" },
-      { title: "CO Golf Tournament",                       date: "2025-08-25" },
-      { title: "CO Fly Fishing",                           date: "2025-09-12" },
-      { title: "NYC Pure Accelerate",                      date: "2025-09-25" },
-      { title: "T3 Evolve",                                date: "2025-09-30" },
-      { title: "TX A&M Tailgate — Pure + Rubrik",          date: "2025-10-11" },
-      { title: "GA Celebrity Chef Executive Dinner — P+R", date: "2025-10-26" }
+      { title: "NorCal Lunch & Learn",                     date: "2025-08-19", loc: "NorCal" },
+      { title: "MI Portworx Enablement",                   date: "2025-08-19", loc: "MI" },
+      { title: "CO Golf Tournament",                       date: "2025-08-25", loc: "CO" },
+      { title: "CO Fly Fishing",                           date: "2025-09-12", loc: "CO" },
+      { title: "NYC Pure Accelerate",                      date: "2025-09-25", loc: "NYC" },
+      { title: "T3 Evolve",                                date: "2025-09-30", loc: "T3" },
+      { title: "TX A&M Tailgate — Pure + Rubrik",          date: "2025-10-11", loc: "TX" },
+      { title: "GA Celebrity Chef Executive Dinner — P+R", date: "2025-10-26", loc: "GA" }
     ];
 
     // Sort by date ascending
@@ -143,10 +155,10 @@
     var list = document.getElementById("marketingEvents");
     var today = new Date(); today.setHours(0,0,0,0);
 
-    // Group by "Mon YYYY" and render
+    // Group by "Mon YYYY" and render (use local midnight to avoid tz off-by-one)
     var currentGroup = "";
     marketingEvents.forEach(function(ev){
-      var d = new Date(ev.date);
+      var d = new Date(ev.date + "T00:00:00");  // local midnight
       var monthKey = d.toLocaleString("en-US",{ month:"short", year:"numeric" }); // e.g., "Aug 2025"
       if (monthKey !== currentGroup) {
         currentGroup = monthKey;
@@ -157,12 +169,19 @@
       }
       var li = document.createElement("li");
       li.className = "event" + (d < today ? " past" : "");
+      var weekday = d.toLocaleDateString("en-US",{ weekday:"short" });
+      var mon     = d.toLocaleDateString("en-US",{ month:"short" });
+      var day     = d.getDate();
+
       li.innerHTML =
-        '<div></div>' + /* stripe is via ::before; empty grid cell keeps layout tidy */
+        '<div></div>' + /* left stripe cell */
         '<div class="info">' +
           '<div class="title">' + ev.title + '</div>' +
-          '<div class="meta">' + d.toLocaleDateString("en-US",{ weekday:"short", month:"short", day:"numeric" }) + '</div>' +
-        '</div>';
+          '<div class="chips">' + (ev.loc ? ('<span class="chip">' + ev.loc + '</span>') : '') + '</div>' +
+          '<div class="meta">' + weekday + ', ' + mon + ' ' + day + '</div>' +
+        '</div>' +
+        '<div class="datebox" aria-label="Event date"><div class="day">' + day + '</div><div class="mon">' + mon + '</div></div>';
+
       list.appendChild(li);
     });
   </script>
