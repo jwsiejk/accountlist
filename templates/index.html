@@ -38,32 +38,30 @@
     .links a{color:var(--pure-orange); text-decoration:underline; text-underline-offset:2px}
     .links a:hover{color:var(--pure-orange-700)}
 
-    /* Marketing events — ultra-compact, no extra whitespace */
-  /* tighter grid for the event cards */
-.events{
-  display: grid;
-  grid-auto-flow: row dense;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 220px)); /* fixed card width */
-  justify-content: start;     /* pack to the left */
-  justify-items: start;       /* items don’t stretch */
-  gap: 6px;                   /* small space between boxes */
-  margin-top: 6px;
-  list-style: none;
-  padding: 0;
-}
-@media (min-width:700px){
-  .events{ grid-template-columns: repeat(2, minmax(160px, 1fr)); gap: 3px; }   /* was 180px / 4px */
-}
-@media (min-width:1000px){
-  .events{ grid-template-columns: repeat(3, minmax(150px, 1fr)); gap: 4px; }   /* was 160px / 5px */
-}
-@media (min-width:1300px){
-  .events{ grid-template-columns: repeat(4, minmax(140px, 1fr)); gap: 5px; }   /* was 150px / 6px */
-}
-@media (min-width:1600px){
-  .events{ grid-template-columns: repeat(5, minmax(135px, 1fr)); gap: 5px; }   /* was 140px / 6px */
-}
-
+    /* tighter grid for the event cards */
+    .events{
+      display: grid;
+      grid-auto-flow: row dense;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 220px)); /* fixed card width */
+      justify-content: start;     /* pack to the left */
+      justify-items: start;       /* items don’t stretch */
+      gap: 6px;                   /* small space between boxes */
+      margin-top: 6px;
+      list-style: none;
+      padding: 0;
+    }
+    @media (min-width:700px){
+      .events{ grid-template-columns: repeat(2, minmax(160px, 1fr)); gap: 3px; }
+    }
+    @media (min-width:1000px){
+      .events{ grid-template-columns: repeat(3, minmax(150px, 1fr)); gap: 4px; }
+    }
+    @media (min-width:1300px){
+      .events{ grid-template-columns: repeat(4, minmax(140px, 1fr)); gap: 5px; }
+    }
+    @media (min-width:1600px){
+      .events{ grid-template-columns: repeat(5, minmax(135px, 1fr)); gap: 5px; }
+    }
 
     .month{
       grid-column:1 / -1;
@@ -76,6 +74,7 @@
     .event{
       position:relative;
       display:grid; grid-template-columns:3px max-content auto; align-items:center; /* stripe | text content | date */
+      justify-items:start; /* <-- keep date chip from stretching */
       background:#fff; border:1px solid var(--slate-200); border-radius:6px;
       padding:2px 4px; gap:4px; box-shadow:0 2px 6px rgba(15,17,21,.05);
       min-height:44px;
@@ -83,12 +82,11 @@
     .stripe{ width:3px; height:100%; background:var(--pure-orange); border-radius:6px; }
     .event.past{opacity:.5}
 
-     .info{
-       display: flex;
-       flex-direction: column;
-       width: max-content;            /* shrink to content */
-       max-width: 16ch;               /* wrap long names; tweak 14–18ch to taste */
-       min-width: 0;
+    .info{
+      display:flex; flex-direction:column;
+      width:max-content;           /* shrink to fit content -> no whitespace */
+      max-width:16ch;              /* wrap long names for uniform card width */
+      min-width:0;
     }
     .title{
       font-weight:800; letter-spacing:.01em; font-size:11px; line-height:1.15; margin:0;
@@ -96,7 +94,6 @@
       white-space:normal;
     }
     .sub{font-weight:800; font-size:10.5px; line-height:1.1; margin-top:2px;}
-    /* location chip snug under title, bold */
     .chips{display:flex; justify-content:flex-start; gap:4px; flex-wrap:wrap; margin-top:3px}
     .chip{
       font-size:9px; padding:1px 6px; border-radius:999px;
@@ -105,18 +102,18 @@
     }
 
     .datebox{
-      display: inline-flex;          /* width = content + padding */
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      width: auto;
-      min-width: auto;               /* <-- remove any fixed min-width */
-      padding: 2px 6px;              /* same visual size as before */
-      line-height: 1;
-      justify-self: end;             /* anchor to right edge, but don’t stretch */
+      display:inline-flex;          /* width = content + padding */
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      width:auto;
+      min-width:auto;               /* no fixed min-width */
+      padding:2px 6px;
+      line-height:1;
+      justify-self:end;             /* anchor right */
     }
-    .datebox .day { font-size: 11px; font-weight: 800; }
-    .datebox .mon { font-size: 8px; letter-spacing: .06em; margin-top: 0; }
+    .datebox .day { font-size:11px; font-weight:800; }
+    .datebox .mon { font-size:8px; letter-spacing:.06em; margin-top:0; }
   </style>
 </head>
 <body>
@@ -172,7 +169,7 @@
     // Events (ISO dates) + location chips (two long titles split into title + sub).
     var marketingEvents = [
       { title: "NorCal Lunch & Learn",                     date: "2025-08-19", loc: "NorCal" },
-      { title: "MI Portworx",                              date: "2025-08-19", loc: "MI", sub:"Enablement" ),
+      { title: "MI Portworx",                              date: "2025-08-19", loc: "MI", sub:"Enablement" },  // <-- fixed brace
       { title: "CO Golf Tournament",                       date: "2025-08-25", loc: "CO" },
       { title: "CO Fly Fishing",                           date: "2025-09-12", loc: "CO" },
       { title: "NYC Pure Accelerate",                      date: "2025-09-25", loc: "NYC" },
