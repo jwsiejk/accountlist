@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Account Search</title>
+  <!-- PapaParse (primary + fallback) -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script>
+    // Fallback if first CDN fails
+    window.addEventListener('error', function(e){
+      if (e.target && e.target.src && e.target.src.includes('papaparse')) {
+        var s=document.createElement('script');
+        s.src='https://unpkg.com/papaparse@5.4.1/papaparse.min.js';
+        document.head.appendChild(s);
+      }
+    }, true);
+  </script>
+  <style>
+    :root{
+      --bg:#f6f7fb;
+      --card:#ffffff;
+      --text:#0f172a;
+      --muted:#64748b;
+      --border:#e5e7eb;
+      --accent:#7c3aed;
+      --accent-ghost:#ede9fe;
+      --ok:#16a34a;
+      --danger:#b91c1c;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif;
+      padding:32px 16px;
+    }
+    .wrap{max-width:860px;margin:0 auto}
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:16px;
+      box-shadow:0 10px 30px rgba(2,6,23,.06);
+      padding:24px;
+    }
+    h1{font-size:22px;margin:0 0 12px}
+    .hint{color:var(--muted);font-size:13px;margin-top:-6px;margin-bottom:16px}
+    .row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
+    .input{
+      width:100%;
+      padding:12px 14px;
+      border:1px solid var(--border);
+      border-radius:12px;
+      outline:none;
+      background:#fff;
+      font-size:16px;
+    }
+    .input:focus{border-color:var(--accent); box-shadow:0 0 0 4px var(--accent-ghost)}
+    .grid{
+      margin-top:18px;
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+    }
+    @media (max-width:640px){ .grid{grid-template-columns:1fr} }
+    .field{
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:12px 12px 12px 14px;
+      background:#fff;
+      display:flex; align-items:center; gap:10px; justify-content:space-between;
+      min-height:52px;
+    }
+    .label{font-weight:600;font-size:13px;color:#111827;margin-right:8px;white-space:nowrap}
+    .value{
+      color:#111827; font-weight:500;
+      overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+      flex:1;
+    }
+    .value a{color:inherit; text-decoration:none; border-bottom:1px dotted #cbd5e1}
+    .value a:hover{border-bottom-color:var(--accent)}
+    .copy{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 10px;
+      font-weight:600; font-size:13px;
+      color:var(--accent);
+      background:var(--accent-ghost);
+      border:1px solid #ddd6fe;
+      border-radius:10px;
+      cursor:pointer;
+      transition:transform .04s ease, background .2s ease, color .2s ease;
+    }
+    .copy:active{transform:scale(.98)}
+    .copy svg{width:16px;height:16px;flex:0 0 16px}
+    .ok{color:var(--ok); background:#ecfdf5; border-color:#bbf7d0}
+    .error{margin-top:12px;color:var(--danger);font-weight:600}
+    .muted{color:var(--muted); font-size:13px}
+    /* Password gate */
+    .gate{ margin-bottom:16px; display:flex; gap:8px; align-items:center; }
+    .gate .input{max-width:280px}
+    /* Typeahead dropdown */
+    .ta-wrap{position:relative}
+    .ta-list{
+      position:absolute; top:100%; left:0; right:0;
+      background:#fff; border:1px solid var(--border);
+      border-radius:12px; margin-top:6px; max-height:280px; overflow:auto;
+      box-shadow:0 12px 24px rgba(2,6,23,.08); z-index:20;
+    }
+    .ta-item{padding:10px 12px; cursor:pointer}
+    .ta-item:hover{background:#f1f5f9}
+    .status{margin-top:8px; font-size:12px; color:var(--muted)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="gate" id="passwordRow">
+        <input type="password" id="passwordInput" class="input" placeholder="Enter password"/>
+        <button id="passwordBtn" class="copy" type="button" aria-label="Submit password">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Submit
+        </button>
+        <span id="gateMsg" class="muted">Locked until password is entered.</span>
+      </div>
+
+      <h1>Search Account</h1>
+      <div class="hint">Type 2+ characters to search. Select from the dropdown.</div>
+
+      <div class="row ta-wrap">
+        <input id="accountInput" class="input" placeholder="Start typing to search..." autocomplete="off" disabled/>
+        <div id="taList" class="ta-list" hidden></div>
+      </div>
+      <div class="status" id="statusLine">Loading…</div>
+
+      <div class="grid" aria-live="polite">
+        <div class="field">
+          <div class="label">Pure AE</div>
+          <div class="value" id="owner">—</div>
+          <button class="copy" data-target="owner" aria-label="Copy Pure AE">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1Zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm0 16H8V7h11v14Z"/></svg>
+            Copy
+          </button>
+        </div>
+
+        <div class="field">
+          <div class="label">Pure RSD</div>
+          <div class="value" id="manager">—</div>
+          <button class="copy" data-target="manager" aria-label="Copy Pure RSD">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1Zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm0 16H8V7h11v14Z"/></svg>
+            Copy
+          </button>
+        </div>
+
+        <div class="field">
+          <div class="label">Regional PAM</div>
+          <div class="value" id="pam">—</div>
+          <button class="copy" data-target="pam" aria-label="Copy Regional PAM">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1Zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm0 16H8V7h11v14Z"/></svg>
+            Copy
+          </button>
+        </div>
+
+        <div class="field">
+          <div class="label">Pure AE Email</div>
+          <div class="value" id="email">—</div>
+          <button class="copy" data-target="email" aria-label="Copy Pure AE Email">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1Zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm0 16H8V7h11v14Z"/></svg>
+            Copy
+          </button>
+        </div>
+      </div>
+
+      <div class="error" id="errorMessage"></div>
+    </div>
+  </div>
+
+  <script>
+    // ---------------- Configuration ----------------
+    const ENABLE_PASSWORD = true;
+    const PASSWORD_VALUE = 'team2025';
+    // CSV lookup: first try local file next to this HTML, then GitHub raw as a fallback
+    const CSV_URLS = [
+      'Americas.csv',
+      './Americas.csv',
+      'https://raw.githubusercontent.com/jwsiejk/accountlist/main/Americas.csv'
+    ];
+    // How many suggestions to show
+    const MAX_SUGGESTIONS = 100;
+
+    // ---------------- Elements ----------------
+    const accountInput = document.getElementById('accountInput');
+    const ownerSpan = document.getElementById('owner');      // Pure AE
+    const managerSpan = document.getElementById('manager');  // Pure RSD
+    const pamSpan = document.getElementById('pam');          // Regional PAM
+    const emailSpan = document.getElementById('email');      // Pure AE Email
+    const errorDiv = document.getElementById('errorMessage');
+    const statusLine = document.getElementById('statusLine');
+
+    // Password gate
+    const passwordRow = document.getElementById('passwordRow');
+    const passwordInput = document.getElementById('passwordInput');
+    const passwordBtn = document.getElementById('passwordBtn');
+    const gateMsg = document.getElementById('gateMsg');
+
+    let accounts = [];   // { name, lname, owner, manager, pam, email }
+    let ready = false;
+
+    function setValues({owner='—',manager='—',pam='—',email='—'}={}) {
+      ownerSpan.textContent = owner || '—';
+      managerSpan.textContent = manager || '—';
+      pamSpan.textContent = pam || '—';
+      if (email && email.includes('@')) {
+        emailSpan.innerHTML = `<a href="mailto:${email}">${email}</a>`;
+      } else {
+        emailSpan.textContent = email || '—';
+      }
+    }
+
+    function ok(msg) { statusLine.textContent = msg; }
+    function err(msg) { errorDiv.textContent = msg; }
+
+    function checkPassword() {
+      if (!ENABLE_PASSWORD || passwordInput.value === PASSWORD_VALUE) {
+        passwordRow.style.display = 'none';
+        accountInput.disabled = false;
+        loadData();
+      } else {
+        gateMsg.textContent = 'Incorrect password. Try again.';
+        gateMsg.style.color = '#b91c1c';
+      }
+      passwordInput.value = '';
+    }
+    if (!ENABLE_PASSWORD) {
+      passwordRow.style.display = 'none';
+      accountInput.disabled = false;
+    }
+    passwordBtn.addEventListener('click', checkPassword);
+    passwordInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') checkPassword(); });
+
+    // Case-insensitive header finder
+    const findHeader = (fields, candidates) => {
+      const lower = fields.map(f => (f||'').toString().trim().toLowerCase());
+      for (const c of candidates) {
+        const idx = lower.indexOf(c.toLowerCase());
+        if (idx !== -1) return fields[idx];
+      }
+      return null;
+    };
+
+    async function fetchFirstWorking(urls) {
+      for (const url of urls) {
+        try {
+          const res = await fetch(url, {cache:'no-store'});
+          if (!res.ok) throw new Error('HTTP '+res.status);
+          const text = await res.text();
+          if (text && text.length > 0) return text;
+        } catch (e) {
+          // try next
+        }
+      }
+      throw new Error('All CSV URLs failed');
+    }
+
+    function parseCSV(text) {
+      return new Promise((resolve, reject) => {
+        if (!window.Papa) { reject('PapaParse not loaded'); return; }
+        window.Papa.parse(text, {
+          header: true,
+          skipEmptyLines: true,
+          complete: ({ data, meta }) => resolve({ data, meta }),
+          error: (e) => reject(e || 'Parse error')
+        });
+      });
+    }
+
+    async function loadData() {
+      ok('Loading CSV…');
+      try {
+        const text = await fetchFirstWorking(CSV_URLS);
+        const { data, meta } = await parseCSV(text);
+        const fields = meta.fields || [];
+        if (!fields.length || !data.length) throw new Error('Invalid CSV: missing headers or rows.');
+
+        const nameH   = findHeader(fields, ['account name','account','name','customer name']);
+        const ownerH  = findHeader(fields, ['account owner','owner','pure ae']);
+        const mgrH    = findHeader(fields, ['manager','rsd','regional sales director','pure rsd']);
+        const pamH    = findHeader(fields, ['account pam','pam','regional pam']);
+        const emailH  = findHeader(fields, ['owner email','account owner email','ae email','pure ae email']);
+
+        if (!nameH) throw new Error('Could not find an Account Name column.');
+
+        accounts = data.map(row => ({
+          name: (row[nameH] || '').toString().trim(),
+          lname: (row[nameH] || '').toString().trim().toLowerCase(),
+          owner: row[ownerH] || '',
+          manager: row[mgrH] || '',
+          pam: row[pamH] || '',
+          email: row[emailH] || ''
+        })).filter(a => a.name);
+
+        ready = true;
+        ok(`Loaded ${accounts.length.toLocaleString()} accounts. Type to search.`);
+      } catch (e) {
+        err('Error loading data. Place "Americas.csv" in the same folder as this HTML, or check network access.');
+        ok('');
+        console.error(e);
+      }
+    }
+
+    // Typeahead
+    const taList = document.getElementById('taList');
+
+    function renderSuggestions(q) {
+      if (!ready) return;
+      const s = q.trim().toLowerCase();
+      if (s.length < 2) { taList.hidden = true; taList.innerHTML=''; return; }
+      const out = [];
+      for (let i=0, seen=0; i<accounts.length && seen<MAX_SUGGESTIONS; i++) {
+        if (accounts[i].lname.includes(s)) {
+          out.push(`<div class="ta-item" data-name="${accounts[i].name.replace(/"/g,'&quot;')}">${accounts[i].name}</div>`);
+          seen++;
+        }
+      }
+      if (!out.length) { taList.hidden=true; taList.innerHTML=''; return; }
+      taList.innerHTML = out.join('');
+      taList.hidden = false;
+    }
+
+    function selectByName(name) {
+      const a = accounts.find(x => x.name === name);
+      if (a) {
+        setValues(a);
+        accountInput.value = name;
+      }
+      taList.hidden = true;
+      taList.innerHTML='';
+    }
+
+    accountInput.addEventListener('input', (e)=> renderSuggestions(e.target.value));
+    accountInput.addEventListener('keydown', (e)=>{
+      if (e.key === 'Enter') {
+        // If list is open, pick first suggestion
+        const first = taList.querySelector('.ta-item');
+        if (first) selectByName(first.getAttribute('data-name'));
+      }
+    });
+    taList.addEventListener('click', (e)=>{
+      const item = e.target.closest('.ta-item');
+      if (item) selectByName(item.getAttribute('data-name'));
+    });
+    document.addEventListener('click', (e)=>{
+      if (!e.target.closest('.ta-wrap')) { taList.hidden = true; }
+    });
+
+    // modern copy buttons
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('.copy');
+      if (!btn) return;
+      const targetId = btn.getAttribute('data-target');
+      if (!targetId) return;
+      const el = document.getElementById(targetId);
+      const text = el ? (el.textContent || el.innerText || '').trim() : '';
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(()=>{
+        const original = btn.innerHTML;
+        btn.classList.add('ok');
+        btn.innerHTML = '✓ Copied';
+        setTimeout(()=>{ btn.classList.remove('ok'); btn.innerHTML = original; }, 1200);
+      });
+    });
+
+    // Auto-load if password disabled; otherwise wait for user to unlock
+    if (!ENABLE_PASSWORD) loadData();
+  </script>
+</body>
+</html>
