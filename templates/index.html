@@ -38,11 +38,8 @@
     .links a{color:var(--pure-orange); text-decoration:underline; text-underline-offset:2px}
     .links a:hover{color:var(--pure-orange-700)}
 
-    /* Marketing events — ultra-compact, no extra whitespace, left stripe, date badge */
-    .events{
-      display:grid; grid-template-columns:1fr; gap:3px; margin-top:6px;
-      list-style:none; padding:0;   /* remove list padding/markers */
-    }
+    /* Marketing events — ultra-compact, stripe, date badge; no extra whitespace */
+    .events{ display:grid; grid-template-columns:1fr; gap:3px; margin-top:6px; list-style:none; padding:0; }
     @media (min-width:700px){  .events{ grid-template-columns:repeat(2,minmax(180px,1fr)); gap:4px; } }
     @media (min-width:1000px){ .events{ grid-template-columns:repeat(3,minmax(160px,1fr)); gap:5px; } }
     @media (min-width:1300px){ .events{ grid-template-columns:repeat(4,minmax(150px,1fr)); gap:6px; } }
@@ -58,27 +55,21 @@
 
     .event{
       position:relative;
-      display:grid; grid-template-columns:1fr auto; align-items:center; /* text, date badge */
+      display:grid; grid-template-columns:auto 1fr auto; align-items:center; /* stripe, text, date */
       background:#fff; border:1px solid var(--slate-200); border-radius:6px;
       padding:2px 4px; gap:4px; box-shadow:0 2px 6px rgba(15,17,21,.05);
-      min-height:46px;
-      /* put title right against stripe */
-      padding-left:6px; /* tiny space so text doesn't touch the stripe */
+      min-height:44px;
     }
-    /* orange stripe */
-    .event::before{
-      content:""; position:absolute; left:0; top:0; bottom:0; width:3px;
-      background:var(--pure-orange); border-radius:6px;
-    }
+    /* thin orange stripe cell */
+    .stripe{ width:3px; height:100%; background:var(--pure-orange); border-radius:6px; }
     .event.past{opacity:.5}
 
     .info{min-width:0}
-    .event .title{
-      font-weight:700; letter-spacing:.01em; font-size:11px; line-height:1.15;
+    .title{
+      font-weight:800; letter-spacing:.01em; font-size:11px; line-height:1.15; margin:0;
       display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
-      margin:0;
     }
-    /* location chip snug under title, left-aligned, bold text */
+    .sub{font-weight:800; font-size:10.5px; line-height:1.1; margin-top:2px;}
     .chips{display:flex; justify-content:flex-start; gap:4px; flex-wrap:wrap; margin-top:3px}
     .chip{
       font-size:9px; padding:1px 6px; border-radius:999px;
@@ -86,12 +77,10 @@
       max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
     }
 
-    /* compact right date badge */
     .datebox{
       text-align:center; min-width:36px;
       background:#fff; border:1px solid var(--slate-200); border-radius:5px;
       padding:2px 4px; line-height:1; box-shadow:0 2px 5px rgba(15,17,21,.05);
-      margin-left:0;   /* no extra gap on the right */
     }
     .datebox .day{font-size:11px; font-weight:800; color:#0f1115}
     .datebox .mon{font-size:8px; letter-spacing:.06em; text-transform:uppercase; color:#4b5563; margin-top:1px}
@@ -124,7 +113,6 @@
       <article class="card">
         <h3>Marketing</h3>
         <div class="muted">Announcements, campaigns, brand assets, and outreach tools.</div>
-        <!-- Compact, responsive events grid with month headers -->
         <ul class="events" id="marketingEvents" role="list"></ul>
       </article>
 
@@ -147,9 +135,8 @@
 
   </div>
 
-  <!-- Render marketing events -->
   <script>
-    // Events (ISO dates) + location chips
+    // Events (ISO dates) + location chips. For two long titles, split into two lines (title + sub).
     var marketingEvents = [
       { title: "NorCal Lunch & Learn",                     date: "2025-08-19", loc: "NorCal" },
       { title: "MI Portworx Enablement",                   date: "2025-08-19", loc: "MI" },
@@ -157,17 +144,15 @@
       { title: "CO Fly Fishing",                           date: "2025-09-12", loc: "CO" },
       { title: "NYC Pure Accelerate",                      date: "2025-09-25", loc: "NYC" },
       { title: "T3 Evolve",                                date: "2025-09-30", loc: "T3" },
-      { title: "TX A&M Tailgate — Pure + Rubrik",          date: "2025-10-11", loc: "TX" },
-      { title: "GA Celebrity Chef Executive Dinner — P+R", date: "2025-10-26", loc: "GA" }
+      { title: "TX A&M Tailgate",                          date: "2025-10-11", loc: "TX", sub:"Pure + Rubrik" },
+      { title: "GA Celebrity Chef",                        date: "2025-10-26", loc: "GA", sub:"Executive Dinner" }
     ];
 
-    // Sort by date ascending
     marketingEvents.sort(function(a,b){ return new Date(a.date) - new Date(b.date); });
 
     var list = document.getElementById("marketingEvents");
     var today = new Date(); today.setHours(0,0,0,0);
 
-    // Group by "Mon YYYY" and render
     var currentGroup = "";
     marketingEvents.forEach(function(ev){
       var d = new Date(ev.date + "T00:00:00");
@@ -179,18 +164,44 @@
         header.textContent = currentGroup;
         list.appendChild(header);
       }
-      var li = document.createElement("li");
-      li.className = "event" + (d < today ? " past" : "");
       var mon = d.toLocaleDateString("en-US",{ month:"short" });
       var day = d.getDate();
 
-      li.innerHTML =
-        '<div class="info">' +
-          '<div class="title">' + ev.title + '</div>' +
-          '<div class="chips">' + (ev.loc ? ('<span class="chip">' + ev.loc + '</span>') : '') + '</div>' +
-        '</div>' +
-        '<div class="datebox" aria-label="Event date"><div class="day">' + day + '</div><div class="mon">' + mon + '</div></div>';
+      var li = document.createElement("li");
+      li.className = "event" + (d < today ? " past" : "");
 
+      var info = document.createElement("div");
+      info.className = "info";
+      var t = document.createElement("div");
+      t.className = "title";
+      t.textContent = ev.title;
+      info.appendChild(t);
+      if (ev.sub){
+        var s = document.createElement("div");
+        s.className = "sub";
+        s.textContent = ev.sub;
+        info.appendChild(s);
+      }
+      var chips = document.createElement("div");
+      chips.className = "chips";
+      if (ev.loc){
+        var chip = document.createElement("span");
+        chip.className = "chip";
+        chip.textContent = ev.loc;
+        chips.appendChild(chip);
+      }
+      info.appendChild(chips);
+
+      var stripe = document.createElement("div");
+      stripe.className = "stripe";
+
+      var datebox = document.createElement("div");
+      datebox.className = "datebox";
+      datebox.innerHTML = '<div class="day">'+day+'</div><div class="mon">'+mon+'</div>';
+
+      li.appendChild(stripe);
+      li.appendChild(info);
+      li.appendChild(datebox);
       list.appendChild(li);
     });
   </script>
