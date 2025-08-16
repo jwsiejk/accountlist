@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Account Search</title>
   <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="%237c3aed"/><path d="M18 40h14l-7-16-7 16Zm14 0h14l-7-16-7 16Z" fill="white"/></svg>'/>
-  <!-- PapaParse (primary + fallback) -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script>
     window.addEventListener('error', function(e){
@@ -29,113 +28,42 @@
       --danger:#b91c1c;
     }
     *{box-sizing:border-box}
-    body{
-      margin:0;
-      background:var(--bg);
-      color:var(--text);
-      font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif;
-      padding:32px 16px;
-    }
+    body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif;padding:32px 16px;}
     .wrap{max-width:900px;margin:0 auto}
-    .card{
-      background:var(--card);
-      border:1px solid var(--border);
-      border-radius:16px;
-      box-shadow:0 10px 30px rgba(2,6,23,.06);
-      padding:24px;
-    }
+    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 10px 30px rgba(2,6,23,.06);padding:24px;}
     .topbar{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:8px}
     h1{font-size:22px;margin:0}
     .hint{color:var(--muted);font-size:13px;margin-top:6px;margin-bottom:16px}
     .row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
-    .input{
-      width:100%;
-      padding:12px 14px;
-      border:1px solid var(--border);
-      border-radius:12px;
-      outline:none;
-      background:#fff;
-      font-size:16px;
-    }
-    .input:focus{border-color:var(--accent); box-shadow:0 0 0 4px var(--accent-ghost)}
-    .btn{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:10px 12px;
-      font-weight:600; font-size:14px;
-      color:var(--accent);
-      background:var(--accent-ghost);
-      border:1px solid #ddd6fe;
-      border-radius:10px;
-      cursor:pointer;
-      transition:transform .04s ease, background .2s ease, color .2s ease;
-    }
+    .input{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:12px;outline:none;background:#fff;font-size:16px;}
+    .input:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-ghost)}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 12px;font-weight:600;font-size:14px;color:var(--accent);background:var(--accent-ghost);border:1px solid #ddd6fe;border-radius:10px;cursor:pointer;transition:transform .04s ease, background .2s ease, color .2s ease;}
     .btn:active{transform:scale(.98)}
     .btn svg{width:16px;height:16px;flex:0 0 16px}
-    /* Grid layout: first row has 2 columns; next rows span full width */
-    .grid{
-      margin-top:18px;
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:12px;
-    }
-    @media (max-width:700px){
-      .grid{grid-template-columns:1fr}
-      .span2{grid-column:auto}
-    }
+    .grid{margin-top:18px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    @media (max-width:700px){.grid{grid-template-columns:1fr}.span2{grid-column:auto}}
     .span2{grid-column:1 / -1}
-    .field{
-      position:relative;
-      border:1px solid var(--border);
-      border-radius:12px;
-      padding:12px 14px 14px 14px;
-      background:#fff;
-      min-height:72px;
-    }
-    .label{
-      font-weight:700; font-size:12px; letter-spacing:.02em; text-transform:uppercase;
-      color:#475569; margin-bottom:6px;
-    }
-    .value{
-      font-weight:600; font-size:16px; color:#0b1220;
-      overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-      padding-right:36px; /* space for copy icon */
-    }
-    .value a{color:inherit; text-decoration:none; border-bottom:1px dotted #cbd5e1}
+    .field{position:relative;border:1px solid var(--border);border-radius:12px;padding:12px 14px 14px 14px;background:#fff;min-height:72px}
+    .label{font-weight:700;font-size:12px;letter-spacing:.02em;text-transform:uppercase;color:#475569;margin-bottom:6px}
+    .value{font-weight:600;font-size:16px;color:#0b1220;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:36px}
+    .value a{color:inherit;text-decoration:none;border-bottom:1px dotted #cbd5e1}
     .value a:hover{border-bottom-color:var(--accent)}
-    /* Subtle copy button: icon-only, low emphasis, appear on hover/focus */
-    .copy{
-      position:absolute; top:10px; right:10px;
-      display:inline-flex; align-items:center; justify-content:center;
-      width:28px; height:28px;
-      padding:0; border-radius:8px;
-      background:transparent; border:1px solid transparent;
-      color:#64748b; opacity:.45; cursor:pointer;
-      transition:opacity .15s ease, transform .04s ease, background .2s ease;
-    }
-    .field:hover .copy, .copy:focus{opacity:1}
+    .copy{position:absolute;top:10px;right:10px;display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border-radius:8px;background:transparent;border:1px solid transparent;color:#64748b;opacity:.45;cursor:pointer;transition:opacity .15s ease, transform .04s ease, background .2s ease;}
+    .field:hover .copy,.copy:focus{opacity:1}
     .copy:hover{background:#f8fafc}
     .copy:active{transform:scale(.96)}
     .copy svg{width:16px;height:16px}
-    .copy.ok{color:var(--ok); background:#ecfdf5; border-color:#bbf7d0; opacity:1}
+    .copy.ok{color:var(--ok);background:#ecfdf5;border-color:#bbf7d0;opacity:1}
     .error{margin-top:12px;color:var(--danger);font-weight:600}
-    .muted{color:var(--muted); font-size:13px}
-    /* Password gate */
-    .gate{ margin-bottom:16px; display:flex; gap:8px; align-items:center; }
+    .muted{color:var(--muted);font-size:13px}
+    .gate{margin-bottom:16px;display:flex;gap:8px;align-items:center;}
     .gate .input{max-width:280px}
-    .eye{
-      margin-left:-40px; cursor:pointer; user-select:none; color:#94a3b8;
-    }
-    /* Typeahead dropdown */
+    .eye{margin-left:-40px;cursor:pointer;user-select:none;color:#94a3b8}
     .ta-wrap{position:relative}
-    .ta-list{
-      position:absolute; top:100%; left:0; right:0;
-      background:#fff; border:1px solid var(--border);
-      border-radius:12px; margin-top:6px; max-height:280px; overflow:auto;
-      box-shadow:0 12px 24px rgba(2,6,23,.08); z-index:20;
-    }
-    .ta-item{padding:10px 12px; cursor:pointer}
+    .ta-list{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:12px;margin-top:6px;max-height:280px;overflow:auto;box-shadow:0 12px 24px rgba(2,6,23,.08);z-index:20}
+    .ta-item{padding:10px 12px;cursor:pointer}
     .ta-item:hover{background:#f1f5f9}
-    .status{margin-top:8px; font-size:12px; color:var(--muted)}
+    .status{margin-top:8px;font-size:12px;color:var(--muted)}
   </style>
 </head>
 <body>
@@ -154,7 +82,7 @@
       </div>
 
       <div class="gate" id="passwordRow">
-        <div style="position:relative; display:flex; gap:8px; align-items:center;">
+        <div style="position:relative;display:flex;gap:8px;align-items:center;">
           <input type="password" id="passwordInput" class="input" placeholder="Enter password"/>
           <span id="togglePw" class="eye" title="Show/Hide">👁️</span>
           <button id="passwordBtn" class="btn" type="button" aria-label="Submit password">
@@ -171,13 +99,8 @@
         <input id="accountInput" class="input" placeholder="Start typing to search..." autocomplete="off" disabled/>
         <div id="taList" class="ta-list" hidden></div>
       </div>
-      <div class="status" id="statusLine">Loading…</div>
+      <div class="status" id="statusLine">Locked • v1.6-fix</div>
 
-      <!-- Layout:
-           Row 1: Pure AE | Pure AE Email
-           Row 2: Pure RSD (full width)
-           Row 3: Regional PAM (full width)
-      -->
       <div class="grid" aria-live="polite">
         <div class="field">
           <div class="label">Pure AE</div>
@@ -217,22 +140,23 @@
   </div>
 
   <script>
-    // ---------------- Configuration ----------------
+    // Config
     const ENABLE_PASSWORD = true;
     const PASSWORD_VALUE = 'team2025';
-    const BUILD_VERSION = 'v1.5-locked-default';
 
+    // Query params
     const urlParams = new URLSearchParams(window.location.search);
     const CSV_OVERRIDE = urlParams.get('csv');
     const PW_OVERRIDE = urlParams.get('pw') || urlParams.get('unlock');
 
-    const CSV_URLS = (CSV_OVERRIDE && CSV_OVERRIDE.trim()) ?
-      [CSV_OVERRIDE.trim()] :
-      ['Americas.csv', './Americas.csv', 'https://raw.githubusercontent.com/jwsiejk/accountlist/main/Americas.csv'];
+    // CSV sources
+    const CSV_URLS = (CSV_OVERRIDE && CSV_OVERRIDE.trim())
+      ? [CSV_OVERRIDE.trim()]
+      : ['Americas.csv', './Americas.csv', 'https://raw.githubusercontent.com/jwsiejk/accountlist/main/Americas.csv'];
 
     const MAX_SUGGESTIONS = 100;
 
-    // ---------------- Elements ----------------
+    // Elements
     const accountInput = document.getElementById('accountInput');
     const ownerSpan = document.getElementById('owner');
     const managerSpan = document.getElementById('manager');
@@ -262,17 +186,19 @@
       }
     }
 
-    function ok(msg) { statusLine.textContent = (msg ? msg + ' • ' : '') + BUILD_VERSION; }
+    // Status + error
+    function ok(msg) { statusLine.textContent = msg; }
     function err(msg) { errorDiv.textContent = msg; }
 
+    // Gate helpers
     function unlock() {
       passwordRow.style.display = 'none';
       accountInput.disabled = false;
+      ok('Ready • v1.6-fix');
       loadData();
     }
-
     function checkPassword() {
-      const entered = (passwordInput.value || '').trim(); // trim spaces
+      const entered = (passwordInput.value || '').trim();
       if (entered === PASSWORD_VALUE) {
         unlock();
       } else {
@@ -281,20 +207,16 @@
       }
       passwordInput.value = '';
     }
+
+    // Listeners for gate
     passwordBtn.addEventListener('click', checkPassword);
-    passwordInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') checkPassword(); });
-
-    // Show/Hide password
+    passwordInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') checkPassword(); });
     togglePw.addEventListener('click', () => {
-      passwordInput.type = passwordInput.type === 'password' ? 'text' : 'password';
+      passwordInput.type = (passwordInput.type === 'password') ? 'text' : 'password';
     });
+    if ((PW_OVERRIDE || '').trim() === PASSWORD_VALUE) { unlock(); }
 
-    // Auto-unlock via query param if provided
-    if (ENABLE_PASSWORD && (PW_OVERRIDE || '').trim() === PASSWORD_VALUE) {
-      unlock();
-    }
-
-    // Header finder (case-insensitive)
+    // Utility: find header name case-insensitively
     const findHeader = (fields, candidates) => {
       const lower = fields.map(f => (f||'').toString().trim().toLowerCase());
       for (const c of candidates) {
@@ -308,10 +230,12 @@
       for (const url of urls) {
         try {
           const res = await fetch(url, {cache:'no-store'});
-          if (!res.ok) throw new Error('HTTP '+res.status);
+          if (!res.ok) throw new Error('HTTP ' + res.status);
           const text = await res.text();
           if (text && text.length > 0) return text;
-        } catch (e) { /* try next */ }
+        } catch (e) {
+          // try next
+        }
       }
       throw new Error('All CSV URLs failed');
     }
@@ -329,12 +253,12 @@
     }
 
     async function loadData() {
-      ok('Loading CSV…');
+      ok('Loading CSV… • v1.6-fix');
       try {
         const text = await fetchFirstWorking(CSV_URLS);
         await processCSVText(text);
       } catch (e) {
-        ok('');
+        ok('Locked • v1.6-fix');
         err('Network load failed. Place "Americas.csv" next to this HTML or use the ?csv= query param to point at a URL.');
       }
     }
@@ -362,28 +286,26 @@
       })).filter(a => a.name);
 
       ready = true;
-      ok(`Loaded ${accounts.length.toLocaleString()} accounts. Type to search.`);
+      ok(`Loaded ${accounts.length.toLocaleString()} accounts • v1.6-fix`);
     }
 
-    // Typeahead
+    // Typeahead dropdown
     const taList = document.getElementById('taList');
-
     function renderSuggestions(q) {
       if (!ready) return;
       const s = q.trim().toLowerCase();
-      if (s.length < 2) { taList.hidden = true; taList.innerHTML=''; return; }
+      if (s.length < 2) { taList.hidden = true; taList.innerHTML = ''; return; }
       const out = [];
-      for (let i=0, seen=0; i<accounts.length && seen<MAX_SUGGESTIONS; i++) {
+      for (let i = 0, seen = 0; i < accounts.length && seen < MAX_SUGGESTIONS; i++) {
         if (accounts[i].lname.includes(s)) {
-          out.push(`<div class="ta-item" data-name="${accounts[i].name.replace(/"/g,'&quot;')}">${accounts[i].name}</div>`);
+          out.push('<div class="ta-item" data-name="' + accounts[i].name.replace(/"/g,'&quot;') + '">' + accounts[i].name + '</div>');
           seen++;
         }
       }
-      if (!out.length) { taList.hidden=true; taList.innerHTML=''; return; }
+      if (!out.length) { taList.hidden = true; taList.innerHTML = ''; return; }
       taList.innerHTML = out.join('');
       taList.hidden = false;
     }
-
     function selectByName(name) {
       const a = accounts.find(x => x.name === name);
       if (a) {
@@ -391,25 +313,24 @@
         accountInput.value = name;
       }
       taList.hidden = true;
-      taList.innerHTML='';
+      taList.innerHTML = '';
     }
-
-    accountInput.addEventListener('input', (e)=> renderSuggestions(e.target.value));
-    accountInput.addEventListener('keydown', (e)=>{
+    accountInput.addEventListener('input', (e) => renderSuggestions(e.target.value));
+    accountInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         const first = taList.querySelector('.ta-item');
         if (first) selectByName(first.getAttribute('data-name'));
       }
     });
-    taList.addEventListener('click', (e)=>{
+    taList.addEventListener('click', (e) => {
       const item = e.target.closest('.ta-item');
       if (item) selectByName(item.getAttribute('data-name'));
     });
-    document.addEventListener('click', (e)=>{
+    document.addEventListener('click', (e) => {
       if (!e.target.closest('.ta-wrap')) { taList.hidden = true; }
     });
 
-    // Subtle copy buttons with feedback
+    // Copy buttons with feedback
     document.addEventListener('click', (e) => {
       const btn = e.target.closest('.copy');
       if (!btn) return;
@@ -418,13 +339,13 @@
       const el = document.getElementById(targetId);
       const text = el ? (el.textContent || el.innerText || '').trim() : '';
       if (!text) return;
-      navigator.clipboard.writeText(text).then(()=>{
+      navigator.clipboard.writeText(text).then(() => {
         btn.classList.add('ok');
-        setTimeout(()=> btn.classList.remove('ok'), 800);
+        setTimeout(() => btn.classList.remove('ok'), 800);
       });
     });
 
-    // Copy All handler (Slack markup: bold + mailto link)
+    // Copy All (Slack markup)
     copyAllBtn.addEventListener('click', () => {
       const account = (accountInput.value || '').trim();
       const owner = (ownerSpan.textContent || '').trim();
@@ -433,24 +354,20 @@
       const pam = (pamSpan.textContent || '').trim();
 
       const lines = [];
-      if (account) lines.push(`*${account}*`);
-      const emailSlack = email ? `<mailto:${email}|${email}>` : '';
-      lines.push(`• *Pure AE:* ${owner || ''}${emailSlack ? `  |  ${emailSlack}` : ''}`);
-      lines.push(`• *Pure RSD:* ${manager || ''}`);
-      lines.push(`• *Regional PAM:* ${pam || ''}`);
-      const out = lines.join('\\n');
+      if (account) lines.push('*' + account + '*');
+      const emailSlack = email ? '<mailto:' + email + '|' + email + '>' : '';
+      lines.push('• *Pure AE:* ' + (owner || '') + (emailSlack ? '  |  ' + emailSlack : ''));
+      lines.push('• *Pure RSD:* ' + (manager || ''));
+      lines.push('• *Regional PAM:* ' + (pam || ''));
+      const out = lines.join('\n');
 
       navigator.clipboard.writeText(out).then(() => {
         const original = copyAllBtn.innerHTML;
         copyAllBtn.innerHTML = '✓ Copied';
-        setTimeout(() => copyAllBtn.innerHTML = original, 1200);
+        setTimeout(() => { copyAllBtn.innerHTML = original; }, 1200);
       });
     });
 
-    // If password disabled via code (shouldn't be), ensure we DON'T auto-load
-    if (!ENABLE_PASSWORD) {
-      // do nothing: we always want the gate for this build
-    }
   </script>
 </body>
 </html>
