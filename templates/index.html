@@ -42,11 +42,14 @@
   /* tighter grid for the event cards */
 .events{
   display: grid;
-  grid-template-columns: 1fr;      /* phones: 1 col */
-  column-gap: 2px; row-gap: 0;
-  align-items: center;
-  justify-items: start;          /* <-- prevents items (esp. datebox) from stretching */
-  padding: 2px 4px;
+  grid-auto-flow: row dense;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 220px)); /* fixed card width */
+  justify-content: start;     /* pack to the left */
+  justify-items: start;       /* items don’t stretch */
+  gap: 6px;                   /* small space between boxes */
+  margin-top: 6px;
+  list-style: none;
+  padding: 0;
 }
 @media (min-width:700px){
   .events{ grid-template-columns: repeat(2, minmax(160px, 1fr)); gap: 3px; }   /* was 180px / 4px */
@@ -169,7 +172,7 @@
     // Events (ISO dates) + location chips (two long titles split into title + sub).
     var marketingEvents = [
       { title: "NorCal Lunch & Learn",                     date: "2025-08-19", loc: "NorCal" },
-      { title: "MI Portworx Enablement",                   date: "2025-08-19", loc: "MI" },
+      { title: "MI Portworx",                              date: "2025-08-19", loc: "MI", sub:"Enablement" ),
       { title: "CO Golf Tournament",                       date: "2025-08-25", loc: "CO" },
       { title: "CO Fly Fishing",                           date: "2025-09-12", loc: "CO" },
       { title: "NYC Pure Accelerate",                      date: "2025-09-25", loc: "NYC" },
