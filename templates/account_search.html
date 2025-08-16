@@ -105,10 +105,10 @@
     <!-- Brand bar -->
     <div class="brandbar">
       <div class="logos">
-        <a href="/" title="Back to Portal"><img src="/static/pure-storage-logo.svg" alt="Pure Storage" class="logo"></a>
+        <a href="/" title="Back to Portal"><img src="/static/pure-storage-logo.svg" alt="Pure Storage" class="logo" onerror="this.style.display='none'"></a>
       </div>
       <div class="logos">
-        <img src="/static/trace3-logo.png" alt="TRACE3" class="logo trace3">
+        <img src="/static/trace3-logo.png" alt="TRACE3" class="logo trace3" onerror="this.style.display='none'">
       </div>
     </div>
 
@@ -252,7 +252,7 @@
       const name = accountInput.value.trim(); if(!name) return;
       try{
         const data = await fetchJSON(`/api/get?name=${encodeURIComponent(name)}`);
-        if(!data.found){ setValues({owner:'—',manager:'—',pam:'—',email:'—'}); return; }
+        if(!data.found){ setValues(); return; }
         setValues({owner:data.owner,manager:data.manager,pam:data.pam,email=data.email});
       }catch(e){
         statusLine.textContent = 'Lookup failed.';
