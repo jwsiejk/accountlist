@@ -38,51 +38,74 @@
     .links a{color:var(--pure-orange); text-decoration:underline; text-underline-offset:2px}
     .links a:hover{color:var(--pure-orange-700)}
 
+    /* Sales: two-column interior — main links + right gray Alliances box */
+    .sales-grid{
+      display:grid;
+      grid-template-columns: 1fr 260px;
+      gap:12px;
+      align-items:start;
+      margin-top:8px;
+    }
+    @media (max-width:760px){
+      .sales-grid{ grid-template-columns:1fr; }
+    }
+    .alliance{
+      background:#f3f4f6;                 /* gray like screenshot */
+      border:1px solid var(--slate-200);
+      border-radius:12px;
+      padding:12px;
+    }
+    .alliance h4{
+      margin:0 0 8px 0;
+      font-size:14px;
+      letter-spacing:.02em;
+      color:#0f1115;
+    }
+    .alliance a{
+      display:inline-block;
+      color:#0f1115;
+      background:#fff;
+      border:1px solid var(--slate-300);
+      border-radius:8px;
+      padding:8px 10px;
+      text-decoration:none;
+    }
+    .alliance a:hover{ border-color:#9ca3af; }
+    .alliance .muted{font-size:12px; margin-top:6px}
+
     /* ========== MARKETING EVENTS LAYOUT (FLEX, LEFT-PACKED, SNUG) ========== */
     .events{
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;                 /* small, uniform gap between cards */
-      margin-top: 6px;
-      list-style: none;
-      padding: 0;
+      display:flex; flex-wrap:wrap;
+      gap:6px; margin-top:6px;
+      list-style:none; padding:0;
     }
-    /* fixed card width so rows pack tightly; tweak 220 -> 210 if you want even tighter */
-    .events > .event{ width: 220px; }
-    /* month header breaks to a new line and spans full width */
+    .events > .event{ width:220px; }
     .events > .month{
-      flex-basis: 100%;
+      flex-basis:100%;
       font-weight:800; color:#1f2937;
       margin:10px 2px 3px; padding-top:5px;
       border-top:1px dashed var(--slate-200);
       letter-spacing:.02em; font-size:11px; text-transform:uppercase;
     }
 
-    /* Internal card: stripe | text (content width) | date chip */
+    /* Internal event card: stripe | text (content) | date chip */
     .event{
       position:relative;
       display:grid;
       grid-template-columns:3px max-content auto; /* stripe | text (content) | date */
       align-items:center;
-      justify-items:start;                         /* prevents date chip from stretching */
+      justify-items:start;                         /* keep date chip from stretching */
       background:#fff; border:1px solid var(--slate-200); border-radius:6px;
-      padding:2px 4px;
-      column-gap:2px; row-gap:0;
+      padding:2px 4px; column-gap:2px; row-gap:0;
       box-shadow:0 2px 6px rgba(15,17,21,.05);
     }
     .stripe{ width:3px; height:100%; background:var(--pure-orange); border-radius:6px; }
     .event.past{opacity:.5}
 
-    .info{
-      display:flex; flex-direction:column;
-      width:max-content;           /* shrink to fit content -> no whitespace */
-      max-width:16ch;              /* wrap long names for uniform card width */
-      min-width:0;
-    }
+    .info{ display:flex; flex-direction:column; width:max-content; max-width:16ch; min-width:0; }
     .title{
       font-weight:800; letter-spacing:.01em; font-size:11px; line-height:1.15; margin:0;
-      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
-      white-space:normal;
+      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; white-space:normal;
     }
     .sub{font-weight:800; font-size:10.5px; line-height:1.1; margin-top:2px;}
     .chips{display:flex; justify-content:flex-start; gap:4px; flex-wrap:wrap; margin-top:3px}
@@ -93,11 +116,8 @@
     }
 
     .datebox{
-      display:inline-flex; flex-direction:column;
-      align-items:center; justify-content:center;
-      width:auto; min-width:auto;          /* content width only */
-      padding:2px 6px; line-height:1;
-      justify-self:end;
+      display:inline-flex; flex-direction:column; align-items:center; justify-content:center;
+      width:auto; min-width:auto; padding:2px 6px; line-height:1; justify-self:end;
     }
     .datebox .day { font-size:11px; font-weight:800; }
     .datebox .mon { font-size:8px; letter-spacing:.06em; margin-top:0; }
@@ -122,9 +142,21 @@
     <section class="stack" aria-label="Sections">
       <article class="card">
         <h3>Sales</h3>
-        <ul class="links">
-          <li><a href="{{ url_for('account_search') }}" target="_blank" rel="noopener noreferrer">Pure Account Team Search</a></li>
-        </ul>
+        <div class="sales-grid">
+          <!-- Left: existing Sales links -->
+          <ul class="links">
+            <li><a href="{{ url_for('account_search') }}" target="_blank" rel="noopener noreferrer">Pure Account Team Search</a></li>
+          </ul>
+
+          <!-- Right: Alliances gray box with protected links -->
+          <div class="alliance">
+            <h4>Alliances</h4>
+            <a href="https://docs.google.com/spreadsheets/d/1f5hnNqOmsDbTpmSrYBvjr-UARe2fTQw-tLg6k8AUMYE/edit?gid=1662296704#gid=1662296704"
+               target="_blank" rel="noopener noreferrer"
+               data-protected="alliances">Pipeline Report</a>
+            <div class="muted">Protected (team2025)</div>
+          </div>
+        </div>
       </article>
 
       <article class="card">
@@ -153,7 +185,7 @@
   </div>
 
   <script>
-    // Events (ISO dates) + location chips (two long titles split into title + sub).
+    // --- Marketing events (unchanged), render compact cards ---
     var marketingEvents = [
       { title: "NorCal Lunch & Learn",                     date: "2025-08-19", loc: "NorCal" },
       { title: "MI Portworx",                              date: "2025-08-19", loc: "MI", sub:"Enablement" },
@@ -164,63 +196,81 @@
       { title: "TX A&M Tailgate",                          date: "2025-10-11", loc: "TX", sub:"Pure + Rubrik" },
       { title: "GA Celebrity Chef",                        date: "2025-10-26", loc: "GA", sub:"Executive Dinner" }
     ];
-
     marketingEvents.sort(function(a,b){ return new Date(a.date) - new Date(b.date); });
+    (function(){
+      var list = document.getElementById("marketingEvents");
+      var today = new Date(); today.setHours(0,0,0,0);
+      var currentGroup = "";
+      marketingEvents.forEach(function(ev){
+        var d = new Date(ev.date + "T00:00:00");
+        var monthKey = d.toLocaleString("en-US",{ month:"short", year:"numeric" });
+        if (monthKey !== currentGroup) {
+          currentGroup = monthKey;
+          var header = document.createElement("li");
+          header.className = "month";
+          header.textContent = currentGroup;
+          list.appendChild(header);
+        }
+        var mon = d.toLocaleDateString("en-US",{ month:"short" });
+        var day = d.getDate();
 
-    var list = document.getElementById("marketingEvents");
-    var today = new Date(); today.setHours(0,0,0,0);
+        var li = document.createElement("li");
+        li.className = "event" + (d < today ? " past" : "");
 
-    var currentGroup = "";
-    marketingEvents.forEach(function(ev){
-      var d = new Date(ev.date + "T00:00:00");
-      var monthKey = d.toLocaleString("en-US",{ month:"short", year:"numeric" });
-      if (monthKey !== currentGroup) {
-        currentGroup = monthKey;
-        var header = document.createElement("li");
-        header.className = "month";
-        header.textContent = currentGroup;
-        list.appendChild(header);
+        var stripe = document.createElement("div");
+        stripe.className = "stripe";
+
+        var info = document.createElement("div");
+        info.className = "info";
+        var t = document.createElement("div");
+        t.className = "title";
+        t.textContent = ev.title;
+        info.appendChild(t);
+        if (ev.sub){
+          var s = document.createElement("div");
+          s.className = "sub";
+          s.textContent = ev.sub;
+          info.appendChild(s);
+        }
+        var chips = document.createElement("div");
+        chips.className = "chips";
+        if (ev.loc){
+          var chip = document.createElement("span");
+          chip.className = "chip";
+          chip.textContent = ev.loc;
+          chips.appendChild(chip);
+        }
+        info.appendChild(chips);
+
+        var datebox = document.createElement("div");
+        datebox.className = "datebox";
+        datebox.innerHTML = '<div class="day">'+day+'</div><div class="mon">'+mon+'</div>';
+
+        li.appendChild(stripe);
+        li.appendChild(info);
+        li.appendChild(datebox);
+        list.appendChild(li);
+      });
+    })();
+
+    // --- Alliances link protection (password: team2025) ---
+    (function(){
+      var PW = 'team2025';
+      function guard(e){
+        if (sessionStorage.getItem('alliances_unlocked') === '1') return; // already unlocked
+        e.preventDefault();
+        var entered = prompt('Enter password to open Alliances links:');
+        if (entered && entered.trim() === PW){
+          sessionStorage.setItem('alliances_unlocked','1');
+          window.open(this.href, '_blank', 'noopener');
+        } else if (entered !== null){
+          alert('Incorrect password.');
+        }
       }
-      var mon = d.toLocaleDateString("en-US",{ month:"short" });
-      var day = d.getDate();
-
-      var li = document.createElement("li");
-      li.className = "event" + (d < today ? " past" : "");
-
-      var stripe = document.createElement("div");
-      stripe.className = "stripe";
-
-      var info = document.createElement("div");
-      info.className = "info";
-      var t = document.createElement("div");
-      t.className = "title";
-      t.textContent = ev.title;
-      info.appendChild(t);
-      if (ev.sub){
-        var s = document.createElement("div");
-        s.className = "sub";
-        s.textContent = ev.sub;
-        info.appendChild(s);
-      }
-      var chips = document.createElement("div");
-      chips.className = "chips";
-      if (ev.loc){
-        var chip = document.createElement("span");
-        chip.className = "chip";
-        chip.textContent = ev.loc;
-        chips.appendChild(chip);
-      }
-      info.appendChild(chips);
-
-      var datebox = document.createElement("div");
-      datebox.className = "datebox";
-      datebox.innerHTML = '<div class="day">'+day+'</div><div class="mon">'+mon+'</div>';
-
-      li.appendChild(stripe);
-      li.appendChild(info);
-      li.appendChild(datebox);
-      list.appendChild(li);
-    });
+      document.querySelectorAll('a[data-protected="alliances"]').forEach(function(a){
+        a.addEventListener('click', guard);
+      });
+    })();
   </script>
 </body>
 </html>
