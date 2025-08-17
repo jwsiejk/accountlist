@@ -71,6 +71,8 @@
       text-decoration:none;
     }
     .alliance a:hover{ border-color:#9ca3af; }
+    /* space links when multiple */
+    .alliance a + a{ margin-top:8px; }
     .alliance .muted{font-size:12px; margin-top:6px}
 
     /* ========== MARKETING EVENTS LAYOUT (FLEX, LEFT-PACKED, SNUG) ========== */
@@ -151,10 +153,16 @@
           <!-- Right: Alliances gray box with protected links -->
           <div class="alliance">
             <h4>Alliances</h4>
+
             <a href="https://docs.google.com/spreadsheets/d/1f5hnNqOmsDbTpmSrYBvjr-UARe2fTQw-tLg6k8AUMYE/edit?gid=1662296704#gid=1662296704"
                target="_blank" rel="noopener noreferrer"
                data-protected="alliances">Pipeline Report</a>
-            <div class="muted">Protected (team2025)</div>
+
+            <a href="https://docs.google.com/spreadsheets/d/1PByziPq4ZP3qJSlFwm4Jouy1c_dby9WOKh4vWnEBdts/edit?gid=0#gid=0"
+               target="_blank" rel="noopener noreferrer"
+               data-protected="alliances">Asset Report</a>
+
+            <div class="muted">Password Protected</div>
           </div>
         </div>
       </article>
