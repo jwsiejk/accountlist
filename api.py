@@ -25,6 +25,11 @@ def get_db_conn():
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 
+# Register Energy blueprint
+from energy import bp as energy_bp
+app.register_blueprint(energy_bp, url_prefix='/energy')
+
+
 # CORS: allow specific origins if provided, else *
 allowed = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",") if o.strip()]
 CORS(app, origins=allowed if allowed else "*", supports_credentials=False)
