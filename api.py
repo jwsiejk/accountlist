@@ -2,6 +2,7 @@ import os
 import psycopg
 from psycopg import errors
 from flask import Flask, request, jsonify, render_template
+from energy import bp as energy_bp
 from flask_cors import CORS
 
 TABLE = os.getenv("ACCOUNTS_TABLE", "accounts")
@@ -27,6 +28,24 @@ app = Flask(__name__, static_folder="static", template_folder="templates")
 # CORS: allow specific origins if provided, else *
 allowed = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",") if o.strip()]
 CORS(app, origins=allowed if allowed else "*", supports_credentials=False)
+
+def fmt0(x): 
+    try: return f"{float(x):,.0f}"
+    except: return str(x)
+def fmt1(x):
+    try: return f"{float(x):,.1f}"
+    except: return str(x)
+def fmt2(x):
+    try: return f"{float(x):,.2f}"
+    except: return str(x)
+def fmt3(x):
+    try: return f"{float(x):,.3f}"
+    except: return str(x)
+app.jinja_env.filters['fmt0']=fmt0
+app.jinja_env.filters['fmt1']=fmt1
+app.jinja_env.filters['fmt2']=fmt2
+app.jinja_env.filters['fmt3']=fmt3
+
 
 # ---------- Web UI ----------
 @app.get("/")
