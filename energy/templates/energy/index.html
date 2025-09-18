@@ -79,6 +79,23 @@
     <h1>FlashBlade//E vs NetApp E‑Series</h1>
 
     <form action="{{ url_for('energy.results') }}" method="POST" novalidate>
+
+      <!-- Global Settings card inserted -->
+      <div class="card">
+        <h2>Global Settings</h2>
+        <div class="row">
+          <div>
+            <label>$ / kWh</label>
+            <input type="number" step="0.001" min="0" name="global_price" value="{{defaults.global_price}}">
+          </div>
+          <div>
+            <label>Utilization %</label>
+            <input type="number" step="1" min="1" max="100" name="global_util_pct" value="{{defaults.global_util_pct}}">
+          </div>
+        </div>
+        <div class="help">These values apply to both FlashBlade//E and NetApp E‑Series to ensure a fair, apples‑to‑apples comparison.</div>
+      </div>
+
       <div class="grid">
         <div class="card">
           <h2>Configure FlashBlade//E</h2>
@@ -98,11 +115,11 @@
           </div>
 
           <div class="row">
-            <div><label>Utilization %</label><input type="number" step="1" name="pure_util" value="{{defaults.pure_util}}"></div>
+            <div><label>Utilization %</label><span class="help">Uses Global Settings</span></div>
             <div><label>PUE</label><input type="number" step="0.01" name="pure_pue" value="{{defaults.pure_pue}}"></div>
           </div>
           <div class="row">
-            <div><label>$ / kWh</label><input type="number" step="0.001" name="pure_price" value="{{defaults.pure_price}}"></div>
+            <div><label>$ / kWh</label><span class="help">Uses Global Settings</span></div>
             <div><label>DRR (Pure)</label><input type="number" step="0.1" name="pure_drr" value="{{defaults.pure_drr}}"></div>
           </div>
           <div class="help">Capacity points are constrained to valid track increments.</div>
@@ -111,11 +128,11 @@
         <div class="card">
           <h2>NetApp Baseline</h2>
           <div class="row">
-            <div><label>Utilization %</label><input type="number" step="1" name="na_util" value="{{defaults.na_util}}"></div>
+            <div><label>Utilization %</label><span class="help">Uses Global Settings</span></div>
             <div><label>PUE</label><input type="number" step="0.01" name="na_pue" value="{{defaults.na_pue}}"></div>
           </div>
           <div class="row">
-            <div><label>$ / kWh</label><input type="number" step="0.001" name="na_price" value="{{defaults.na_price}}"></div>
+            <div><label>$ / kWh</label><span class="help">Uses Global Settings</span></div>
             <div><label>Overhead (raw→usable)</label><input type="number" step="0.01" name="na_overhead" value="{{defaults.na_overhead}}"></div>
           </div>
           <div class="row">

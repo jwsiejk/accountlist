@@ -43,8 +43,7 @@ def round_floats(obj):
 @bp.get("/")
 def index():
     tracks = sorted({r["DFM_Size_TB"] for r in pure_rows})
-    defaults = {"pure_util": 50, "pure_pue": 1.35, "pure_price": 0.12, "pure_drr": 2.0,
-                "na_util": 50, "na_pue": 1.35, "na_price": 0.12, "na_overhead": 0.20, "na_drr": 1.3, "na_drive_size": 18}
+    defaults = {"pure_util": "50", "pure_pue": "1.35", "pure_price": "0.12", "pure_drr": "2.0", "na_util": "50", "na_pue": "1.35", "na_price": "0.12", "na_overhead": "0.20", "na_drr": "1.3", "na_drive_size": "18", "global_util_pct": "50", "global_price": "0.12"}
     first_track = tracks[0] if tracks else 48
     valid_caps = ec.valid_caps(pure_rows, first_track, max_points=20)
     return render_template("energy/index.html", tracks=tracks, valid_caps=valid_caps, defaults=defaults)
@@ -62,14 +61,16 @@ def api_valid_caps():
 def results():
     dfm_tb = int(request.form.get("dfm_track", "48"))
     capacity_pb = float(request.form.get("capacity_pb"))
-    pure_util = float(request.form.get("pure_util"))/100.0
+    global_util_pct = float(request.form.get("global_util_pct", request.form.get("pure_util", request.form.get("na_util", 50))))/100.0
+    global_price = float(request.form.get("global_price", request.form.get("pure_price", request.form.get("na_price", 0.12))))
+    pure_util = global_util_pct
     pure_pue = float(request.form.get("pure_pue"))
-    pure_price = float(request.form.get("pure_price"))
+    pure_price = global_price
     pure_drr = float(request.form.get("pure_drr"))
-
-    na_util = float(request.form.get("na_util"))/100.0
+    
+    na_util = global_util_pct
     na_pue = float(request.form.get("na_pue"))
-    na_price = float(request.form.get("na_price"))
+    na_price = global_price
     na_overhead = float(request.form.get("na_overhead"))
     na_drr = float(request.form.get("na_drr"))
     na_drive_size = float(request.form.get("na_drive_size"))
