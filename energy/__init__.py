@@ -91,6 +91,11 @@ def results():
         "NetApp_inputs": {"Util%": na_util*100, "PUE": na_pue, "$/kWh": na_price, "Overhead": na_overhead, "DRR": na_drr, "Drive_size_TB": na_drive_size}
     }
     assumptions = ec.build_assumptions(pure_rows, netapp_rows, fb, cands, global_params)
+    # Expose inputs for the results template (used by manual override JS)
+    assumptions["Pure_inputs"] = global_params.get("Pure_inputs", {})
+    assumptions["NetApp_inputs"] = global_params.get("NetApp_inputs", {})
+    assumptions["Global_params"] = global_params
+
 
     candidates_json = json.dumps(cands)
     fb_json = json.dumps({
@@ -117,6 +122,74 @@ def results():
                            best=best,
                            candidates_json=candidates_json,
                            fb_json=fb_json)
+
+
+@bp.post("/api/netapp/custom")
+def netapp_custom():
+    data = request.get_json(force=True, silent=True) or {}
+    # Required fields with sane defaults
+    ctrl_model = str(data.get("controller_model", "E5760"))
+    exp_model = str(data.get("expansion_model", "DE460C 60-bay"))
+    ctrl_qty = int(data.get("controller_qty", 1))
+    exp_qty = int(data.get("expansion_qty", 0))
+    drive_tb = float(data.get("drive_tb", 18.0))
+    util = float(data.get("util", 0.5))  # 0..1, from Global Settings
+    pue = float(data.get("pue", 1.30))
+    price = float(data.get("price", 0.12))  # from Global Settings
+    overhead = float(data.get("overhead", 0.20))
+    drr = float(data.get("drr", 1.3))
+
+    # Lookup controller and expansion shelves
+    ctrl_rows = [r for r in netapp_rows if r.get("Component_Type")=="Controller_Shelf" and str(r.get("Model")).strip()==ctrl_model]
+    if not ctrl_rows:
+        return jsonify({"ok": False, "error": f"Unknown controller model: {ctrl_model}"}), 400
+    ctrl = ctrl_rows[0]
+    exp_rows = [r for r in netapp_rows if r.get("Component_Type")=="Expansion_Shelf" and str(r.get("Model")).strip()==exp_model]
+    if not exp_rows:
+        return jsonify({"ok": False, "error": f"Unknown expansion model: {exp_model}"}), 400
+    exp = exp_rows[0]
+
+    ctrl_pow = ec.PowerModel(ctrl.get("Model"), float(ctrl.get("Typical_W")), float(ctrl.get("Idle_W")))
+    exp_pow = ec.PowerModel(exp.get("Model"), float(exp.get("Typical_W")), float(exp.get("Idle_W")))
+    ctrl_drives = int(float(ctrl.get("Drives_per_unit") or 0))
+    exp_drives = int(float(exp.get("Drives_per_unit") or 0))
+
+    # Compute metrics
+    total_drives = ctrl_qty*ctrl_drives + exp_qty*exp_drives
+    raw = total_drives*drive_tb
+    usable = raw*(1-overhead)
+    eff = usable*drr
+    w = ctrl_qty*ctrl_pow.weighted(util) + exp_qty*exp_pow.weighted(util)
+    kwh_it = ec.kwh_year(w); kwh_pue = kwh_it*pue; annual = kwh_pue*price
+
+    out = {
+        "controller_model": ctrl_model,
+        "expansion_model": exp_model,
+        "controller_qty": ctrl_qty,
+        "expansion_qty": exp_qty,
+        "effective_tb": eff,
+        "weighted_w": w,
+        "kwh_year_it": kwh_it,
+        "kwh_year_with_pue": kwh_pue,
+        "annual_energy_cost": annual,
+        "w_per_effective_tb": (w/eff) if eff>0 else None,
+        "dollars_per_effective_tb_year": (annual/eff) if eff>0 else None,
+        "kwh_per_effective_tb_year": (kwh_pue/eff) if eff>0 else None,
+        "details": {
+            "total_drives": total_drives,
+            "raw_tb": raw,
+            "usable_tb": usable,
+            "overhead": overhead,
+            "drr": drr,
+            "util_frac": util,
+            "pue": pue,
+            "price_per_kwh": price,
+            "drives_per_controller": ctrl_drives,
+            "drives_per_expansion": exp_drives,
+            "drive_tb": drive_tb
+        }
+    }
+    return jsonify({"ok": True, "candidate": out})
 
 @bp.post("/assumptions.json")
 def assumptions_download():
