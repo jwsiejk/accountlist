@@ -1,7 +1,7 @@
 import os
 import psycopg
 from psycopg import errors
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, redirect, url_for, current_app
 from energy import bp as energy_bp
 from flask_cors import CORS
 
@@ -50,11 +50,20 @@ app.jinja_env.filters['fmt3']=fmt3
 # ---------- Web UI ----------
 @app.get("/")
 def home():
-    return render_template("index.html")
+    # Build energy link safely even if blueprint isn't registered yet
+    try:
+        energy_url = url_for('energy.index') if 'energy.index' in app.view_functions else '/energy/'
+    except Exception:
+        energy_url = '/energy/'
+    return render_template("index.html", energy_url=energy_url)
 
 @app.get("/account-search")
 def account_search():
     return render_template("account_search.html")
+
+@app.get('/energy')
+def energy_root():
+    return redirect(url_for('energy.index'))
 
 # ---------- API ----------
 @app.get("/api/health")

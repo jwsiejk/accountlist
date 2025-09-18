@@ -4,7 +4,7 @@ import os, io, json
 from dataclasses import asdict
 from . import energy_calc as ec
 
-bp = Blueprint("energy", __name__, template_folder="templates", static_folder=None)
+bp = Blueprint("energy", __name__, template_folder="templates/energy", static_folder=None)
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 PURE_CSV = os.path.join(DATA_DIR, "pure_flashblade_e.csv")
