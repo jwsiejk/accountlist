@@ -4,7 +4,7 @@ import os, io, json
 from dataclasses import asdict
 from . import energy_calc as ec
 
-bp = Blueprint("energy", __name__, template_folder="templates/energy", static_folder=None)
+bp = Blueprint("energy", __name__, template_folder="templates", static_folder=None)
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 PURE_CSV = os.path.join(DATA_DIR, "pure_flashblade_e.csv")
@@ -47,7 +47,7 @@ def index():
                 "na_util": 50, "na_pue": 1.35, "na_price": 0.12, "na_overhead": 0.20, "na_drr": 1.3, "na_drive_size": 18}
     first_track = tracks[0] if tracks else 48
     valid_caps = ec.valid_caps(pure_rows, first_track, max_points=20)
-    return render_template("index.html", tracks=tracks, valid_caps=valid_caps, defaults=defaults)
+    return render_template("energy/index.html", tracks=tracks, valid_caps=valid_caps, defaults=defaults)
 
 @bp.get("/api/valid_caps")
 def api_valid_caps():
@@ -104,7 +104,7 @@ def results():
     # Provide filters in template via Jinja env of parent app is not straightforward; we rely on preformatted in templates using pipes we already defined in parent app.
     best = cands[0] if len(cands)>0 else None
 
-    return render_template("results.html",
+    return render_template("energy/results.html",
                            fb=type("FB", (), fb) if isinstance(fb, dict) else fb,
                            candidates=cands,
                            tol_pct=tol_pct,
