@@ -2,6 +2,7 @@ import os
 import psycopg
 from psycopg import errors
 from flask import Flask, request, jsonify, render_template, redirect, url_for, current_app
+import json
 from energy import bp as energy_bp
 from flask_cors import CORS
 
@@ -166,6 +167,66 @@ def get_one():
     except Exception:
         app.logger.exception("get_one failed")
         return jsonify(error="server_error"), 500
+
+# ---- Energy Scenarios (DB-backed) ----
+@app.post("/energy/api/scenarios")
+def save_energy_scenario():
+    try:
+        body = request.get_json(force=True, silent=True) or {}
+        name = (body.get("name") or "Scenario").strip()
+        email = (body.get("email") or "").strip()
+        payload = body.get("payload") or {}
+        with get_db_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS energy_scenarios(
+                        id BIGSERIAL PRIMARY KEY,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                        name TEXT NOT NULL,
+                        email TEXT,
+                        payload JSONB NOT NULL
+                    )
+                """)
+                cur.execute("INSERT INTO energy_scenarios(name,email,payload) VALUES (%s,%s,%s) RETURNING id, created_at", (name, email, json.dumps(payload)))
+                rid, created_at = cur.fetchone()
+            conn.commit()
+        return jsonify(ok=True, id=rid, created_at=str(created_at))
+    except Exception as e:
+        current_app.logger.exception("save_energy_scenario failed")
+        return jsonify(ok=False, error=str(e)), 500
+
+@app.get("/energy/api/scenarios")
+def list_energy_scenarios():
+    try:
+        limit = int(request.args.get("limit","25"))
+        email = (request.args.get("email") or "").strip()
+        with get_db_conn() as conn:
+            with conn.cursor() as cur:
+                if email:
+                    cur.execute("SELECT id, created_at, name FROM energy_scenarios WHERE email=%s ORDER BY id DESC LIMIT %s", (email, limit))
+                else:
+                    cur.execute("SELECT id, created_at, name FROM energy_scenarios ORDER BY id DESC LIMIT %s", (limit,))
+                rows = [{"id": r[0], "created_at": r[1].isoformat(), "name": r[2]} for r in cur.fetchall()]
+        return jsonify(ok=True, items=rows)
+    except Exception as e:
+        current_app.logger.exception("list_energy_scenarios failed")
+        return jsonify(ok=False, error=str(e)), 500
+
+@app.get("/energy/api/scenarios/<int:sid>")
+def get_energy_scenario(sid: int):
+    try:
+        with get_db_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT payload, name, created_at FROM energy_scenarios WHERE id=%s", (sid,))
+                row = cur.fetchone()
+        if not row:
+            return jsonify(ok=False, error="not_found"), 404
+        payload, name, created_at = row
+        return jsonify(ok=True, id=sid, name=name, created_at=str(created_at), payload=payload)
+    except Exception as e:
+        current_app.logger.exception("get_energy_scenario failed")
+        return jsonify(ok=False, error=str(e)), 500
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "8080")), debug=True)

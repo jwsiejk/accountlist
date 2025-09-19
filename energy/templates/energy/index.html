@@ -150,5 +150,64 @@
       </div>
     </form>
   </div>
+
+    <script>
+      // Prefill from a scenario saved in localStorage by Results->Load
+      (async function(){
+        try{
+          const raw = localStorage.getItem('apply_scenario'); if(!raw) return;
+          const s = JSON.parse(raw) || {};
+          const form = document.querySelector('form[action*="energy/results"]');
+          if(!form) return;
+
+          // Global
+          if(s.assumptions && s.assumptions.Global_params){
+            const gp = s.assumptions.Global_params;
+            if(form.global_price) form.global_price.value = gp.NetApp_inputs?.['$/kWh'] ?? gp.Pure_inputs?.['$/kWh'] ?? form.global_price.value;
+            if(form.global_util_pct) form.global_util_pct.value = gp.NetApp_inputs?.['Util%'] ?? gp.Pure_inputs?.['Util%'] ?? form.global_util_pct.value;
+          }
+
+          // FlashBlade inputs
+          if(s.assumptions && s.assumptions.Pure_inputs){
+            if(form.pure_pue) form.pure_pue.value = s.assumptions.Pure_inputs['PUE'] ?? form.pure_pue.value;
+            if(form.pure_drr) form.pure_drr.value = s.assumptions.Pure_inputs['DRR'] ?? form.pure_drr.value;
+          }
+          // NetApp inputs
+          if(s.assumptions && s.assumptions.NetApp_inputs){
+            if(form.na_pue) form.na_pue.value = s.assumptions.NetApp_inputs['PUE'] ?? form.na_pue.value;
+            if(form.na_overhead) form.na_overhead.value = s.assumptions.NetApp_inputs['Overhead'] ?? form.na_overhead.value;
+            if(form.na_drr) form.na_drr.value = s.assumptions.NetApp_inputs['DRR'] ?? form.na_drr.value;
+            if(form.na_drive_size) form.na_drive_size.value = s.assumptions.NetApp_inputs['Drive_size_TB'] ?? form.na_drive_size.value;
+          }
+
+          // DFM and Capacity
+          const dfmSel = form.querySelector('select[name="dfm_track"]');
+          const capSel = form.querySelector('select[name="capacity_pb"]');
+          if(dfmSel && s.assumptions && s.assumptions.Pure_inputs && s.assumptions.Pure_inputs['DFM_TB']){
+            const dfmVal = String(s.assumptions.Pure_inputs['DFM_TB']);
+            dfmSel.value = dfmVal;
+            // fetch valid caps for that track
+            try{
+              const resp = await fetch(`{{ url_for('energy.api_valid_caps') }}?dfm=${encodeURIComponent(dfmVal)}`);
+              const data = await resp.json();
+              if(data && data.ok && capSel){
+                capSel.innerHTML = '';
+                (data.capacities||[]).forEach(v => { const o=document.createElement('option'); o.value=v; o.textContent=v; capSel.appendChild(o); });
+                const cap = s.assumptions.Pure_inputs['Capacity_PB'];
+                if(cap) capSel.value = String(cap);
+              }
+            }catch(e){}
+          }
+
+          // Show a small banner
+          const banner = document.createElement('div'); banner.className='help'; banner.style.margin='8px 0 0 8px'; banner.textContent='Scenario loaded — review and click “See Results & Options.”';
+          form.parentElement.insertBefore(banner, form);
+
+          // Clear the stored scenario so it doesn't apply twice
+          localStorage.removeItem('apply_scenario');
+        }catch(e){ console.warn('apply_scenario failed', e); }
+      })();
+    </script>
+
 </body>
 </html>

@@ -162,6 +162,22 @@
       </div>
 
       <div class="card netapp">
+
+      <div id="resultsToolbar" style="display:flex; gap:8px; justify-content:flex-end; margin-bottom:8px;">
+        <button class="btn" type="button" onclick="openOverrideFromDefaults()">Manual Override</button>
+        <button class="toggle" type="button" onclick="saveScenario()">Save</button>
+        <button class="toggle" type="button" onclick="loadScenario()">Load</button>
+        <div class="dropdown" style="position:relative; display:inline-block;">
+          <button class="toggle" type="button" onclick="this.nextElementSibling.style.display = (this.nextElementSibling.style.display==='block'?'none':'block')">Export ▾</button>
+          <div class="menu" style="display:none; position:absolute; right:0; background:var(--surface); border:1px solid var(--line); padding:6px; border-radius:6px;">
+            <button class="mini" type="button" onclick="exportCandidatesCsv()">Candidates CSV</button>
+            <button class="mini" type="button" onclick="exportAssumptionsJson()">Assumptions JSON</button>
+            <button class="mini" type="button" onclick="window.print()">Print / Save as PDF</button>
+          </div>
+        </div>
+        <span id="pinnedCount" class="muted" style="align-self:center;">Pinned: 0</span>
+      </div>
+
         <h2>System B — NetApp E‑Series (Auto‑match)</h2>
         <div class="banner">
           Showing NetApp options within ±{{ tol_pct|fmt1 }}% of {{ (fb.effective_tb if fb.effective_tb is defined else fb['effective_tb'])|fmt0 }} TB Effective
@@ -182,6 +198,7 @@
                 <th class="num">$ / Eff TB-yr</th>
                 <th class="num">kWh / Eff TB-yr</th>
                 <th class="num">Override</th>
+                <th class="num">Pin</th>
               </tr>
             </thead>
             <tbody>
@@ -198,6 +215,7 @@
                 <td class="num">{{ c.dollars_per_effective_tb_year|fmt2 }}</td>
                 <td class="num">{{ c.kwh_per_effective_tb_year|fmt2 }}</td>
                 <td class="num"><button type="button" class="toggle" onclick="openOverride({{ loop.index0 }}); event.stopPropagation();">Override</button></td>
+                <td class="num"><input type="checkbox" onchange="togglePin({{ loop.index0 }}, this)"></td>
               </tr>
               {% endfor %}
               {% if candidates|length == 0 %}
@@ -263,7 +281,7 @@
           </div>
           <div><label>Expansion shelves</label><input name="expansion_qty" type="number" step="1" min="0" value="0"></div>
           <div><label>Drive size (TB)</label><select name="drive_tb" id="drive_tb_select"></select></div>
-          <div><label>PUE</label><input name="pue" type="number" step="0.01" min="1" value="{{ ui_global_price is defined and NetApp_inputs['PUE'] }}"></div>
+          <div><label>PUE</label><input name="pue" type="number" step="0.01" min="1" value="{{ NetApp_inputs['PUE'] if NetApp_inputs is defined else 1.35 }}"></div>
           <div><label>Overhead (raw→usable)</label><input name="overhead" type="number" step="0.01" min="0" max="1" value="{{ NetApp_inputs['Overhead'] if NetApp_inputs is defined else 0.2 }}"></div>
           <div><label>DRR</label><input name="drr" type="number" step="0.1" min="1" value="{{ NetApp_inputs['DRR'] if NetApp_inputs is defined else 1.3 }}"></div>
         </div>
@@ -289,7 +307,7 @@
           drr: gp['DRR'] ?? 1.3
         };
       }
-      async function loadDriveSizes(){
+      async async function loadDriveSizes(){
         const form = document.getElementById('overrideForm');
         const ctrl = form.controller_model.value;
         const exp  = form.expansion_model.value;
@@ -305,7 +323,7 @@
         form.drive_tb.value = sel.value;
         sel.addEventListener('change', ()=>{ form.drive_tb.value = sel.value; });
       }
-      async function openOverride(idx){
+      async async function openOverride(idx){
         const c = CANDIDATES[idx]; if(!c) return;
         const form = document.getElementById('overrideForm');
         form.dataset.idx = idx;
@@ -359,5 +377,232 @@
       }
     </script>
     
+
+    <div class="card" id="pinnedCard" style="margin-top:16px; display:none;">
+      <h2>Pinned Comparison</h2>
+      <div class="help">Compare up to 3 pinned NetApp options side‑by‑side.</div>
+      <div class="table-wrap" style="overflow:auto;">
+        <table id="pinnedTable">
+          <thead><tr id="pinnedHead"><th>Metric</th></tr></thead>
+          <tbody id="pinnedBody">
+            <tr data-m="effective_tb"><td>Effective TB</td></tr>
+            <tr data-m="weighted_w"><td>Weighted W</td></tr>
+            <tr data-m="kwh_year_with_pue"><td>kWh/year (with PUE)</td></tr>
+            <tr data-m="annual_energy_cost"><td>$ / year</td></tr>
+            <tr data-m="w_per_effective_tb"><td>W / Eff TB</td></tr>
+            <tr data-m="dollars_per_effective_tb_year"><td>$ / Eff TB‑year</td></tr>
+            <tr data-m="kwh_per_effective_tb_year"><td>kWh / Eff TB‑year</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+
+    <script>
+      // --- Sprint 1 additions ---
+      const PINNED = new Set();
+      function togglePin(idx, el){
+        if(el && el.checked){ PINNED.add(idx); } else { PINNED.delete(idx); }
+        document.getElementById('pinnedCount').textContent = `Pinned: ${PINNED.size}`;
+        renderPinned();
+      }
+      function renderPinned(){
+        const card = document.getElementById('pinnedCard');
+        const head = document.getElementById('pinnedHead');
+        const body = document.getElementById('pinnedBody');
+        const indices = Array.from(PINNED).slice(0,3);
+        if(indices.length === 0){ card.style.display = 'none'; head.innerHTML = '<th>Metric</th>'; body.querySelectorAll('tr').forEach(tr => { tr.querySelectorAll('td:not(:first-child)').forEach(td => td.remove()); }); return; }
+        card.style.display = 'block';
+        // Rebuild header
+        head.innerHTML = '<th>Metric</th>';
+        indices.forEach(i => {
+          const c = CANDIDATES[i];
+          const label = `${c.controller_model} + ${c.expansion_model} (${c.controller_qty} + ${c.expansion_qty})`;
+          const th = document.createElement('th'); th.textContent = label; head.appendChild(th);
+        });
+        // Rebuild rows
+        const metrics = ['effective_tb','weighted_w','kwh_year_with_pue','annual_energy_cost','w_per_effective_tb','dollars_per_effective_tb_year','kwh_per_effective_tb_year'];
+        body.querySelectorAll('tr').forEach(tr => { tr.querySelectorAll('td:not(:first-child)').forEach(td => td.remove()); });
+        metrics.forEach((m, idxRow) => {
+          const tr = body.querySelector(`tr[data-m="${m}"]`);
+          if(!tr) return;
+          indices.forEach(i => {
+            const c = CANDIDATES[i]; const td=document.createElement('td'); td.className='num';
+            const v = c[m];
+            td.textContent = (typeof v === 'number') ? (m.includes('effective_tb')? Math.round(v).toLocaleString() : (m.includes('dollars')? v.toFixed(2) : (m.includes('w_per')? v.toFixed(3) : Math.round(v).toLocaleString()))) : '—';
+            tr.appendChild(td);
+          });
+        });
+      }
+
+      function currentSelectionOrBest(){
+        if(window.CURRENT_CANDIDATE) return window.CURRENT_CANDIDATE;
+        if(CANDIDATES && CANDIDATES.length>0) return CANDIDATES[0];
+        return null;
+      }
+
+      async function openOverrideFromDefaults(){
+        const form = document.getElementById('overrideForm');
+        const base = getNetAppInputs();
+        // Prefer best candidate for a sensible starting point if available
+        let c = currentSelectionOrBest();
+        if(!c){
+          c = { controller_model:'E5760', controller_qty:1, expansion_model:'DE460C 60-bay', expansion_qty:0, details:{drive_tb: base.drive_tb} };
+        }
+        form.controller_model.value = c.controller_model;
+        form.controller_qty.value = c.controller_qty || 1;
+        form.expansion_model.value = c.expansion_model;
+        form.expansion_qty.value = c.expansion_qty || 0;
+        form.dataset.drive_tb_pref = (c.details && c.details.drive_tb) ? c.details.drive_tb : base.drive_tb;
+        await loadDriveSizes();
+        document.getElementById('overrideModal').showModal();
+      }
+
+      // Save / Load Scenarios (DB-backed via /energy/api/scenarios)
+      async function saveScenario(){
+        const name = prompt('Scenario name:', 'My scenario'); if(!name) return;
+        const payload = {
+          assumptions: ASSUMPTIONS,
+          fb: FB,
+          pinned: Array.from(PINNED),
+          selected: window.CURRENT_CANDIDATE || null,
+          candidates: CANDIDATES
+        };
+        try{
+          const resp = await fetch('/energy/api/scenarios', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name, payload})});
+          const data = await resp.json();
+          if(data.ok){ alert('Saved scenario #' + data.id); } else { alert('Save failed: ' + (data.error||'unknown')); }
+        }catch(e){ alert('Save failed'); console.error(e); }
+      }
+
+      async function loadScenario(){
+        try{
+          const resp = await fetch('/energy/api/scenarios?limit=25');
+          const data = await resp.json();
+          if(!data.ok){ alert('Load failed'); return; }
+          const items = data.items || [];
+          const dlg = document.createElement('dialog'); dlg.id='loadScenarioDlg';
+          dlg.innerHTML = '<h3>Load Scenario</h3>';
+          const list = document.createElement('div'); list.style.maxHeight='40vh'; list.style.overflow='auto';
+          items.forEach(it => {
+            const row = document.createElement('div'); row.style.display='flex'; row.style.justifyContent='space-between'; row.style.gap='12px'; row.style.margin='6px 0';
+            row.innerHTML = `<div><strong>#${it.id}</strong> — ${it.name} <span class="muted">(${new Date(it.created_at).toLocaleString()})</span></div>`;
+            const btn = document.createElement('button'); btn.className='mini'; btn.textContent = 'Apply inputs'; btn.onclick = async () => {
+              const one = await (await fetch('/energy/api/scenarios/'+it.id)).json();
+              if(one && one.ok){
+                localStorage.setItem('apply_scenario', JSON.stringify(one.payload));
+                window.location.href = '/energy/';
+              }else{
+                alert('Failed to open scenario');
+              }
+            };
+            row.appendChild(btn);
+            list.appendChild(row);
+          });
+          dlg.appendChild(list);
+          const closeRow = document.createElement('div'); closeRow.style.display='flex'; closeRow.style.justifyContent='flex-end'; closeRow.style.marginTop='10px';
+          const cbtn = document.createElement('button'); cbtn.textContent='Close'; cbtn.className='toggle'; cbtn.onclick=()=>dlg.close();
+          closeRow.appendChild(cbtn); dlg.appendChild(closeRow);
+          document.body.appendChild(dlg); dlg.showModal();
+        }catch(e){ console.error(e); alert('Load failed'); }
+      }
+
+      function exportCandidatesCsv(){
+        const rows = [['Controller','Expansion','C_qty','E_qty','Effective_TB','Pct_from_target','Weighted_W','kWh_year_PUE','USD_year','W_per_EffTB','USD_per_EffTB_year','kWh_per_EffTB_year']];
+        (CANDIDATES||[]).forEach(c => rows.push([c.controller_model,c.expansion_model,c.controller_qty,c.expansion_qty,Math.round(c.effective_tb),(c.pct_diff_from_target||0).toFixed(1),c.weighted_w.toFixed(1),Math.round(c.kwh_year_with_pue),Math.round(c.annual_energy_cost), (c.w_per_effective_tb??(c.weighted_w/c.effective_tb)).toFixed(3),(c.dollars_per_effective_tb_year??(c.annual_energy_cost/c.effective_tb)).toFixed(2),(c.kwh_per_effective_tb_year??(c.kwh_year_with_pue/c.effective_tb)).toFixed(2)]));
+        const csv = rows.map(r => r.join(',')).join('\n');
+        const blob = new Blob([csv], {type:'text/csv'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='candidates.csv'; a.click(); URL.revokeObjectURL(url);
+      }
+
+      async function exportAssumptionsJson(){
+        try{
+          const payload = ASSUMPTIONS || {};
+          const resp = await fetch(`{{ url_for('energy.assumptions_download') }}`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({assumptions: payload})});
+          const blob = await resp.blob(); const url = URL.createObjectURL(blob);
+          const a = document.createElement('a'); a.href=url; a.download='assumptions.json'; a.click(); URL.revokeObjectURL(url);
+        }catch(e){ console.error(e); alert('Export failed'); }
+      }
+
+      // Track current selected candidate when clicking a row (if your template has selectCandidate)
+      window.CURRENT_CANDIDATE = (CANDIDATES && CANDIDATES.length>0) ? CANDIDATES[0] : null;
+      if(typeof selectCandidate === 'function'){
+        const orig = selectCandidate;
+        window.selectCandidate = function(idx, tr){ window.CURRENT_CANDIDATE = CANDIDATES[idx]; return orig(idx, tr); };
+      }
+    </script>
+    
+
+    <div class="card" id="vizCard" style="margin-top:16px;">
+      <h2>Visualize</h2>
+      <div class="row">
+        <div style="flex:1; min-width:320px;">
+          <h3 style="margin-top:0">Eff TB vs $/Eff TB‑yr</h3>
+          <canvas id="vizScatter" width="640" height="320" style="max-width:100%;"></canvas>
+        </div>
+        <div style="flex:1; min-width:320px;">
+          <h3 style="margin-top:0">Annual Energy Cost (Waterfall)</h3>
+          <canvas id="vizWaterfall" width="640" height="320" style="max-width:100%;"></canvas>
+        </div>
+      </div>
+    </div>
+
+
+    <script>
+      function drawScatter(){
+        const cvs = document.getElementById('vizScatter'); if(!cvs) return;
+        const ctx = cvs.getContext('2d');
+        const w = cvs.width, h = cvs.height;
+        ctx.clearRect(0,0,w,h);
+        // axes
+        ctx.strokeStyle = '#888'; ctx.beginPath(); ctx.moveTo(50,10); ctx.lineTo(50,h-40); ctx.lineTo(w-10,h-40); ctx.stroke();
+        // data extents
+        const xs = (CANDIDATES||[]).map(c => c.effective_tb); const ys = (CANDIDATES||[]).map(c => (c.dollars_per_effective_tb_year ?? (c.annual_energy_cost/c.effective_tb)));
+        if(xs.length===0 || ys.length===0) return;
+        const minX = Math.min(...xs), maxX = Math.max(...xs);
+        const minY = Math.min(...ys), maxY = Math.max(...ys);
+        function xScale(v){ return 50 + (w-70)*( (v-minX) / (maxX-minX || 1) ); }
+        function yScale(v){ return (h-40) - (h-50)*( (v-minY) / (maxY-minY || 1) ); }
+        // points
+        ctx.fillStyle = '#444';
+        (CANDIDATES||[]).forEach((c,i)=>{
+          const x = xScale(c.effective_tb); const y = yScale((c.dollars_per_effective_tb_year ?? (c.annual_energy_cost/c.effective_tb)));
+          ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fill();
+        });
+        // FB marker
+        const fbY = FB.annual_energy_cost/FB.effective_tb;
+        const fx = xScale(FB.effective_tb); const fy = yScale(fbY);
+        ctx.fillStyle = '#d33'; ctx.beginPath(); ctx.arc(fx,fy,5,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#000'; ctx.fillText('FB', fx+6, fy-6);
+      }
+      function drawWaterfall(){
+        const cvs = document.getElementById('vizWaterfall'); if(!cvs) return;
+        const ctx = cvs.getContext('2d'); const w=cvs.width,h=cvs.height;
+        ctx.clearRect(0,0,w,h);
+        const c = window.CURRENT_CANDIDATE || (CANDIDATES && CANDIDATES[0]);
+        if(!c) return;
+        const fb = Math.round(FB.annual_energy_cost); const na = Math.round(c.annual_energy_cost); const delta = na - fb;
+        const baseY = h-40; const maxVal = Math.max(fb, na, Math.abs(delta));
+        function y(v){ return baseY - (baseY-20) * (v / (maxVal || 1)); }
+        const barW = 60; const gap=40; const x0=60;
+        // FB
+        ctx.fillStyle = '#888'; ctx.fillRect(x0, y(fb), barW, baseY - y(fb)); ctx.fillText('FB', x0+15, baseY+14);
+        // NA
+        ctx.fillStyle = '#4a7'; ctx.fillRect(x0+barW+gap, y(na), barW, baseY - y(na)); ctx.fillText('NA', x0+barW+gap+15, baseY+14);
+        // Delta
+        ctx.fillStyle = delta>=0 ? '#d33' : '#2a5'; ctx.fillRect(x0+2*(barW+gap), y(Math.abs(delta)), barW, baseY - y(Math.abs(delta)));
+        ctx.fillText('Δ', x0+2*(barW+gap)+22, baseY+14);
+      }
+      window.addEventListener('DOMContentLoaded', ()=>{ drawScatter(); drawWaterfall(); });
+      // Redraw when selection changes
+      if(typeof selectCandidate === 'function'){
+        const origSel = selectCandidate;
+        window.selectCandidate = function(idx, tr){ const r = origSel(idx,tr); window.CURRENT_CANDIDATE = CANDIDATES[idx]; drawWaterfall(); return r; };
+      }
+      if(typeof applyCustomCandidate === 'function'){
+        const origApp = applyCustomCandidate;
+        window.applyCustomCandidate = function(c){ const r = origApp(c); window.CURRENT_CANDIDATE = c; drawWaterfall(); return r; };
+      }
+    </script>
+
 </body>
 </html>
