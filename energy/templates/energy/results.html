@@ -251,48 +251,23 @@
           <div>
             <label>Controller model</label>
             <select name="controller_model">
-              <option>E2860</option>
-              <option>E5760</option>
-              <option>E4060</option>
+              <option>E2860</option><option>E5760</option><option>E4060</option>
             </select>
           </div>
-          <div>
-            <label>Controller shelves</label>
-            <input name="controller_qty" type="number" step="1" min="1" value="1">
-          </div>
+          <div><label>Controller shelves</label><input name="controller_qty" type="number" step="1" min="1" value="1"></div>
           <div>
             <label>Expansion model</label>
             <select name="expansion_model">
-              <option>DE460C 60-bay</option>
-              <option>DE224C 24-bay</option>
-              <option>DE212C 12-bay</option>
+              <option>DE460C 60-bay</option><option>DE224C 24-bay</option><option>DE212C 12-bay</option>
             </select>
           </div>
-          <div>
-            <label>Expansion shelves</label>
-            <input name="expansion_qty" type="number" step="1" min="0" value="0">
-          </div>
-          <div>
-            <label>Drive size (TB)</label>
-            <select name="drive_tb" id="drive_tb_select"></select>
-          </div>
-          <div>
-            <label>PUE</label>
-            <input name="pue" type="number" step="0.01" min="1" value="{{ NetApp_inputs['PUE'] if NetApp_inputs is defined else 1.35 }}">
-          </div>
-          <div>
-            <label>Overhead (raw→usable)</label>
-            <input name="overhead" type="number" step="0.01" min="0" max="1" value="{{ NetApp_inputs['Overhead'] if NetApp_inputs is defined else 0.2 }}">
-          </div>
-          <div>
-            <label>DRR</label>
-            <input name="drr" type="number" step="0.1" min="1" value="{{ NetApp_inputs['DRR'] if NetApp_inputs is defined else 1.3 }}">
-          </div>
-          <div>
-            <label style="visibility:hidden">spacer</label>
-            <div class="help">Utilization and $/kWh use Global Settings; PUE/Overhead/DRR come from NetApp inputs.</div>
-          </div>
+          <div><label>Expansion shelves</label><input name="expansion_qty" type="number" step="1" min="0" value="0"></div>
+          <div><label>Drive size (TB)</label><select name="drive_tb" id="drive_tb_select"></select></div>
+          <div><label>PUE</label><input name="pue" type="number" step="0.01" min="1" value="{{ ui_global_price is defined and NetApp_inputs['PUE'] }}"></div>
+          <div><label>Overhead (raw→usable)</label><input name="overhead" type="number" step="0.01" min="0" max="1" value="{{ NetApp_inputs['Overhead'] if NetApp_inputs is defined else 0.2 }}"></div>
+          <div><label>DRR</label><input name="drr" type="number" step="0.1" min="1" value="{{ NetApp_inputs['DRR'] if NetApp_inputs is defined else 1.3 }}"></div>
         </div>
+        <div class="help">Utilization and $/kWh use Global Settings.</div>
         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
           <button class="toggle" type="button" onclick="document.getElementById('overrideModal').close()">Cancel</button>
           <button class="btn" type="submit">Apply override</button>
@@ -303,37 +278,33 @@
       const FB = JSON.parse({{ fb_json|tojson|safe }});
       const CANDIDATES = JSON.parse({{ candidates_json|tojson|safe }});
       const ASSUMPTIONS = {{ assumptions_json_js | safe }};
-
       function getNetAppInputs(){
-        const g = ASSUMPTIONS && ASSUMPTIONS.NetApp_inputs ? ASSUMPTIONS.NetApp_inputs : {};
-        const gp = ASSUMPTIONS && ASSUMPTIONS.Global_params && ASSUMPTIONS.Global_params.NetApp_inputs ? ASSUMPTIONS.Global_params.NetApp_inputs : {};
+        const gp = (ASSUMPTIONS && ASSUMPTIONS.Global_params && ASSUMPTIONS.Global_params.NetApp_inputs) ? ASSUMPTIONS.Global_params.NetApp_inputs : {};
         return {
-          util: (gp['Util%'] ?? g['Util%'] ?? 50)/100.0,
-          pue: gp['PUE'] ?? g['PUE'] ?? 1.35,
-          price: gp['$/kWh'] ?? g['$/kWh'] ?? 0.12,
-          overhead: gp['Overhead'] ?? g['Overhead'] ?? 0.2,
-          drive_tb: gp['Drive_size_TB'] ?? g['Drive_size_TB'] ?? 18,
-          drr: gp['DRR'] ?? g['DRR'] ?? 1.3
+          util: (gp['Util%'] ?? 50)/100.0,
+          pue: gp['PUE'] ?? 1.35,
+          price: gp['$/kWh'] ?? 0.12,
+          overhead: gp['Overhead'] ?? 0.2,
+          drive_tb: gp['Drive_size_TB'] ?? 18,
+          drr: gp['DRR'] ?? 1.3
         };
       }
-
-      async function loadDriveSizes() {
+      async function loadDriveSizes(){
         const form = document.getElementById('overrideForm');
-        const controller = form.controller_model.value;
-        const expansion = form.expansion_model.value;
-        const resp = await fetch(`{{ url_for('energy.api_netapp_drive_sizes') }}?controller_model=${encodeURIComponent(controller)}&expansion_model=${encodeURIComponent(expansion)}`);
+        const ctrl = form.controller_model.value;
+        const exp  = form.expansion_model.value;
+        const resp = await fetch(`{{ url_for('energy.api_netapp_drive_sizes') }}?controller_model=${encodeURIComponent(ctrl)}&expansion_model=${encodeURIComponent(exp)}`);
         const data = await resp.json();
         const sel = document.getElementById('drive_tb_select');
         sel.innerHTML = '';
         const sizes = (data && data.ok) ? data.sizes_tb : [];
         const current = (form.dataset.drive_tb_pref || '').trim();
-        sizes.forEach(v => { const opt = document.createElement('option'); opt.value = v; opt.textContent = v; sel.appendChild(opt); });
-        if(current){ for(const opt of sel.options){ if(String(opt.value)===String(current)){ sel.value = current; break; } } }
+        sizes.forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; sel.appendChild(o); });
+        if(current){ for(const o of sel.options){ if(String(o.value)===String(current)){ sel.value = current; break; } } }
         if(!form.querySelector('input[name="drive_tb"]')){ const h=document.createElement('input'); h.type='hidden'; h.name='drive_tb'; form.appendChild(h); }
         form.drive_tb.value = sel.value;
         sel.addEventListener('change', ()=>{ form.drive_tb.value = sel.value; });
       }
-
       async function openOverride(idx){
         const c = CANDIDATES[idx]; if(!c) return;
         const form = document.getElementById('overrideForm');
@@ -344,11 +315,10 @@
         form.expansion_qty.value = c.expansion_qty || 0;
         form.dataset.drive_tb_pref = (c.details && c.details.drive_tb) ? c.details.drive_tb : getNetAppInputs().drive_tb;
         await loadDriveSizes();
-        form.controller_model.addEventListener('change', loadDriveSizes, {once:true});
-        form.expansion_model.addEventListener('change', loadDriveSizes, {once:true});
+        form.controller_model.addEventListener('change', loadDriveSizes);
+        form.expansion_model.addEventListener('change', loadDriveSizes);
         document.getElementById('overrideModal').showModal();
       }
-
       async function submitOverride(){
         const form = document.getElementById('overrideForm');
         const base = getNetAppInputs();
@@ -370,27 +340,21 @@
         if(data && data.ok){
           applyCustomCandidate(data.candidate);
           document.getElementById('overrideModal').close();
-        }else{
-          alert('Manual override failed.');
-        }
+        }else{ alert('Manual override failed.'); }
       }
-
-      function setText(id, val){ const el = document.getElementById(id); if(el) el.textContent = val; }
-
+      function setText(id, val){ const el=document.getElementById(id); if(el) el.textContent = val; }
       function applyCustomCandidate(c){
         const hdr = document.getElementById('bestLabel');
         if(hdr){ hdr.textContent = `Selected NetApp (Manual override): ${c.controller_model} + ${c.expansion_model} (${c.controller_qty} + ${c.expansion_qty})`; }
-        setText('naEff', (c.effective_tb).toLocaleString());
-        const fbEff = FB.effective_tb;
-        const pct = (c.effective_tb - fbEff)/fbEff * 100;
+        setText('naEff', Number(c.effective_tb).toLocaleString());
+        const fbEff = FB.effective_tb; const pct = (c.effective_tb - fbEff)/fbEff * 100;
         setText('deltaPct', (pct>=0?'+':'') + pct.toFixed(1) + '%');
-        setText('fbW', (FB.weighted_w).toFixed(1)); setText('naW', (c.weighted_w).toFixed(1)); setText('deltaW', (c.weighted_w - FB.weighted_w).toFixed(1));
+        setText('fbW', FB.weighted_w.toFixed(1)); setText('naW', c.weighted_w.toFixed(1)); setText('deltaW', (c.weighted_w - FB.weighted_w).toFixed(1));
         setText('fbKwh', Math.round(FB.kwh_year_with_pue).toLocaleString()); setText('naKwh', Math.round(c.kwh_year_with_pue).toLocaleString()); setText('deltaKwh', Math.round(c.kwh_year_with_pue - FB.kwh_year_with_pue).toLocaleString());
         setText('fbUsd', '$'+Math.round(FB.annual_energy_cost).toLocaleString()); setText('naUsd', '$'+Math.round(c.annual_energy_cost).toLocaleString()); setText('deltaUsd', '$'+Math.round(Math.abs(c.annual_energy_cost - FB.annual_energy_cost)).toLocaleString());
-        const fbWtb = FB.weighted_w/FB.effective_tb; setText('fbWtb', fbWtb.toFixed(3)); setText('naWtb', (c.w_per_effective_tb ?? (c.weighted_w/c.effective_tb)).toFixed(3)); setText('deltaWtb', ((c.w_per_effective_tb ?? (c.weighted_w/c.effective_tb)) - fbWtb).toFixed(3));
-        const fbUsdtb = FB.annual_energy_cost/FB.effective_tb; setText('fbUsdtb', fbUsdtb.toFixed(2)); setText('naUsdtb', (c.dollars_per_effective_tb_year ?? (c.annual_energy_cost/c.effective_tb)).toFixed(2)); setText('deltaUsdtb', ((c.dollars_per_effective_tb_year ?? (c.annual_energy_cost/c.effective_tb)) - fbUsdtb).toFixed(2));
-        const fbKwhtb = FB.kwh_year_with_pue/FB.effective_tb; setText('fbKwhtb', fbKwhtb.toFixed(2)); setText('naKwhtb', (c.kwh_per_effective_tb_year ?? (c.kwh_year_with_pue/c.effective_tb)).toFixed(2)); setText('deltaKwhtb', ((c.kwh_per_effective_tb_year ?? (c.kwh_year_with_pue/c.effective_tb)) - fbKwhtb).toFixed(2));
-        // Clear selected highlight in table since this is custom
+        const fbWtb = FB.weighted_w/FB.effective_tb; setText('fbWtb', fbWtb.toFixed(3)); const naWtb=(c.w_per_effective_tb ?? (c.weighted_w/c.effective_tb)); setText('naWtb', naWtb.toFixed(3)); setText('deltaWtb', (naWtb - fbWtb).toFixed(3));
+        const fbUsdtb = FB.annual_energy_cost/FB.effective_tb; setText('fbUsdtb', fbUsdtb.toFixed(2)); const naUsdtb=(c.dollars_per_effective_tb_year ?? (c.annual_energy_cost/c.effective_tb)); setText('naUsdtb', naUsdtb.toFixed(2)); setText('deltaUsdtb', (naUsdtb - fbUsdtb).toFixed(2));
+        const fbKwhtb = FB.kwh_year_with_pue/FB.effective_tb; setText('fbKwhtb', fbKwhtb.toFixed(2)); const naKwhtb=(c.kwh_per_effective_tb_year ?? (c.kwh_year_with_pue/c.effective_tb)); setText('naKwhtb', naKwhtb.toFixed(2)); setText('deltaKwhtb', (naKwhtb - fbKwhtb).toFixed(2));
         document.querySelectorAll('tbody tr.selected').forEach(tr => tr.classList.remove('selected'));
       }
     </script>

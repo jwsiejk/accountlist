@@ -80,19 +80,19 @@
 
     <form action="{{ url_for('energy.results') }}" method="POST" novalidate>
 
-      <div class="card">
-        <h2>Global Settings</h2>
-        <div class="row">
-          <div>
-            <label>Power<br><span class="help">$ / kWh</span></label>
-            <input type="number" step="0.001" min="0" name="global_price" value="{{defaults.global_price}}">
-          </div>
-          <div>
-            <label>Solution<br><span class="help">Utilization %</span></label>
-            <input type="number" step="1" min="1" max="100" name="global_util_pct" value="{{defaults.global_util_pct}}">
-          </div>
-        </div>
-      </div>
+<div class="card">
+  <h2>Global Settings</h2>
+  <div class="row">
+    <div>
+      <label>Power<br><span class="help">$ / kWh</span></label>
+      <input type="number" step="0.001" min="0" name="global_price" value="{{defaults.global_price}}">
+    </div>
+    <div>
+      <label>Solution<br><span class="help">Utilization %</span></label>
+      <input type="number" step="1" min="1" max="100" name="global_util_pct" value="{{defaults.global_util_pct}}">
+    </div>
+  </div>
+</div>
 
       <div class="grid">
         <div class="card">
