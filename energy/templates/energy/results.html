@@ -307,7 +307,7 @@
           drr: gp['DRR'] ?? 1.3
         };
       }
-      async async function loadDriveSizes(){
+      async function loadDriveSizes(){
         const form = document.getElementById('overrideForm');
         const ctrl = form.controller_model.value;
         const exp  = form.expansion_model.value;
@@ -323,7 +323,7 @@
         form.drive_tb.value = sel.value;
         sel.addEventListener('change', ()=>{ form.drive_tb.value = sel.value; });
       }
-      async async function openOverride(idx){
+      async function openOverride(idx){
         const c = CANDIDATES[idx]; if(!c) return;
         const form = document.getElementById('overrideForm');
         form.dataset.idx = idx;
