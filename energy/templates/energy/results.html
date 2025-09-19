@@ -293,8 +293,8 @@
       </form>
     </dialog>
     <script>
-      const FB = JSON.parse({{ fb_json|tojson|safe }});
-      const CANDIDATES = JSON.parse({{ candidates_json|tojson|safe }});
+      
+      
       const ASSUMPTIONS = {{ assumptions_json_js | safe }};
       function getNetAppInputs(){
         const gp = (ASSUMPTIONS && ASSUMPTIONS.Global_params && ASSUMPTIONS.Global_params.NetApp_inputs) ? ASSUMPTIONS.Global_params.NetApp_inputs : {};
