@@ -146,6 +146,60 @@ def enumerate_netapp(netapp_rows, target_eff_tb:float, util:float, pue:float, pr
     out.sort(key=lambda c: (abs(c["pct_diff_from_target"]), c["annual_energy_cost"]))
     return out
 
+
+def compute_custom_netapp(netapp_rows, controller_model:str, controller_qty:int, expansion_model:str, expansion_qty:int,
+                          drive_tb:float, util:float, pue:float, price:float, overhead:float, drr:float,
+                          target_eff_tb:float=None):
+    # Lookup power + drives per unit
+    ctrl_row = next((r for r in netapp_rows if r.get("Component_Type")=="Controller_Shelf" and r.get("Model")==controller_model), None)
+    exp_row = next((r for r in netapp_rows if r.get("Component_Type")=="Expansion_Shelf" and r.get("Model")==expansion_model), None)
+    if ctrl_row is None: raise ValueError("Unknown controller model")
+    if exp_row is None: raise ValueError("Unknown expansion model")
+
+    ctrl_pow = PowerModel(ctrl_row.get("Model"), float(ctrl_row.get("Typical_W")), float(ctrl_row.get("Idle_W")))
+    exp_pow  = PowerModel(exp_row.get("Model"),  float(exp_row.get("Typical_W")),  float(exp_row.get("Idle_W")))
+    ctrl_drives = int(float(ctrl_row.get("Drives_per_unit"))) or 0
+    exp_drives  = int(float(exp_row.get("Drives_per_unit"))) or 0
+
+    total_drives = controller_qty*ctrl_drives + expansion_qty*exp_drives
+    w = controller_qty*ctrl_pow.weighted(util) + expansion_qty*exp_pow.weighted(util)
+    kwh_it = kwh_year(w)
+    kwh_pue = kwh_it * pue
+    annual = kwh_pue * price
+
+    raw_tb = total_drives * float(drive_tb)
+    usable_tb = raw_tb * (1.0 - float(overhead))
+    eff = usable_tb * float(drr)
+    out = {
+        "controller_model": controller_model,
+        "expansion_model": expansion_model,
+        "controller_qty": controller_qty,
+        "expansion_qty": expansion_qty,
+        "effective_tb": eff,
+        "weighted_w": w,
+        "kwh_year_it": kwh_it,
+        "kwh_year_with_pue": kwh_pue,
+        "annual_energy_cost": annual,
+        "w_per_effective_tb": w/eff if eff>0 else None,
+        "dollars_per_effective_tb_year": annual/eff if eff>0 else None,
+        "kwh_per_effective_tb_year": kwh_pue/eff if eff>0 else None,
+        "details": {
+            "total_drives": total_drives,
+            "raw_tb": raw_tb,
+            "usable_tb": usable_tb,
+            "overhead": overhead,
+            "drr": drr,
+            "util_frac": util,
+            "pue": pue,
+            "price_per_kwh": price,
+            "drives_per_controller": ctrl_drives,
+            "drives_per_expansion": exp_drives,
+            "drive_tb": drive_tb
+        }
+    }
+    if target_eff_tb:
+        out["pct_diff_from_target"] = ((eff - target_eff_tb)/target_eff_tb)*100.0
+    return out
 def build_assumptions(pure_rows, netapp_rows, fb, candidates, global_params):
     dfm_tb = fb["dfm_tb"]
     fb_sources = sorted({r.get("Source_URL") for r in pure_rows if r.get("DFM_Size_TB")==dfm_tb and r.get("Source_URL")})

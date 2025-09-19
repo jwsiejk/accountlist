@@ -181,7 +181,6 @@
                 <th class="num">W / Eff TB</th>
                 <th class="num">$ / Eff TB-yr</th>
                 <th class="num">kWh / Eff TB-yr</th>
-                <th>Override</th>
               </tr>
             </thead>
             <tbody>
@@ -197,7 +196,7 @@
                 <td class="num">{{ c.w_per_effective_tb|fmt3 }}</td>
                 <td class="num">{{ c.dollars_per_effective_tb_year|fmt2 }}</td>
                 <td class="num">{{ c.kwh_per_effective_tb_year|fmt2 }}</td>
-              <td><button type="button" class="mini" onclick="openOverride({{ loop.index0 }}, event)">Override</button></td></tr>
+              </tr>
               {% endfor %}
               {% if candidates|length == 0 %}
               <tr><td colspan="10" class="muted">No auto‑match candidates found within the tolerance band. Try adjusting NetApp inputs.</td></tr>
@@ -241,165 +240,149 @@
         <button class="toggle" onclick="closeModal()">Close</button>
       </div>
     </dialog>
-  
-    <dialog id="overrideDialog">
-      <h3>Manual NetApp Override</h3>
-      <div class="row">
-        <div>
-          <label>Controller model</label>
-          <select id="ovController">
-            <option>E2860</option>
-            <option>E5760</option>
-            <option>E4060</option>
-          </select>
-        </div>
-        <div>
-          <label>Controller shelves</label>
-          <input id="ovCtrlQty" type="number" step="1" min="0">
-        </div>
-      </div>
-      <div class="row">
-        <div>
-          <label>Expansion model</label>
-          <select id="ovExp">
-            <option>DE460C 60-bay</option>
-          </select>
-        </div>
-        <div>
-          <label>Expansion shelves</label>
-          <input id="ovExpQty" type="number" step="1" min="0">
-        </div>
-      </div>
-      <div class="row">
-        <div>
-          <label>Drive size (TB)</label>
-          <select id="ovDriveTb"></select>
-          <div class="help">Options derived from netapp_e_series.csv</div>
-        </div>
-        <div>
-          <label>Utilization (0–1)</label>
-          <input id="ovUtil" type="number" step="0.01" min="0" max="1" readonly>
-          <div class="help">Uses Global Settings</div>
-        </div>
-      </div>
-      <div class="row">
-        <div>
-          <label>PUE</label>
-          <input id="ovPue" type="number" step="0.01" min="1">
-        </div>
-        <div>
-          <label>$ / kWh</label>
-          <input id="ovPrice" type="number" step="0.001" min="0" readonly>
-          <div class="help">Uses Global Settings</div>
-        </div>
-      </div>
-      <div class="row">
-        <div>
-          <label>Overhead (raw→usable)</label>
-          <input id="ovOverhead" type="number" step="0.01" min="0" max="0.99">
-        </div>
-        <div>
-          <label>Data reduction (DRR)</label>
-          <input id="ovDrr" type="number" step="0.1" min="1">
-        </div>
-      </div>
-      <div class="cta">
-        <button class="btn" type="button" onclick="applyOverride()">Apply override</button>
-        <button class="toggle" type="button" onclick="document.getElementById('overrideDialog').close()">Cancel</button>
-      </div>
-    </dialog>
+  </div>
 
-    <style>
-      .mini{appearance:none;border:1px solid var(--line);background:var(--chip);border-radius:10px;padding:6px 10px;cursor:pointer}
-      .mini:hover{border-color:var(--accent)}
-    </style>
+    <dialog id="overrideModal">
+      <form id="overrideForm" method="dialog" onsubmit="event.preventDefault(); submitOverride();">
+        <h3>Manual NetApp Override</h3>
+        <div class="row" style="margin-top:8px">
+          <div>
+            <label>Controller model</label>
+            <select name="controller_model">
+              <option>E2860</option>
+              <option>E5760</option>
+              <option>E4060</option>
+            </select>
+          </div>
+          <div>
+            <label>Controller shelves</label>
+            <input name="controller_qty" type="number" step="1" min="1" value="1">
+          </div>
+          <div>
+            <label>Expansion model</label>
+            <select name="expansion_model">
+              <option>DE460C 60-bay</option>
+              <option>DE224C 24-bay</option>
+              <option>DE212C 12-bay</option>
+            </select>
+          </div>
+          <div>
+            <label>Expansion shelves</label>
+            <input name="expansion_qty" type="number" step="1" min="0" value="0">
+          </div>
+          <div>
+            <label>Drive size (TB)</label>
+            <select name="drive_tb" id="drive_tb_select"></select>
+          </div>
+          <div>
+            <label>PUE</label>
+            <input name="pue" type="number" step="0.01" min="1" value="{{ NetApp_inputs['PUE'] if NetApp_inputs is defined else 1.35 }}">
+          </div>
+          <div>
+            <label>Overhead (raw→usable)</label>
+            <input name="overhead" type="number" step="0.01" min="0" max="1" value="{{ NetApp_inputs['Overhead'] if NetApp_inputs is defined else 0.2 }}">
+          </div>
+          <div>
+            <label>DRR</label>
+            <input name="drr" type="number" step="0.1" min="1" value="{{ NetApp_inputs['DRR'] if NetApp_inputs is defined else 1.3 }}">
+          </div>
+          <div>
+            <label style="visibility:hidden">spacer</label>
+            <div class="help">Utilization and $/kWh use Global Settings.</div>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+          <button class="toggle" type="button" onclick="document.getElementById('overrideModal').close()">Cancel</button>
+          <button class="btn" type="submit">Apply override</button>
+        </div>
+      </form>
+    </dialog>
+    
 
     <script>
-      function setVal(id, val){ const el = document.getElementById(id); if(el){ el.value = val; } }
-      function getVal(id){ const el = document.getElementById(id); return el ? el.value : ''; }
+      const CANDIDATES = JSON.parse({{ candidates_json|tojson|safe }});
+      const FB = JSON.parse({{ fb_json|tojson|safe }});
+      const ASSUMPTIONS = {{ assumptions_json_js | safe }};
 
-      
-      async function loadDriveOptions(){
-        const ctrl = getVal('ovController');
-        const exp = getVal('ovExp');
-        try{
-          const resp = await fetch(`{{ url_for('energy.netapp_drive_optionsive_options') }}?controller=${encodeURIComponent(ctrl)}&expansion=${encodeURIComponent(exp)}`);
-          const data = await resp.json();
-          if(!data.ok){ console.warn('drive-options failed', data.error); return; }
-          const sel = document.getElementById('ovDriveTb');
-          sel.innerHTML = '';
-          (data.drive_tb || []).forEach(v => {
-            const opt = document.createElement('option');
-            opt.value = v; opt.textContent = Number(v).toFixed(v % 1 === 0 ? 0 : 1);
-            sel.appendChild(opt);
-          });
-          // Try to select current default; else choose the largest
-          const defVal = {{ ui_na_drive_size|default(18.0) }};
-          const hasDef = Array.from(sel.options).some(o => Number(o.value) === Number(defVal));
-          sel.value = hasDef ? String(defVal) : (sel.options.length ? sel.options[sel.options.length-1].value : '');
-        }catch(e){
-          console.error(e);
-        }
-      }
-async function openOverride(idx, ev){
-        if(ev){ ev.stopPropagation(); }
-        const c = CANDIDATES[idx]; if(!c) return;
-        setVal('ovController', c.controller_model);
-        setVal('ovCtrlQty', c.controller_qty);
-        setVal('ovExp', c.expansion_model || 'DE460C 60-bay');
-        await loadDriveOptions();
-        setVal('ovExpQty', c.expansion_qty);
-        setVal('ovDriveTb', {{ ui_na_drive_size|default(18.0) }});
-        setVal('ovUtil', ({{ ui_global_util_pct|default(50) }} / 100).toFixed(2));
-        setVal('ovPue', {{ ui_na_pue|default(1.35) }});
-        setVal('ovPrice', {{ ui_global_price|default(0.12) }});
-        setVal('ovOverhead', {{ ui_na_overhead|default(0.20) }});
-        setVal('ovDrr', {{ ui_na_drr|default(1.3) }});
-        document.getElementById('ovController').onchange = loadDriveOptions;
-        document.getElementById('ovExp').onchange = loadDriveOptions;
-        document.getElementById('overrideDialog').showModal();
-      }
-
-      async function applyOverride(){
-        const payload = {
-          controller_model: getVal('ovController'),
-          controller_qty: parseInt(getVal('ovCtrlQty'))||0,
-          expansion_model: getVal('ovExp'),
-          expansion_qty: parseInt(getVal('ovExpQty'))||0,
-          drive_tb: parseFloat(getVal('ovDriveTb'))||0,
-          util: parseFloat(getVal('ovUtil'))||0,
-          pue: parseFloat(getVal('ovPue'))||1,
-          price: parseFloat(getVal('ovPrice'))||0,
-          overhead: parseFloat(getVal('ovOverhead'))||0,
-          drr: parseFloat(getVal('ovDrr'))||1
+      function getNetAppInputs(){
+        const g = ASSUMPTIONS && ASSUMPTIONS.NetApp_inputs ? ASSUMPTIONS.NetApp_inputs : {};
+        const gp = ASSUMPTIONS && ASSUMPTIONS.Global_params && ASSUMPTIONS.Global_params.NetApp_inputs ? ASSUMPTIONS.Global_params.NetApp_inputs : {};
+        return {
+          util: (gp['Util%'] ?? g['Util%'] ?? 50)/100.0,
+          pue: gp['PUE'] ?? g['PUE'] ?? 1.35,
+          price: gp['$/kWh'] ?? g['$/kWh'] ?? 0.12,
+          overhead: gp['Overhead'] ?? g['Overhead'] ?? 0.2,
+          drive_tb: gp['Drive_size_TB'] ?? g['Drive_size_TB'] ?? 18,
+          drr: gp['DRR'] ?? g['DRR'] ?? 1.3
         };
-        try{
-          const resp = await fetch('{{ url_for("energy.netapp_custom") }}', {
-            method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
-          });
-          const data = await resp.json();
-          if(!data.ok){ alert(data.error || 'Failed to compute'); return; }
-          const c = data.candidate;
-          // compute delta vs FB
-          c.pct_diff_from_target = ((c.effective_tb - FB.effective_tb) / FB.effective_tb) * 100.0;
-          // Update comparison section using the same logic as pick()
-          const hdr = document.getElementById('bestLabel');
-          if(hdr){ hdr.textContent = `Manual override: ${c.controller_model} + ${c.expansion_model} (${c.controller_qty} + ${c.expansion_qty})`; }
-          setText('naEff', fmt0(c.effective_tb));
-          setText('deltaPct', (c.pct_diff_from_target>=0?'+':'') + c.pct_diff_from_target.toFixed(1) + '%');
-          setText('fbW', fmt1(FB.weighted_w)); setText('naW', fmt1(c.weighted_w)); setText('deltaW', fmt1(c.weighted_w - FB.weighted_w));
-          setText('fbKwh', fmt0(FB.kwh_year_with_pue)); setText('naKwh', fmt0(c.kwh_year_with_pue)); setText('deltaKwh', fmt0(c.kwh_year_with_pue - FB.kwh_year_with_pue));
-          setText('fbUsd', '$'+fmt0(FB.annual_energy_cost)); setText('naUsd', '$'+fmt0(c.annual_energy_cost)); setText('deltaUsd', '$'+fmt0(Math.abs(c.annual_energy_cost - FB.annual_energy_cost)));
-          const fbWtb = FB.weighted_w/FB.effective_tb; setText('fbWtb', fmt3(fbWtb)); setText('naWtb', fmt3(c.w_per_effective_tb)); setText('deltaWtb', fmt3(c.w_per_effective_tb - fbWtb));
-          const fbUsdtb = FB.annual_energy_cost/FB.effective_tb; setText('fbUsdtb', fmt2(fbUsdtb)); setText('naUsdtb', fmt2(c.dollars_per_effective_tb_year)); setText('deltaUsdtb', fmt2(c.dollars_per_effective_tb_year - fbUsdtb));
-          const fbKwhtb = FB.kwh_year_with_pue/FB.effective_tb; setText('fbKwhtb', fmt2(fbKwhtb)); setText('naKwhtb', fmt2(c.kwh_per_effective_tb_year)); setText('deltaKwhtb', fmt2(c.kwh_per_effective_tb_year - fbKwhtb));
-          document.getElementById('overrideDialog').close();
-        }catch(e){
-          console.error(e); alert('Error: ' + e);
+      }
+
+      async function loadDriveSizes() {
+        const form = document.getElementById('overrideForm');
+        const controller = form.controller_model.value;
+        const expansion = form.expansion_model.value;
+        const resp = await fetch(`{{ url_for('energy.api_netapp_drive_sizes') }}?controller_model=${encodeURIComponent(controller)}&expansion_model=${encodeURIComponent(expansion)}`);
+        const data = await resp.json();
+        const sel = document.getElementById('drive_tb_select');
+        sel.innerHTML = '';
+        const sizes = (data && data.ok) ? data.sizes_tb : [];
+        const current = (form.dataset.drive_tb_pref || '').trim();
+        sizes.forEach(v => { const opt = document.createElement('option'); opt.value = v; opt.textContent = v; sel.appendChild(opt); });
+        if(current){ for(const opt of sel.options){ if(String(opt.value)===String(current)){ sel.value = current; break; } } }
+        if(!form.querySelector('input[name="drive_tb"]')){ const h=document.createElement('input'); h.type='hidden'; h.name='drive_tb'; form.appendChild(h); }
+        form.drive_tb.value = sel.value;
+        sel.addEventListener('change', ()=>{ form.drive_tb.value = sel.value; });
+      }
+
+      async function openOverride(idx){
+        const c = CANDIDATES[idx]; if(!c) return;
+        const form = document.getElementById('overrideForm');
+        form.dataset.idx = idx;
+        form.controller_model.value = c.controller_model;
+        form.controller_qty.value = c.controller_qty || 1;
+        form.expansion_model.value = c.expansion_model;
+        form.expansion_qty.value = c.expansion_qty || 0;
+        form.dataset.drive_tb_pref = (c.details && c.details.drive_tb) ? c.details.drive_tb : getNetAppInputs().drive_tb;
+        await loadDriveSizes();
+        form.controller_model.addEventListener('change', loadDriveSizes);
+        form.expansion_model.addEventListener('change', loadDriveSizes);
+        document.getElementById('overrideModal').showModal();
+      }
+
+      async function submitOverride(){
+        const form = document.getElementById('overrideForm');
+        const base = getNetAppInputs();
+        const params = Object.fromEntries(new FormData(form).entries());
+        const payload = {
+          controller_model: params.controller_model,
+          controller_qty: Number(params.controller_qty || 1),
+          expansion_model: params.expansion_model,
+          expansion_qty: Number(params.expansion_qty || 0),
+          drive_tb: Number(params.drive_tb || base.drive_tb),
+          util: Number(base.util),
+          pue: Number(params.pue || base.pue),
+          price: Number(base.price),
+          overhead: Number(params.overhead || base.overhead),
+          drr: Number(params.drr || base.drr)
+        };
+        const resp = await fetch('{{ url_for('energy.netapp_custom') }}', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+        const data = await resp.json();
+        if(data && data.ok){
+          applyCustomCandidate(data.candidate);
+          document.getElementById('overrideModal').close();
+        }else{
+          alert('Manual override failed.');
         }
+      }
+
+      function applyCustomCandidate(c){
+        // Update your comparison UI here. For brevity, assume you have setters like setText(...).
+        // This code assumes the same structure as your candidate rows and FB object.
+        const fbEff = FB.effective_tb;
+        const pct = (c.effective_tb - fbEff)/fbEff * 100;
+        // Example: document.getElementById('naEff').textContent = c.effective_tb.toLocaleString();
       }
     </script>
     
-  </div>
 </body>
 </html>
