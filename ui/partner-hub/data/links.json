@@ -1,0 +1,23 @@
+[
+  {
+    "title": "Pure Account Team Search",
+    "href": "https://purestorage.com/account-search",
+    "type": "external"
+  },
+  {
+    "title": "Pipeline Report",
+    "href": "https://purestorage.com/pipeline",
+    "type": "external"
+  },
+  {
+    "title": "Asset Report",
+    "href": "https://purestorage.com/assets",
+    "type": "external",
+    "restricted": true
+  },
+  {
+    "title": "Events Calendar",
+    "href": "/marketing",
+    "type": "internal"
+  }
+]

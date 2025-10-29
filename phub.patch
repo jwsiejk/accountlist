@@ -1,0 +1,630 @@
+diff --git a/ui/partner-hub/app/(routes)/alliances/page.tsx b/ui/partner-hub/app/(routes)/alliances/page.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..3553ad1ca761d25234e7512aa9dd37320ab5fa1e
+--- /dev/null
++++ b/ui/partner-hub/app/(routes)/alliances/page.tsx
+@@ -0,0 +1,10 @@
++export default function AlliancesPage() {
++  return (
++    <section className="space-y-3">
++      <h1 className="text-2xl font-semibold">Alliance Operations</h1>
++      <p className="text-sm text-foreground/70">
++        Partnership scorecards, joint planning artifacts, and governance updates will be featured.
++      </p>
++    </section>
++  );
++}
+diff --git a/ui/partner-hub/app/(routes)/engineering/page.tsx b/ui/partner-hub/app/(routes)/engineering/page.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..cb6d5af9523f2d2b58f4931a80e06eb94409ede2
+--- /dev/null
++++ b/ui/partner-hub/app/(routes)/engineering/page.tsx
+@@ -0,0 +1,10 @@
++export default function EngineeringPage() {
++  return (
++    <section className="space-y-3">
++      <h1 className="text-2xl font-semibold">Engineering Resources</h1>
++      <p className="text-sm text-foreground/70">
++        Solution architecture guides, demo environments, and technical win stories land here.
++      </p>
++    </section>
++  );
++}
+diff --git a/ui/partner-hub/app/(routes)/leadership/page.tsx b/ui/partner-hub/app/(routes)/leadership/page.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..5fc1d318c2a0734bc13af8814f5ebc2742805b8b
+--- /dev/null
++++ b/ui/partner-hub/app/(routes)/leadership/page.tsx
+@@ -0,0 +1,10 @@
++export default function LeadershipPage() {
++  return (
++    <section className="space-y-3">
++      <h1 className="text-2xl font-semibold">Leadership Insights</h1>
++      <p className="text-sm text-foreground/70">
++        Executive scoreboards, strategic initiatives, and partnership health summaries belong here.
++      </p>
++    </section>
++  );
++}
+diff --git a/ui/partner-hub/app/(routes)/marketing/page.tsx b/ui/partner-hub/app/(routes)/marketing/page.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..355254a370f9ec70b9c547f3795b1d5a40c97fbf
+--- /dev/null
++++ b/ui/partner-hub/app/(routes)/marketing/page.tsx
+@@ -0,0 +1,10 @@
++export default function MarketingPage() {
++  return (
++    <section className="space-y-3">
++      <h1 className="text-2xl font-semibold">Marketing Programs</h1>
++      <p className="text-sm text-foreground/70">
++        Launch kits, co-brand assets, and campaign calendars will surface in this view.
++      </p>
++    </section>
++  );
++}
+diff --git a/ui/partner-hub/app/(routes)/sales/page.tsx b/ui/partner-hub/app/(routes)/sales/page.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..e90f74ad9bf18a6a0941c9d431017628a6ea87b1
+--- /dev/null
++++ b/ui/partner-hub/app/(routes)/sales/page.tsx
+@@ -0,0 +1,10 @@
++export default function SalesPage() {
++  return (
++    <section className="space-y-3">
++      <h1 className="text-2xl font-semibold">Sales Enablement</h1>
++      <p className="text-sm text-foreground/70">
++        Curated sales plays, battlecards, and Pure alliance updates will live here.
++      </p>
++    </section>
++  );
++}
+diff --git a/ui/partner-hub/app/layout.tsx b/ui/partner-hub/app/layout.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..e2977b1f93d481af9ff3e1e79b0e9d747e40d0b4
+--- /dev/null
++++ b/ui/partner-hub/app/layout.tsx
+@@ -0,0 +1,21 @@
++import type { Metadata } from "next";
++import "../styles/globals.css";
++import { ThemeProvider } from "@/components/theme-provider";
++import { AppShell } from "@/components/app-shell";
++
++export const metadata: Metadata = {
++  title: "Trace3 × Pure Partner Hub",
++  description: "Offline-ready shell for partner resources with role-based navigation.",
++};
++
++export default function RootLayout({ children }: { children: React.ReactNode }) {
++  return (
++    <html lang="en" suppressHydrationWarning>
++      <body className="min-h-screen bg-background text-foreground">
++        <ThemeProvider>
++          <AppShell>{children}</AppShell>
++        </ThemeProvider>
++      </body>
++    </html>
++  );
++}
+diff --git a/ui/partner-hub/app/page.tsx b/ui/partner-hub/app/page.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..08e6ba7792bdf1f165589f571ca29411c0591ef6
+--- /dev/null
++++ b/ui/partner-hub/app/page.tsx
+@@ -0,0 +1,58 @@
++import Link from "next/link";
++import { ArrowUpRight } from "lucide-react";
++import links from "@/data/links.json";
++import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
++
++export default function HomePage() {
++  return (
++    <div className="space-y-8">
++      <section className="rounded-3xl border border-border bg-gradient-to-br from-primary/10 via-white to-secondary/10 p-10 shadow-sm dark:via-slate-900">
++        <p className="text-sm font-medium text-primary">Partner Hub</p>
++        <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
++          Empower every Trace3 × Pure alliance engagement
++        </h1>
++        <p className="mt-4 max-w-2xl text-base text-foreground/70">
++          Stay aligned across sales, marketing, engineering, and leadership with quick access to
++          the resources you need—even when you are offline.
++        </p>
++      </section>
++
++      <section>
++        <div className="mb-4 flex items-center justify-between">
++          <h2 className="text-lg font-semibold">Quick Actions</h2>
++          <span className="text-xs uppercase tracking-wide text-foreground/50">
++            {links.length} curated shortcuts
++          </span>
++        </div>
++        <div className="grid gap-4 sm:grid-cols-2">
++          {links.map((item) => (
++            <Card key={item.title}>
++              <CardHeader>
++                <CardTitle className="flex items-center justify-between text-base">
++                  <span>{item.title}</span>
++                  <ArrowUpRight className="h-4 w-4 text-foreground/40" aria-hidden />
++                </CardTitle>
++              </CardHeader>
++              <CardContent className="flex items-center justify-between text-sm">
++                <span className="text-foreground/60">
++                  {item.type === "external" ? "External resource" : "Internal link"}
++                </span>
++                <Link
++                  href={item.href}
++                  className="rounded-md border border-border px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary transition hover:bg-primary/10"
++                >
++                  Open
++                </Link>
++              </CardContent>
++              {item.restricted ? (
++                <div className="px-6 pb-4 text-xs font-medium text-foreground/50">
++                  Restricted • Request Pure portal access
++                </div>
++              ) : null}
++            </Card>
++          ))}
++        </div>
++      </section>
++    </div>
++  );
++}
+diff --git a/ui/partner-hub/components/app-header.tsx b/ui/partner-hub/components/app-header.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..9d6b9e143678929ce682e02856cf899c5674b541
+--- /dev/null
++++ b/ui/partner-hub/components/app-header.tsx
+@@ -0,0 +1,44 @@
++"use client";
++
++import { useTheme } from "next-themes";
++import { Moon, Sun, Search } from "lucide-react";
++import { Button } from "./ui/button";
++
++export function AppHeader() {
++  const { theme, setTheme } = useTheme();
++
++  const toggleTheme = () => {
++    setTheme(theme === "dark" ? "light" : "dark");
++  };
++
++  return (
++    <header className="sticky top-0 z-20 border-b border-border bg-white/80 backdrop-blur dark:bg-slate-900/80">
++      <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-6">
++        <div className="text-lg font-semibold tracking-tight text-primary">
++          Trace3 × Pure Partner Hub
++        </div>
++        <div className="relative mx-auto flex w-full max-w-xl items-center">
++          <Search className="absolute left-3 h-4 w-4 text-foreground/40" aria-hidden />
++          <input
++            className="h-10 w-full rounded-lg border border-border bg-white/60 pl-9 pr-3 text-sm shadow-inner outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30 dark:bg-slate-950/40"
++            placeholder="Search partner resources"
++            type="search"
++            aria-label="Search"
++          />
++        </div>
++        <Button
++          variant="ghost"
++          className="h-10 w-10 rounded-full border border-transparent hover:border-border"
++          onClick={toggleTheme}
++          aria-label="Toggle theme"
++        >
++          {theme === "dark" ? (
++            <Sun className="h-4 w-4" />
++          ) : (
++            <Moon className="h-4 w-4" />
++          )}
++        </Button>
++      </div>
++    </header>
++  );
++}
+diff --git a/ui/partner-hub/components/app-shell.tsx b/ui/partner-hub/components/app-shell.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..7f45e564d4b66cab6641a2cea9e22f0747e21c3d
+--- /dev/null
++++ b/ui/partner-hub/components/app-shell.tsx
+@@ -0,0 +1,15 @@
++import type { ReactNode } from "react";
++import { AppHeader } from "./app-header";
++import { LeftNav } from "./left-nav";
++
++export function AppShell({ children }: { children: ReactNode }) {
++  return (
++    <div className="flex min-h-screen flex-col bg-[hsl(var(--background))]">
++      <AppHeader />
++      <div className="mx-auto flex w-full max-w-6xl flex-1 gap-6 px-6 py-8">
++        <LeftNav />
++        <main className="flex-1 space-y-6">{children}</main>
++      </div>
++    </div>
++  );
++}
+diff --git a/ui/partner-hub/components/left-nav.tsx b/ui/partner-hub/components/left-nav.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..4fa6ec24ad63265b9447edaf046549f7dd63e79c
+--- /dev/null
++++ b/ui/partner-hub/components/left-nav.tsx
+@@ -0,0 +1,65 @@
++"use client";
++
++import Link from "next/link";
++import { usePathname } from "next/navigation";
++import { Menu, ChevronLeft } from "lucide-react";
++import { useState } from "react";
++import { clsx } from "clsx";
++
++const links = [
++  { name: "Home", href: "/" },
++  { name: "Sales", href: "/sales" },
++  { name: "Marketing", href: "/marketing" },
++  { name: "Engineering (SE)", href: "/engineering" },
++  { name: "Alliances", href: "/alliances" },
++  { name: "Leadership", href: "/leadership" },
++  { name: "Tools", href: "#tools" },
++  { name: "Training", href: "#training" },
++  { name: "Events", href: "#events" },
++  { name: "Support", href: "#support" },
++];
++
++export function LeftNav() {
++  const pathname = usePathname();
++  const [collapsed, setCollapsed] = useState(false);
++
++  return (
++    <aside
++      className={clsx(
++        "flex h-full flex-col border-r border-border bg-white/70 backdrop-blur transition-all dark:bg-slate-900/70",
++        collapsed ? "w-16" : "w-64",
++      )}
++    >
++      <button
++        className="flex items-center justify-between px-4 py-3 text-xs font-semibold uppercase tracking-wider text-foreground/60"
++        onClick={() => setCollapsed((prev) => !prev)}
++        aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
++      >
++        <span className={clsx("flex items-center gap-2", collapsed && "hidden")}>Navigation</span>
++        {collapsed ? <Menu className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
++      </button>
++      <nav className="flex flex-1 flex-col gap-1 px-2 pb-6">
++        {links.map((link) => {
++          const active = link.href === "/"
++            ? pathname === "/"
++            : pathname.startsWith(link.href);
++          return (
++            <Link
++              key={link.name}
++              href={link.href}
++              className={clsx(
++                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition hover:bg-muted",
++                active
++                  ? "bg-primary/10 text-primary"
++                  : "text-foreground/70",
++                collapsed && "justify-center px-0",
++              )}
++            >
++              <span className={clsx(collapsed && "sr-only")}>{link.name}</span>
++            </Link>
++          );
++        })}
++      </nav>
++    </aside>
++  );
++}
+diff --git a/ui/partner-hub/components/theme-provider.tsx b/ui/partner-hub/components/theme-provider.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..78f1398e553cc48ebf239f121532dafc8162b78c
+--- /dev/null
++++ b/ui/partner-hub/components/theme-provider.tsx
+@@ -0,0 +1,17 @@
++"use client";
++
++import * as React from "react";
++import { ThemeProvider as NextThemesProvider } from "next-themes";
++
++export function ThemeProvider({ children }: { children: React.ReactNode }) {
++  return (
++    <NextThemesProvider
++      attribute="class"
++      defaultTheme="light"
++      enableSystem
++      disableTransitionOnChange
++    >
++      {children}
++    </NextThemesProvider>
++  );
++}
+diff --git a/ui/partner-hub/components/ui/button.tsx b/ui/partner-hub/components/ui/button.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..f3efe8c88af9d143c3ac7fd72e8709cfecd0666b
+--- /dev/null
++++ b/ui/partner-hub/components/ui/button.tsx
+@@ -0,0 +1,29 @@
++import * as React from "react";
++import { clsx } from "clsx";
++
++const baseStyles =
++  "inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50";
++
++const variants: Record<string, string> = {
++  default: "bg-primary text-white shadow hover:brightness-105",
++  outline: "border border-border bg-transparent text-foreground hover:bg-muted",
++  ghost: "bg-transparent text-foreground hover:bg-muted",
++};
++
++type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
++  variant?: keyof typeof variants;
++};
++
++export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
++  ({ className, variant = "default", ...props }, ref) => {
++    return (
++      <button
++        ref={ref}
++        className={clsx(baseStyles, variants[variant], className)}
++        {...props}
++      />
++    );
++  },
++);
++
++Button.displayName = "Button";
+diff --git a/ui/partner-hub/components/ui/card.tsx b/ui/partner-hub/components/ui/card.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..25b32949ed68d1771a217235b19486db74d4405e
+--- /dev/null
++++ b/ui/partner-hub/components/ui/card.tsx
+@@ -0,0 +1,49 @@
++import * as React from "react";
++import { clsx } from "clsx";
++
++type CardProps = React.HTMLAttributes<HTMLDivElement>;
++
++type CardHeaderProps = React.HTMLAttributes<HTMLDivElement>;
++
++type CardTitleProps = React.HTMLAttributes<HTMLHeadingElement>;
++
++type CardContentProps = React.HTMLAttributes<HTMLDivElement>;
++
++export const Card = React.forwardRef<HTMLDivElement, CardProps>(
++  ({ className, ...props }, ref) => (
++    <div
++      ref={ref}
++      className={clsx(
++        "rounded-xl border border-border bg-white/80 p-6 shadow-sm backdrop-blur dark:bg-slate-900/80",
++        className,
++      )}
++      {...props}
++    />
++  ),
++);
++
++Card.displayName = "Card";
++
++export const CardHeader = React.forwardRef<HTMLDivElement, CardHeaderProps>(
++  ({ className, ...props }, ref) => (
++    <div ref={ref} className={clsx("mb-4 flex flex-col gap-1", className)} {...props} />
++  ),
++);
++
++CardHeader.displayName = "CardHeader";
++
++export const CardTitle = React.forwardRef<HTMLHeadingElement, CardTitleProps>(
++  ({ className, ...props }, ref) => (
++    <h3 ref={ref} className={clsx("text-lg font-semibold", className)} {...props} />
++  ),
++);
++
++CardTitle.displayName = "CardTitle";
++
++export const CardContent = React.forwardRef<HTMLDivElement, CardContentProps>(
++  ({ className, ...props }, ref) => (
++    <div ref={ref} className={clsx("text-sm text-foreground/80", className)} {...props} />
++  ),
++);
++
++CardContent.displayName = "CardContent";
+diff --git a/ui/partner-hub/data/links.json b/ui/partner-hub/data/links.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..aa4c26f74307e0848871fd60b482a7431d7d4a5d
+--- /dev/null
++++ b/ui/partner-hub/data/links.json
+@@ -0,0 +1,23 @@
++[
++  {
++    "title": "Pure Account Team Search",
++    "href": "https://purestorage.com/account-search",
++    "type": "external"
++  },
++  {
++    "title": "Pipeline Report",
++    "href": "https://purestorage.com/pipeline",
++    "type": "external"
++  },
++  {
++    "title": "Asset Report",
++    "href": "https://purestorage.com/assets",
++    "type": "external",
++    "restricted": true
++  },
++  {
++    "title": "Events Calendar",
++    "href": "/marketing",
++    "type": "internal"
++  }
++]
+diff --git a/ui/partner-hub/next.config.mjs b/ui/partner-hub/next.config.mjs
+new file mode 100644
+index 0000000000000000000000000000000000000000..3dd3961df0419a2a8087bab74639fe78f82171c9
+--- /dev/null
++++ b/ui/partner-hub/next.config.mjs
+@@ -0,0 +1,5 @@
++const nextConfig = {
++  reactStrictMode: true,
++};
++
++export default nextConfig;
+diff --git a/ui/partner-hub/package.json b/ui/partner-hub/package.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..c798225c473d34eccb0abf828771cab610e231b4
+--- /dev/null
++++ b/ui/partner-hub/package.json
+@@ -0,0 +1,30 @@
++{
++  "name": "partner-hub",
++  "private": true,
++  "version": "0.0.1",
++  "scripts": {
++    "dev": "next dev",
++    "build": "next build",
++    "start": "next start",
++    "lint": "next lint"
++  },
++  "dependencies": {
++    "next": "^14.0.0",
++    "react": "^18.0.0",
++    "react-dom": "^18.0.0",
++    "next-themes": "^0.2.1",
++    "lucide-react": "^0.365.0",
++    "clsx": "^2.1.0"
++  },
++  "devDependencies": {
++    "tailwindcss": "^3.4.0",
++    "postcss": "^8.4.31",
++    "autoprefixer": "^10.4.16",
++    "typescript": "^5.3.0",
++    "eslint": "^8.55.0",
++    "eslint-config-next": "^14.0.0",
++    "@types/node": "^20.9.0",
++    "@types/react": "^18.2.0",
++    "@types/react-dom": "^18.2.0"
++  }
++}
+diff --git a/ui/partner-hub/postcss.config.js b/ui/partner-hub/postcss.config.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..12a703d900da8159c30e75acbd2c4d87ae177f62
+--- /dev/null
++++ b/ui/partner-hub/postcss.config.js
+@@ -0,0 +1,6 @@
++module.exports = {
++  plugins: {
++    tailwindcss: {},
++    autoprefixer: {},
++  },
++};
+diff --git a/ui/partner-hub/styles/globals.css b/ui/partner-hub/styles/globals.css
+new file mode 100644
+index 0000000000000000000000000000000000000000..77feed727bf8e92a3e8d75d04cf262d60130c06f
+--- /dev/null
++++ b/ui/partner-hub/styles/globals.css
+@@ -0,0 +1,53 @@
++@tailwind base;
++@tailwind components;
++@tailwind utilities;
++
++:root {
++  --brand-primary: 220 75% 55%;
++  --brand-secondary: 262 83% 58%;
++  --brand-accent: 20 95% 60%;
++  --surface-base: 0 0% 100%;
++  --surface-muted: 210 40% 96%;
++  --surface-elevated: 0 0% 100%;
++  --foreground: 222 47% 11%;
++  --border-color: 214 32% 91%;
++  --background: var(--surface-base);
++}
++
++.dark {
++  --brand-primary: 220 100% 80%;
++  --brand-secondary: 262 73% 75%;
++  --brand-accent: 20 95% 70%;
++  --surface-base: 222 47% 11%;
++  --surface-muted: 222 47% 17%;
++  --surface-elevated: 222 47% 14%;
++  --foreground: 210 40% 98%;
++  --border-color: 215 25% 27%;
++  --background: var(--surface-base);
++}
++
++body {
++  @apply bg-background text-foreground antialiased;
++  background-color: hsl(var(--background));
++  color: hsl(var(--foreground));
++}
++
++a {
++  @apply text-primary underline-offset-4 hover:underline;
++}
++
++:focus-visible {
++  outline: 2px solid hsl(var(--brand-accent));
++  outline-offset: 2px;
++}
++
++@media (prefers-reduced-motion: reduce) {
++  *,
++  *::before,
++  *::after {
++    animation-duration: 0.01ms !important;
++    animation-iteration-count: 1 !important;
++    transition-duration: 0.01ms !important;
++    scroll-behavior: auto !important;
++  }
++}
+diff --git a/ui/partner-hub/tailwind.config.ts b/ui/partner-hub/tailwind.config.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..cef882d5f4331bdbd2aec56d867323594b51e90b
+--- /dev/null
++++ b/ui/partner-hub/tailwind.config.ts
+@@ -0,0 +1,21 @@
++import type { Config } from "tailwindcss";
++
++const config: Config = {
++  content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
++  theme: {
++    extend: {
++      colors: {
++        background: "hsl(var(--background))",
++        foreground: "hsl(var(--foreground))",
++        primary: "hsl(var(--brand-primary))",
++        secondary: "hsl(var(--brand-secondary))",
++        accent: "hsl(var(--brand-accent))",
++        muted: "hsl(var(--surface-muted))",
++        border: "hsl(var(--border-color))",
++      },
++    },
++  },
++  plugins: [],
++};
++
++export default config;
+diff --git a/ui/partner-hub/tsconfig.json b/ui/partner-hub/tsconfig.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..0b65b81ca5f3dae43a30c2334d7f3a2d4c4956a0
+--- /dev/null
++++ b/ui/partner-hub/tsconfig.json
+@@ -0,0 +1,24 @@
++{
++  "compilerOptions": {
++    "target": "esnext",
++    "lib": ["dom", "dom.iterable", "esnext"],
++    "allowJs": false,
++    "skipLibCheck": true,
++    "strict": true,
++    "forceConsistentCasingInFileNames": true,
++    "noEmit": true,
++    "esModuleInterop": true,
++    "module": "esnext",
++    "moduleResolution": "bundler",
++    "resolveJsonModule": true,
++    "isolatedModules": true,
++    "jsx": "preserve",
++    "incremental": true,
++    "baseUrl": ".",
++    "paths": {
++      "@/*": ["*"]
++    }
++  },
++  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
++  "exclude": ["node_modules"]
++}
