@@ -1,0 +1,18 @@
+# Partner Hub app
+/ui/partner-hub/node_modules
+/ui/partner-hub/.next
+/ui/partner-hub/.turbo
+/ui/partner-hub/dist
+/ui/partner-hub/out
+/ui/partner-hub/.vercel
+/ui/partner-hub/.cache
+
+# General node/next
+node_modules
+*.log
+npm-debug.log*
+.next
+dist
+out
+.DS_Store
+.env
