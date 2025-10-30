@@ -1,0 +1,58 @@
+[
+  {
+    "title": "Pure Accelerate Live",
+    "date": "2024-07-18",
+    "region": "AMER",
+    "owner": "Global Marketing",
+    "href": "https://purestorage.com/events/accelerate"
+  },
+  {
+    "title": "Data Protection Workshop",
+    "date": "2024-07-25",
+    "region": "EMEA",
+    "owner": "Alliances",
+    "href": "https://purestorage.com/events/data-protection"
+  },
+  {
+    "title": "Partner Enablement Webinar",
+    "date": "2024-08-02",
+    "region": "AMER",
+    "owner": "Sales Enablement",
+    "href": "https://purestorage.com/events/enablement"
+  },
+  {
+    "title": "AI Infrastructure Roundtable",
+    "date": "2024-08-15",
+    "region": "APJ",
+    "owner": "Engineering",
+    "href": "https://purestorage.com/events/ai-infra"
+  },
+  {
+    "title": "Marketing Campaign Kickoff",
+    "date": "2024-08-22",
+    "region": "Global",
+    "owner": "Field Marketing",
+    "href": "https://purestorage.com/events/campaign-kickoff"
+  },
+  {
+    "title": "Hybrid Cloud Summit",
+    "date": "2024-09-04",
+    "region": "EMEA",
+    "owner": "Alliances",
+    "href": "https://purestorage.com/events/hybrid-cloud"
+  },
+  {
+    "title": "Storage Optimization Clinic",
+    "date": "2024-09-19",
+    "region": "AMER",
+    "owner": "Sales Engineering",
+    "href": "https://purestorage.com/events/storage-optimization"
+  },
+  {
+    "title": "Partner Advisory Board",
+    "date": "2024-10-03",
+    "region": "Global",
+    "owner": "Executive Programs",
+    "href": "https://purestorage.com/events/advisory-board"
+  }
+]

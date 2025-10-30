@@ -1,630 +1,695 @@
-diff --git a/ui/partner-hub/app/(routes)/alliances/page.tsx b/ui/partner-hub/app/(routes)/alliances/page.tsx
-new file mode 100644
-index 0000000000000000000000000000000000000000..3553ad1ca761d25234e7512aa9dd37320ab5fa1e
---- /dev/null
-+++ b/ui/partner-hub/app/(routes)/alliances/page.tsx
-@@ -0,0 +1,10 @@
-+export default function AlliancesPage() {
-+  return (
-+    <section className="space-y-3">
-+      <h1 className="text-2xl font-semibold">Alliance Operations</h1>
-+      <p className="text-sm text-foreground/70">
-+        Partnership scorecards, joint planning artifacts, and governance updates will be featured.
-+      </p>
-+    </section>
-+  );
-+}
-diff --git a/ui/partner-hub/app/(routes)/engineering/page.tsx b/ui/partner-hub/app/(routes)/engineering/page.tsx
-new file mode 100644
-index 0000000000000000000000000000000000000000..cb6d5af9523f2d2b58f4931a80e06eb94409ede2
---- /dev/null
-+++ b/ui/partner-hub/app/(routes)/engineering/page.tsx
-@@ -0,0 +1,10 @@
-+export default function EngineeringPage() {
-+  return (
-+    <section className="space-y-3">
-+      <h1 className="text-2xl font-semibold">Engineering Resources</h1>
-+      <p className="text-sm text-foreground/70">
-+        Solution architecture guides, demo environments, and technical win stories land here.
-+      </p>
-+    </section>
-+  );
-+}
-diff --git a/ui/partner-hub/app/(routes)/leadership/page.tsx b/ui/partner-hub/app/(routes)/leadership/page.tsx
-new file mode 100644
-index 0000000000000000000000000000000000000000..5fc1d318c2a0734bc13af8814f5ebc2742805b8b
---- /dev/null
-+++ b/ui/partner-hub/app/(routes)/leadership/page.tsx
-@@ -0,0 +1,10 @@
-+export default function LeadershipPage() {
-+  return (
-+    <section className="space-y-3">
-+      <h1 className="text-2xl font-semibold">Leadership Insights</h1>
-+      <p className="text-sm text-foreground/70">
-+        Executive scoreboards, strategic initiatives, and partnership health summaries belong here.
-+      </p>
-+    </section>
-+  );
-+}
 diff --git a/ui/partner-hub/app/(routes)/marketing/page.tsx b/ui/partner-hub/app/(routes)/marketing/page.tsx
-new file mode 100644
-index 0000000000000000000000000000000000000000..355254a370f9ec70b9c547f3795b1d5a40c97fbf
---- /dev/null
+index 355254a370f9ec70b9c547f3795b1d5a40c97fbf..c7930a95cc94c4793053d525d7b6ad296f151ee3 100644
+--- a/ui/partner-hub/app/(routes)/marketing/page.tsx
 +++ b/ui/partner-hub/app/(routes)/marketing/page.tsx
-@@ -0,0 +1,10 @@
-+export default function MarketingPage() {
-+  return (
-+    <section className="space-y-3">
-+      <h1 className="text-2xl font-semibold">Marketing Programs</h1>
-+      <p className="text-sm text-foreground/70">
-+        Launch kits, co-brand assets, and campaign calendars will surface in this view.
-+      </p>
-+    </section>
-+  );
-+}
-diff --git a/ui/partner-hub/app/(routes)/sales/page.tsx b/ui/partner-hub/app/(routes)/sales/page.tsx
-new file mode 100644
-index 0000000000000000000000000000000000000000..e90f74ad9bf18a6a0941c9d431017628a6ea87b1
---- /dev/null
-+++ b/ui/partner-hub/app/(routes)/sales/page.tsx
-@@ -0,0 +1,10 @@
-+export default function SalesPage() {
-+  return (
-+    <section className="space-y-3">
-+      <h1 className="text-2xl font-semibold">Sales Enablement</h1>
-+      <p className="text-sm text-foreground/70">
-+        Curated sales plays, battlecards, and Pure alliance updates will live here.
-+      </p>
-+    </section>
-+  );
-+}
-diff --git a/ui/partner-hub/app/layout.tsx b/ui/partner-hub/app/layout.tsx
-new file mode 100644
-index 0000000000000000000000000000000000000000..e2977b1f93d481af9ff3e1e79b0e9d747e40d0b4
---- /dev/null
-+++ b/ui/partner-hub/app/layout.tsx
-@@ -0,0 +1,21 @@
-+import type { Metadata } from "next";
-+import "../styles/globals.css";
-+import { ThemeProvider } from "@/components/theme-provider";
-+import { AppShell } from "@/components/app-shell";
-+
-+export const metadata: Metadata = {
-+  title: "Trace3 × Pure Partner Hub",
-+  description: "Offline-ready shell for partner resources with role-based navigation.",
-+};
-+
-+export default function RootLayout({ children }: { children: React.ReactNode }) {
-+  return (
-+    <html lang="en" suppressHydrationWarning>
-+      <body className="min-h-screen bg-background text-foreground">
-+        <ThemeProvider>
-+          <AppShell>{children}</AppShell>
-+        </ThemeProvider>
-+      </body>
-+    </html>
-+  );
-+}
-diff --git a/ui/partner-hub/app/page.tsx b/ui/partner-hub/app/page.tsx
-new file mode 100644
-index 0000000000000000000000000000000000000000..08e6ba7792bdf1f165589f571ca29411c0591ef6
---- /dev/null
-+++ b/ui/partner-hub/app/page.tsx
-@@ -0,0 +1,58 @@
+@@ -1,10 +1,98 @@
 +import Link from "next/link";
-+import { ArrowUpRight } from "lucide-react";
-+import links from "@/data/links.json";
-+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
++import events from "@/data/events.json";
 +
-+export default function HomePage() {
-+  return (
-+    <div className="space-y-8">
-+      <section className="rounded-3xl border border-border bg-gradient-to-br from-primary/10 via-white to-secondary/10 p-10 shadow-sm dark:via-slate-900">
-+        <p className="text-sm font-medium text-primary">Partner Hub</p>
-+        <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-+          Empower every Trace3 × Pure alliance engagement
-+        </h1>
-+        <p className="mt-4 max-w-2xl text-base text-foreground/70">
-+          Stay aligned across sales, marketing, engineering, and leadership with quick access to
-+          the resources you need—even when you are offline.
++type EventItem = { title: string; date: string; region: string; owner: string; href: string };
++
++const typedEvents = events as EventItem[];
++const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
++
++function buildMonthGrid(reference: Date) {
++  const year = reference.getFullYear();
++  const month = reference.getMonth();
++  const firstDay = new Date(year, month, 1);
++  const leading = firstDay.getDay();
++  const totalDays = new Date(year, month + 1, 0).getDate();
++  const cells = Array.from({ length: 42 }, (_, index) => {
++    const dayNumber = index - leading + 1;
++    return dayNumber > 0 && dayNumber <= totalDays ? dayNumber : null;
++  });
++  const eventDays = new Set(
++    typedEvents
++      .filter((event) => {
++        const date = new Date(event.date);
++        return date.getFullYear() === year && date.getMonth() === month;
++      })
++      .map((event) => new Date(event.date).getDate()),
++  );
++  return { cells, eventDays, month, year };
++}
++
++const formatter = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" });
++const listFormatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
++
+ export default function MarketingPage() {
++  const reference = new Date();
++  const { cells, eventDays, month, year } = buildMonthGrid(reference);
++  const upcoming = typedEvents
++    .slice()
++    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
++    .filter((event) => new Date(event.date).getTime() >= Date.now())
++    .slice(0, 3);
++
+   return (
+-    <section className="space-y-3">
+-      <h1 className="text-2xl font-semibold">Marketing Programs</h1>
+-      <p className="text-sm text-foreground/70">
+-        Launch kits, co-brand assets, and campaign calendars will surface in this view.
+-      </p>
++    <section className="space-y-8">
++      <header className="space-y-2">
++        <h1 className="text-2xl font-semibold">Marketing Programs</h1>
++        <p className="text-sm text-foreground/70">
++          Launch kits, co-brand assets, and campaign calendars will surface in this view.
 +        </p>
-+      </section>
++      </header>
++      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
++        <div className="rounded-2xl border border-border bg-background p-6 shadow-sm">
++          <div className="flex items-center justify-between">
++            <h2 className="text-lg font-semibold">{formatter.format(reference)}</h2>
++            <span className="text-xs uppercase tracking-wide text-foreground/50">Trace3 × Pure</span>
++          </div>
++          <div className="mt-4 grid grid-cols-7 text-center text-xs font-semibold uppercase text-foreground/50">
++            {dayNames.map((day) => (
++              <span key={day}>{day}</span>
++            ))}
++          </div>
++          <div className="mt-2 grid grid-cols-7 gap-1 text-sm">
++            {cells.map((day, index) => (
++              <div
++                key={`${month}-${year}-${index}`}
++                className="flex h-14 items-center justify-center rounded-lg border border-transparent bg-muted/40"
++              >
++                {day ? (
++                  <span className="relative font-medium text-foreground">
++                    {day}
++                    {eventDays.has(day) ? (
++                      <span className="absolute -bottom-2 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-primary" aria-hidden />
++                    ) : null}
++                  </span>
++                ) : null}
++              </div>
++            ))}
++          </div>
++        </div>
++        <aside className="space-y-4">
++          <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground/60">Upcoming Events</h2>
++          <ul className="space-y-4 text-sm">
++            {upcoming.map((event) => (
++              <li key={event.href} className="rounded-xl border border-border bg-background p-3 shadow-sm">
++                <Link href={event.href} className="block">
++                  <p className="font-medium text-primary hover:underline">{event.title}</p>
++                  <p className="text-xs text-foreground/60">
++                    {listFormatter.format(new Date(event.date))} • {event.region} • {event.owner}
++                  </p>
++                </Link>
++              </li>
++            ))}
++            {upcoming.length === 0 ? <li className="text-xs text-foreground/60">No upcoming events.</li> : null}
++          </ul>
++        </aside>
++      </div>
+     </section>
+   );
+ }
+diff --git a/ui/partner-hub/app/page.tsx b/ui/partner-hub/app/page.tsx
+index 08e6ba7792bdf1f165589f571ca29411c0591ef6..4b8a6facd69d2d6f6937f63e86430a0c1ec3beb6 100644
+--- a/ui/partner-hub/app/page.tsx
++++ b/ui/partner-hub/app/page.tsx
+@@ -1,58 +1,114 @@
++"use client";
++
++import { useState } from "react";
+ import Link from "next/link";
+ import { ArrowUpRight } from "lucide-react";
+-import links from "@/data/links.json";
++import linksData from "@/data/links.json";
+ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
++import { RestrictedLink } from "@/components/restricted-link";
++import { EventsMini } from "@/components/events-mini";
++
++type LinkRecord = { label: string; href: string; type: "internal" | "external"; restricted?: boolean };
++type RoleKey = "sales" | "engineering" | "marketing" | "alliances";
++type RoleFilter = RoleKey | "all";
++type QuickLink = LinkRecord & { role: RoleKey };
++type GroupedLinks = Record<RoleKey, LinkRecord[]>;
++
++const groupedLinks = linksData as GroupedLinks;
++const quickLinks = (Object.entries(groupedLinks) as [RoleKey, LinkRecord[]][]).flatMap(([role, items]) =>
++  items.map((item) => ({ ...item, role })),
++);
++const roleLabels: Record<RoleKey, string> = {
++  sales: "Sales",
++  engineering: "SE",
++  marketing: "Marketing",
++  alliances: "Alliances",
++};
++const curatedAllLabels = new Set(["Pure Account Team Search", "Pipeline Report", "Asset Report", "Events Calendar"]);
++const curatedAll = quickLinks.filter((link) => curatedAllLabels.has(link.label));
++const quickLinksByRole: Record<RoleKey, QuickLink[]> = {
++  sales: quickLinks.filter((link) => link.role === "sales"),
++  engineering: quickLinks.filter((link) => link.role === "engineering"),
++  marketing: quickLinks.filter((link) => link.role === "marketing"),
++  alliances: quickLinks.filter((link) => link.role === "alliances"),
++};
++const rolePills: { key: RoleFilter; label: string }[] = [
++  { key: "sales", label: "Sales" },
++  { key: "engineering", label: "SE" },
++  { key: "marketing", label: "Marketing" },
++  { key: "alliances", label: "Alliances" },
++  { key: "all", label: "All" },
++];
+ 
+ export default function HomePage() {
++  const [activeRole, setActiveRole] = useState<RoleFilter>("all");
++  const visibleLinks = activeRole === "all" ? curatedAll : quickLinksByRole[activeRole];
++
+   return (
+     <div className="space-y-8">
+       <section className="rounded-3xl border border-border bg-gradient-to-br from-primary/10 via-white to-secondary/10 p-10 shadow-sm dark:via-slate-900">
+         <p className="text-sm font-medium text-primary">Partner Hub</p>
+-        <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+-          Empower every Trace3 × Pure alliance engagement
+-        </h1>
++        <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">Empower every Trace3 × Pure alliance engagement</h1>
+         <p className="mt-4 max-w-2xl text-base text-foreground/70">
+-          Stay aligned across sales, marketing, engineering, and leadership with quick access to
+-          the resources you need—even when you are offline.
++          Stay aligned across sales, marketing, engineering, and leadership with quick access to the resources you need—even when you are offline.
+         </p>
+       </section>
+ 
+-      <section>
+-        <div className="mb-4 flex items-center justify-between">
++      <section className="space-y-4">
++        <div className="flex items-center justify-between">
+           <h2 className="text-lg font-semibold">Quick Actions</h2>
+-          <span className="text-xs uppercase tracking-wide text-foreground/50">
+-            {links.length} curated shortcuts
+-          </span>
++          <span className="text-xs uppercase tracking-wide text-foreground/50">{visibleLinks.length} curated shortcuts</span>
++        </div>
++        <div className="flex flex-wrap gap-2">
++          {rolePills.map((pill) => (
++            <button
++              key={pill.key}
++              type="button"
++              onClick={() => setActiveRole(pill.key)}
++              className={`rounded-full border px-4 py-1 text-xs font-semibold uppercase tracking-wide transition ${
++                activeRole === pill.key ? "border-primary bg-primary/10 text-primary" : "border-border bg-muted text-foreground/70 hover:text-foreground"
++              }`}
++            >
++              {pill.label}
++            </button>
++          ))}
+         </div>
+         <div className="grid gap-4 sm:grid-cols-2">
+-          {links.map((item) => (
+-            <Card key={item.title}>
++          {visibleLinks.map((link) => (
++            <Card key={link.label}>
+               <CardHeader>
+                 <CardTitle className="flex items-center justify-between text-base">
+-                  <span>{item.title}</span>
++                  <div>
++                    <p>{link.label}</p>
++                    <p className="text-xs font-medium uppercase tracking-wide text-foreground/50">{roleLabels[link.role]}</p>
++                  </div>
+                   <ArrowUpRight className="h-4 w-4 text-foreground/40" aria-hidden />
+                 </CardTitle>
+               </CardHeader>
+               <CardContent className="flex items-center justify-between text-sm">
+                 <span className="text-foreground/60">
+-                  {item.type === "external" ? "External resource" : "Internal link"}
++                  {link.type === "external" ? "External resource" : "Internal link"}
++                  {link.restricted ? " • Restricted" : ""}
+                 </span>
+-                <Link
+-                  href={item.href}
+-                  className="rounded-md border border-border px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary transition hover:bg-primary/10"
+-                >
+-                  Open
+-                </Link>
++                <RestrictedLink link={link}>
++                  <Link
++                    href={link.href}
++                    target={link.type === "external" ? "_blank" : undefined}
++                    rel={link.type === "external" ? "noreferrer" : undefined}
++                    className="rounded-md border border-border px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary transition hover:bg-primary/10"
++                  >
++                    Open
++                  </Link>
++                </RestrictedLink>
+               </CardContent>
+-              {item.restricted ? (
+-                <div className="px-6 pb-4 text-xs font-medium text-foreground/50">
+-                  Restricted • Request Pure portal access
+-                </div>
+-              ) : null}
+             </Card>
+           ))}
+         </div>
+       </section>
 +
 +      <section>
-+        <div className="mb-4 flex items-center justify-between">
-+          <h2 className="text-lg font-semibold">Quick Actions</h2>
-+          <span className="text-xs uppercase tracking-wide text-foreground/50">
-+            {links.length} curated shortcuts
-+          </span>
-+        </div>
-+        <div className="grid gap-4 sm:grid-cols-2">
-+          {links.map((item) => (
-+            <Card key={item.title}>
-+              <CardHeader>
-+                <CardTitle className="flex items-center justify-between text-base">
-+                  <span>{item.title}</span>
-+                  <ArrowUpRight className="h-4 w-4 text-foreground/40" aria-hidden />
-+                </CardTitle>
-+              </CardHeader>
-+              <CardContent className="flex items-center justify-between text-sm">
-+                <span className="text-foreground/60">
-+                  {item.type === "external" ? "External resource" : "Internal link"}
-+                </span>
-+                <Link
-+                  href={item.href}
-+                  className="rounded-md border border-border px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary transition hover:bg-primary/10"
-+                >
-+                  Open
-+                </Link>
-+              </CardContent>
-+              {item.restricted ? (
-+                <div className="px-6 pb-4 text-xs font-medium text-foreground/50">
-+                  Restricted • Request Pure portal access
-+                </div>
-+              ) : null}
-+            </Card>
-+          ))}
-+        </div>
++        <EventsMini />
 +      </section>
-+    </div>
-+  );
-+}
+     </div>
+   );
+ }
 diff --git a/ui/partner-hub/components/app-header.tsx b/ui/partner-hub/components/app-header.tsx
-new file mode 100644
-index 0000000000000000000000000000000000000000..9d6b9e143678929ce682e02856cf899c5674b541
---- /dev/null
+index 9d6b9e143678929ce682e02856cf899c5674b541..8178de646ea1f8cf7898ae9a071cee0a62ddb6ac 100644
+--- a/ui/partner-hub/components/app-header.tsx
 +++ b/ui/partner-hub/components/app-header.tsx
-@@ -0,0 +1,44 @@
-+"use client";
-+
-+import { useTheme } from "next-themes";
-+import { Moon, Sun, Search } from "lucide-react";
-+import { Button } from "./ui/button";
-+
-+export function AppHeader() {
-+  const { theme, setTheme } = useTheme();
-+
-+  const toggleTheme = () => {
-+    setTheme(theme === "dark" ? "light" : "dark");
+@@ -1,44 +1,94 @@
+ "use client";
+ 
++import { useState } from "react";
++import { useRouter } from "next/navigation";
+ import { useTheme } from "next-themes";
+-import { Moon, Sun, Search } from "lucide-react";
++import { Moon, Sun, Search, ArrowUpRight } from "lucide-react";
+ import { Button } from "./ui/button";
++import { useOmniSearch, type OmniLink } from "@/lib/use-omni-search";
+ 
+ export function AppHeader() {
+   const { theme, setTheme } = useTheme();
++  const router = useRouter();
++  const { query, setQuery, results } = useOmniSearch();
++  const [open, setOpen] = useState(false);
+ 
+   const toggleTheme = () => {
+     setTheme(theme === "dark" ? "light" : "dark");
+   };
+ 
++  const navigateTo = (link: OmniLink) => {
++    if (link.type === "external") {
++      window.open(link.href, "_blank", "noopener");
++    } else {
++      router.push(link.href);
++    }
++    setOpen(false);
 +  };
 +
-+  return (
-+    <header className="sticky top-0 z-20 border-b border-border bg-white/80 backdrop-blur dark:bg-slate-900/80">
-+      <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-6">
-+        <div className="text-lg font-semibold tracking-tight text-primary">
-+          Trace3 × Pure Partner Hub
-+        </div>
-+        <div className="relative mx-auto flex w-full max-w-xl items-center">
-+          <Search className="absolute left-3 h-4 w-4 text-foreground/40" aria-hidden />
-+          <input
-+            className="h-10 w-full rounded-lg border border-border bg-white/60 pl-9 pr-3 text-sm shadow-inner outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30 dark:bg-slate-950/40"
-+            placeholder="Search partner resources"
-+            type="search"
-+            aria-label="Search"
-+          />
-+        </div>
-+        <Button
-+          variant="ghost"
-+          className="h-10 w-10 rounded-full border border-transparent hover:border-border"
-+          onClick={toggleTheme}
-+          aria-label="Toggle theme"
-+        >
-+          {theme === "dark" ? (
-+            <Sun className="h-4 w-4" />
-+          ) : (
-+            <Moon className="h-4 w-4" />
-+          )}
-+        </Button>
-+      </div>
-+    </header>
-+  );
-+}
-diff --git a/ui/partner-hub/components/app-shell.tsx b/ui/partner-hub/components/app-shell.tsx
+   return (
+     <header className="sticky top-0 z-20 border-b border-border bg-white/80 backdrop-blur dark:bg-slate-900/80">
+       <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-6">
+-        <div className="text-lg font-semibold tracking-tight text-primary">
+-          Trace3 × Pure Partner Hub
+-        </div>
++        <div className="text-lg font-semibold tracking-tight text-primary">Trace3 × Pure Partner Hub</div>
+         <div className="relative mx-auto flex w-full max-w-xl items-center">
+           <Search className="absolute left-3 h-4 w-4 text-foreground/40" aria-hidden />
+           <input
+             className="h-10 w-full rounded-lg border border-border bg-white/60 pl-9 pr-3 text-sm shadow-inner outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30 dark:bg-slate-950/40"
+             placeholder="Search partner resources"
+             type="search"
+             aria-label="Search"
++            value={query}
++            onChange={(event) => setQuery(event.target.value)}
++            onFocus={() => setOpen(true)}
++            onKeyDown={(event) => {
++              if (event.key === "Enter" && results[0]) {
++                event.preventDefault();
++                navigateTo(results[0]);
++              }
++              if (event.key === "Escape") {
++                setOpen(false);
++              }
++            }}
++            onBlur={() => {
++              window.setTimeout(() => setOpen(false), 100);
++            }}
+           />
++          {open && results.length > 0 ? (
++            <ul
++              role="listbox"
++              className="absolute left-0 right-0 top-11 z-10 max-h-80 overflow-y-auto rounded-lg border border-border bg-background shadow-lg"
++            >
++              {results.map((item) => (
++                <li key={`${item.role}-${item.href}`}>
++                  <button
++                    type="button"
++                    className="flex w-full items-center justify-between gap-3 px-4 py-2 text-left text-sm hover:bg-muted"
++                    onMouseDown={(event) => event.preventDefault()}
++                    onClick={() => navigateTo(item)}
++                  >
++                    <div>
++                      <p className="font-medium text-foreground">{item.label}</p>
++                      <p className="text-xs uppercase tracking-wide text-foreground/50">
++                        {item.role} • {item.type === "external" ? "External" : "Internal"}
++                        {item.restricted ? " • Restricted" : ""}
++                      </p>
++                    </div>
++                    <ArrowUpRight className="h-4 w-4 text-foreground/40" aria-hidden />
++                  </button>
++                </li>
++              ))}
++            </ul>
++          ) : null}
+         </div>
+         <Button
+           variant="ghost"
+           className="h-10 w-10 rounded-full border border-transparent hover:border-border"
+           onClick={toggleTheme}
+           aria-label="Toggle theme"
+         >
+-          {theme === "dark" ? (
+-            <Sun className="h-4 w-4" />
+-          ) : (
+-            <Moon className="h-4 w-4" />
+-          )}
++          {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+         </Button>
+       </div>
+     </header>
+   );
+ }
+diff --git a/ui/partner-hub/components/events-mini.tsx b/ui/partner-hub/components/events-mini.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..7f45e564d4b66cab6641a2cea9e22f0747e21c3d
+index 0000000000000000000000000000000000000000..7195a7ecd4d10a4b34d13a359df4c7425122fd6f
 --- /dev/null
-+++ b/ui/partner-hub/components/app-shell.tsx
-@@ -0,0 +1,15 @@
-+import type { ReactNode } from "react";
-+import { AppHeader } from "./app-header";
-+import { LeftNav } from "./left-nav";
++++ b/ui/partner-hub/components/events-mini.tsx
+@@ -0,0 +1,56 @@
++import Link from "next/link";
++import events from "@/data/events.json";
 +
-+export function AppShell({ children }: { children: ReactNode }) {
++const formatter = new Intl.DateTimeFormat("en-US", {
++  month: "short",
++  day: "numeric",
++});
++
++type EventItem = {
++  title: string;
++  date: string;
++  region: string;
++  owner: string;
++  href: string;
++};
++
++const typedEvents = events as EventItem[];
++
++const upcomingEvents = typedEvents
++  .slice()
++  .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
++
++export function EventsMini() {
++  const now = Date.now();
++  const nextEvents = upcomingEvents
++    .filter((event) => new Date(event.date).getTime() >= now)
++    .slice(0, 3);
++
 +  return (
-+    <div className="flex min-h-screen flex-col bg-[hsl(var(--background))]">
-+      <AppHeader />
-+      <div className="mx-auto flex w-full max-w-6xl flex-1 gap-6 px-6 py-8">
-+        <LeftNav />
-+        <main className="flex-1 space-y-6">{children}</main>
++    <div className="rounded-2xl border border-border bg-background p-4 shadow-sm">
++      <div className="mb-3 flex items-center justify-between">
++        <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground/70">
++          Events
++        </h3>
++        <Link href="/marketing" className="text-xs font-semibold text-primary hover:underline">
++          View all
++        </Link>
 +      </div>
++      <ul className="space-y-3">
++        {nextEvents.map((event) => (
++          <li key={event.href} className="text-sm">
++            <Link href={event.href} className="group block">
++              <p className="font-medium group-hover:text-primary">{event.title}</p>
++              <p className="text-xs text-foreground/60">
++                {formatter.format(new Date(event.date))} • {event.region} • {event.owner}
++              </p>
++            </Link>
++          </li>
++        ))}
++        {nextEvents.length === 0 ? (
++          <li className="text-xs text-foreground/60">No upcoming events.</li>
++        ) : null}
++      </ul>
 +    </div>
 +  );
 +}
-diff --git a/ui/partner-hub/components/left-nav.tsx b/ui/partner-hub/components/left-nav.tsx
+diff --git a/ui/partner-hub/components/restricted-link.tsx b/ui/partner-hub/components/restricted-link.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..4fa6ec24ad63265b9447edaf046549f7dd63e79c
+index 0000000000000000000000000000000000000000..c06bdc6a3090400bf15631f799191b2a981e6c06
 --- /dev/null
-+++ b/ui/partner-hub/components/left-nav.tsx
-@@ -0,0 +1,65 @@
-+"use client";
-+
-+import Link from "next/link";
-+import { usePathname } from "next/navigation";
-+import { Menu, ChevronLeft } from "lucide-react";
-+import { useState } from "react";
-+import { clsx } from "clsx";
-+
-+const links = [
-+  { name: "Home", href: "/" },
-+  { name: "Sales", href: "/sales" },
-+  { name: "Marketing", href: "/marketing" },
-+  { name: "Engineering (SE)", href: "/engineering" },
-+  { name: "Alliances", href: "/alliances" },
-+  { name: "Leadership", href: "/leadership" },
-+  { name: "Tools", href: "#tools" },
-+  { name: "Training", href: "#training" },
-+  { name: "Events", href: "#events" },
-+  { name: "Support", href: "#support" },
-+];
-+
-+export function LeftNav() {
-+  const pathname = usePathname();
-+  const [collapsed, setCollapsed] = useState(false);
-+
-+  return (
-+    <aside
-+      className={clsx(
-+        "flex h-full flex-col border-r border-border bg-white/70 backdrop-blur transition-all dark:bg-slate-900/70",
-+        collapsed ? "w-16" : "w-64",
-+      )}
-+    >
-+      <button
-+        className="flex items-center justify-between px-4 py-3 text-xs font-semibold uppercase tracking-wider text-foreground/60"
-+        onClick={() => setCollapsed((prev) => !prev)}
-+        aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
-+      >
-+        <span className={clsx("flex items-center gap-2", collapsed && "hidden")}>Navigation</span>
-+        {collapsed ? <Menu className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-+      </button>
-+      <nav className="flex flex-1 flex-col gap-1 px-2 pb-6">
-+        {links.map((link) => {
-+          const active = link.href === "/"
-+            ? pathname === "/"
-+            : pathname.startsWith(link.href);
-+          return (
-+            <Link
-+              key={link.name}
-+              href={link.href}
-+              className={clsx(
-+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition hover:bg-muted",
-+                active
-+                  ? "bg-primary/10 text-primary"
-+                  : "text-foreground/70",
-+                collapsed && "justify-center px-0",
-+              )}
-+            >
-+              <span className={clsx(collapsed && "sr-only")}>{link.name}</span>
-+            </Link>
-+          );
-+        })}
-+      </nav>
-+    </aside>
-+  );
-+}
-diff --git a/ui/partner-hub/components/theme-provider.tsx b/ui/partner-hub/components/theme-provider.tsx
-new file mode 100644
-index 0000000000000000000000000000000000000000..78f1398e553cc48ebf239f121532dafc8162b78c
---- /dev/null
-+++ b/ui/partner-hub/components/theme-provider.tsx
-@@ -0,0 +1,17 @@
++++ b/ui/partner-hub/components/restricted-link.tsx
+@@ -0,0 +1,70 @@
 +"use client";
 +
 +import * as React from "react";
-+import { ThemeProvider as NextThemesProvider } from "next-themes";
++import { Lock } from "lucide-react";
++import { Button } from "@/components/ui/button";
 +
-+export function ThemeProvider({ children }: { children: React.ReactNode }) {
++type RestrictedTarget = {
++  label: string;
++  href: string;
++  type: "internal" | "external";
++  restricted?: boolean;
++};
++
++type RestrictedLinkProps = {
++  link: RestrictedTarget;
++  children: React.ReactElement;
++};
++
++export function RestrictedLink({ link, children }: RestrictedLinkProps) {
++  const [open, setOpen] = React.useState(false);
++  const child = React.Children.only(children);
++
++  if (!link.restricted) {
++    return child;
++  }
++
++  const handleRequest = () => {
++    console.log("request access", link);
++    setOpen(false);
++  };
++
++  const wrappedChild = React.cloneElement(child, {
++    ...child.props,
++    onClick: (event: React.MouseEvent) => {
++      child.props.onClick?.(event);
++      if (!event.defaultPrevented) {
++        event.preventDefault();
++        setOpen(true);
++      }
++    },
++  });
++
 +  return (
-+    <NextThemesProvider
-+      attribute="class"
-+      defaultTheme="light"
-+      enableSystem
-+      disableTransitionOnChange
-+    >
-+      {children}
-+    </NextThemesProvider>
++    <>
++      <div className="relative">
++        {wrappedChild}
++        <span className="absolute -top-2 -right-2 inline-flex items-center gap-1 rounded-full bg-foreground/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow">
++          <Lock className="h-3 w-3" aria-hidden />
++          Restricted
++        </span>
++      </div>
++      {open ? (
++        <div role="dialog" aria-modal className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
++          <div className="w-full max-w-sm rounded-lg border border-border bg-background p-5 shadow-lg">
++            <h2 className="text-sm font-semibold">Restricted Link</h2>
++            <p className="mt-2 text-sm text-foreground/70">
++              You may not have access yet. Request access?
++            </p>
++            <div className="mt-4 flex items-center justify-end gap-2">
++              <Button variant="ghost" onClick={() => setOpen(false)}>
++                Cancel
++              </Button>
++              <Button onClick={handleRequest}>Request Access</Button>
++            </div>
++          </div>
++        </div>
++      ) : null}
++    </>
 +  );
 +}
-diff --git a/ui/partner-hub/components/ui/button.tsx b/ui/partner-hub/components/ui/button.tsx
+diff --git a/ui/partner-hub/data/events.json b/ui/partner-hub/data/events.json
 new file mode 100644
-index 0000000000000000000000000000000000000000..f3efe8c88af9d143c3ac7fd72e8709cfecd0666b
+index 0000000000000000000000000000000000000000..1d4bd9b69055143a622e71fd110841c4b1a0465a
 --- /dev/null
-+++ b/ui/partner-hub/components/ui/button.tsx
-@@ -0,0 +1,29 @@
-+import * as React from "react";
-+import { clsx } from "clsx";
-+
-+const baseStyles =
-+  "inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50";
-+
-+const variants: Record<string, string> = {
-+  default: "bg-primary text-white shadow hover:brightness-105",
-+  outline: "border border-border bg-transparent text-foreground hover:bg-muted",
-+  ghost: "bg-transparent text-foreground hover:bg-muted",
-+};
-+
-+type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
-+  variant?: keyof typeof variants;
-+};
-+
-+export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-+  ({ className, variant = "default", ...props }, ref) => {
-+    return (
-+      <button
-+        ref={ref}
-+        className={clsx(baseStyles, variants[variant], className)}
-+        {...props}
-+      />
-+    );
-+  },
-+);
-+
-+Button.displayName = "Button";
-diff --git a/ui/partner-hub/components/ui/card.tsx b/ui/partner-hub/components/ui/card.tsx
-new file mode 100644
-index 0000000000000000000000000000000000000000..25b32949ed68d1771a217235b19486db74d4405e
---- /dev/null
-+++ b/ui/partner-hub/components/ui/card.tsx
-@@ -0,0 +1,49 @@
-+import * as React from "react";
-+import { clsx } from "clsx";
-+
-+type CardProps = React.HTMLAttributes<HTMLDivElement>;
-+
-+type CardHeaderProps = React.HTMLAttributes<HTMLDivElement>;
-+
-+type CardTitleProps = React.HTMLAttributes<HTMLHeadingElement>;
-+
-+type CardContentProps = React.HTMLAttributes<HTMLDivElement>;
-+
-+export const Card = React.forwardRef<HTMLDivElement, CardProps>(
-+  ({ className, ...props }, ref) => (
-+    <div
-+      ref={ref}
-+      className={clsx(
-+        "rounded-xl border border-border bg-white/80 p-6 shadow-sm backdrop-blur dark:bg-slate-900/80",
-+        className,
-+      )}
-+      {...props}
-+    />
-+  ),
-+);
-+
-+Card.displayName = "Card";
-+
-+export const CardHeader = React.forwardRef<HTMLDivElement, CardHeaderProps>(
-+  ({ className, ...props }, ref) => (
-+    <div ref={ref} className={clsx("mb-4 flex flex-col gap-1", className)} {...props} />
-+  ),
-+);
-+
-+CardHeader.displayName = "CardHeader";
-+
-+export const CardTitle = React.forwardRef<HTMLHeadingElement, CardTitleProps>(
-+  ({ className, ...props }, ref) => (
-+    <h3 ref={ref} className={clsx("text-lg font-semibold", className)} {...props} />
-+  ),
-+);
-+
-+CardTitle.displayName = "CardTitle";
-+
-+export const CardContent = React.forwardRef<HTMLDivElement, CardContentProps>(
-+  ({ className, ...props }, ref) => (
-+    <div ref={ref} className={clsx("text-sm text-foreground/80", className)} {...props} />
-+  ),
-+);
-+
-+CardContent.displayName = "CardContent";
-diff --git a/ui/partner-hub/data/links.json b/ui/partner-hub/data/links.json
-new file mode 100644
-index 0000000000000000000000000000000000000000..aa4c26f74307e0848871fd60b482a7431d7d4a5d
---- /dev/null
-+++ b/ui/partner-hub/data/links.json
-@@ -0,0 +1,23 @@
++++ b/ui/partner-hub/data/events.json
+@@ -0,0 +1,58 @@
 +[
 +  {
-+    "title": "Pure Account Team Search",
-+    "href": "https://purestorage.com/account-search",
-+    "type": "external"
++    "title": "Pure Accelerate Live",
++    "date": "2024-07-18",
++    "region": "AMER",
++    "owner": "Global Marketing",
++    "href": "https://purestorage.com/events/accelerate"
 +  },
 +  {
-+    "title": "Pipeline Report",
-+    "href": "https://purestorage.com/pipeline",
-+    "type": "external"
++    "title": "Data Protection Workshop",
++    "date": "2024-07-25",
++    "region": "EMEA",
++    "owner": "Alliances",
++    "href": "https://purestorage.com/events/data-protection"
 +  },
 +  {
-+    "title": "Asset Report",
-+    "href": "https://purestorage.com/assets",
-+    "type": "external",
-+    "restricted": true
++    "title": "Partner Enablement Webinar",
++    "date": "2024-08-02",
++    "region": "AMER",
++    "owner": "Sales Enablement",
++    "href": "https://purestorage.com/events/enablement"
 +  },
 +  {
-+    "title": "Events Calendar",
-+    "href": "/marketing",
-+    "type": "internal"
++    "title": "AI Infrastructure Roundtable",
++    "date": "2024-08-15",
++    "region": "APJ",
++    "owner": "Engineering",
++    "href": "https://purestorage.com/events/ai-infra"
++  },
++  {
++    "title": "Marketing Campaign Kickoff",
++    "date": "2024-08-22",
++    "region": "Global",
++    "owner": "Field Marketing",
++    "href": "https://purestorage.com/events/campaign-kickoff"
++  },
++  {
++    "title": "Hybrid Cloud Summit",
++    "date": "2024-09-04",
++    "region": "EMEA",
++    "owner": "Alliances",
++    "href": "https://purestorage.com/events/hybrid-cloud"
++  },
++  {
++    "title": "Storage Optimization Clinic",
++    "date": "2024-09-19",
++    "region": "AMER",
++    "owner": "Sales Engineering",
++    "href": "https://purestorage.com/events/storage-optimization"
++  },
++  {
++    "title": "Partner Advisory Board",
++    "date": "2024-10-03",
++    "region": "Global",
++    "owner": "Executive Programs",
++    "href": "https://purestorage.com/events/advisory-board"
 +  }
 +]
-diff --git a/ui/partner-hub/next.config.mjs b/ui/partner-hub/next.config.mjs
-new file mode 100644
-index 0000000000000000000000000000000000000000..3dd3961df0419a2a8087bab74639fe78f82171c9
---- /dev/null
-+++ b/ui/partner-hub/next.config.mjs
-@@ -0,0 +1,5 @@
-+const nextConfig = {
-+  reactStrictMode: true,
-+};
-+
-+export default nextConfig;
-diff --git a/ui/partner-hub/package.json b/ui/partner-hub/package.json
-new file mode 100644
-index 0000000000000000000000000000000000000000..c798225c473d34eccb0abf828771cab610e231b4
---- /dev/null
-+++ b/ui/partner-hub/package.json
-@@ -0,0 +1,30 @@
+diff --git a/ui/partner-hub/data/links.json b/ui/partner-hub/data/links.json
+index aa4c26f74307e0848871fd60b482a7431d7d4a5d..8d7728b8cb92b95aa711786524232b245c3d24c1 100644
+--- a/ui/partner-hub/data/links.json
++++ b/ui/partner-hub/data/links.json
+@@ -1,23 +1,36 @@
+-[
+-  {
+-    "title": "Pure Account Team Search",
+-    "href": "https://purestorage.com/account-search",
+-    "type": "external"
+-  },
+-  {
+-    "title": "Pipeline Report",
+-    "href": "https://purestorage.com/pipeline",
+-    "type": "external"
+-  },
+-  {
+-    "title": "Asset Report",
+-    "href": "https://purestorage.com/assets",
+-    "type": "external",
+-    "restricted": true
+-  },
+-  {
+-    "title": "Events Calendar",
+-    "href": "/marketing",
+-    "type": "internal"
+-  }
+-]
 +{
-+  "name": "partner-hub",
-+  "private": true,
-+  "version": "0.0.1",
-+  "scripts": {
-+    "dev": "next dev",
-+    "build": "next build",
-+    "start": "next start",
-+    "lint": "next lint"
-+  },
-+  "dependencies": {
-+    "next": "^14.0.0",
-+    "react": "^18.0.0",
-+    "react-dom": "^18.0.0",
-+    "next-themes": "^0.2.1",
-+    "lucide-react": "^0.365.0",
-+    "clsx": "^2.1.0"
-+  },
-+  "devDependencies": {
-+    "tailwindcss": "^3.4.0",
-+    "postcss": "^8.4.31",
-+    "autoprefixer": "^10.4.16",
-+    "typescript": "^5.3.0",
-+    "eslint": "^8.55.0",
-+    "eslint-config-next": "^14.0.0",
-+    "@types/node": "^20.9.0",
-+    "@types/react": "^18.2.0",
-+    "@types/react-dom": "^18.2.0"
-+  }
-+}
-diff --git a/ui/partner-hub/postcss.config.js b/ui/partner-hub/postcss.config.js
-new file mode 100644
-index 0000000000000000000000000000000000000000..12a703d900da8159c30e75acbd2c4d87ae177f62
---- /dev/null
-+++ b/ui/partner-hub/postcss.config.js
-@@ -0,0 +1,6 @@
-+module.exports = {
-+  plugins: {
-+    tailwindcss: {},
-+    autoprefixer: {},
-+  },
-+};
-diff --git a/ui/partner-hub/styles/globals.css b/ui/partner-hub/styles/globals.css
-new file mode 100644
-index 0000000000000000000000000000000000000000..77feed727bf8e92a3e8d75d04cf262d60130c06f
---- /dev/null
-+++ b/ui/partner-hub/styles/globals.css
-@@ -0,0 +1,53 @@
-+@tailwind base;
-+@tailwind components;
-+@tailwind utilities;
-+
-+:root {
-+  --brand-primary: 220 75% 55%;
-+  --brand-secondary: 262 83% 58%;
-+  --brand-accent: 20 95% 60%;
-+  --surface-base: 0 0% 100%;
-+  --surface-muted: 210 40% 96%;
-+  --surface-elevated: 0 0% 100%;
-+  --foreground: 222 47% 11%;
-+  --border-color: 214 32% 91%;
-+  --background: var(--surface-base);
-+}
-+
-+.dark {
-+  --brand-primary: 220 100% 80%;
-+  --brand-secondary: 262 73% 75%;
-+  --brand-accent: 20 95% 70%;
-+  --surface-base: 222 47% 11%;
-+  --surface-muted: 222 47% 17%;
-+  --surface-elevated: 222 47% 14%;
-+  --foreground: 210 40% 98%;
-+  --border-color: 215 25% 27%;
-+  --background: var(--surface-base);
-+}
-+
-+body {
-+  @apply bg-background text-foreground antialiased;
-+  background-color: hsl(var(--background));
-+  color: hsl(var(--foreground));
-+}
-+
-+a {
-+  @apply text-primary underline-offset-4 hover:underline;
-+}
-+
-+:focus-visible {
-+  outline: 2px solid hsl(var(--brand-accent));
-+  outline-offset: 2px;
-+}
-+
-+@media (prefers-reduced-motion: reduce) {
-+  *,
-+  *::before,
-+  *::after {
-+    animation-duration: 0.01ms !important;
-+    animation-iteration-count: 1 !important;
-+    transition-duration: 0.01ms !important;
-+    scroll-behavior: auto !important;
-+  }
-+}
-diff --git a/ui/partner-hub/tailwind.config.ts b/ui/partner-hub/tailwind.config.ts
-new file mode 100644
-index 0000000000000000000000000000000000000000..cef882d5f4331bdbd2aec56d867323594b51e90b
---- /dev/null
-+++ b/ui/partner-hub/tailwind.config.ts
-@@ -0,0 +1,21 @@
-+import type { Config } from "tailwindcss";
-+
-+const config: Config = {
-+  content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
-+  theme: {
-+    extend: {
-+      colors: {
-+        background: "hsl(var(--background))",
-+        foreground: "hsl(var(--foreground))",
-+        primary: "hsl(var(--brand-primary))",
-+        secondary: "hsl(var(--brand-secondary))",
-+        accent: "hsl(var(--brand-accent))",
-+        muted: "hsl(var(--surface-muted))",
-+        border: "hsl(var(--border-color))",
-+      },
-+    },
-+  },
-+  plugins: [],
-+};
-+
-+export default config;
-diff --git a/ui/partner-hub/tsconfig.json b/ui/partner-hub/tsconfig.json
-new file mode 100644
-index 0000000000000000000000000000000000000000..0b65b81ca5f3dae43a30c2334d7f3a2d4c4956a0
---- /dev/null
-+++ b/ui/partner-hub/tsconfig.json
-@@ -0,0 +1,24 @@
-+{
-+  "compilerOptions": {
-+    "target": "esnext",
-+    "lib": ["dom", "dom.iterable", "esnext"],
-+    "allowJs": false,
-+    "skipLibCheck": true,
-+    "strict": true,
-+    "forceConsistentCasingInFileNames": true,
-+    "noEmit": true,
-+    "esModuleInterop": true,
-+    "module": "esnext",
-+    "moduleResolution": "bundler",
-+    "resolveJsonModule": true,
-+    "isolatedModules": true,
-+    "jsx": "preserve",
-+    "incremental": true,
-+    "baseUrl": ".",
-+    "paths": {
-+      "@/*": ["*"]
++  "sales": [
++    {
++      "label": "Pure Account Team Search",
++      "href": "https://purestorage.com/account-search",
++      "type": "external"
 +    }
-+  },
-+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
-+  "exclude": ["node_modules"]
++  ],
++  "alliances": [
++    {
++      "label": "Pipeline Report",
++      "href": "https://purestorage.com/pipeline",
++      "type": "external"
++    },
++    {
++      "label": "Asset Report",
++      "href": "https://purestorage.com/assets",
++      "type": "external",
++      "restricted": true
++    }
++  ],
++  "marketing": [
++    {
++      "label": "Events Calendar",
++      "href": "/marketing",
++      "type": "internal"
++    }
++  ],
++  "engineering": [
++    {
++      "label": "Validated Designs",
++      "href": "#",
++      "type": "internal"
++    }
++  ]
 +}
+diff --git a/ui/partner-hub/lib/use-omni-search.ts b/ui/partner-hub/lib/use-omni-search.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..7934565a48a40ee6bc4a83754eeeb5ab711b1ec1
+--- /dev/null
++++ b/ui/partner-hub/lib/use-omni-search.ts
+@@ -0,0 +1,62 @@
++"use client";
++
++import { useEffect, useMemo, useState } from "react";
++import groupedLinks from "@/data/links.json";
++
++type LinkRecord = {
++  label: string;
++  href: string;
++  type: "internal" | "external";
++  restricted?: boolean;
++};
++
++type GroupedLinks = Record<string, LinkRecord[]>;
++
++export type OmniLink = LinkRecord & {
++  role: string;
++};
++
++const registry: OmniLink[] = Object.entries(groupedLinks as GroupedLinks).flatMap(
++  ([role, items]) =>
++    items.map((item) => ({
++      ...item,
++      role,
++    })),
++);
++
++export function useOmniSearch(limit = 8) {
++  const [query, setQuery] = useState("");
++  const [debouncedQuery, setDebouncedQuery] = useState("");
++
++  useEffect(() => {
++    const handle = window.setTimeout(() => {
++      setDebouncedQuery(query.trim().toLowerCase());
++    }, 150);
++
++    return () => window.clearTimeout(handle);
++  }, [query]);
++
++  const results = useMemo(() => {
++    if (!debouncedQuery) {
++      return registry.slice(0, limit);
++    }
++
++    return registry
++      .filter((item) =>
++        [item.label, item.role, item.type]
++          .join(" ")
++          .toLowerCase()
++          .includes(debouncedQuery),
++      )
++      .slice(0, limit);
++  }, [debouncedQuery, limit]);
++
++  return {
++    query,
++    setQuery,
++    results,
++    clear: () => setQuery(""),
++  };
++}
++
++export { registry as omniRegistry };
