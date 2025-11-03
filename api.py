@@ -6,6 +6,33 @@ import json
 from energy import bp as energy_bp
 from flask_cors import CORS
 
+BUILD_ID = (
+    os.getenv("BUILD_ID")
+    or os.getenv("RENDER_GIT_COMMIT")
+    or (os.popen("git rev-parse --short HEAD").read().strip() or "")
+    or str(int(__import__("time").time()))
+)
+
+IMMUTABLE_EXT = (
+    ".js",
+    ".mjs",
+    ".css",
+    ".map",
+    ".json",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".webp",
+    ".svg",
+    ".ico",
+    ".ttf",
+    ".otf",
+    ".woff",
+    ".woff2",
+    ".eot",
+)
+
 TABLE = os.getenv("ACCOUNTS_TABLE", "accounts")
 STATIC_ROOT = os.path.join(os.path.dirname(__file__), "app", "static")
 
@@ -27,6 +54,14 @@ def get_db_conn():
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 
+
+# Template helper: prefer static_url("path") in Jinja templates for cache-busted assets.
+def static_url(path: str, **kwargs) -> str:
+    return url_for("static", filename=path, v=BUILD_ID, **kwargs)
+
+
+app.jinja_env.globals["static_url"] = static_url
+
 # Ensure pages can be embedded in same-origin iframes (e.g., Partner Hub)
 @app.after_request
 def _frame_headers(resp):
@@ -39,6 +74,30 @@ def _frame_headers(resp):
             "frame-ancestors", "frame-ancestors 'self'"
         )
     return resp
+
+
+@app.after_request
+def _cache_headers(resp):
+    try:
+        ct = (resp.headers.get("Content-Type") or "").lower()
+        path = request.path or ""
+        is_html = "text/html" in ct or path.endswith("/") or path.endswith(".html")
+        is_immutable = path.endswith(IMMUTABLE_EXT) or "/_next/" in path
+        if is_html:
+            resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            resp.headers["Pragma"] = "no-cache"
+            resp.headers["Expires"] = "0"
+        elif is_immutable:
+            resp.headers.setdefault("Cache-Control", "public, max-age=31536000, immutable")
+            try:
+                if not resp.headers.get("ETag"):
+                    resp.add_etag()
+                    resp.make_conditional(request)
+            except Exception:
+                pass
+        return resp
+    except Exception:
+        return resp
 
 # Partner Hub static routes
 @app.route("/partner-hub")
@@ -55,7 +114,20 @@ def partner_hub(path: str):
     full_path = os.path.join(base_dir, path)
     if not os.path.isfile(full_path):
         return ("Not Found", 404)
-    return send_from_directory(base_dir, path)
+    resp = send_from_directory(base_dir, path)
+    if path.endswith(".html") or path.endswith("/"):
+        resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        resp.headers["Pragma"] = "no-cache"
+        resp.headers["Expires"] = "0"
+    elif path.endswith(IMMUTABLE_EXT) or "/_next/" in path:
+        resp.headers.setdefault("Cache-Control", "public, max-age=31536000, immutable")
+        try:
+            if not resp.headers.get("ETag"):
+                resp.add_etag()
+                resp.make_conditional(request)
+        except Exception:
+            pass
+    return resp
 
 @app.route("/partner-hub/_debug_exists")
 def partner_hub_debug():

@@ -1,246 +1,161 @@
-diff --git a/ui/partner-hub/components/app-header.tsx b/ui/partner-hub/components/app-header.tsx
-index b2de36b4c29b2df06ff459817d60cd2ec59758c5..7d3e5561bc169542c5b69bbc6d04a2c72d36d381 100644
---- a/ui/partner-hub/components/app-header.tsx
-+++ b/ui/partner-hub/components/app-header.tsx
-@@ -6,67 +6,67 @@ import { useRouter } from "next/navigation";
- import { useTheme } from "next-themes";
- import { Moon, Sun, Search, ArrowUpRight } from "lucide-react";
- import { Button } from "./ui/button";
- import { useOmniSearch, type OmniLink } from "@/lib/use-omni-search";
+diff --git a/api.py b/api.py
+index 381d47cc0e726d985b6ea61eb09c9baea65d15ae..3217514e916e490ff3040296d806d3ec4907f3b0 100644
+--- a/api.py
++++ b/api.py
+@@ -1,83 +1,155 @@
+ import os
+ import psycopg
+ from psycopg import errors
+ from flask import Flask, request, jsonify, render_template, redirect, url_for, current_app, send_from_directory
+ import json
+ from energy import bp as energy_bp
+ from flask_cors import CORS
  
- export function AppHeader() {
-   const { theme, setTheme } = useTheme();
-   const router = useRouter();
-   const { query, setQuery, results } = useOmniSearch();
-   const [open, setOpen] = useState(false);
++BUILD_ID = (
++    os.getenv("BUILD_ID")
++    or os.getenv("RENDER_GIT_COMMIT")
++    or (os.popen("git rev-parse --short HEAD").read().strip() or "")
++    or str(int(__import__("time").time()))
++)
++
++IMMUTABLE_EXT = (
++    ".js",
++    ".mjs",
++    ".css",
++    ".map",
++    ".json",
++    ".png",
++    ".jpg",
++    ".jpeg",
++    ".gif",
++    ".webp",
++    ".svg",
++    ".ico",
++    ".ttf",
++    ".otf",
++    ".woff",
++    ".woff2",
++    ".eot",
++)
++
+ TABLE = os.getenv("ACCOUNTS_TABLE", "accounts")
+ STATIC_ROOT = os.path.join(os.path.dirname(__file__), "app", "static")
  
-   const toggleTheme = () => {
-     setTheme(theme === "dark" ? "light" : "dark");
-   };
+ def _sanitize_dsn(raw: str) -> str:
+     """Strip common copy/paste mistakes like `psql 'postgresql://...` and wrapping quotes."""
+     dsn = (raw or "").strip()
+     if dsn.lower().startswith("psql "):
+         dsn = dsn.split(" ", 1)[1].strip()
+     if (dsn.startswith("'") and dsn.endswith("'")) or (dsn.startswith('"') and dsn.endswith('"')):
+         dsn = dsn[1:-1]
+     return dsn
  
-   const navigateTo = (link: OmniLink) => {
-     if (link.type === "external") {
-       window.open(link.href, "_blank", "noopener");
-     } else {
-       router.push(link.href);
-     }
-     setOpen(false);
-   };
+ def get_db_conn():
+     raw = os.getenv("DATABASE_URL")
+     dsn = _sanitize_dsn(raw)
+     if not dsn:
+         raise RuntimeError("DATABASE_URL is not set")
+     return psycopg.connect(dsn)
  
-   return (
--    <header className="sticky top-0 z-20 border-b border-border bg-white/80 backdrop-blur dark:bg-slate-900/80">
-+    <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
-       <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-6">
-         <Link
-           href="/partner-hub/"
-           aria-label="Partner Hub Home"
--          className="flex items-center gap-2 rounded-md px-2 py-1 text-primary transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-+          className="flex items-center gap-2 rounded-md px-2 py-1 text-primary transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-         >
-           <img src="/brand/pure.svg" alt="Pure Storage" height="24" />
--          <span aria-hidden className="text-sm font-semibold text-foreground/60">
-+          <span aria-hidden className="text-sm font-semibold text-accent">
-             ×
-           </span>
-           <img src="/brand/trace3.svg" alt="Trace3" height="24" />
-         </Link>
-         <div className="relative mx-auto flex w-full max-w-xl items-center">
-           <Search className="absolute left-3 h-4 w-4 text-foreground/40" aria-hidden />
-           <input
--            className="h-10 w-full rounded-lg border border-border bg-white/60 pl-9 pr-3 text-sm shadow-inner outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30 dark:bg-slate-950/40"
-+            className="h-10 w-full rounded-lg border border-border bg-background/60 pl-9 pr-3 text-sm shadow-inner outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/40 focus:ring-offset-2 focus:ring-offset-background"
-             placeholder="Search partner resources"
-             type="search"
-             aria-label="Search"
-             value={query}
-             onChange={(event) => setQuery(event.target.value)}
-             onFocus={() => setOpen(true)}
-             onKeyDown={(event) => {
-               if (event.key === "Enter" && results[0]) {
-                 event.preventDefault();
-                 navigateTo(results[0]);
-               }
-               if (event.key === "Escape") {
-                 setOpen(false);
-               }
-             }}
-             onBlur={() => {
-               window.setTimeout(() => setOpen(false), 100);
-             }}
-           />
-           {open && results.length > 0 ? (
-             <ul
-               role="listbox"
-               className="absolute left-0 right-0 top-11 z-10 max-h-80 overflow-y-auto rounded-lg border border-border bg-background shadow-lg"
-             >
-               {results.map((item) => (
-diff --git a/ui/partner-hub/components/app-shell.tsx b/ui/partner-hub/components/app-shell.tsx
-index 7f45e564d4b66cab6641a2cea9e22f0747e21c3d..107da085432b153d27586cd5012886ba986f16fc 100644
---- a/ui/partner-hub/components/app-shell.tsx
-+++ b/ui/partner-hub/components/app-shell.tsx
-@@ -1,15 +1,15 @@
- import type { ReactNode } from "react";
- import { AppHeader } from "./app-header";
- import { LeftNav } from "./left-nav";
+ app = Flask(__name__, static_folder="static", template_folder="templates")
  
- export function AppShell({ children }: { children: ReactNode }) {
-   return (
--    <div className="flex min-h-screen flex-col bg-[hsl(var(--background))]">
-+    <div className="flex min-h-screen flex-col bg-background">
-       <AppHeader />
-       <div className="mx-auto flex w-full max-w-6xl flex-1 gap-6 px-6 py-8">
-         <LeftNav />
-         <main className="flex-1 space-y-6">{children}</main>
-       </div>
-     </div>
-   );
- }
-diff --git a/ui/partner-hub/components/ui/button.tsx b/ui/partner-hub/components/ui/button.tsx
-index f3efe8c88af9d143c3ac7fd72e8709cfecd0666b..5bf42abcb4805e0fd4f84734db33eeddba0ca354 100644
---- a/ui/partner-hub/components/ui/button.tsx
-+++ b/ui/partner-hub/components/ui/button.tsx
-@@ -1,29 +1,29 @@
- import * as React from "react";
- import { clsx } from "clsx";
++
++# Template helper: prefer static_url("path") in Jinja templates for cache-busted assets.
++def static_url(path: str, **kwargs) -> str:
++    return url_for("static", filename=path, v=BUILD_ID, **kwargs)
++
++
++app.jinja_env.globals["static_url"] = static_url
++
+ # Ensure pages can be embedded in same-origin iframes (e.g., Partner Hub)
+ @app.after_request
+ def _frame_headers(resp):
+     # Allow same-origin embedding for Partner Hub iframes
+     resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+     # For older browsers, keep CSP frame-ancestors loose enough for same-origin
+     csp = resp.headers.get("Content-Security-Policy")
+     if csp and "frame-ancestors" in csp and "self" not in csp:
+         resp.headers["Content-Security-Policy"] = csp.replace(
+             "frame-ancestors", "frame-ancestors 'self'"
+         )
+     return resp
  
- const baseStyles =
--  "inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50";
-+  "inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50";
++
++@app.after_request
++def _cache_headers(resp):
++    try:
++        ct = (resp.headers.get("Content-Type") or "").lower()
++        path = request.path or ""
++        is_html = "text/html" in ct or path.endswith("/") or path.endswith(".html")
++        is_immutable = path.endswith(IMMUTABLE_EXT) or "/_next/" in path
++        if is_html:
++            resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
++            resp.headers["Pragma"] = "no-cache"
++            resp.headers["Expires"] = "0"
++        elif is_immutable:
++            resp.headers.setdefault("Cache-Control", "public, max-age=31536000, immutable")
++            try:
++                if not resp.headers.get("ETag"):
++                    resp.add_etag()
++                    resp.make_conditional(request)
++            except Exception:
++                pass
++        return resp
++    except Exception:
++        return resp
++
+ # Partner Hub static routes
+ @app.route("/partner-hub")
+ def partner_hub_redirect():
+     return redirect("/partner-hub/", code=301)
  
- const variants: Record<string, string> = {
--  default: "bg-primary text-white shadow hover:brightness-105",
--  outline: "border border-border bg-transparent text-foreground hover:bg-muted",
-+  primary: "bg-primary text-foreground shadow hover:bg-primary/90",
-+  secondary: "bg-muted text-foreground hover:bg-muted/80",
-   ghost: "bg-transparent text-foreground hover:bg-muted",
- };
+ @app.route("/partner-hub/", defaults={"path": ""})
+ @app.route("/partner-hub/<path:path>")
+ def partner_hub(path: str):
+     base_dir = os.path.join(STATIC_ROOT, "partner-hub")
+     # Directory requests → index.html
+     if path == "" or path.endswith("/"):
+         path = (path + "index.html") if path else "index.html"
+     full_path = os.path.join(base_dir, path)
+     if not os.path.isfile(full_path):
+         return ("Not Found", 404)
+-    return send_from_directory(base_dir, path)
++    resp = send_from_directory(base_dir, path)
++    if path.endswith(".html") or path.endswith("/"):
++        resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
++        resp.headers["Pragma"] = "no-cache"
++        resp.headers["Expires"] = "0"
++    elif path.endswith(IMMUTABLE_EXT) or "/_next/" in path:
++        resp.headers.setdefault("Cache-Control", "public, max-age=31536000, immutable")
++        try:
++            if not resp.headers.get("ETag"):
++                resp.add_etag()
++                resp.make_conditional(request)
++        except Exception:
++            pass
++    return resp
  
- type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
-   variant?: keyof typeof variants;
- };
+ @app.route("/partner-hub/_debug_exists")
+ def partner_hub_debug():
+     base_dir = os.path.join(STATIC_ROOT, "partner-hub")
+     index_path = os.path.join(base_dir, "index.html")
+     return {"base_dir": base_dir, "index_exists": os.path.isfile(index_path)}
  
- export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
--  ({ className, variant = "default", ...props }, ref) => {
-+  ({ className, variant = "primary", ...props }, ref) => {
-     return (
-       <button
-         ref={ref}
-         className={clsx(baseStyles, variants[variant], className)}
-         {...props}
-       />
-     );
-   },
- );
+ # Register Energy blueprint
+ app.register_blueprint(energy_bp, url_prefix='/energy')
  
- Button.displayName = "Button";
-diff --git a/ui/partner-hub/styles/globals.css b/ui/partner-hub/styles/globals.css
-index 77feed727bf8e92a3e8d75d04cf262d60130c06f..4bd382a556cf2f79d06ebc3f3fdb29890dd1d161 100644
---- a/ui/partner-hub/styles/globals.css
-+++ b/ui/partner-hub/styles/globals.css
-@@ -1,53 +1,53 @@
- @tailwind base;
- @tailwind components;
- @tailwind utilities;
+ # CORS: allow specific origins if provided, else *
+ allowed = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",") if o.strip()]
+ CORS(app, origins=allowed if allowed else "*", supports_credentials=False)
  
- :root {
--  --brand-primary: 220 75% 55%;
--  --brand-secondary: 262 83% 58%;
--  --brand-accent: 20 95% 60%;
--  --surface-base: 0 0% 100%;
--  --surface-muted: 210 40% 96%;
--  --surface-elevated: 0 0% 100%;
--  --foreground: 222 47% 11%;
--  --border-color: 214 32% 91%;
-+  --brand-primary: #ef4a00;
-+  --brand-secondary: #003b5c;
-+  --brand-accent: #00aeef;
-+  --surface-base: #ffffff;
-+  --surface-muted: #f1f5f9;
-+  --surface-elevated: #ffffff;
-+  --foreground: #0f172a;
-+  --border-color: #cbd5e1;
-   --background: var(--surface-base);
- }
- 
- .dark {
--  --brand-primary: 220 100% 80%;
--  --brand-secondary: 262 73% 75%;
--  --brand-accent: 20 95% 70%;
--  --surface-base: 222 47% 11%;
--  --surface-muted: 222 47% 17%;
--  --surface-elevated: 222 47% 14%;
--  --foreground: 210 40% 98%;
--  --border-color: 215 25% 27%;
-+  --brand-primary: #ff7a00;
-+  --brand-secondary: #4f94b8;
-+  --brand-accent: #00aeef;
-+  --surface-base: #0b1120;
-+  --surface-muted: #1e293b;
-+  --surface-elevated: #13203a;
-+  --foreground: #e2e8f0;
-+  --border-color: #3b5675;
-   --background: var(--surface-base);
- }
- 
- body {
-   @apply bg-background text-foreground antialiased;
--  background-color: hsl(var(--background));
--  color: hsl(var(--foreground));
-+  background-color: var(--background);
-+  color: var(--foreground);
- }
- 
- a {
--  @apply text-primary underline-offset-4 hover:underline;
-+  @apply text-accent underline-offset-4 hover:underline;
- }
- 
- :focus-visible {
--  outline: 2px solid hsl(var(--brand-accent));
-+  outline: 2px solid var(--brand-accent);
-   outline-offset: 2px;
- }
- 
- @media (prefers-reduced-motion: reduce) {
-   *,
-   *::before,
-   *::after {
-     animation-duration: 0.01ms !important;
-     animation-iteration-count: 1 !important;
-     transition-duration: 0.01ms !important;
-     scroll-behavior: auto !important;
-   }
- }
-diff --git a/ui/partner-hub/tailwind.config.ts b/ui/partner-hub/tailwind.config.ts
-index cef882d5f4331bdbd2aec56d867323594b51e90b..b838cd7cd5789e4f66976b7534f5bb5d3baa666a 100644
---- a/ui/partner-hub/tailwind.config.ts
-+++ b/ui/partner-hub/tailwind.config.ts
-@@ -1,21 +1,21 @@
- import type { Config } from "tailwindcss";
- 
- const config: Config = {
-   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
-   theme: {
-     extend: {
-       colors: {
--        background: "hsl(var(--background))",
--        foreground: "hsl(var(--foreground))",
--        primary: "hsl(var(--brand-primary))",
--        secondary: "hsl(var(--brand-secondary))",
--        accent: "hsl(var(--brand-accent))",
--        muted: "hsl(var(--surface-muted))",
--        border: "hsl(var(--border-color))",
-+        background: "var(--background)",
-+        foreground: "var(--foreground)",
-+        primary: "var(--brand-primary)",
-+        secondary: "var(--brand-secondary)",
-+        accent: "var(--brand-accent)",
-+        muted: "var(--surface-muted)",
-+        border: "var(--border-color)",
-       },
-     },
-   },
-   plugins: [],
- };
- 
- export default config;
+ def fmt0(x): 
+     try: return f"{float(x):,.0f}"
+     except: return str(x)
+ def fmt1(x):
+     try: return f"{float(x):,.1f}"
+     except: return str(x)
+ def fmt2(x):
+     try: return f"{float(x):,.2f}"
+     except: return str(x)
+ def fmt3(x):
+     try: return f"{float(x):,.3f}"
