@@ -5,13 +5,13 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
-        primary: "hsl(var(--brand-primary))",
-        secondary: "hsl(var(--brand-secondary))",
-        accent: "hsl(var(--brand-accent))",
-        muted: "hsl(var(--surface-muted))",
-        border: "hsl(var(--border-color))",
+        background: "var(--background)",
+        foreground: "var(--foreground)",
+        primary: "var(--brand-primary)",
+        secondary: "var(--brand-secondary)",
+        accent: "var(--brand-accent)",
+        muted: "var(--surface-muted)",
+        border: "var(--border-color)",
       },
     },
   },

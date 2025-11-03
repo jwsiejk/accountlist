@@ -1,42 +1,8 @@
-diff --git a/ui/partner-hub/app/layout.tsx b/ui/partner-hub/app/layout.tsx
-index e2977b1f93d481af9ff3e1e79b0e9d747e40d0b4..99bc053d8b76d5a1362e17db28aa0d4b61eada88 100644
---- a/ui/partner-hub/app/layout.tsx
-+++ b/ui/partner-hub/app/layout.tsx
-@@ -1,21 +1,24 @@
- import type { Metadata } from "next";
- import "../styles/globals.css";
- import { ThemeProvider } from "@/components/theme-provider";
- import { AppShell } from "@/components/app-shell";
- 
- export const metadata: Metadata = {
-   title: "Trace3 × Pure Partner Hub",
-   description: "Offline-ready shell for partner resources with role-based navigation.",
-+  icons: {
-+    icon: "/brand/favicon.svg",
-+  },
- };
- 
- export default function RootLayout({ children }: { children: React.ReactNode }) {
-   return (
-     <html lang="en" suppressHydrationWarning>
-       <body className="min-h-screen bg-background text-foreground">
-         <ThemeProvider>
-           <AppShell>{children}</AppShell>
-         </ThemeProvider>
-       </body>
-     </html>
-   );
- }
 diff --git a/ui/partner-hub/components/app-header.tsx b/ui/partner-hub/components/app-header.tsx
-index 8178de646ea1f8cf7898ae9a071cee0a62ddb6ac..b2de36b4c29b2df06ff459817d60cd2ec59758c5 100644
+index b2de36b4c29b2df06ff459817d60cd2ec59758c5..7d3e5561bc169542c5b69bbc6d04a2c72d36d381 100644
 --- a/ui/partner-hub/components/app-header.tsx
 +++ b/ui/partner-hub/components/app-header.tsx
-@@ -1,57 +1,68 @@
- "use client";
- 
-+import Link from "next/link";
- import { useState } from "react";
- import { useRouter } from "next/navigation";
+@@ -6,67 +6,67 @@ import { useRouter } from "next/navigation";
  import { useTheme } from "next-themes";
  import { Moon, Sun, Search, ArrowUpRight } from "lucide-react";
  import { Button } from "./ui/button";
@@ -62,24 +28,27 @@ index 8178de646ea1f8cf7898ae9a071cee0a62ddb6ac..b2de36b4c29b2df06ff459817d60cd2e
    };
  
    return (
-     <header className="sticky top-0 z-20 border-b border-border bg-white/80 backdrop-blur dark:bg-slate-900/80">
+-    <header className="sticky top-0 z-20 border-b border-border bg-white/80 backdrop-blur dark:bg-slate-900/80">
++    <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
        <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-6">
--        <div className="text-lg font-semibold tracking-tight text-primary">Trace3 × Pure Partner Hub</div>
-+        <Link
-+          href="/partner-hub/"
-+          aria-label="Partner Hub Home"
-+          className="flex items-center gap-2 rounded-md px-2 py-1 text-primary transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-+        >
-+          <img src="/brand/pure.svg" alt="Pure Storage" height="24" />
-+          <span aria-hidden className="text-sm font-semibold text-foreground/60">
-+            ×
-+          </span>
-+          <img src="/brand/trace3.svg" alt="Trace3" height="24" />
-+        </Link>
+         <Link
+           href="/partner-hub/"
+           aria-label="Partner Hub Home"
+-          className="flex items-center gap-2 rounded-md px-2 py-1 text-primary transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
++          className="flex items-center gap-2 rounded-md px-2 py-1 text-primary transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+         >
+           <img src="/brand/pure.svg" alt="Pure Storage" height="24" />
+-          <span aria-hidden className="text-sm font-semibold text-foreground/60">
++          <span aria-hidden className="text-sm font-semibold text-accent">
+             ×
+           </span>
+           <img src="/brand/trace3.svg" alt="Trace3" height="24" />
+         </Link>
          <div className="relative mx-auto flex w-full max-w-xl items-center">
            <Search className="absolute left-3 h-4 w-4 text-foreground/40" aria-hidden />
            <input
-             className="h-10 w-full rounded-lg border border-border bg-white/60 pl-9 pr-3 text-sm shadow-inner outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30 dark:bg-slate-950/40"
+-            className="h-10 w-full rounded-lg border border-border bg-white/60 pl-9 pr-3 text-sm shadow-inner outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30 dark:bg-slate-950/40"
++            className="h-10 w-full rounded-lg border border-border bg-background/60 pl-9 pr-3 text-sm shadow-inner outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/40 focus:ring-offset-2 focus:ring-offset-background"
              placeholder="Search partner resources"
              type="search"
              aria-label="Search"
@@ -101,36 +70,177 @@ index 8178de646ea1f8cf7898ae9a071cee0a62ddb6ac..b2de36b4c29b2df06ff459817d60cd2e
            />
            {open && results.length > 0 ? (
              <ul
-diff --git a/ui/partner-hub/public/brand/favicon.svg b/ui/partner-hub/public/brand/favicon.svg
-new file mode 100644
-index 0000000000000000000000000000000000000000..349b3de08f31f8abb487948ac9e8c1a69385d873
---- /dev/null
-+++ b/ui/partner-hub/public/brand/favicon.svg
-@@ -0,0 +1,5 @@
-+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="title">
-+  <title id="title">Partner Hub Favicon</title>
-+  <rect width="64" height="64" fill="#ff4d00" rx="12" />
-+  <text x="32" y="38" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="28" font-weight="700" fill="#ffffff">PH</text>
-+</svg>
-diff --git a/ui/partner-hub/public/brand/pure.svg b/ui/partner-hub/public/brand/pure.svg
-new file mode 100644
-index 0000000000000000000000000000000000000000..69a0d4d5670fc6cf07acca02f6bbb6fc00f7d31c
---- /dev/null
-+++ b/ui/partner-hub/public/brand/pure.svg
-@@ -0,0 +1,5 @@
-+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="40" viewBox="0 0 160 40" role="img" aria-labelledby="title">
-+  <title id="title">Pure Storage Logo</title>
-+  <rect width="40" height="40" fill="#ff4d00" rx="6" />
-+  <rect x="52" y="8" width="100" height="24" fill="none" stroke="#ff4d00" stroke-width="2.5" rx="6" />
-+</svg>
-diff --git a/ui/partner-hub/public/brand/trace3.svg b/ui/partner-hub/public/brand/trace3.svg
-new file mode 100644
-index 0000000000000000000000000000000000000000..bb7f1162fc91c16b67a464ee8b2133426510f622
---- /dev/null
-+++ b/ui/partner-hub/public/brand/trace3.svg
-@@ -0,0 +1,5 @@
-+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="40" viewBox="0 0 160 40" role="img" aria-labelledby="title">
-+  <title id="title">Trace3 Logo</title>
-+  <rect width="160" height="40" fill="#081a2a" rx="6" />
-+  <text x="80" y="26" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="20" font-weight="700" letter-spacing="4" fill="#00bcd4">TRACE3</text>
-+</svg>
+               role="listbox"
+               className="absolute left-0 right-0 top-11 z-10 max-h-80 overflow-y-auto rounded-lg border border-border bg-background shadow-lg"
+             >
+               {results.map((item) => (
+diff --git a/ui/partner-hub/components/app-shell.tsx b/ui/partner-hub/components/app-shell.tsx
+index 7f45e564d4b66cab6641a2cea9e22f0747e21c3d..107da085432b153d27586cd5012886ba986f16fc 100644
+--- a/ui/partner-hub/components/app-shell.tsx
++++ b/ui/partner-hub/components/app-shell.tsx
+@@ -1,15 +1,15 @@
+ import type { ReactNode } from "react";
+ import { AppHeader } from "./app-header";
+ import { LeftNav } from "./left-nav";
+ 
+ export function AppShell({ children }: { children: ReactNode }) {
+   return (
+-    <div className="flex min-h-screen flex-col bg-[hsl(var(--background))]">
++    <div className="flex min-h-screen flex-col bg-background">
+       <AppHeader />
+       <div className="mx-auto flex w-full max-w-6xl flex-1 gap-6 px-6 py-8">
+         <LeftNav />
+         <main className="flex-1 space-y-6">{children}</main>
+       </div>
+     </div>
+   );
+ }
+diff --git a/ui/partner-hub/components/ui/button.tsx b/ui/partner-hub/components/ui/button.tsx
+index f3efe8c88af9d143c3ac7fd72e8709cfecd0666b..5bf42abcb4805e0fd4f84734db33eeddba0ca354 100644
+--- a/ui/partner-hub/components/ui/button.tsx
++++ b/ui/partner-hub/components/ui/button.tsx
+@@ -1,29 +1,29 @@
+ import * as React from "react";
+ import { clsx } from "clsx";
+ 
+ const baseStyles =
+-  "inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50";
++  "inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50";
+ 
+ const variants: Record<string, string> = {
+-  default: "bg-primary text-white shadow hover:brightness-105",
+-  outline: "border border-border bg-transparent text-foreground hover:bg-muted",
++  primary: "bg-primary text-foreground shadow hover:bg-primary/90",
++  secondary: "bg-muted text-foreground hover:bg-muted/80",
+   ghost: "bg-transparent text-foreground hover:bg-muted",
+ };
+ 
+ type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+   variant?: keyof typeof variants;
+ };
+ 
+ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+-  ({ className, variant = "default", ...props }, ref) => {
++  ({ className, variant = "primary", ...props }, ref) => {
+     return (
+       <button
+         ref={ref}
+         className={clsx(baseStyles, variants[variant], className)}
+         {...props}
+       />
+     );
+   },
+ );
+ 
+ Button.displayName = "Button";
+diff --git a/ui/partner-hub/styles/globals.css b/ui/partner-hub/styles/globals.css
+index 77feed727bf8e92a3e8d75d04cf262d60130c06f..4bd382a556cf2f79d06ebc3f3fdb29890dd1d161 100644
+--- a/ui/partner-hub/styles/globals.css
++++ b/ui/partner-hub/styles/globals.css
+@@ -1,53 +1,53 @@
+ @tailwind base;
+ @tailwind components;
+ @tailwind utilities;
+ 
+ :root {
+-  --brand-primary: 220 75% 55%;
+-  --brand-secondary: 262 83% 58%;
+-  --brand-accent: 20 95% 60%;
+-  --surface-base: 0 0% 100%;
+-  --surface-muted: 210 40% 96%;
+-  --surface-elevated: 0 0% 100%;
+-  --foreground: 222 47% 11%;
+-  --border-color: 214 32% 91%;
++  --brand-primary: #ef4a00;
++  --brand-secondary: #003b5c;
++  --brand-accent: #00aeef;
++  --surface-base: #ffffff;
++  --surface-muted: #f1f5f9;
++  --surface-elevated: #ffffff;
++  --foreground: #0f172a;
++  --border-color: #cbd5e1;
+   --background: var(--surface-base);
+ }
+ 
+ .dark {
+-  --brand-primary: 220 100% 80%;
+-  --brand-secondary: 262 73% 75%;
+-  --brand-accent: 20 95% 70%;
+-  --surface-base: 222 47% 11%;
+-  --surface-muted: 222 47% 17%;
+-  --surface-elevated: 222 47% 14%;
+-  --foreground: 210 40% 98%;
+-  --border-color: 215 25% 27%;
++  --brand-primary: #ff7a00;
++  --brand-secondary: #4f94b8;
++  --brand-accent: #00aeef;
++  --surface-base: #0b1120;
++  --surface-muted: #1e293b;
++  --surface-elevated: #13203a;
++  --foreground: #e2e8f0;
++  --border-color: #3b5675;
+   --background: var(--surface-base);
+ }
+ 
+ body {
+   @apply bg-background text-foreground antialiased;
+-  background-color: hsl(var(--background));
+-  color: hsl(var(--foreground));
++  background-color: var(--background);
++  color: var(--foreground);
+ }
+ 
+ a {
+-  @apply text-primary underline-offset-4 hover:underline;
++  @apply text-accent underline-offset-4 hover:underline;
+ }
+ 
+ :focus-visible {
+-  outline: 2px solid hsl(var(--brand-accent));
++  outline: 2px solid var(--brand-accent);
+   outline-offset: 2px;
+ }
+ 
+ @media (prefers-reduced-motion: reduce) {
+   *,
+   *::before,
+   *::after {
+     animation-duration: 0.01ms !important;
+     animation-iteration-count: 1 !important;
+     transition-duration: 0.01ms !important;
+     scroll-behavior: auto !important;
+   }
+ }
+diff --git a/ui/partner-hub/tailwind.config.ts b/ui/partner-hub/tailwind.config.ts
+index cef882d5f4331bdbd2aec56d867323594b51e90b..b838cd7cd5789e4f66976b7534f5bb5d3baa666a 100644
+--- a/ui/partner-hub/tailwind.config.ts
++++ b/ui/partner-hub/tailwind.config.ts
+@@ -1,21 +1,21 @@
+ import type { Config } from "tailwindcss";
+ 
+ const config: Config = {
+   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
+   theme: {
+     extend: {
+       colors: {
+-        background: "hsl(var(--background))",
+-        foreground: "hsl(var(--foreground))",
+-        primary: "hsl(var(--brand-primary))",
+-        secondary: "hsl(var(--brand-secondary))",
+-        accent: "hsl(var(--brand-accent))",
+-        muted: "hsl(var(--surface-muted))",
+-        border: "hsl(var(--border-color))",
++        background: "var(--background)",
++        foreground: "var(--foreground)",
++        primary: "var(--brand-primary)",
++        secondary: "var(--brand-secondary)",
++        accent: "var(--brand-accent)",
++        muted: "var(--surface-muted)",
++        border: "var(--border-color)",
+       },
+     },
+   },
+   plugins: [],
+ };
+ 
+ export default config;

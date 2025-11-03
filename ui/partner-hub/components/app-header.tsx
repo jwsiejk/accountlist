@@ -28,15 +28,15 @@ export function AppHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-20 border-b border-border bg-white/80 backdrop-blur dark:bg-slate-900/80">
+    <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-6">
         <Link
           href="/partner-hub/"
           aria-label="Partner Hub Home"
-          className="flex items-center gap-2 rounded-md px-2 py-1 text-primary transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          className="flex items-center gap-2 rounded-md px-2 py-1 text-primary transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           <img src="/brand/pure.svg" alt="Pure Storage" height="24" />
-          <span aria-hidden className="text-sm font-semibold text-foreground/60">
+          <span aria-hidden className="text-sm font-semibold text-accent">
             ×
           </span>
           <img src="/brand/trace3.svg" alt="Trace3" height="24" />
@@ -44,7 +44,7 @@ export function AppHeader() {
         <div className="relative mx-auto flex w-full max-w-xl items-center">
           <Search className="absolute left-3 h-4 w-4 text-foreground/40" aria-hidden />
           <input
-            className="h-10 w-full rounded-lg border border-border bg-white/60 pl-9 pr-3 text-sm shadow-inner outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30 dark:bg-slate-950/40"
+            className="h-10 w-full rounded-lg border border-border bg-background/60 pl-9 pr-3 text-sm shadow-inner outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/40 focus:ring-offset-2 focus:ring-offset-background"
             placeholder="Search partner resources"
             type="search"
             aria-label="Search"

@@ -3,41 +3,41 @@
 @tailwind utilities;
 
 :root {
-  --brand-primary: 220 75% 55%;
-  --brand-secondary: 262 83% 58%;
-  --brand-accent: 20 95% 60%;
-  --surface-base: 0 0% 100%;
-  --surface-muted: 210 40% 96%;
-  --surface-elevated: 0 0% 100%;
-  --foreground: 222 47% 11%;
-  --border-color: 214 32% 91%;
+  --brand-primary: #ef4a00;
+  --brand-secondary: #003b5c;
+  --brand-accent: #00aeef;
+  --surface-base: #ffffff;
+  --surface-muted: #f1f5f9;
+  --surface-elevated: #ffffff;
+  --foreground: #0f172a;
+  --border-color: #cbd5e1;
   --background: var(--surface-base);
 }
 
 .dark {
-  --brand-primary: 220 100% 80%;
-  --brand-secondary: 262 73% 75%;
-  --brand-accent: 20 95% 70%;
-  --surface-base: 222 47% 11%;
-  --surface-muted: 222 47% 17%;
-  --surface-elevated: 222 47% 14%;
-  --foreground: 210 40% 98%;
-  --border-color: 215 25% 27%;
+  --brand-primary: #ff7a00;
+  --brand-secondary: #4f94b8;
+  --brand-accent: #00aeef;
+  --surface-base: #0b1120;
+  --surface-muted: #1e293b;
+  --surface-elevated: #13203a;
+  --foreground: #e2e8f0;
+  --border-color: #3b5675;
   --background: var(--surface-base);
 }
 
 body {
   @apply bg-background text-foreground antialiased;
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
+  background-color: var(--background);
+  color: var(--foreground);
 }
 
 a {
-  @apply text-primary underline-offset-4 hover:underline;
+  @apply text-accent underline-offset-4 hover:underline;
 }
 
 :focus-visible {
-  outline: 2px solid hsl(var(--brand-accent));
+  outline: 2px solid var(--brand-accent);
   outline-offset: 2px;
 }
 
