@@ -9,13 +9,13 @@
   "alliances": [
     {
       "label": "Pipeline Report",
-      "href": "https://purestorage.com/pipeline",
-      "type": "external"
+      "href": "/reports/pipeline",
+      "type": "internal"
     },
     {
       "label": "Asset Report",
-      "href": "https://purestorage.com/assets",
-      "type": "external",
+      "href": "/reports/assets",
+      "type": "internal",
       "restricted": true
     }
   ],
@@ -27,6 +27,11 @@
     }
   ],
   "engineering": [
+    {
+      "label": "Energy App",
+      "href": "/energy",
+      "type": "internal"
+    },
     {
       "label": "Validated Designs",
       "href": "#",

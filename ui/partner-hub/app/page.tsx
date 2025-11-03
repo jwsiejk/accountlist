@@ -24,7 +24,13 @@ const roleLabels: Record<RoleKey, string> = {
   marketing: "Marketing",
   alliances: "Alliances",
 };
-const curatedAllLabels = new Set(["Pure Account Team Search", "Pipeline Report", "Asset Report", "Events Calendar"]);
+const curatedAllLabels = new Set([
+  "Pure Account Team Search",
+  "Pipeline Report",
+  "Asset Report",
+  "Events Calendar",
+  "Energy App",
+]);
 const curatedAll = quickLinks.filter((link) => curatedAllLabels.has(link.label));
 const quickLinksByRole: Record<RoleKey, QuickLink[]> = {
   sales: quickLinks.filter((link) => link.role === "sales"),
