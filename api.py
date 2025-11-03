@@ -31,23 +31,20 @@ app = Flask(__name__, static_folder="static", template_folder="templates")
 def partner_hub_redirect():
     return redirect("/partner-hub/", code=301)
 
-@app.route("/partner-hub/")
+@app.route("/partner-hub/", defaults={"path": ""})
 @app.route("/partner-hub/<path:path>")
-def partner_hub(path="index.html"):
+def partner_hub(path: str):
     base_dir = os.path.join(app.static_folder, "partner-hub")
-    # If a directory is requested, serve its index.html
-    requested = os.path.join(base_dir, path)
-    if path.endswith("/") or os.path.isdir(requested):
-        path = os.path.join(path, "index.html") if not path.endswith("/") else path + "index.html"
-    # Fallback to 404 if file does not exist
+    # Directory requests → index.html
+    if path == "" or path.endswith("/"):
+        path = (path + "index.html") if path else "index.html"
+    # 404 if missing
     full_path = os.path.join(base_dir, path)
     if not os.path.isfile(full_path):
-        # Let Flask default 404 handling take over
         return ("Not Found", 404)
     return send_from_directory(base_dir, path)
 
 # Register Energy blueprint
-from energy import bp as energy_bp
 app.register_blueprint(energy_bp, url_prefix='/energy')
 
 # CORS: allow specific origins if provided, else *
