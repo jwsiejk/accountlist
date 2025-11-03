@@ -1,233 +1,68 @@
-diff --git a/ui/partner-hub/app/energy/page.tsx b/ui/partner-hub/app/energy/page.tsx
-new file mode 100644
-index 0000000000000000000000000000000000000000..04a7fe3e663d8c11528413ccc9d3fd4d271c598c
---- /dev/null
-+++ b/ui/partner-hub/app/energy/page.tsx
-@@ -0,0 +1,15 @@
-+import { Embed } from "@/components/embed";
-+
-+export default function EnergyAppPage() {
-+  return (
-+    <main className="flex h-full flex-col gap-6">
-+      <div className="space-y-2">
-+        <h1 className="text-2xl font-semibold">Energy App</h1>
-+        <p className="text-sm text-foreground/70">
-+          Access the integrated Energy experience without leaving the Partner Hub.
-+        </p>
-+      </div>
-+      <Embed src="/energy" title="Energy App" />
-+    </main>
-+  );
-+}
-diff --git a/ui/partner-hub/app/page.tsx b/ui/partner-hub/app/page.tsx
-index 4b8a6facd69d2d6f6937f63e86430a0c1ec3beb6..6ac162461a48b5e810c4a1f8da0748ebbf71d595 100644
---- a/ui/partner-hub/app/page.tsx
-+++ b/ui/partner-hub/app/page.tsx
-@@ -2,51 +2,57 @@
+diff --git a/api.py b/api.py
+index b878a06402c1706afb32204c52cd5c9fada418fd..16faf0d1bce063a556618b162d566661a10d0b93 100644
+--- a/api.py
++++ b/api.py
+@@ -5,50 +5,63 @@ from flask import Flask, request, jsonify, render_template, redirect, url_for, c
+ import json
+ from energy import bp as energy_bp
+ from flask_cors import CORS
  
- import { useState } from "react";
- import Link from "next/link";
- import { ArrowUpRight } from "lucide-react";
- import linksData from "@/data/links.json";
- import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
- import { RestrictedLink } from "@/components/restricted-link";
- import { EventsMini } from "@/components/events-mini";
+ TABLE = os.getenv("ACCOUNTS_TABLE", "accounts")
+ STATIC_ROOT = os.path.join(os.path.dirname(__file__), "app", "static")
  
- type LinkRecord = { label: string; href: string; type: "internal" | "external"; restricted?: boolean };
- type RoleKey = "sales" | "engineering" | "marketing" | "alliances";
- type RoleFilter = RoleKey | "all";
- type QuickLink = LinkRecord & { role: RoleKey };
- type GroupedLinks = Record<RoleKey, LinkRecord[]>;
+ def _sanitize_dsn(raw: str) -> str:
+     """Strip common copy/paste mistakes like `psql 'postgresql://...` and wrapping quotes."""
+     dsn = (raw or "").strip()
+     if dsn.lower().startswith("psql "):
+         dsn = dsn.split(" ", 1)[1].strip()
+     if (dsn.startswith("'") and dsn.endswith("'")) or (dsn.startswith('"') and dsn.endswith('"')):
+         dsn = dsn[1:-1]
+     return dsn
  
- const groupedLinks = linksData as GroupedLinks;
- const quickLinks = (Object.entries(groupedLinks) as [RoleKey, LinkRecord[]][]).flatMap(([role, items]) =>
-   items.map((item) => ({ ...item, role })),
- );
- const roleLabels: Record<RoleKey, string> = {
-   sales: "Sales",
-   engineering: "SE",
-   marketing: "Marketing",
-   alliances: "Alliances",
- };
--const curatedAllLabels = new Set(["Pure Account Team Search", "Pipeline Report", "Asset Report", "Events Calendar"]);
-+const curatedAllLabels = new Set([
-+  "Pure Account Team Search",
-+  "Pipeline Report",
-+  "Asset Report",
-+  "Events Calendar",
-+  "Energy App",
-+]);
- const curatedAll = quickLinks.filter((link) => curatedAllLabels.has(link.label));
- const quickLinksByRole: Record<RoleKey, QuickLink[]> = {
-   sales: quickLinks.filter((link) => link.role === "sales"),
-   engineering: quickLinks.filter((link) => link.role === "engineering"),
-   marketing: quickLinks.filter((link) => link.role === "marketing"),
-   alliances: quickLinks.filter((link) => link.role === "alliances"),
- };
- const rolePills: { key: RoleFilter; label: string }[] = [
-   { key: "sales", label: "Sales" },
-   { key: "engineering", label: "SE" },
-   { key: "marketing", label: "Marketing" },
-   { key: "alliances", label: "Alliances" },
-   { key: "all", label: "All" },
- ];
+ def get_db_conn():
+     raw = os.getenv("DATABASE_URL")
+     dsn = _sanitize_dsn(raw)
+     if not dsn:
+         raise RuntimeError("DATABASE_URL is not set")
+     return psycopg.connect(dsn)
  
- export default function HomePage() {
-   const [activeRole, setActiveRole] = useState<RoleFilter>("all");
-   const visibleLinks = activeRole === "all" ? curatedAll : quickLinksByRole[activeRole];
+ app = Flask(__name__, static_folder="static", template_folder="templates")
  
-   return (
-     <div className="space-y-8">
-       <section className="rounded-3xl border border-border bg-gradient-to-br from-primary/10 via-white to-secondary/10 p-10 shadow-sm dark:via-slate-900">
-         <p className="text-sm font-medium text-primary">Partner Hub</p>
-         <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">Empower every Trace3 × Pure alliance engagement</h1>
-         <p className="mt-4 max-w-2xl text-base text-foreground/70">
-diff --git a/ui/partner-hub/app/reports/assets/page.tsx b/ui/partner-hub/app/reports/assets/page.tsx
-new file mode 100644
-index 0000000000000000000000000000000000000000..b6befa8d588a148243e7790e37d40aa404018978
---- /dev/null
-+++ b/ui/partner-hub/app/reports/assets/page.tsx
-@@ -0,0 +1,15 @@
-+import { Embed } from "@/components/embed";
++# Ensure pages can be embedded in same-origin iframes (e.g., Partner Hub)
++@app.after_request
++def _frame_headers(resp):
++    # Allow same-origin embedding for Partner Hub iframes
++    resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
++    # For older browsers, keep CSP frame-ancestors loose enough for same-origin
++    csp = resp.headers.get("Content-Security-Policy")
++    if csp and "frame-ancestors" in csp and "self" not in csp:
++        resp.headers["Content-Security-Policy"] = csp.replace(
++            "frame-ancestors", "frame-ancestors 'self'"
++        )
++    return resp
 +
-+export default function AssetReportPage() {
-+  return (
-+    <main className="flex h-full flex-col gap-6">
-+      <div className="space-y-2">
-+        <h1 className="text-2xl font-semibold">Asset Report</h1>
-+        <p className="text-sm text-foreground/70">
-+          Explore available Trace3 × Pure collateral. Request access if you don&apos;t see your assets.
-+        </p>
-+      </div>
-+      <Embed src="/alliances/assets" title="Asset Report" restricted />
-+    </main>
-+  );
-+}
-diff --git a/ui/partner-hub/app/reports/pipeline/page.tsx b/ui/partner-hub/app/reports/pipeline/page.tsx
-new file mode 100644
-index 0000000000000000000000000000000000000000..c9c69839acbdc2dc596d6902d91a8fcd7cae32f4
---- /dev/null
-+++ b/ui/partner-hub/app/reports/pipeline/page.tsx
-@@ -0,0 +1,15 @@
-+import { Embed } from "@/components/embed";
-+
-+export default function PipelineReportPage() {
-+  return (
-+    <main className="flex h-full flex-col gap-6">
-+      <div className="space-y-2">
-+        <h1 className="text-2xl font-semibold">Pipeline Report</h1>
-+        <p className="text-sm text-foreground/70">
-+          Review the latest Trace3 × Pure opportunities directly from the Partner Hub.
-+        </p>
-+      </div>
-+      <Embed src="/alliances/pipeline" title="Pipeline Report" />
-+    </main>
-+  );
-+}
-diff --git a/ui/partner-hub/components/embed.tsx b/ui/partner-hub/components/embed.tsx
-new file mode 100644
-index 0000000000000000000000000000000000000000..77ea1327f7a098765fdafe2a7689bf7a6d410ab7
---- /dev/null
-+++ b/ui/partner-hub/components/embed.tsx
-@@ -0,0 +1,51 @@
-+"use client";
-+
-+import Link from "next/link";
-+import { Lock } from "lucide-react";
-+
-+import { RestrictedLink } from "@/components/restricted-link";
-+
-+export type EmbedProps = {
-+  src: string;
-+  title: string;
-+  restricted?: boolean;
-+};
-+
-+export function Embed({ src, title, restricted }: EmbedProps) {
-+  const type = src.startsWith("http") ? "external" : "internal";
-+  const link = { label: title, href: src, type, restricted } as const;
-+
-+  return (
-+    <div className="flex h-full flex-col gap-4">
-+      <div className="relative flex-1 overflow-hidden rounded-2xl border border-border bg-background">
-+        {restricted ? (
-+          <span className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-full bg-foreground/90 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white shadow">
-+            <Lock className="h-3 w-3" aria-hidden />
-+            Restricted
-+          </span>
-+        ) : null}
-+        <iframe
-+          title={title}
-+          src={src}
-+          className="h-full w-full bg-white"
-+          loading="lazy"
-+          allowFullScreen
-+        />
-+      </div>
-+      <div className="text-sm text-foreground/70">
-+        Having trouble with the embedded view?{" "}
-+        <RestrictedLink link={link}>
-+          <Link
-+            href={src}
-+            target={type === "external" ? "_blank" : undefined}
-+            rel={type === "external" ? "noreferrer" : undefined}
-+            className="font-semibold text-primary underline"
-+          >
-+            Open in new tab
-+          </Link>
-+        </RestrictedLink>
-+        .
-+      </div>
-+    </div>
-+  );
-+}
-diff --git a/ui/partner-hub/data/links.json b/ui/partner-hub/data/links.json
-index 8d7728b8cb92b95aa711786524232b245c3d24c1..7232eb38cfb1783f7cfe6d5246125cfc9443849f 100644
---- a/ui/partner-hub/data/links.json
-+++ b/ui/partner-hub/data/links.json
-@@ -1,36 +1,41 @@
- {
-   "sales": [
-     {
-       "label": "Pure Account Team Search",
-       "href": "https://purestorage.com/account-search",
-       "type": "external"
-     }
-   ],
-   "alliances": [
-     {
-       "label": "Pipeline Report",
--      "href": "https://purestorage.com/pipeline",
--      "type": "external"
-+      "href": "/reports/pipeline",
-+      "type": "internal"
-     },
-     {
-       "label": "Asset Report",
--      "href": "https://purestorage.com/assets",
--      "type": "external",
-+      "href": "/reports/assets",
-+      "type": "internal",
-       "restricted": true
-     }
-   ],
-   "marketing": [
-     {
-       "label": "Events Calendar",
-       "href": "/marketing",
-       "type": "internal"
-     }
-   ],
-   "engineering": [
-+    {
-+      "label": "Energy App",
-+      "href": "/energy",
-+      "type": "internal"
-+    },
-     {
-       "label": "Validated Designs",
-       "href": "#",
-       "type": "internal"
-     }
-   ]
- }
+ # Partner Hub static routes
+ @app.route("/partner-hub")
+ def partner_hub_redirect():
+     return redirect("/partner-hub/", code=301)
+ 
+ @app.route("/partner-hub/", defaults={"path": ""})
+ @app.route("/partner-hub/<path:path>")
+ def partner_hub(path: str):
+     base_dir = os.path.join(STATIC_ROOT, "partner-hub")
+     # Directory requests → index.html
+     if path == "" or path.endswith("/"):
+         path = (path + "index.html") if path else "index.html"
+     full_path = os.path.join(base_dir, path)
+     if not os.path.isfile(full_path):
+         return ("Not Found", 404)
+     return send_from_directory(base_dir, path)
+ 
+ @app.route("/partner-hub/_debug_exists")
+ def partner_hub_debug():
+     base_dir = os.path.join(STATIC_ROOT, "partner-hub")
+     index_path = os.path.join(base_dir, "index.html")
+     return {"base_dir": base_dir, "index_exists": os.path.isfile(index_path)}
+ 
+ # Register Energy blueprint
+ app.register_blueprint(energy_bp, url_prefix='/energy')

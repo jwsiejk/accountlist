@@ -27,6 +27,19 @@ def get_db_conn():
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 
+# Ensure pages can be embedded in same-origin iframes (e.g., Partner Hub)
+@app.after_request
+def _frame_headers(resp):
+    # Allow same-origin embedding for Partner Hub iframes
+    resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    # For older browsers, keep CSP frame-ancestors loose enough for same-origin
+    csp = resp.headers.get("Content-Security-Policy")
+    if csp and "frame-ancestors" in csp and "self" not in csp:
+        resp.headers["Content-Security-Policy"] = csp.replace(
+            "frame-ancestors", "frame-ancestors 'self'"
+        )
+    return resp
+
 # Partner Hub static routes
 @app.route("/partner-hub")
 def partner_hub_redirect():
