@@ -18,22 +18,24 @@ type RestrictedLinkProps = {
 
 export function RestrictedLink({ link, children }: RestrictedLinkProps) {
   const [open, setOpen] = React.useState(false);
+  const [confirmed, setConfirmed] = React.useState(false);
   const child = React.Children.only(children);
 
   if (!link.restricted) {
     return child;
   }
 
-  const handleRequest = () => {
-    console.log("request access", link);
+  const handleOpenAnyway = () => {
+    setConfirmed(true);
     setOpen(false);
+    window.location.assign(link.href);
   };
 
   const wrappedChild = React.cloneElement(child, {
     ...child.props,
     onClick: (event: React.MouseEvent) => {
       child.props.onClick?.(event);
-      if (!event.defaultPrevented) {
+      if (!event.defaultPrevented && !confirmed) {
         event.preventDefault();
         setOpen(true);
       }
@@ -52,15 +54,13 @@ export function RestrictedLink({ link, children }: RestrictedLinkProps) {
       {open ? (
         <div role="dialog" aria-modal className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-sm rounded-lg border border-border bg-background p-5 shadow-lg">
-            <h2 className="text-sm font-semibold">Restricted Link</h2>
-            <p className="mt-2 text-sm text-foreground/70">
-              You may not have access yet. Request access?
-            </p>
+            <h2 className="text-sm font-semibold">Restricted link — request access?</h2>
+            <p className="mt-2 text-sm text-foreground/70">You might need additional permissions before continuing.</p>
             <div className="mt-4 flex items-center justify-end gap-2">
               <Button variant="ghost" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleRequest}>Request Access</Button>
+              <Button onClick={handleOpenAnyway}>Open anyway</Button>
             </div>
           </div>
         </div>

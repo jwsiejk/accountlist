@@ -102,6 +102,24 @@ def home():
 def account_search():
     return render_template("account_search.html")
 
+
+@app.get("/alliances/pipeline")
+def alliances_pipeline():
+    return (
+        "<h1>Pipeline Report</h1><p>TODO: Wire real report here.</p>",
+        200,
+        {"Content-Type": "text/html; charset=utf-8"},
+    )
+
+
+@app.get("/alliances/assets")
+def alliances_assets():
+    return (
+        "<h1>Asset Report</h1><p>TODO: Wire real report here (restricted).</p>",
+        200,
+        {"Content-Type": "text/html; charset=utf-8"},
+    )
+
 @app.get('/energy')
 def energy_root():
     return redirect(url_for('energy.index'))

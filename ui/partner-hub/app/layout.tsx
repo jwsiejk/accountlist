@@ -6,6 +6,9 @@ import { AppShell } from "@/components/app-shell";
 export const metadata: Metadata = {
   title: "Trace3 × Pure Partner Hub",
   description: "Offline-ready shell for partner resources with role-based navigation.",
+  icons: {
+    icon: "/brand/favicon.svg",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
