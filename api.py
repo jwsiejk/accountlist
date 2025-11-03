@@ -7,6 +7,7 @@ from energy import bp as energy_bp
 from flask_cors import CORS
 
 TABLE = os.getenv("ACCOUNTS_TABLE", "accounts")
+STATIC_ROOT = os.path.join(os.path.dirname(__file__), "app", "static")
 
 def _sanitize_dsn(raw: str) -> str:
     """Strip common copy/paste mistakes like `psql 'postgresql://...` and wrapping quotes."""
@@ -34,15 +35,20 @@ def partner_hub_redirect():
 @app.route("/partner-hub/", defaults={"path": ""})
 @app.route("/partner-hub/<path:path>")
 def partner_hub(path: str):
-    base_dir = os.path.join(app.static_folder, "partner-hub")
+    base_dir = os.path.join(STATIC_ROOT, "partner-hub")
     # Directory requests → index.html
     if path == "" or path.endswith("/"):
         path = (path + "index.html") if path else "index.html"
-    # 404 if missing
     full_path = os.path.join(base_dir, path)
     if not os.path.isfile(full_path):
         return ("Not Found", 404)
     return send_from_directory(base_dir, path)
+
+@app.route("/partner-hub/_debug_exists")
+def partner_hub_debug():
+    base_dir = os.path.join(STATIC_ROOT, "partner-hub")
+    index_path = os.path.join(base_dir, "index.html")
+    return {"base_dir": base_dir, "index_exists": os.path.isfile(index_path)}
 
 # Register Energy blueprint
 app.register_blueprint(energy_bp, url_prefix='/energy')
