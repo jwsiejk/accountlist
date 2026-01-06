@@ -1,41 +1,38 @@
 {
-  "sales": [
+  "Portfolio": [
     {
-      "label": "Pure Account Team Search",
-      "href": "https://purestorage.com/account-search",
-      "type": "external"
-    }
-  ],
-  "alliances": [
-    {
-      "label": "Pipeline Report",
-      "href": "/reports/pipeline",
+      "label": "Case Studies Library",
+      "href": "/case-studies",
       "type": "internal"
     },
     {
-      "label": "Asset Report",
-      "href": "/reports/assets",
-      "type": "internal",
-      "restricted": true
-    }
-  ],
-  "marketing": [
-    {
-      "label": "Events Calendar",
-      "href": "/marketing",
+      "label": "Architecture Explorer",
+      "href": "/architecture-explorer",
       "type": "internal"
     }
   ],
-  "engineering": [
+  "Tools": [
     {
-      "label": "Energy App",
+      "label": "Estimator",
+      "href": "/estimator",
+      "type": "internal"
+    },
+    {
+      "label": "Energy Tool",
       "href": "/energy",
       "type": "internal"
+    }
+  ],
+  "About": [
+    {
+      "label": "About / Contact",
+      "href": "/about",
+      "type": "internal"
     },
     {
-      "label": "Validated Designs",
+      "label": "Resume Download",
       "href": "#",
-      "type": "internal"
+      "type": "external"
     }
   ]
 }
