@@ -29,9 +29,20 @@ export default function HomePage() {
           Presales Solutions Architect Portfolio
         </h1>
         <p className="mt-4 max-w-2xl text-base text-foreground/70">
-          Supporting data center infrastructure engagements with curated tools, reference
-          architectures, and proof points to accelerate solution discovery.
+          A modern hub for data center infrastructure engagements, pairing architecture insights
+          with the right tools and evidence to move deals forward.
         </p>
+        <ul className="mt-6 grid gap-3 text-sm text-foreground/70 sm:grid-cols-3">
+          <li className="rounded-2xl border border-border/60 bg-background/80 px-4 py-3">
+            12+ validated reference designs across AI, hybrid cloud, and edge.
+          </li>
+          <li className="rounded-2xl border border-border/60 bg-background/80 px-4 py-3">
+            Rapid sizing and budget ranges in minutes with built-in estimators.
+          </li>
+          <li className="rounded-2xl border border-border/60 bg-background/80 px-4 py-3">
+            Energy impact modeling to support sustainability narratives.
+          </li>
+        </ul>
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <Link
             href="#"
