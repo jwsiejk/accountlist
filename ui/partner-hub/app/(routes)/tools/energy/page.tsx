@@ -1,6 +1,6 @@
 import { Embed } from "@/components/embed";
 
-export default function EnergyAppPage() {
+export default function EnergyToolPage() {
   return (
     <main className="flex h-full flex-col gap-6">
       <div className="space-y-2">
@@ -9,7 +9,7 @@ export default function EnergyAppPage() {
           Model data center energy consumption and efficiency scenarios alongside the portfolio.
         </p>
       </div>
-      <Embed src="/energy" title="Energy Tool" />
+      <Embed src="/energy/" title="Energy Tool" bypassBasePath openInNewTab />
     </main>
   );
 }

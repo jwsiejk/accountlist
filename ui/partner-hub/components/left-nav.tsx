@@ -11,7 +11,7 @@ const links = [
   { name: "Case Studies", href: "/case-studies" },
   { name: "Architecture Explorer", href: "/architecture-explorer" },
   { name: "Estimator", href: "/estimator" },
-  { name: "Energy Tool", href: "/energy" },
+  { name: "Energy Tool", href: "/energy/", external: true },
   { name: "About / Contact", href: "/about" },
 ];
 
@@ -37,16 +37,22 @@ export function LeftNav() {
       <nav className="flex flex-1 flex-col gap-1 px-2 pb-6">
         {links.map((link) => {
           const active = link.href === "/" ? pathname === "/" : pathname.startsWith(link.href);
+          const baseClasses = clsx(
+            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition hover:bg-muted",
+            active ? "bg-primary/10 text-primary" : "text-foreground/70",
+            collapsed && "justify-center px-0",
+          );
+
+          if (link.external) {
+            return (
+              <a key={link.name} href={link.href} className={baseClasses}>
+                <span className={clsx(collapsed && "sr-only")}>{link.name}</span>
+              </a>
+            );
+          }
+
           return (
-            <Link
-              key={link.name}
-              href={link.href}
-              className={clsx(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition hover:bg-muted",
-                active ? "bg-primary/10 text-primary" : "text-foreground/70",
-                collapsed && "justify-center px-0",
-              )}
-            >
+            <Link key={link.name} href={link.href} className={baseClasses}>
               <span className={clsx(collapsed && "sr-only")}>{link.name}</span>
             </Link>
           );
