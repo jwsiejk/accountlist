@@ -16,7 +16,8 @@ const featureCards = [
   {
     title: "Energy Tool",
     description: "Model power and cooling impact for data center refreshes.",
-    href: "/energy",
+    href: "/energy/",
+    external: true,
   },
 ];
 
@@ -71,12 +72,21 @@ export default function HomePage() {
               </CardHeader>
               <CardContent className="space-y-4 text-sm text-foreground/70">
                 <p>{card.description}</p>
-                <Link
-                  href={card.href}
-                  className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary transition hover:bg-primary/10"
-                >
-                  Open app
-                </Link>
+                {card.external ? (
+                  <a
+                    href={card.href}
+                    className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary transition hover:bg-primary/10"
+                  >
+                    Open app
+                  </a>
+                ) : (
+                  <Link
+                    href={card.href}
+                    className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary transition hover:bg-primary/10"
+                  >
+                    Open app
+                  </Link>
+                )}
               </CardContent>
             </Card>
           ))}

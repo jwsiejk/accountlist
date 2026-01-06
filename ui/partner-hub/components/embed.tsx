@@ -9,11 +9,16 @@ export type EmbedProps = {
   src: string;
   title: string;
   restricted?: boolean;
+  bypassBasePath?: boolean;
+  openInNewTab?: boolean;
 };
 
-export function Embed({ src, title, restricted }: EmbedProps) {
-  const type = src.startsWith("http") ? "external" : "internal";
+export function Embed({ src, title, restricted, bypassBasePath, openInNewTab }: EmbedProps) {
+  const isExternal = src.startsWith("http");
+  const type = isExternal ? "external" : "internal";
   const link = { label: title, href: src, type, restricted } as const;
+  const usePlainAnchor = bypassBasePath || isExternal;
+  const shouldOpenNewTab = openInNewTab || isExternal;
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -35,14 +40,25 @@ export function Embed({ src, title, restricted }: EmbedProps) {
       <div className="text-sm text-foreground/70">
         Having trouble with the embedded view?{" "}
         <RestrictedLink link={link}>
-          <Link
-            href={src}
-            target={type === "external" ? "_blank" : undefined}
-            rel={type === "external" ? "noreferrer" : undefined}
-            className="font-semibold text-primary underline"
-          >
-            Open in new tab
-          </Link>
+          {usePlainAnchor ? (
+            <a
+              href={src}
+              target={shouldOpenNewTab ? "_blank" : undefined}
+              rel={shouldOpenNewTab ? "noreferrer" : undefined}
+              className="font-semibold text-primary underline"
+            >
+              Open in new tab
+            </a>
+          ) : (
+            <Link
+              href={src}
+              target={shouldOpenNewTab ? "_blank" : undefined}
+              rel={shouldOpenNewTab ? "noreferrer" : undefined}
+              className="font-semibold text-primary underline"
+            >
+              Open in new tab
+            </Link>
+          )}
         </RestrictedLink>
         .
       </div>

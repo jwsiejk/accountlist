@@ -19,8 +19,8 @@
     },
     {
       "label": "Energy Tool",
-      "href": "/energy",
-      "type": "internal"
+      "href": "/energy/",
+      "type": "external"
     }
   ],
   "About": [
