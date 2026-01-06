@@ -8,15 +8,11 @@ import { clsx } from "clsx";
 
 const links = [
   { name: "Home", href: "/" },
-  { name: "Sales", href: "/sales" },
-  { name: "Marketing", href: "/marketing" },
-  { name: "Engineering (SE)", href: "/engineering" },
-  { name: "Alliances", href: "/alliances" },
-  { name: "Leadership", href: "/leadership" },
-  { name: "Tools", href: "#tools" },
-  { name: "Training", href: "#training" },
-  { name: "Events", href: "#events" },
-  { name: "Support", href: "#support" },
+  { name: "Case Studies", href: "/case-studies" },
+  { name: "Architecture Explorer", href: "/architecture-explorer" },
+  { name: "Estimator", href: "/estimator" },
+  { name: "Energy Tool", href: "/energy" },
+  { name: "About / Contact", href: "/about" },
 ];
 
 export function LeftNav() {
@@ -40,18 +36,14 @@ export function LeftNav() {
       </button>
       <nav className="flex flex-1 flex-col gap-1 px-2 pb-6">
         {links.map((link) => {
-          const active = link.href === "/"
-            ? pathname === "/"
-            : pathname.startsWith(link.href);
+          const active = link.href === "/" ? pathname === "/" : pathname.startsWith(link.href);
           return (
             <Link
               key={link.name}
               href={link.href}
               className={clsx(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition hover:bg-muted",
-                active
-                  ? "bg-primary/10 text-primary"
-                  : "text-foreground/70",
+                active ? "bg-primary/10 text-primary" : "text-foreground/70",
                 collapsed && "justify-center px-0",
               )}
             >
