@@ -68,7 +68,18 @@ export function EnergyTool() {
   const [selected, setSelected] = useState<NetAppCandidate | null>(null);
   const [computeError, setComputeError] = useState<string | null>(null);
 
-  const candidateKey = (candidate: NetAppCandidate) => `${candidate.controllerModel}-${candidate.expansionQty}`;
+  const candidateKey = (candidate: NetAppCandidate) => {
+    const effTb = Math.round(candidate.effectiveTb);
+    const annualCostCents = Math.round(candidate.annualEnergyCost * 100);
+    return [
+      candidate.controllerModel,
+      candidate.expansionModel,
+      candidate.controllerQty,
+      candidate.expansionQty,
+      effTb,
+      annualCostCents,
+    ].join("-");
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -347,8 +358,10 @@ export function EnergyTool() {
                               key={candidateKey(c)}
                               className={
                                 "cursor-pointer border-b border-border/60 transition focus-visible:outline-none focus-visible:ring-2 " +
-                                "focus-visible:ring-primary/60 focus-visible:ring-inset hover:bg-muted/40 " +
-                                (isSelected ? "bg-muted/60 font-semibold ring-1 ring-primary/30" : "")
+                                "focus-visible:ring-primary/60 focus-visible:ring-inset " +
+                                (isSelected
+                                  ? "bg-muted/60 font-semibold ring-1 ring-primary/30"
+                                  : "hover:bg-muted/40")
                               }
                               onClick={() => setSelected(c)}
                               onKeyDown={(event) => {
@@ -357,11 +370,20 @@ export function EnergyTool() {
                                   setSelected(c);
                                 }
                               }}
-                              role="row"
+                              role="button"
                               aria-selected={isSelected}
                               tabIndex={0}
                             >
-                              <td className="py-2 pr-3 font-medium">{c.controllerModel}</td>
+                              <td className="py-2 pr-3 font-medium">
+                                <div className="flex items-center gap-2">
+                                  <span>{c.controllerModel}</span>
+                                  {isSelected ? (
+                                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                      Selected
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </td>
                               <td className="py-2 pr-3">{c.expansionQty}</td>
                               <td className="py-2 pr-3">{fmt0.format(c.effectiveTb)}</td>
                               <td className="py-2 pr-3">{fmt2.format(c.pctDiffFromTarget)}%</td>
