@@ -2,7 +2,8 @@
 
 import "@xyflow/react/dist/style.css";
 
-import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent, type CSSProperties } from "react";
+
 import {
   ReactFlow,
   Background,
@@ -219,28 +220,23 @@ export default function ArchitectureExplorer() {
     return demoOrder[demoStep] ?? null;
   }, [viewMode, demoOrder, demoStep]);
 
-  const displayNodes = useMemo(() => {
-    return nodes.map((node) => {
-      const baseStyle = node.style ?? {};
-      const isSelected = node.id === selectedNodeId;
-      const isDemo = demoNodeId ? node.id === demoNodeId : false;
+const displayNodes = useMemo((): Node<ArchitectureNodeData>[] => {
+  return nodes.map((node): Node<ArchitectureNodeData> => {
+    const isSelected = node.id === selectedNodeId;
 
-      const inScope = downstreamSet ? downstreamSet.has(node.id) : true;
-      const opacity = downstreamSet ? (inScope ? 1 : 0.22) : 1;
+    // keep whatever dimming logic you have; default to 1
+    const baseStyle = (node.style ?? {}) as CSSProperties;
 
-      const emphasis = isSelected || isDemo;
+    const style: CSSProperties = {
+      ...baseStyle,
+      opacity: typeof baseStyle.opacity === "number" ? baseStyle.opacity : 1,
+      borderWidth: isSelected ? 3 : 2, // ✅ force number (not unknown)
+      boxShadow: isSelected ? "0 0 0 3px rgba(59,130,246,0.35)" : "none",
+    };
 
-      return {
-        ...node,
-        style: {
-          ...baseStyle,
-          opacity,
-          borderWidth: emphasis ? 3 : (baseStyle as Record<string, unknown>).borderWidth,
-          boxShadow: emphasis ? "0 0 0 3px rgba(99, 102, 241, 0.35)" : "none",
-        },
-      };
-    });
-  }, [nodes, selectedNodeId, downstreamSet, demoNodeId]);
+    return { ...node, style };
+  });
+}, [nodes, selectedNodeId]);
 
   const displayEdges = useMemo(() => {
     if (!downstreamSet) return edges;
