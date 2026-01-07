@@ -1,4 +1,4 @@
-export type CsvRow = Record<string, string>;
+export type CsvRow = Record<string, string | number>;
 
 // Minimal RFC4180-ish CSV parser with quote handling.
 // - Supports quoted fields with escaped quotes ("").
