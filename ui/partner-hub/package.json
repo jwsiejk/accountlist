@@ -13,6 +13,7 @@
                          "next":  "^14.0.0",
                          "react":  "^18.0.0",
                          "react-dom":  "^18.0.0",
+                         "@xyflow/react":  "^12.3.0",
                          "next-themes":  "^0.2.1",
                          "lucide-react":  "^0.365.0",
                          "clsx":  "^2.1.0"
