@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import ReactFlow, {
   Background,
   Controls,
+  type Node,
   type ReactFlowInstance,
   useEdgesState,
   useNodesState,
@@ -11,7 +12,104 @@ import ReactFlow, {
 import "@xyflow/react/dist/style.css";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { diagramScenarios, type ArchitectureNodeData } from "./diagramScenarios";
+import {
+  diagramScenarios,
+  type ArchitectureNodeCategory,
+  type ArchitectureNodeData,
+} from "./diagramScenarios";
+
+type CategoryStyle = {
+  label: ArchitectureNodeCategory;
+  backgroundColor: string;
+  borderColor: string;
+  textColor: string;
+};
+
+const CATEGORY_STYLES: Record<ArchitectureNodeCategory, CategoryStyle> = {
+  Compute: {
+    label: "Compute",
+    backgroundColor: "#DBEAFE",
+    borderColor: "#60A5FA",
+    textColor: "#1E3A8A",
+  },
+  Storage: {
+    label: "Storage",
+    backgroundColor: "#DCFCE7",
+    borderColor: "#4ADE80",
+    textColor: "#166534",
+  },
+  Network: {
+    label: "Network",
+    backgroundColor: "#FEF3C7",
+    borderColor: "#FBBF24",
+    textColor: "#92400E",
+  },
+  Security: {
+    label: "Security",
+    backgroundColor: "#FCE7F3",
+    borderColor: "#F472B6",
+    textColor: "#9D174D",
+  },
+  Operations: {
+    label: "Operations",
+    backgroundColor: "#EDE9FE",
+    borderColor: "#A78BFA",
+    textColor: "#5B21B6",
+  },
+};
+
+const buildShareUrl = (scenarioId: string) => {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  const url = new URL(window.location.href);
+  url.searchParams.set("scenario", scenarioId);
+  return url.toString();
+};
+
+const decorateNodes = (nodes: Node<ArchitectureNodeData>[]) =>
+  nodes.map((node) => {
+    const categoryStyle = CATEGORY_STYLES[node.data.category];
+    return {
+      ...node,
+      style: {
+        backgroundColor: categoryStyle.backgroundColor,
+        borderColor: categoryStyle.borderColor,
+        color: categoryStyle.textColor,
+        borderRadius: 12,
+        borderWidth: 2,
+        borderStyle: "solid",
+        padding: 12,
+        width: 180,
+        fontWeight: 600,
+      },
+    };
+  });
+
+const Legend = () => (
+  <Card className="h-fit">
+    <CardHeader className="pb-2">
+      <CardTitle className="text-base">Legend</CardTitle>
+    </CardHeader>
+    <CardContent className="space-y-3 text-sm">
+      {Object.values(CATEGORY_STYLES).map((category) => (
+        <div key={category.label} className="flex items-center gap-3">
+          <span
+            className="h-3 w-3 rounded-sm border"
+            style={{
+              backgroundColor: category.backgroundColor,
+              borderColor: category.borderColor,
+            }}
+          />
+          <span className="font-medium" style={{ color: category.textColor }}>
+            {category.label}
+          </span>
+        </div>
+      ))}
+    </CardContent>
+  </Card>
+);
 
 export default function ArchitectureExplorer() {
   const [scenarioId, setScenarioId] = useState(diagramScenarios[0]?.id ?? "");
@@ -20,20 +118,33 @@ export default function ArchitectureExplorer() {
     [scenarioId],
   );
   const [nodes, setNodes, onNodesChange] = useNodesState<ArchitectureNodeData>(
-    scenario?.nodes ?? [],
+    decorateNodes(scenario?.nodes ?? []),
   );
   const [edges, setEdges, onEdgesChange] = useEdgesState(scenario?.edges ?? []);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(
     scenario?.nodes[0]?.id ?? null,
   );
   const [flowInstance, setFlowInstance] = useState<ReactFlowInstance | null>(null);
+  const [copyState, setCopyState] = useState("Copy share link");
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const scenarioParam = params.get("scenario");
+    if (scenarioParam && diagramScenarios.some((item) => item.id === scenarioParam)) {
+      setScenarioId(scenarioParam);
+    }
+  }, []);
 
   useEffect(() => {
     if (!scenario) {
       return;
     }
 
-    setNodes(scenario.nodes);
+    setNodes(decorateNodes(scenario.nodes));
     setEdges(scenario.edges);
     setSelectedNodeId(scenario.nodes[0]?.id ?? null);
 
@@ -44,7 +155,60 @@ export default function ArchitectureExplorer() {
     }
   }, [scenario, setNodes, setEdges, flowInstance]);
 
+  useEffect(() => {
+    if (typeof window === "undefined" || !scenarioId) {
+      return;
+    }
+
+    const url = new URL(window.location.href);
+    url.searchParams.set("scenario", scenarioId);
+    window.history.replaceState({}, "", url.toString());
+  }, [scenarioId]);
+
   const selectedNode = nodes.find((node) => node.id === selectedNodeId);
+
+  const handleCopyShare = async () => {
+    const shareUrl = buildShareUrl(scenarioId);
+    if (!shareUrl) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopyState("Copied!");
+      window.setTimeout(() => setCopyState("Copy share link"), 2000);
+    } catch (error) {
+      console.error("Failed to copy share link", error);
+      setCopyState("Copy failed");
+      window.setTimeout(() => setCopyState("Copy share link"), 2000);
+    }
+  };
+
+  const handleExportScenario = () => {
+    if (!scenario) {
+      return;
+    }
+
+    const payload = {
+      id: scenario.id,
+      label: scenario.label,
+      nodes: scenario.nodes,
+      edges: scenario.edges,
+      exportedAt: new Date().toISOString(),
+    };
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${scenario.id}-architecture.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -65,12 +229,20 @@ export default function ArchitectureExplorer() {
             ))}
           </select>
         </div>
-        <Button
-          variant="outline"
-          onClick={() => flowInstance?.fitView({ padding: 0.2, duration: 400 })}
-        >
-          Reset View
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={handleCopyShare}>
+            {copyState}
+          </Button>
+          <Button variant="outline" onClick={handleExportScenario}>
+            Export scenario JSON
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => flowInstance?.fitView({ padding: 0.2, duration: 400 })}
+          >
+            Reset View
+          </Button>
+        </div>
       </div>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <Card className="min-h-[420px]">
@@ -94,32 +266,64 @@ export default function ArchitectureExplorer() {
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Node Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 text-sm text-foreground/70">
-            {selectedNode ? (
-              <>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                    {selectedNode.data.label}
-                  </p>
-                  <h3 className="text-lg font-semibold text-foreground">
-                    {selectedNode.data.title}
-                  </h3>
-                </div>
-                <ul className="list-disc space-y-2 pl-5">
-                  {selectedNode.data.bullets.map((bullet) => (
-                    <li key={bullet}>{bullet}</li>
-                  ))}
-                </ul>
-              </>
-            ) : (
-              <p>Select a node to review architecture details.</p>
-            )}
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Node Details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm text-foreground/70">
+              {selectedNode ? (
+                <>
+                  <div className="space-y-1">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                      {selectedNode.data.category}
+                    </span>
+                    <h3 className="text-lg font-semibold text-foreground">
+                      {selectedNode.data.label}
+                    </h3>
+                  </div>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                        What it does
+                      </p>
+                      <p className="text-foreground/80">{selectedNode.data.notes.what}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                        Why this design
+                      </p>
+                      <p className="text-foreground/80">{selectedNode.data.notes.why}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                        Common alternatives
+                      </p>
+                      <ul className="list-disc space-y-1 pl-5">
+                        {selectedNode.data.notes.alternatives.map((bullet) => (
+                          <li key={bullet}>{bullet}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                        Tradeoffs
+                      </p>
+                      <ul className="list-disc space-y-1 pl-5">
+                        {selectedNode.data.notes.tradeoffs.map((bullet) => (
+                          <li key={bullet}>{bullet}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <p>Select a node to review architecture details.</p>
+              )}
+            </CardContent>
+          </Card>
+          <Legend />
+        </div>
       </div>
     </div>
   );
