@@ -4,10 +4,10 @@
     "version":  "0.0.1",
     "scripts":  {
                     "dev":  "next dev",
-                    "build":  "next build && node scripts/post-export.mjs",
+                    "build":  "node scripts/sync-energy-data.mjs && next build && node scripts/post-export.mjs",
                     "start":  "next start",
                     "lint":  "next lint",
-                    "build:export":  "next build && node scripts/post-export.mjs"
+                    "build:export":  "node scripts/sync-energy-data.mjs && next build && node scripts/post-export.mjs"
                 },
     "dependencies":  {
                          "next":  "^14.0.0",

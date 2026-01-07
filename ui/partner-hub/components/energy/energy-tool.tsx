@@ -22,6 +22,13 @@ const fmt0 = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
 const fmt1 = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
 const fmt2 = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
 
+type EnergyMeta = {
+  lastSyncedISO?: string;
+  sourceFiles?: string[];
+  copiedFiles?: string[];
+  sha256?: Record<string, string>;
+};
+
 type Inputs = {
   dfmTb: number;
   capacityPb: number;
@@ -65,6 +72,9 @@ export function EnergyTool() {
   const [netappRows, setNetappRows] = useState<NetAppRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [energyMeta, setEnergyMeta] = useState<EnergyMeta | null>(null);
+  const [metaError, setMetaError] = useState<string | null>(null);
+  const [assumptionsOpen, setAssumptionsOpen] = useState(false);
 
   const [inputs, setInputs] = useState<Inputs>(() => ({
     dfmTb: 48,
@@ -124,6 +134,31 @@ export function EnergyTool() {
         setLoadError(err instanceof Error ? err.message : "Failed to load energy datasets");
       } finally {
         setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [basePath]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setMetaError(null);
+        const res = await fetch(`${basePath}/data/energy/energy_data_meta.json`);
+        if (!res.ok) {
+          throw new Error(`Failed to load energy metadata (${res.status})`);
+        }
+        const data = (await res.json()) as EnergyMeta;
+        if (!cancelled) {
+          setEnergyMeta(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setMetaError(err instanceof Error ? err.message : "Failed to load energy metadata");
+        }
       }
     })();
 
@@ -241,6 +276,69 @@ export function EnergyTool() {
   }, [fb, inputs.tolPct]);
 
   const selectedCandidate = mode === "manual" ? manualCandidate : selected;
+  const sourceEntries = useMemo(() => {
+    const entries: Array<{ model: string; url?: string }> = [];
+    if (pureRows.length > 0) {
+      const dfm = inputs.dfmTb;
+      const lookup = (needle: string) =>
+        pureRows.find(
+          (row) => row.DFM_Size_TB === dfm && String(row.Model ?? "").toLowerCase().includes(needle),
+        );
+      const ecRow = lookup("ec chassis");
+      const exRow = lookup("ex chassis");
+      const xfmRow = lookup("xfm");
+      [ecRow, exRow, xfmRow].forEach((row) => {
+        if (!row) return;
+        entries.push({
+          model: String(row.Model ?? "Unknown model"),
+          url: row.Source_URL ? String(row.Source_URL) : undefined,
+        });
+      });
+    }
+
+    if (selectedCandidate) {
+      const controllerRow = netappRows.find(
+        (row) =>
+          row.Component_Type === "Controller_Shelf" &&
+          String(row.Model ?? "") === selectedCandidate.controllerModel,
+      );
+      if (controllerRow) {
+        entries.push({
+          model: String(controllerRow.Model ?? selectedCandidate.controllerModel),
+          url: controllerRow.Source_URL ? String(controllerRow.Source_URL) : undefined,
+        });
+      }
+      const expansionRow = netappRows.find(
+        (row) =>
+          row.Component_Type === "Expansion_Shelf" &&
+          String(row.Model ?? "") === selectedCandidate.expansionModel,
+      );
+      if (expansionRow) {
+        entries.push({
+          model: String(expansionRow.Model ?? selectedCandidate.expansionModel),
+          url: expansionRow.Source_URL ? String(expansionRow.Source_URL) : undefined,
+        });
+      }
+    }
+
+    return entries;
+  }, [inputs.dfmTb, netappRows, pureRows, selectedCandidate]);
+
+  const sourceList = useMemo(() => {
+    const seen = new Set<string>();
+    const items: Array<{ type: "link" | "missing"; label: string; url?: string }> = [];
+    for (const entry of sourceEntries) {
+      if (entry.url) {
+        if (seen.has(entry.url)) continue;
+        seen.add(entry.url);
+        items.push({ type: "link", label: entry.url, url: entry.url });
+      } else {
+        items.push({ type: "missing", label: `Source missing for ${entry.model}` });
+      }
+    }
+    return items;
+  }, [sourceEntries]);
+
   const savings = useMemo(() => {
     if (!fb || !selectedCandidate) return null;
     const deltaW = fb.weightedW - selectedCandidate.weightedW;
@@ -253,6 +351,49 @@ export function EnergyTool() {
       pctCost: fb.annualCost > 0 ? (deltaCost / fb.annualCost) * 100 : null,
     };
   }, [fb, selectedCandidate]);
+
+  const handleDownloadAssumptions = () => {
+    const payload = {
+      lastSyncedISO: energyMeta?.lastSyncedISO ?? null,
+      mode,
+      assumptions: {
+        flashblade: {
+          utilizationPct: inputs.pureUtilPct,
+          pue: inputs.purePue,
+          pricePerKwh: inputs.purePrice,
+          drr: inputs.pureDrr,
+          dfmSizeTb: inputs.dfmTb,
+          capacityPb: inputs.capacityPb,
+        },
+        netapp: {
+          utilizationPct: inputs.naUtilPct,
+          pue: inputs.naPue,
+          pricePerKwh: inputs.naPrice,
+          overheadRawToUsable: inputs.naOverhead,
+          drr: inputs.naDrr,
+          driveSizeTb: inputs.naDriveSizeTb,
+          driveSizeSelection: "User-selected drive size input",
+        },
+      },
+      selectedNetApp: selectedCandidate
+        ? {
+            controllerModel: selectedCandidate.controllerModel,
+            expansionModel: selectedCandidate.expansionModel,
+            expansionShelves: selectedCandidate.expansionQty,
+            driveSizeTb: inputs.naDriveSizeTb,
+          }
+        : null,
+      sources: sourceList.map((item) => (item.type === "link" ? item.url : item.label)),
+    };
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "assumptions.json";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="space-y-6">
@@ -432,6 +573,13 @@ export function EnergyTool() {
                   Apply manual config
                 </button>
               )}
+              <button
+                type="button"
+                className="inline-flex h-10 items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-semibold text-foreground transition hover:bg-muted/50"
+                onClick={() => setAssumptionsOpen((prev) => !prev)}
+              >
+                Assumptions &amp; Sources
+              </button>
               {loading ? <span className="text-xs text-foreground/60">Loading datasets…</span> : null}
               {computeError ? <span className="text-xs font-semibold text-red-600">{computeError}</span> : null}
             </div>
@@ -599,6 +747,96 @@ export function EnergyTool() {
             </CardContent>
           </Card>
         </div>
+      ) : null}
+
+      {assumptionsOpen ? (
+        <Card>
+          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="text-base">Assumptions &amp; Sources</CardTitle>
+              <p className="text-xs text-foreground/60">
+                Last synced: {energyMeta?.lastSyncedISO ?? (metaError ? "Unavailable" : "Loading…")}
+              </p>
+            </div>
+            <button
+              type="button"
+              className="inline-flex h-9 items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-semibold text-foreground transition hover:bg-muted/50"
+              onClick={handleDownloadAssumptions}
+              disabled={sourceEntries.length === 0 && !energyMeta}
+            >
+              Download assumptions.json
+            </button>
+          </CardHeader>
+          <CardContent className="space-y-6 text-sm">
+            <section className="space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/60">A) Assumptions</h3>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="rounded-md border border-border p-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/60">FlashBlade//E</div>
+                  <ul className="mt-2 space-y-1">
+                    <li>Utilization: {fmt1.format(inputs.pureUtilPct)}%</li>
+                    <li>PUE: {fmt2.format(inputs.purePue)}</li>
+                    <li>$ / kWh: ${fmt2.format(inputs.purePrice)}</li>
+                    <li>DRR: {fmt2.format(inputs.pureDrr)}</li>
+                    <li>DFM size: {fmt0.format(inputs.dfmTb)} TB</li>
+                    <li>Capacity target: {fmt2.format(inputs.capacityPb)} PB</li>
+                  </ul>
+                </div>
+                <div className="rounded-md border border-border p-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/60">NetApp baseline</div>
+                  <ul className="mt-2 space-y-1">
+                    <li>Utilization: {fmt1.format(inputs.naUtilPct)}%</li>
+                    <li>PUE: {fmt2.format(inputs.naPue)}</li>
+                    <li>$ / kWh: ${fmt2.format(inputs.naPrice)}</li>
+                    <li>Overhead (raw→usable): {fmt2.format(inputs.naOverhead)}</li>
+                    <li>DRR: {fmt2.format(inputs.naDrr)}</li>
+                    <li>Drive size selection: {fmt0.format(inputs.naDriveSizeTb)} TB (user input)</li>
+                    <li>
+                      Selected config:{" "}
+                      {selectedCandidate
+                        ? `${selectedCandidate.controllerModel} + ${selectedCandidate.expansionQty} ${selectedCandidate.expansionQty === 1 ? "shelf" : "shelves"} (${selectedCandidate.expansionModel})`
+                        : "No NetApp candidate selected"}
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </section>
+
+            <section className="space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/60">B) Formulas</h3>
+              <ul className="list-disc space-y-1 pl-5 text-foreground/80">
+                <li>Weighted power (W) = Idle + Utilization × (Typical − Idle)</li>
+                <li>kWh / year (with PUE) = (Weighted power × 8760 / 1000) × PUE</li>
+                <li>Annual energy cost = kWh / year × $ / kWh</li>
+                <li>Effective TB = Usable TB × DRR</li>
+                <li>BTU / hour = Weighted power (W) × 3.412</li>
+              </ul>
+            </section>
+
+            <section className="space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/60">C) Sources</h3>
+              {sourceList.length > 0 ? (
+                <ul className="space-y-1">
+                  {sourceList.map((item) =>
+                    item.type === "link" ? (
+                      <li key={item.label}>
+                        <a className="text-primary underline-offset-2 hover:underline" href={item.url} target="_blank" rel="noreferrer">
+                          {item.label}
+                        </a>
+                      </li>
+                    ) : (
+                      <li key={item.label} className="text-foreground/70">
+                        {item.label}
+                      </li>
+                    ),
+                  )}
+                </ul>
+              ) : (
+                <p className="text-foreground/60">No source links available for the current selection.</p>
+              )}
+            </section>
+          </CardContent>
+        </Card>
       ) : null}
     </div>
   );
