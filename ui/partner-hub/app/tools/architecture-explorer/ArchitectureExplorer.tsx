@@ -257,7 +257,7 @@ export default function ArchitectureExplorer() {
           </CardHeader>
           <CardContent className="h-[420px]">
             <div className="h-full rounded-lg border border-dashed border-border/70">
-              <ReactFlow
+              <ReactFlow<Node<ArchitectureNodeData>, Edge>
                 nodes={nodes}
                 edges={edges}
                 onNodesChange={onNodesChange}
