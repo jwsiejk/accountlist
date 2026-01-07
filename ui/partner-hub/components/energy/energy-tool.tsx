@@ -68,6 +68,8 @@ export function EnergyTool() {
   const [selected, setSelected] = useState<NetAppCandidate | null>(null);
   const [computeError, setComputeError] = useState<string | null>(null);
 
+  const candidateKey = (candidate: NetAppCandidate) => `${candidate.controllerModel}-${candidate.expansionQty}`;
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -133,7 +135,14 @@ export function EnergyTool() {
       );
       setFb(fbResult);
       setCandidates(netapp);
-      setSelected(netapp[0] ?? null);
+      setSelected((prev) => {
+        if (netapp.length === 0) return null;
+        if (prev) {
+          const match = netapp.find((candidate) => candidateKey(candidate) === candidateKey(prev));
+          if (match) return match;
+        }
+        return netapp[0];
+      });
     } catch (err) {
       setComputeError(err instanceof Error ? err.message : "Failed to compute results");
       setFb(null);
@@ -285,119 +294,136 @@ export function EnergyTool() {
       </div>
 
       {fb ? (
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Card className="lg:col-span-1">
-            <CardHeader>
-              <CardTitle className="text-base">FlashBlade//E totals</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <Metric label="Effective TB" value={fmt0.format(fb.effectiveTb)} />
-              <Metric label="Weighted IT load (W)" value={fmt0.format(fb.weightedW)} />
-              <Metric label="kWh / year (with PUE)" value={fmt0.format(fb.kwhWithPue)} />
-              <Metric label="Annual energy cost" value={`$${fmt0.format(fb.annualCost)}`} />
-              <Metric label="BTU / hour" value={fmt0.format(fb.btuPerHour)} />
-              <div className="pt-2 text-xs text-foreground/60">
-                Composition: {fb.ecQty}×EC, {fb.exQty}×EX, {fb.xfmQty}×XFM
-              </div>
-            </CardContent>
-          </Card>
+        <div className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">FlashBlade//E totals</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <Metric label="Effective TB" value={fmt0.format(fb.effectiveTb)} />
+                <Metric label="Weighted IT load (W)" value={fmt0.format(fb.weightedW)} />
+                <Metric label="kWh / year (with PUE)" value={fmt0.format(fb.kwhWithPue)} />
+                <Metric label="Annual energy cost" value={`$${fmt0.format(fb.annualCost)}`} />
+                <Metric label="BTU / hour" value={fmt0.format(fb.btuPerHour)} />
+                <div className="pt-2 text-xs text-foreground/60">
+                  Composition: {fb.ecQty}×EC, {fb.exQty}×EX, {fb.xfmQty}×XFM
+                </div>
+              </CardContent>
+            </Card>
 
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle className="text-base">NetApp candidates (within tolerance)</CardTitle>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">NetApp candidates (within tolerance)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {band ? (
+                  <p className="mb-3 text-xs text-foreground/60">
+                    Target band: {fmt0.format(band.low)}–{fmt0.format(band.high)} effective TB (±{fmt1.format(inputs.tolPct)}%).
+                  </p>
+                ) : null}
+                {candidates.length === 0 ? (
+                  <p className="text-sm text-foreground/70">
+                    No candidates found in the tolerance band. Try widening tolerance or adjusting NetApp overhead / DRR / drive size.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="border-b border-border text-foreground/60">
+                        <tr>
+                          <th className="py-2 pr-3 font-semibold">Controller</th>
+                          <th className="py-2 pr-3 font-semibold">Exp shelves</th>
+                          <th className="py-2 pr-3 font-semibold">Eff TB</th>
+                          <th className="py-2 pr-3 font-semibold">Δ vs target</th>
+                          <th className="py-2 pr-3 font-semibold">Annual $</th>
+                          <th className="py-2 pr-3 font-semibold">W / eff TB</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {candidates.slice(0, 8).map((c) => {
+                          const isSelected = selected ? candidateKey(selected) === candidateKey(c) : false;
+                          return (
+                            <tr
+                              key={candidateKey(c)}
+                              className={
+                                "cursor-pointer border-b border-border/60 transition focus-visible:outline-none focus-visible:ring-2 " +
+                                "focus-visible:ring-primary/60 focus-visible:ring-inset hover:bg-muted/40 " +
+                                (isSelected ? "bg-muted/60 font-semibold ring-1 ring-primary/30" : "")
+                              }
+                              onClick={() => setSelected(c)}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter" || event.key === " ") {
+                                  event.preventDefault();
+                                  setSelected(c);
+                                }
+                              }}
+                              role="row"
+                              aria-selected={isSelected}
+                              tabIndex={0}
+                            >
+                              <td className="py-2 pr-3 font-medium">{c.controllerModel}</td>
+                              <td className="py-2 pr-3">{c.expansionQty}</td>
+                              <td className="py-2 pr-3">{fmt0.format(c.effectiveTb)}</td>
+                              <td className="py-2 pr-3">{fmt2.format(c.pctDiffFromTarget)}%</td>
+                              <td className="py-2 pr-3">${fmt0.format(c.annualEnergyCost)}</td>
+                              <td className="py-2 pr-3">{c.wPerEffectiveTb ? fmt2.format(c.wPerEffectiveTb) : "—"}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    <p className="mt-2 text-[11px] text-foreground/60">
+                      Click a NetApp row to see a side-by-side comparison.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <CardTitle className="text-base">Comparison</CardTitle>
+              {selected ? (
+                <div className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                  SELECTED: {selected.controllerModel} + {selected.expansionQty} shelf{selected.expansionQty === 1 ? "" : "es"}
+                </div>
+              ) : null}
             </CardHeader>
             <CardContent>
-              {band ? (
-                <p className="mb-3 text-xs text-foreground/60">
-                  Target band: {fmt0.format(band.low)}–{fmt0.format(band.high)} effective TB (±{fmt1.format(inputs.tolPct)}%).
-                </p>
-              ) : null}
-              {candidates.length === 0 ? (
-                <p className="text-sm text-foreground/70">
-                  No candidates found in the tolerance band. Try widening tolerance or adjusting NetApp overhead / DRR / drive size.
-                </p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="border-b border-border text-foreground/60">
-                      <tr>
-                        <th className="py-2 pr-3 font-semibold">Controller</th>
-                        <th className="py-2 pr-3 font-semibold">Exp shelves</th>
-                        <th className="py-2 pr-3 font-semibold">Eff TB</th>
-                        <th className="py-2 pr-3 font-semibold">Δ vs target</th>
-                        <th className="py-2 pr-3 font-semibold">Annual $</th>
-                        <th className="py-2 pr-3 font-semibold">W / eff TB</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {candidates.slice(0, 8).map((c) => {
-                        const isSelected =
-                          selected?.controllerModel === c.controllerModel &&
-                          selected?.expansionQty === c.expansionQty;
-                        return (
-                        <tr
-                          key={`${c.controllerModel}-${c.expansionQty}`}
-                          className={
-                            "border-b border-border/60 cursor-pointer hover:bg-muted/40 " +
-                            (isSelected ? "bg-muted/50" : "")
-                          }
-                          onClick={() => setSelected(c)}
-                          role="button"
-                          tabIndex={0}
-                        >
-                          <td className="py-2 pr-3 font-medium">{c.controllerModel}</td>
-                          <td className="py-2 pr-3">{c.expansionQty}</td>
-                          <td className="py-2 pr-3">{fmt0.format(c.effectiveTb)}</td>
-                          <td className="py-2 pr-3">{fmt2.format(c.pctDiffFromTarget)}%</td>
-                          <td className="py-2 pr-3">${fmt0.format(c.annualEnergyCost)}</td>
-                          <td className="py-2 pr-3">{c.wPerEffectiveTb ? fmt2.format(c.wPerEffectiveTb) : "—"}</td>
-                        </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                  <p className="mt-2 text-[11px] text-foreground/60">
-                    Click a NetApp row to see a side-by-side comparison.
-                  </p>
-                </div>
-              )}
-
               {selected ? (
-                <div className="mt-4 border-t border-border pt-4">
-                  <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                    Selected: {selected.controllerModel} + {selected.expansionQty} shelf{selected.expansionQty === 1 ? "" : "es"}
-                  </div>
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <MiniCompare
-                      title="FlashBlade//E"
-                      items={[
-                        ["Effective TB", fmt0.format(fb.effectiveTb)],
-                        ["Weighted IT load (W)", fmt0.format(fb.weightedW)],
-                        ["kWh / year (with PUE)", fmt0.format(fb.kwhWithPue)],
-                        ["Annual energy cost", `$${fmt0.format(fb.annualCost)}`],
-                      ]}
-                    />
-                    <MiniCompare
-                      title="NetApp"
-                      items={[
-                        ["Effective TB", fmt0.format(selected.effectiveTb)],
-                        ["Weighted IT load (W)", fmt0.format(selected.weightedW)],
-                        ["kWh / year (with PUE)", fmt0.format(selected.kwhYearWithPue)],
-                        ["Annual energy cost", `$${fmt0.format(selected.annualEnergyCost)}`],
-                      ]}
-                    />
-                    <MiniCompare
-                      title="Δ (Pure − NetApp)"
-                      items={[
-                        ["Δ IT load (W)", fmt0.format(savings?.deltaW ?? 0)],
-                        ["Δ kWh / year", fmt0.format(savings?.deltaKwh ?? 0)],
-                        ["Δ annual cost", `$${fmt0.format(savings?.deltaCost ?? 0)}`],
-                        ["Δ cost %", savings?.pctCost == null ? "—" : `${fmt1.format(savings.pctCost)}%`],
-                      ]}
-                    />
-                  </div>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <MiniCompare
+                    title="FlashBlade//E"
+                    items={[
+                      ["Effective TB", fmt0.format(fb.effectiveTb)],
+                      ["Weighted IT load (W)", fmt0.format(fb.weightedW)],
+                      ["kWh / year (with PUE)", fmt0.format(fb.kwhWithPue)],
+                      ["Annual energy cost", `$${fmt0.format(fb.annualCost)}`],
+                    ]}
+                  />
+                  <MiniCompare
+                    title="NetApp"
+                    items={[
+                      ["Effective TB", fmt0.format(selected.effectiveTb)],
+                      ["Weighted IT load (W)", fmt0.format(selected.weightedW)],
+                      ["kWh / year (with PUE)", fmt0.format(selected.kwhYearWithPue)],
+                      ["Annual energy cost", `$${fmt0.format(selected.annualEnergyCost)}`],
+                    ]}
+                  />
+                  <MiniCompare
+                    title="Δ (Pure − NetApp)"
+                    items={[
+                      ["Δ IT load (W)", fmt0.format(savings?.deltaW ?? 0)],
+                      ["Δ kWh / year", fmt0.format(savings?.deltaKwh ?? 0)],
+                      ["Δ annual cost", `$${fmt0.format(savings?.deltaCost ?? 0)}`],
+                      ["Δ cost %", savings?.pctCost == null ? "—" : `${fmt1.format(savings.pctCost)}%`],
+                    ]}
+                  />
                 </div>
-              ) : null}
+              ) : (
+                <p className="text-sm text-foreground/70">Select a NetApp candidate to see the comparison.</p>
+              )}
             </CardContent>
           </Card>
         </div>
