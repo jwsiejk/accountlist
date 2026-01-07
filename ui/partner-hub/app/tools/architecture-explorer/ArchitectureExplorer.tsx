@@ -1,15 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import ReactFlow, {
+import "@xyflow/react/dist/style.css";
+
+import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from "react";
+import {
+  ReactFlow,
   Background,
   Controls,
+  type Edge,
   type Node,
   type ReactFlowInstance,
   useEdgesState,
   useNodesState,
 } from "@xyflow/react";
-import "@xyflow/react/dist/style.css";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -58,16 +62,6 @@ const CATEGORY_STYLES: Record<ArchitectureNodeCategory, CategoryStyle> = {
   },
 };
 
-const buildShareUrl = (scenarioId: string) => {
-  if (typeof window === "undefined") {
-    return "";
-  }
-
-  const url = new URL(window.location.href);
-  url.searchParams.set("scenario", scenarioId);
-  return url.toString();
-};
-
 const decorateNodes = (nodes: Node<ArchitectureNodeData>[]) =>
   nodes.map((node) => {
     const categoryStyle = CATEGORY_STYLES[node.data.category];
@@ -86,6 +80,13 @@ const decorateNodes = (nodes: Node<ArchitectureNodeData>[]) =>
       },
     };
   });
+
+const buildShareUrl = (scenarioId: string) => {
+  if (typeof window === "undefined") return "";
+  const url = new URL(window.location.href);
+  url.searchParams.set("scenario", scenarioId);
+  return url.toString();
+};
 
 const Legend = () => (
   <Card className="h-fit">
@@ -113,81 +114,86 @@ const Legend = () => (
 
 export default function ArchitectureExplorer() {
   const [scenarioId, setScenarioId] = useState(diagramScenarios[0]?.id ?? "");
+
   const scenario = useMemo(
-    () => diagramScenarios.find((item) => item.id === scenarioId) ?? diagramScenarios[0],
+    () => diagramScenarios.find((s) => s.id === scenarioId) ?? diagramScenarios[0],
     [scenarioId],
   );
-  const [nodes, setNodes, onNodesChange] = useNodesState<ArchitectureNodeData>(
-    decorateNodes(scenario?.nodes ?? []),
+
+  // Ensure local typed views of scenario data (handles cases where diagramScenarios is not strongly typed)
+  const scenarioNodes = useMemo(
+    () => decorateNodes((scenario?.nodes ?? []) as Node<ArchitectureNodeData>[]),
+    [scenario],
   );
-  const [edges, setEdges, onEdgesChange] = useEdgesState(scenario?.edges ?? []);
+
+  const scenarioEdges = useMemo(
+    () => ((scenario?.edges ?? []) as Edge[]),
+    [scenario],
+  );
+
+  // ✅ FIX #1: generic must be Node<ArchitectureNodeData>, not ArchitectureNodeData
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node<ArchitectureNodeData>>(
+    scenarioNodes,
+  );
+
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(scenarioEdges);
+
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(
-    scenario?.nodes[0]?.id ?? null,
+    (scenario?.nodes?.[0] as Node<ArchitectureNodeData> | undefined)?.id ?? null,
   );
+
   const [flowInstance, setFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [copyState, setCopyState] = useState("Copy share link");
 
+  // Read scenario from query string on first load
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
+    if (typeof window === "undefined") return;
 
     const params = new URLSearchParams(window.location.search);
     const scenarioParam = params.get("scenario");
-    if (scenarioParam && diagramScenarios.some((item) => item.id === scenarioParam)) {
+    if (scenarioParam && diagramScenarios.some((s) => s.id === scenarioParam)) {
       setScenarioId(scenarioParam);
     }
   }, []);
 
+  // When scenario changes, reset graph state + selection + fit view
   useEffect(() => {
-    if (!scenario) {
-      return;
-    }
-
-    setNodes(decorateNodes(scenario.nodes));
-    setEdges(scenario.edges);
-    setSelectedNodeId(scenario.nodes[0]?.id ?? null);
+    setNodes(scenarioNodes);
+    setEdges(scenarioEdges);
+    setSelectedNodeId((scenario?.nodes?.[0] as Node<ArchitectureNodeData> | undefined)?.id ?? null);
 
     if (flowInstance) {
-      requestAnimationFrame(() => {
-        flowInstance.fitView({ padding: 0.2, duration: 400 });
-      });
+      requestAnimationFrame(() => flowInstance.fitView({ padding: 0.2, duration: 400 }));
     }
-  }, [scenario, setNodes, setEdges, flowInstance]);
+  }, [scenario, scenarioNodes, scenarioEdges, setNodes, setEdges, flowInstance]);
 
+  // Keep URL in sync (so share links work)
   useEffect(() => {
-    if (typeof window === "undefined" || !scenarioId) {
-      return;
-    }
+    if (typeof window === "undefined" || !scenarioId) return;
 
     const url = new URL(window.location.href);
     url.searchParams.set("scenario", scenarioId);
     window.history.replaceState({}, "", url.toString());
   }, [scenarioId]);
 
-  const selectedNode = nodes.find((node) => node.id === selectedNodeId);
+  const selectedNode = nodes.find((n) => n.id === selectedNodeId);
 
   const handleCopyShare = async () => {
     const shareUrl = buildShareUrl(scenarioId);
-    if (!shareUrl) {
-      return;
-    }
+    if (!shareUrl) return;
 
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopyState("Copied!");
       window.setTimeout(() => setCopyState("Copy share link"), 2000);
-    } catch (error) {
-      console.error("Failed to copy share link", error);
+    } catch {
       setCopyState("Copy failed");
       window.setTimeout(() => setCopyState("Copy share link"), 2000);
     }
   };
 
   const handleExportScenario = () => {
-    if (!scenario) {
-      return;
-    }
+    if (!scenario) return;
 
     const payload = {
       id: scenario.id,
@@ -197,9 +203,7 @@ export default function ArchitectureExplorer() {
       exportedAt: new Date().toISOString(),
     };
 
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {
-      type: "application/json",
-    });
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
@@ -219,16 +223,17 @@ export default function ArchitectureExplorer() {
           </span>
           <select
             value={scenarioId}
-            onChange={(event) => setScenarioId(event.target.value)}
-            className="w-56 rounded-lg border border-border bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            onChange={(e) => setScenarioId(e.target.value)}
+            className="w-64 rounded-lg border border-border bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
           >
-            {diagramScenarios.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label}
+            {diagramScenarios.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
               </option>
             ))}
           </select>
         </div>
+
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={handleCopyShare}>
             {copyState}
@@ -244,6 +249,7 @@ export default function ArchitectureExplorer() {
           </Button>
         </div>
       </div>
+
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <Card className="min-h-[420px]">
           <CardHeader className="pb-2">
@@ -257,7 +263,10 @@ export default function ArchitectureExplorer() {
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 onInit={setFlowInstance}
-                onNodeClick={(_, node) => setSelectedNodeId(node.id)}
+                // ✅ FIX #2: type the unused event param so it’s not implicit any
+                onNodeClick={(_event: ReactMouseEvent, node: Node<ArchitectureNodeData>) =>
+                  setSelectedNodeId(node.id)
+                }
                 fitView
               >
                 <Background gap={16} color="hsl(var(--border))" />
@@ -266,6 +275,7 @@ export default function ArchitectureExplorer() {
             </div>
           </CardContent>
         </Card>
+
         <div className="space-y-6">
           <Card>
             <CardHeader className="pb-2">
@@ -282,6 +292,7 @@ export default function ArchitectureExplorer() {
                       {selectedNode.data.label}
                     </h3>
                   </div>
+
                   <div className="space-y-3">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
@@ -289,12 +300,14 @@ export default function ArchitectureExplorer() {
                       </p>
                       <p className="text-foreground/80">{selectedNode.data.notes.what}</p>
                     </div>
+
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
                         Why this design
                       </p>
                       <p className="text-foreground/80">{selectedNode.data.notes.why}</p>
                     </div>
+
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
                         Common alternatives
@@ -305,6 +318,7 @@ export default function ArchitectureExplorer() {
                         ))}
                       </ul>
                     </div>
+
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
                         Tradeoffs
@@ -322,6 +336,7 @@ export default function ArchitectureExplorer() {
               )}
             </CardContent>
           </Card>
+
           <Legend />
         </div>
       </div>
