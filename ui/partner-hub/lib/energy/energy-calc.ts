@@ -222,6 +222,86 @@ export type NetAppCandidate = {
   kwhPerEffectiveTbYear: number | null;
 };
 
+const allowedNetAppControllers = new Set(["E2860", "E5760", "E4060"]);
+
+type NetAppShelfPower = {
+  model: string;
+  typicalW: number;
+  idleW: number;
+  drives: number;
+  weightedW: (util: number) => number;
+};
+
+function getExpansionShelf(netappRows: NetAppRow[]): NetAppShelfPower {
+  const expRows = netappRows.filter(
+    (r) => r.Component_Type === "Expansion_Shelf" && String(r.Model ?? "").includes("DE460C"),
+  );
+  const exp = expRows.find((r) => String(r.Model).trim() === "DE460C 60-bay") ?? expRows[0];
+  if (!exp) throw new Error("No DE460C expansion shelf found");
+  return {
+    model: String(exp.Model),
+    typicalW: exp.Typical_W,
+    idleW: exp.Idle_W,
+    drives: toInt(exp.Drives_per_unit),
+    weightedW: (u: number) => exp.Idle_W + u * (exp.Typical_W - exp.Idle_W),
+  };
+}
+
+function getControllerRows(netappRows: NetAppRow[]): NetAppRow[] {
+  return netappRows.filter(
+    (r) => r.Component_Type === "Controller_Shelf" && allowedNetAppControllers.has(String(r.Model ?? "")),
+  );
+}
+
+export function getNetAppControllerModels(netappRows: NetAppRow[]): string[] {
+  const models = getControllerRows(netappRows).map((r) => String(r.Model));
+  return Array.from(new Set(models)).sort((a, b) => a.localeCompare(b));
+}
+
+export function buildNetAppCandidate(
+  netappRows: NetAppRow[],
+  controllerModel: string,
+  expansionQty: number,
+  util: number,
+  pue: number,
+  price: number,
+  overhead: number,
+  drr: number,
+  driveTb: number,
+): NetAppCandidate {
+  const exp = getExpansionShelf(netappRows);
+  const ctrl = getControllerRows(netappRows).find((row) => String(row.Model) === controllerModel);
+  if (!ctrl) {
+    throw new Error(`Unknown controller model: ${controllerModel}`);
+  }
+  const ctrlWeighted = (u: number) => ctrl.Idle_W + u * (ctrl.Typical_W - ctrl.Idle_W);
+  const ctrlDrives = toInt(ctrl.Drives_per_unit);
+
+  const totalDrives = ctrlDrives + expansionQty * exp.drives;
+  const raw = totalDrives * driveTb;
+  const usable = raw * (1 - overhead);
+  const eff = usable * drr;
+
+  const w = ctrlWeighted(util) + expansionQty * exp.weightedW(util);
+  const kwhPue = kwhYear(w) * pue;
+  const annual = kwhPue * price;
+
+  return {
+    controllerModel,
+    expansionModel: exp.model,
+    controllerQty: 1,
+    expansionQty,
+    effectiveTb: eff,
+    pctDiffFromTarget: 0,
+    weightedW: w,
+    kwhYearWithPue: kwhPue,
+    annualEnergyCost: annual,
+    wPerEffectiveTb: eff > 0 ? w / eff : null,
+    dollarsPerEffectiveTbYear: eff > 0 ? annual / eff : null,
+    kwhPerEffectiveTbYear: eff > 0 ? kwhPue / eff : null,
+  };
+}
+
 export function enumerateNetApp(
   netappRows: NetAppRow[],
   targetEffTb: number,
@@ -233,23 +313,8 @@ export function enumerateNetApp(
   driveTb: number,
   tolFrac = 0.1,
 ): NetAppCandidate[] {
-  const allowed = new Set(["E2860", "E5760", "E4060"]);
-
-  const expRows = netappRows.filter(
-    (r) => r.Component_Type === "Expansion_Shelf" && String(r.Model ?? "").includes("DE460C"),
-  );
-  let exp = expRows.find((r) => String(r.Model).trim() === "DE460C 60-bay") ?? expRows[0];
-  if (!exp) throw new Error("No DE460C expansion shelf found");
-
-  const expModel = String(exp.Model);
-  const expTypical = exp.Typical_W;
-  const expIdle = exp.Idle_W;
-  const expDrives = toInt(exp.Drives_per_unit);
-  const expWeighted = (u: number) => expIdle + u * (expTypical - expIdle);
-
-  const ctrlRows = netappRows.filter(
-    (r) => r.Component_Type === "Controller_Shelf" && allowed.has(String(r.Model ?? "")),
-  );
+  const exp = getExpansionShelf(netappRows);
+  const ctrlRows = getControllerRows(netappRows);
 
   const out: NetAppCandidate[] = [];
   for (const ctrl of ctrlRows) {
@@ -260,12 +325,12 @@ export function enumerateNetApp(
     const ctrlWeighted = (u: number) => ctrlIdle + u * (ctrlTypical - ctrlIdle);
 
     for (let expQty = 0; expQty <= 10; expQty += 1) {
-      const totalDrives = ctrlDrives + expQty * expDrives;
+      const totalDrives = ctrlDrives + expQty * exp.drives;
       const raw = totalDrives * driveTb;
       const usable = raw * (1 - overhead);
       const eff = usable * drr;
 
-      const w = ctrlWeighted(util) + expQty * expWeighted(util);
+      const w = ctrlWeighted(util) + expQty * exp.weightedW(util);
       const kwhPue = kwhYear(w) * pue;
       const annual = kwhPue * price;
       const pct = targetEffTb > 0 ? ((eff - targetEffTb) / targetEffTb) * 100 : 0;
@@ -273,7 +338,7 @@ export function enumerateNetApp(
       if (Math.abs(pct) <= tolFrac * 100 + 1e-9) {
         out.push({
           controllerModel: ctrlModel,
-          expansionModel: expModel,
+          expansionModel: exp.model,
           controllerQty: 1,
           expansionQty: expQty,
           effectiveTb: eff,
