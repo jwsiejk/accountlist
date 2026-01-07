@@ -4,6 +4,9 @@ const nextConfig = {
   output: 'export',
   basePath: '/partner-hub',
   images: { unoptimized: true },
-  trailingSlash: true
+  trailingSlash: true,
+  env: {
+    NEXT_PUBLIC_BASE_PATH: '/partner-hub'
+  }
 };
 export default nextConfig;

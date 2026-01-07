@@ -2,7 +2,8 @@
 
 import "@xyflow/react/dist/style.css";
 
-import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent, type CSSProperties } from "react";
+
 import {
   ReactFlow,
   Background,
@@ -21,6 +22,8 @@ import {
   type ArchitectureNodeCategory,
   type ArchitectureNodeData,
 } from "./diagramScenarios";
+
+type ViewMode = "explore" | "blast" | "demo";
 
 type CategoryStyle = {
   label: ArchitectureNodeCategory;
@@ -88,6 +91,25 @@ const buildShareUrl = (scenarioId: string) => {
   return url.toString();
 };
 
+const buildDownstreamSet = (startId: string, edges: Edge[]) => {
+  const visited = new Set<string>();
+  const queue: string[] = [startId];
+
+  while (queue.length) {
+    const current = queue.shift();
+    if (!current || visited.has(current)) continue;
+    visited.add(current);
+
+    for (const edge of edges) {
+      if (edge.source === current && !visited.has(edge.target)) {
+        queue.push(edge.target);
+      }
+    }
+  }
+
+  return visited;
+};
+
 const Legend = () => (
   <Card className="h-fit">
     <CardHeader className="pb-2">
@@ -114,6 +136,8 @@ const Legend = () => (
 
 export default function ArchitectureExplorer() {
   const [scenarioId, setScenarioId] = useState(diagramScenarios[0]?.id ?? "");
+  const [viewMode, setViewMode] = useState<ViewMode>("explore");
+  const [demoStep, setDemoStep] = useState(0);
 
   const scenario = useMemo(
     () => diagramScenarios.find((s) => s.id === scenarioId) ?? diagramScenarios[0],
@@ -142,7 +166,7 @@ export default function ArchitectureExplorer() {
     (scenario?.nodes?.[0] as Node<ArchitectureNodeData> | undefined)?.id ?? null,
   );
 
-  const [flowInstance, setFlowInstance] = useState<ReactFlowInstance | null>(null);
+  const [flowInstance, setFlowInstance] = useState<ReactFlowInstance<Node<ArchitectureNodeData>, Edge> | null>(null);
   const [copyState, setCopyState] = useState("Copy share link");
 
   // Read scenario from query string on first load
@@ -161,6 +185,8 @@ export default function ArchitectureExplorer() {
     setNodes(scenarioNodes);
     setEdges(scenarioEdges);
     setSelectedNodeId((scenario?.nodes?.[0] as Node<ArchitectureNodeData> | undefined)?.id ?? null);
+    setViewMode("explore");
+    setDemoStep(0);
 
     if (flowInstance) {
       requestAnimationFrame(() => flowInstance.fitView({ padding: 0.2, duration: 400 }));
@@ -177,6 +203,78 @@ export default function ArchitectureExplorer() {
   }, [scenarioId]);
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
+
+  const demoOrder = useMemo(
+    () => ((scenario?.nodes ?? []) as Node<ArchitectureNodeData>[]).map((n) => n.id),
+    [scenario],
+  );
+
+  // Apply graph highlighting based on mode
+  const downstreamSet = useMemo(() => {
+    if (viewMode !== "blast" || !selectedNodeId) return null;
+    return buildDownstreamSet(selectedNodeId, edges);
+  }, [viewMode, selectedNodeId, edges]);
+
+  const demoNodeId = useMemo(() => {
+    if (viewMode !== "demo") return null;
+    return demoOrder[demoStep] ?? null;
+  }, [viewMode, demoOrder, demoStep]);
+
+const displayNodes = useMemo((): Node<ArchitectureNodeData>[] => {
+  return nodes.map((node): Node<ArchitectureNodeData> => {
+    const isSelected = node.id === selectedNodeId;
+
+    // keep your existing dimming logic if you have it
+    const opacity = typeof (node.style as any)?.opacity === "number" ? (node.style as any).opacity : 1;
+
+    const baseStyle = (node.style ?? {}) as CSSProperties;
+
+    const style: CSSProperties = {
+      ...baseStyle,
+      opacity,
+      borderWidth: isSelected ? 3 : 2, // ✅ number, not unknown
+      boxShadow: isSelected ? "0 0 0 3px rgba(59,130,246,0.35)" : "none",
+    };
+
+    return { ...node, style };
+  });
+}, [nodes, selectedNodeId]);
+
+  const displayEdges = useMemo(() => {
+    if (!downstreamSet) return edges;
+
+    return edges.map((edge) => {
+      const inScope = downstreamSet.has(edge.source) && downstreamSet.has(edge.target);
+      return {
+        ...edge,
+        style: {
+          ...(edge.style ?? {}),
+          opacity: inScope ? 1 : 0.15,
+          strokeWidth: inScope ? 2 : 1,
+        },
+      };
+    });
+  }, [edges, downstreamSet]);
+
+  // Keep demo step in sync with selection + viewport
+  useEffect(() => {
+    if (viewMode !== "demo" || !demoNodeId) return;
+    setSelectedNodeId(demoNodeId);
+
+    if (!flowInstance) return;
+    const node = nodes.find((n) => n.id === demoNodeId);
+    if (!node) return;
+
+    requestAnimationFrame(() => {
+      try {
+        // fitView supports selecting a subset of nodes in React Flow v12+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (flowInstance as any).fitView?.({ nodes: [node], padding: 0.35, duration: 450 });
+      } catch {
+        flowInstance.fitView({ padding: 0.2, duration: 450 });
+      }
+    });
+  }, [viewMode, demoNodeId, flowInstance, nodes]);
 
   const handleCopyShare = async () => {
     const shareUrl = buildShareUrl(scenarioId);
@@ -198,8 +296,9 @@ export default function ArchitectureExplorer() {
     const payload = {
       id: scenario.id,
       label: scenario.label,
-      nodes: scenario.nodes,
-      edges: scenario.edges,
+      brief: scenario.brief,
+      nodes,
+      edges,
       exportedAt: new Date().toISOString(),
     };
 
@@ -234,15 +333,78 @@ export default function ArchitectureExplorer() {
           </select>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={handleCopyShare}>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-background p-1">
+            <Button
+              variant={viewMode === "explore" ? "primary" : "ghost"}
+              className="h-8 px-3 text-xs"
+              onClick={() => setViewMode("explore")}
+            >
+              Explore
+            </Button>
+            <Button
+              variant={viewMode === "blast" ? "primary" : "ghost"}
+              className="h-8 px-3 text-xs"
+              onClick={() => setViewMode("blast")}
+              disabled={!selectedNodeId}
+              title={!selectedNodeId ? "Select a node to enable blast radius." : ""}
+            >
+              Blast radius
+            </Button>
+            <Button
+              variant={viewMode === "demo" ? "primary" : "ghost"}
+              className="h-8 px-3 text-xs"
+              onClick={() => {
+                setViewMode("demo");
+                setDemoStep(0);
+              }}
+              disabled={demoOrder.length === 0}
+            >
+              Demo
+            </Button>
+          </div>
+
+          {viewMode === "demo" ? (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="secondary"
+                className="h-8 px-3 text-xs border border-border"
+                onClick={() => setDemoStep((s) => Math.max(0, s - 1))}
+                disabled={demoStep <= 0}
+              >
+                Prev
+              </Button>
+              <Button
+                variant="secondary"
+                className="h-8 px-3 text-xs border border-border"
+                onClick={() => setDemoStep((s) => Math.min(demoOrder.length - 1, s + 1))}
+                disabled={demoStep >= demoOrder.length - 1}
+              >
+                Next
+              </Button>
+              <Button
+                variant="ghost"
+                className="h-8 px-3 text-xs"
+                onClick={() => setViewMode("explore")}
+              >
+                Exit
+              </Button>
+            </div>
+          ) : null}
+
+          <Button variant="secondary" className="border border-border" onClick={handleCopyShare}>
             {copyState}
           </Button>
-          <Button variant="outline" onClick={handleExportScenario}>
+          <Button
+            variant="secondary"
+            className="border border-border"
+            onClick={handleExportScenario}
+          >
             Export scenario JSON
           </Button>
           <Button
-            variant="outline"
+            variant="secondary"
+            className="border border-border"
             onClick={() => flowInstance?.fitView({ padding: 0.2, duration: 400 })}
           >
             Reset View
@@ -253,16 +415,18 @@ export default function ArchitectureExplorer() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <Card className="min-h-[420px]">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Architecture Map</CardTitle>
+            <CardTitle className="text-base">
+              {viewMode === "blast" ? "Impact Map" : "Solution Map"}
+            </CardTitle>
           </CardHeader>
           <CardContent className="h-[420px]">
             <div className="h-full rounded-lg border border-dashed border-border/70">
               <ReactFlow<Node<ArchitectureNodeData>, Edge>
-                nodes={nodes}
-                edges={edges}
+                nodes={displayNodes}
+                edges={displayEdges}
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
-                onInit={setFlowInstance}
+                onInit={(instance) => setFlowInstance(instance)}
                 // ✅ FIX #2: type the unused event param so it’s not implicit any
                 onNodeClick={(_event: ReactMouseEvent, node: Node<ArchitectureNodeData>) =>
                   setSelectedNodeId(node.id)
@@ -277,6 +441,92 @@ export default function ArchitectureExplorer() {
         </Card>
 
         <div className="space-y-6">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Scenario Brief</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm text-foreground/70">
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                  Business goal
+                </p>
+                <p className="text-foreground/80">{scenario.brief.problemStatement}</p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                  Success criteria
+                </p>
+                <ul className="list-disc space-y-1 pl-5">
+                  {scenario.brief.successCriteria.map((bullet) => (
+                    <li key={bullet}>{bullet}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                  Constraints
+                </p>
+                <ul className="list-disc space-y-1 pl-5">
+                  {scenario.brief.constraints.map((bullet) => (
+                    <li key={bullet}>{bullet}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <details className="rounded-lg border border-border/60 bg-muted/30 p-3">
+                <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                  Delivery plan, assumptions, and risks
+                </summary>
+                <div className="mt-3 space-y-4">
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                      Assumptions
+                    </p>
+                    <ul className="list-disc space-y-1 pl-5">
+                      {scenario.brief.assumptions.map((bullet) => (
+                        <li key={bullet}>{bullet}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                      Phased approach
+                    </p>
+                    <div className="space-y-3">
+                      {scenario.brief.phases.map((phase) => (
+                        <div key={phase.title} className="space-y-1">
+                          <p className="font-medium text-foreground/80">{phase.title}</p>
+                          <ul className="list-disc space-y-1 pl-5">
+                            {phase.bullets.map((bullet) => (
+                              <li key={bullet}>{bullet}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                      Risks and mitigations
+                    </p>
+                    <div className="space-y-2">
+                      {scenario.brief.risks.map((item) => (
+                        <div key={item.risk} className="rounded-md border border-border/60 bg-background p-2">
+                          <p className="font-medium text-foreground/80">{item.risk}</p>
+                          <p className="text-foreground/70">{item.mitigation}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </details>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Node Details</CardTitle>

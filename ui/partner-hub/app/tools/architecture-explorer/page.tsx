@@ -31,9 +31,10 @@ export default function ArchitectureExplorerPage() {
   return (
     <section className="space-y-6">
       <header className="space-y-2">
-        <h1 className="text-2xl font-semibold">Architecture Explorer</h1>
+        <h1 className="text-2xl font-semibold">Infrastructure Presales Studio</h1>
         <p className="text-sm text-foreground/70">
-          Compare reference architectures and capture impacts for presales discovery.
+          A scenario-based solution map for datacenter discovery: explore components, simulate blast radius,
+          and run a guided demo.
         </p>
       </header>
       <ArchitectureExplorer />

@@ -21,6 +21,46 @@ async function ensureEmptyDir(dir) {
   await fs.mkdir(dir, { recursive: true });
 }
 
+
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
+async function movePath(from, to) {
+  // On Windows, renaming directories can intermittently fail with EPERM due to
+  // antivirus/indexing/file-handle timing. Prefer rename, but fall back to copy+delete.
+  const maxRenameAttempts = 5;
+
+  for (let attempt = 1; attempt <= maxRenameAttempts; attempt++) {
+    try {
+      await fs.rename(from, to);
+      return;
+    } catch (err) {
+      const code = err?.code;
+      // Retry a few times for transient Windows locks.
+      if (code === "EPERM" || code === "EACCES") {
+        if (attempt < maxRenameAttempts) {
+          await sleep(100 * attempt);
+          continue;
+        }
+      }
+      // Fall back when rename is not possible (EXDEV) or still blocked (EPERM/EACCES).
+      if (code === "EXDEV" || code === "EPERM" || code === "EACCES") {
+        const stat = await fs.lstat(from);
+
+        if (stat.isDirectory()) {
+          await fs.cp(from, to, { recursive: true, force: true });
+          await fs.rm(from, { recursive: true, force: true });
+        } else {
+          await fs.copyFile(from, to);
+          await fs.rm(from, { force: true });
+        }
+        return;
+      }
+
+      throw err;
+    }
+  }
+}
+
 async function main() {
   if (!(await pathExists(outDir))) {
     throw new Error(
@@ -40,7 +80,7 @@ async function main() {
 
     const from = path.join(outDir, entry.name);
     const to = path.join(baseDir, entry.name);
-    await fs.rename(from, to);
+    await movePath(from, to);
   }
 
   // Optional convenience: make / redirect to /partner-hub/ when serving out/.

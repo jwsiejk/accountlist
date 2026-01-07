@@ -15,9 +15,35 @@ export type ArchitectureNodeData = {
   notes: ArchitectureNodeNotes;
 };
 
+export type ScenarioPhase = {
+  title: string;
+  bullets: string[];
+};
+
+export type ScenarioRisk = {
+  risk: string;
+  mitigation: string;
+};
+
+export type ArchitectureScenarioBrief = {
+  /** A concise business framing you can use at the top of a customer-facing one-pager. */
+  problemStatement: string;
+  /** What "good" looks like (SLOs, recovery targets, operational outcomes). */
+  successCriteria: string[];
+  /** Key constraints discovered in discovery (facility, budget, time, compliance, etc.). */
+  constraints: string[];
+  /** Assumptions you are making to keep the solution scoped and defensible. */
+  assumptions: string[];
+  /** A phased plan that maps to real cutovers / migration waves. */
+  phases: ScenarioPhase[];
+  /** Deal risks + mitigations (what can derail execution, and how you de-risk it). */
+  risks: ScenarioRisk[];
+};
+
 export type ArchitectureScenario = {
   id: string;
   label: string;
+  brief: ArchitectureScenarioBrief;
   nodes: Node<ArchitectureNodeData>[];
   edges: Edge[];
 };
@@ -26,6 +52,63 @@ export const diagramScenarios: ArchitectureScenario[] = [
   {
     id: "data-center-refresh",
     label: "Data Center Refresh",
+    brief: {
+      problemStatement:
+        "Refresh aging on-prem infrastructure while improving resiliency, reducing operational risk, and minimizing downtime during migration.",
+      successCriteria: [
+        "Maintain service availability during migration waves with clear rollback gates",
+        "Target N+1 resiliency at the platform layer (network/compute/storage)",
+        "Modernize monitoring + backup to reduce MTTR and ransomware exposure",
+      ],
+      constraints: [
+        "Facility power/cooling headroom is limited; growth must be planned",
+        "Change windows are constrained; migrations must be phased",
+        "Multiple vendor domains require coordinated cutovers",
+      ],
+      assumptions: [
+        "Core applications can tolerate planned maintenance windows",
+        "Workloads can be categorized into tiers for sequencing",
+        "Existing network addressing/segmentation strategy is largely reusable",
+      ],
+      phases: [
+        {
+          title: "Phase 0 — Discovery + Readiness",
+          bullets: [
+            "Inventory + dependency mapping; classify tiers and recovery needs",
+            "Validate facility constraints (rack space, kW/rack, circuits)",
+            "Define cutover plan, rollback criteria, and acceptance tests",
+          ],
+        },
+        {
+          title: "Phase 1 — Build + Burn-in",
+          bullets: [
+            "Deploy network/compute/storage baseline with monitoring and backups",
+            "Run burn-in, failover validation, and performance baselines",
+          ],
+        },
+        {
+          title: "Phase 2 — Migration Waves",
+          bullets: [
+            "Pilot wave (low-risk) → iterate runbooks",
+            "Bulk waves with rollback gates + stakeholder sign-offs",
+          ],
+        },
+      ],
+      risks: [
+        {
+          risk: "Undocumented dependencies cause outage during a migration wave",
+          mitigation: "Dependency mapping + pilot wave + explicit rollback gates",
+        },
+        {
+          risk: "Facility constraints force last-minute rework",
+          mitigation: "Validate power/cooling/rack constraints during Phase 0",
+        },
+        {
+          risk: "Operational handoff gaps lead to instability post-cutover",
+          mitigation: "Burn-in + monitoring runbooks + hypercare window",
+        },
+      ],
+    },
     nodes: [
       {
         id: "core-switching",
@@ -164,6 +247,52 @@ export const diagramScenarios: ArchitectureScenario[] = [
   {
     id: "hybrid-cloud",
     label: "Hybrid Cloud Landing Zone",
+    brief: {
+      problemStatement:
+        "Establish a secure, governed landing zone that supports hybrid workloads with predictable connectivity, consistent identity, and unified operations.",
+      successCriteria: [
+        "Repeatable app onboarding with guardrails and policy-as-code",
+        "Private connectivity with redundancy and predictable latency",
+        "Centralized monitoring + incident response across environments",
+      ],
+      constraints: [
+        "Carrier lead times and circuit availability",
+        "Identity integration must align with enterprise IdP policies",
+        "Governance must not slow delivery; defaults must be sane",
+      ],
+      assumptions: [
+        "A single enterprise IdP exists and supports federation",
+        "Connectivity includes redundant links or clear failover posture",
+        "Teams will adopt a standard landing zone pattern over bespoke setups",
+      ],
+      phases: [
+        {
+          title: "Phase 0 — Guardrails + Connectivity",
+          bullets: [
+            "Design network/account structure + baseline controls",
+            "Provision private connectivity + validate failover",
+          ],
+        },
+        {
+          title: "Phase 1 — Shared Services",
+          bullets: ["Identity federation, logging/monitoring, backup/DR vaults"],
+        },
+        {
+          title: "Phase 2 — Onboarding Waves",
+          bullets: ["Pilot app, template improvements, then scaled onboarding"],
+        },
+      ],
+      risks: [
+        {
+          risk: "Landing zone becomes overly complex and slows onboarding",
+          mitigation: "Start with minimal viable guardrails; iterate by policy tiers",
+        },
+        {
+          risk: "Connectivity is fragile or undersized",
+          mitigation: "Redundant circuits + bandwidth sizing + synthetic monitoring",
+        },
+      ],
+    },
     nodes: [
       {
         id: "on-prem",
@@ -282,6 +411,55 @@ export const diagramScenarios: ArchitectureScenario[] = [
   {
     id: "dr-bc",
     label: "DR / BC",
+    brief: {
+      problemStatement:
+        "Implement a measurable DR/BC posture with clear RPO/RTO targets, tested runbooks, and resilient failover mechanisms.",
+      successCriteria: [
+        "RPO/RTO targets approved by the business and validated via testing",
+        "Immutable backups isolated from production credentials",
+        "Failover process that is rehearsed and operationally owned",
+      ],
+      constraints: [
+        "Latency/bandwidth limits between sites affect achievable RPO",
+        "DR capacity must cover recovery peaks, not steady state",
+        "Testing must fit within operational change windows",
+      ],
+      assumptions: [
+        "Applications can be tiered to align spend with business criticality",
+        "DNS/traffic management can be tuned to meet failover SLAs",
+        "Periodic DR testing is funded and scheduled",
+      ],
+      phases: [
+        {
+          title: "Phase 0 — Define Targets",
+          bullets: [
+            "Tier apps + agree on RPO/RTO",
+            "Select replication + backup patterns per tier",
+          ],
+        },
+        {
+          title: "Phase 1 — Build DR Foundation",
+          bullets: ["Provision DR capacity + replication fabric + vault controls"],
+        },
+        {
+          title: "Phase 2 — Test + Operate",
+          bullets: [
+            "Runbook-driven failover tests",
+            "Define cadence + evidence collection",
+          ],
+        },
+      ],
+      risks: [
+        {
+          risk: "Targets are aspirational and not validated",
+          mitigation: "Tie targets to test evidence + revise when constraints exist",
+        },
+        {
+          risk: "Ransomware compromises backup chain",
+          mitigation: "Immutable vault + isolation + restore validation exercises",
+        },
+      ],
+    },
     nodes: [
       {
         id: "primary-site",
