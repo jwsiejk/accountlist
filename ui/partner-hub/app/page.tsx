@@ -6,7 +6,7 @@ const featureCards = [
   {
     title: "Architecture Explorer",
     description: "Navigate reference architectures and validated design patterns.",
-    href: "/architecture-explorer",
+    href: "/tools/architecture-explorer",
   },
   {
     title: "Estimator",
