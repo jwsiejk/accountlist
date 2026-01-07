@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -35,11 +36,23 @@ export function AppHeader() {
           aria-label="Portfolio Hub Home"
           className="flex items-center gap-2 rounded-md px-2 py-1 text-primary transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
-          <img src="/brand/pure.svg" alt="Pure Storage" height="24" />
+          <Image
+            src="/brand/pure.svg"
+            alt="Pure Storage"
+            width={76}
+            height={24}
+            priority
+          />
           <span aria-hidden className="text-sm font-semibold text-accent">
             ×
           </span>
-          <img src="/brand/trace3.svg" alt="Trace3" height="24" />
+          <Image
+            src="/brand/trace3.svg"
+            alt="Trace3"
+            width={76}
+            height={24}
+            priority
+          />
         </Link>
         <div className="relative mx-auto flex w-full max-w-xl items-center">
           <Search className="absolute left-3 h-4 w-4 text-foreground/40" aria-hidden />

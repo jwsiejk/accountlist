@@ -7,20 +7,25 @@ const siteTitle = "Portfolio Hub";
 const siteDescription =
   "A presales solutions architect portfolio for data center infrastructure, showcasing tools, architectures, and proof points.";
 
+// For local static serving, leave NEXT_PUBLIC_SITE_URL unset and the URLs below will
+// resolve to http://localhost:3000/partner-hub/*.
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const basePath = "/partner-hub";
+
 export const metadata: Metadata = {
   title: {
     default: siteTitle,
     template: `%s | ${siteTitle}`,
   },
   description: siteDescription,
-  metadataBase: new URL("https://portfolio-hub.example.com"),
+  metadataBase: new URL(siteUrl),
   openGraph: {
     title: siteTitle,
     description: siteDescription,
     type: "website",
     images: [
       {
-        url: "/opengraph-image.png",
+        url: `${basePath}/opengraph-image.png`,
         width: 1200,
         height: 630,
         alt: "Portfolio Hub social preview",
@@ -31,10 +36,10 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: siteTitle,
     description: siteDescription,
-    images: ["/twitter-image.png"],
+    images: [`${basePath}/twitter-image.png`],
   },
   icons: {
-    icon: "/brand/favicon.svg",
+    icon: `${basePath}/brand/favicon.svg`,
   },
 };
 

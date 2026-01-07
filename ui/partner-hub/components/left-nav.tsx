@@ -11,7 +11,7 @@ const links = [
   { name: "Case Studies", href: "/case-studies" },
   { name: "Architecture Explorer", href: "/tools/architecture-explorer" },
   { name: "Estimator", href: "/estimator" },
-  { name: "Energy Tool", href: "/energy/", external: true },
+  { name: "Energy Tool", href: "/tools/energy" },
   { name: "About / Contact", href: "/about" },
 ];
 
@@ -42,14 +42,6 @@ export function LeftNav() {
             active ? "bg-primary/10 text-primary" : "text-foreground/70",
             collapsed && "justify-center px-0",
           );
-
-          if (link.external) {
-            return (
-              <a key={link.name} href={link.href} className={baseClasses}>
-                <span className={clsx(collapsed && "sr-only")}>{link.name}</span>
-              </a>
-            );
-          }
 
           return (
             <Link key={link.name} href={link.href} className={baseClasses}>
