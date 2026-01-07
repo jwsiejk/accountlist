@@ -5,7 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   enumerateNetApp,
   fbPower,
+  getNetAppControllerModels,
   getTracks,
+  buildNetAppCandidate,
   loadCsv,
   loadNetApp,
   loadPure,
@@ -36,6 +38,13 @@ type Inputs = {
   tolPct: number;
 };
 
+type NetAppMode = "auto" | "manual";
+
+type ManualInputs = {
+  controllerModel: string;
+  expansionQty: number;
+};
+
 const defaults: Omit<Inputs, "dfmTb" | "capacityPb"> = {
   pureUtilPct: 50,
   purePue: 1.35,
@@ -62,10 +71,16 @@ export function EnergyTool() {
     capacityPb: 4,
     ...defaults,
   }));
+  const [mode, setMode] = useState<NetAppMode>("auto");
+  const [manualInputs, setManualInputs] = useState<ManualInputs>({
+    controllerModel: "",
+    expansionQty: 0,
+  });
 
   const [fb, setFb] = useState<FbPowerResult | null>(null);
   const [candidates, setCandidates] = useState<NetAppCandidate[]>([]);
   const [selected, setSelected] = useState<NetAppCandidate | null>(null);
+  const [manualCandidate, setManualCandidate] = useState<NetAppCandidate | null>(null);
   const [computeError, setComputeError] = useState<string | null>(null);
 
   const candidateKey = (candidate: NetAppCandidate) => {
@@ -119,6 +134,7 @@ export function EnergyTool() {
 
   const tracks = useMemo(() => getTracks(pureRows), [pureRows]);
   const capacities = useMemo(() => validCaps(pureRows, inputs.dfmTb, 20), [pureRows, inputs.dfmTb]);
+  const controllerModels = useMemo(() => getNetAppControllerModels(netappRows), [netappRows]);
 
   const runModel = () => {
     try {
@@ -162,12 +178,58 @@ export function EnergyTool() {
     }
   };
 
+  const runManual = () => {
+    if (!manualInputs.controllerModel) return;
+    try {
+      setComputeError(null);
+      const candidate = buildNetAppCandidate(
+        netappRows,
+        manualInputs.controllerModel,
+        manualInputs.expansionQty,
+        inputs.naUtilPct / 100,
+        inputs.naPue,
+        inputs.naPrice,
+        inputs.naOverhead,
+        inputs.naDrr,
+        inputs.naDriveSizeTb,
+      );
+      setManualCandidate(candidate);
+    } catch (err) {
+      setComputeError(err instanceof Error ? err.message : "Failed to compute manual NetApp config");
+      setManualCandidate(null);
+    }
+  };
+
   useEffect(() => {
     if (pureRows.length > 0 && netappRows.length > 0) {
       runModel();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pureRows.length, netappRows.length]);
+
+  useEffect(() => {
+    if (controllerModels.length > 0 && !manualInputs.controllerModel) {
+      setManualInputs((prev) => ({ ...prev, controllerModel: controllerModels[0] }));
+    }
+  }, [controllerModels, manualInputs.controllerModel]);
+
+  useEffect(() => {
+    if (mode === "manual" && manualInputs.controllerModel && netappRows.length > 0) {
+      runManual();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    mode,
+    manualInputs.controllerModel,
+    manualInputs.expansionQty,
+    inputs.naUtilPct,
+    inputs.naPue,
+    inputs.naPrice,
+    inputs.naOverhead,
+    inputs.naDrr,
+    inputs.naDriveSizeTb,
+    netappRows.length,
+  ]);
 
   const band = useMemo(() => {
     if (!fb) return null;
@@ -178,20 +240,19 @@ export function EnergyTool() {
     };
   }, [fb, inputs.tolPct]);
 
-  const netappBtu = useMemo(() => (selected ? Math.round(selected.weightedW * 3.412) : null), [selected]);
-
+  const selectedCandidate = mode === "manual" ? manualCandidate : selected;
   const savings = useMemo(() => {
-    if (!fb || !selected) return null;
-    const deltaW = fb.weightedW - selected.weightedW;
-    const deltaKwh = fb.kwhWithPue - selected.kwhYearWithPue;
-    const deltaCost = fb.annualCost - selected.annualEnergyCost;
+    if (!fb || !selectedCandidate) return null;
+    const deltaW = fb.weightedW - selectedCandidate.weightedW;
+    const deltaKwh = fb.kwhWithPue - selectedCandidate.kwhYearWithPue;
+    const deltaCost = fb.annualCost - selectedCandidate.annualEnergyCost;
     return {
       deltaW,
       deltaKwh,
       deltaCost,
       pctCost: fb.annualCost > 0 ? (deltaCost / fb.annualCost) * 100 : null,
     };
-  }, [fb, selected]);
+  }, [fb, selectedCandidate]);
 
   return (
     <div className="space-y-6">
@@ -278,6 +339,29 @@ export function EnergyTool() {
             <CardTitle className="text-base">NetApp baseline inputs</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="flex w-full rounded-md border border-border bg-background p-1 text-xs font-semibold uppercase tracking-wide text-foreground/70">
+              <button
+                type="button"
+                className={
+                  "flex-1 rounded-sm px-3 py-2 transition " +
+                  (mode === "auto" ? "bg-muted text-foreground shadow-sm" : "hover:bg-muted/50")
+                }
+                onClick={() => setMode("auto")}
+              >
+                Auto match (within tolerance)
+              </button>
+              <button
+                type="button"
+                className={
+                  "flex-1 rounded-sm px-3 py-2 transition " +
+                  (mode === "manual" ? "bg-muted text-foreground shadow-sm" : "hover:bg-muted/50")
+                }
+                onClick={() => setMode("manual")}
+              >
+                Manual config
+              </button>
+            </div>
+
             <div className="grid gap-3 sm:grid-cols-2">
               <NumberInput label="Utilization %" value={inputs.naUtilPct} onChange={(v) => setInputs((p) => ({ ...p, naUtilPct: v }))} />
               <NumberInput label="PUE" value={inputs.naPue} step={0.01} onChange={(v) => setInputs((p) => ({ ...p, naPue: v }))} />
@@ -285,18 +369,69 @@ export function EnergyTool() {
               <NumberInput label="Overhead (raw→usable)" value={inputs.naOverhead} step={0.01} onChange={(v) => setInputs((p) => ({ ...p, naOverhead: v }))} />
               <NumberInput label="DRR" value={inputs.naDrr} step={0.1} onChange={(v) => setInputs((p) => ({ ...p, naDrr: v }))} />
               <NumberInput label="Drive size (TB)" value={inputs.naDriveSizeTb} step={1} onChange={(v) => setInputs((p) => ({ ...p, naDriveSizeTb: v }))} />
-              <NumberInput label="Auto-match tolerance (±%)" value={inputs.tolPct} step={0.1} onChange={(v) => setInputs((p) => ({ ...p, tolPct: v }))} />
+              {mode === "auto" ? (
+                <NumberInput label="Auto-match tolerance (±%)" value={inputs.tolPct} step={0.1} onChange={(v) => setInputs((p) => ({ ...p, tolPct: v }))} />
+              ) : null}
             </div>
 
+            {mode === "manual" ? (
+              <div className="rounded-md border border-border bg-muted/30 p-3">
+                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                  Manual configuration
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                      Controller model
+                    </label>
+                    <select
+                      className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+                      value={manualInputs.controllerModel}
+                      onChange={(e) => setManualInputs((prev) => ({ ...prev, controllerModel: e.target.value }))}
+                      disabled={loading || controllerModels.length === 0}
+                    >
+                      {controllerModels.map((model) => (
+                        <option key={model} value={model}>
+                          {model}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <NumberInput
+                    label="# of expansion shelves"
+                    value={manualInputs.expansionQty}
+                    step={1}
+                    onChange={(value) =>
+                      setManualInputs((prev) => ({ ...prev, expansionQty: Math.max(0, value) }))
+                    }
+                  />
+                </div>
+                <p className="mt-2 text-xs text-foreground/60">
+                  Manual configs use the same power and capacity model as auto-matched candidates.
+                </p>
+              </div>
+            ) : null}
+
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
-                onClick={runModel}
-                disabled={loading || pureRows.length === 0 || netappRows.length === 0}
-              >
-                Recalculate
-              </button>
+              {mode === "auto" ? (
+                <button
+                  type="button"
+                  className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+                  onClick={runModel}
+                  disabled={loading || pureRows.length === 0 || netappRows.length === 0}
+                >
+                  Recalculate
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+                  onClick={runManual}
+                  disabled={loading || manualInputs.controllerModel.length === 0 || netappRows.length === 0}
+                >
+                  Apply manual config
+                </button>
+              )}
               {loading ? <span className="text-xs text-foreground/60">Loading datasets…</span> : null}
               {computeError ? <span className="text-xs font-semibold text-red-600">{computeError}</span> : null}
             </div>
@@ -325,79 +460,89 @@ export function EnergyTool() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">NetApp candidates (within tolerance)</CardTitle>
+                <CardTitle className="text-base">
+                  {mode === "auto" ? "NetApp candidates (within tolerance)" : "NetApp candidates"}
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                {band ? (
-                  <p className="mb-3 text-xs text-foreground/60">
-                    Target band: {fmt0.format(band.low)}–{fmt0.format(band.high)} effective TB (±{fmt1.format(inputs.tolPct)}%).
-                  </p>
-                ) : null}
-                {candidates.length === 0 ? (
-                  <p className="text-sm text-foreground/70">
-                    No candidates found in the tolerance band. Try widening tolerance or adjusting NetApp overhead / DRR / drive size.
-                  </p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
-                      <thead className="border-b border-border text-foreground/60">
-                        <tr>
-                          <th className="py-2 pr-3 font-semibold">Controller</th>
-                          <th className="py-2 pr-3 font-semibold">Exp shelves</th>
-                          <th className="py-2 pr-3 font-semibold">Eff TB</th>
-                          <th className="py-2 pr-3 font-semibold">Δ vs target</th>
-                          <th className="py-2 pr-3 font-semibold">Annual $</th>
-                          <th className="py-2 pr-3 font-semibold">W / eff TB</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {candidates.slice(0, 8).map((c) => {
-                          const isSelected = selected ? candidateKey(selected) === candidateKey(c) : false;
-                          return (
-                            <tr
-                              key={candidateKey(c)}
-                              className={
-                                "cursor-pointer border-b border-border/60 transition focus-visible:outline-none focus-visible:ring-2 " +
-                                "focus-visible:ring-primary/60 focus-visible:ring-inset " +
-                                (isSelected
-                                  ? "bg-muted/60 font-semibold ring-1 ring-primary/30"
-                                  : "hover:bg-muted/40")
-                              }
-                              onClick={() => setSelected(c)}
-                              onKeyDown={(event) => {
-                                if (event.key === "Enter" || event.key === " ") {
-                                  event.preventDefault();
-                                  setSelected(c);
-                                }
-                              }}
-                              role="button"
-                              aria-selected={isSelected}
-                              tabIndex={0}
-                            >
-                              <td className="py-2 pr-3 font-medium">
-                                <div className="flex items-center gap-2">
-                                  <span>{c.controllerModel}</span>
-                                  {isSelected ? (
-                                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                      Selected
-                                    </span>
-                                  ) : null}
-                                </div>
-                              </td>
-                              <td className="py-2 pr-3">{c.expansionQty}</td>
-                              <td className="py-2 pr-3">{fmt0.format(c.effectiveTb)}</td>
-                              <td className="py-2 pr-3">{fmt2.format(c.pctDiffFromTarget)}%</td>
-                              <td className="py-2 pr-3">${fmt0.format(c.annualEnergyCost)}</td>
-                              <td className="py-2 pr-3">{c.wPerEffectiveTb ? fmt2.format(c.wPerEffectiveTb) : "—"}</td>
+                {mode === "auto" ? (
+                  <>
+                    {band ? (
+                      <p className="mb-3 text-xs text-foreground/60">
+                        Target band: {fmt0.format(band.low)}–{fmt0.format(band.high)} effective TB (±{fmt1.format(inputs.tolPct)}%).
+                      </p>
+                    ) : null}
+                    {candidates.length === 0 ? (
+                      <p className="text-sm text-foreground/70">
+                        No candidates found in the tolerance band. Try widening tolerance or adjusting NetApp overhead / DRR / drive size.
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead className="border-b border-border text-foreground/60">
+                            <tr>
+                              <th className="py-2 pr-3 font-semibold">Controller</th>
+                              <th className="py-2 pr-3 font-semibold">Exp shelves</th>
+                              <th className="py-2 pr-3 font-semibold">Eff TB</th>
+                              <th className="py-2 pr-3 font-semibold">Δ vs target</th>
+                              <th className="py-2 pr-3 font-semibold">Annual $</th>
+                              <th className="py-2 pr-3 font-semibold">W / eff TB</th>
                             </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                    <p className="mt-2 text-[11px] text-foreground/60">
-                      Click a NetApp row to see a side-by-side comparison.
-                    </p>
-                  </div>
+                          </thead>
+                          <tbody>
+                            {candidates.slice(0, 8).map((c) => {
+                              const isSelected = selected ? candidateKey(selected) === candidateKey(c) : false;
+                              return (
+                                <tr
+                                  key={candidateKey(c)}
+                                  className={
+                                    "cursor-pointer border-b border-border/60 transition focus-visible:outline-none focus-visible:ring-2 " +
+                                    "focus-visible:ring-primary/60 focus-visible:ring-inset " +
+                                    (isSelected
+                                      ? "bg-muted/60 font-semibold ring-1 ring-primary/30"
+                                      : "hover:bg-muted/40")
+                                  }
+                                  onClick={() => setSelected(c)}
+                                  onKeyDown={(event) => {
+                                    if (event.key === "Enter" || event.key === " ") {
+                                      event.preventDefault();
+                                      setSelected(c);
+                                    }
+                                  }}
+                                  role="button"
+                                  aria-selected={isSelected}
+                                  tabIndex={0}
+                                >
+                                  <td className="py-2 pr-3 font-medium">
+                                    <div className="flex items-center gap-2">
+                                      <span>{c.controllerModel}</span>
+                                      {isSelected ? (
+                                        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                          Selected
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  </td>
+                                  <td className="py-2 pr-3">{c.expansionQty}</td>
+                                  <td className="py-2 pr-3">{fmt0.format(c.effectiveTb)}</td>
+                                  <td className="py-2 pr-3">{fmt2.format(c.pctDiffFromTarget)}%</td>
+                                  <td className="py-2 pr-3">${fmt0.format(c.annualEnergyCost)}</td>
+                                  <td className="py-2 pr-3">{c.wPerEffectiveTb ? fmt2.format(c.wPerEffectiveTb) : "—"}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                        <p className="mt-2 text-[11px] text-foreground/60">
+                          Click a NetApp row to see a side-by-side comparison.
+                        </p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-foreground/70">
+                    Manual mode uses the configuration you apply above for the comparison.
+                  </p>
                 )}
               </CardContent>
             </Card>
@@ -406,14 +551,15 @@ export function EnergyTool() {
           <Card>
             <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <CardTitle className="text-base">Comparison</CardTitle>
-              {selected ? (
+              {selectedCandidate ? (
                 <div className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                  SELECTED: {selected.controllerModel} + {selected.expansionQty} shelf{selected.expansionQty === 1 ? "" : "es"}
+                  SELECTED: {selectedCandidate.controllerModel} + {selectedCandidate.expansionQty} shelf
+                  {selectedCandidate.expansionQty === 1 ? "" : "es"}
                 </div>
               ) : null}
             </CardHeader>
             <CardContent>
-              {selected ? (
+              {selectedCandidate ? (
                 <div className="grid gap-4 md:grid-cols-3">
                   <MiniCompare
                     title="FlashBlade//E"
@@ -427,10 +573,10 @@ export function EnergyTool() {
                   <MiniCompare
                     title="NetApp"
                     items={[
-                      ["Effective TB", fmt0.format(selected.effectiveTb)],
-                      ["Weighted IT load (W)", fmt0.format(selected.weightedW)],
-                      ["kWh / year (with PUE)", fmt0.format(selected.kwhYearWithPue)],
-                      ["Annual energy cost", `$${fmt0.format(selected.annualEnergyCost)}`],
+                      ["Effective TB", fmt0.format(selectedCandidate.effectiveTb)],
+                      ["Weighted IT load (W)", fmt0.format(selectedCandidate.weightedW)],
+                      ["kWh / year (with PUE)", fmt0.format(selectedCandidate.kwhYearWithPue)],
+                      ["Annual energy cost", `$${fmt0.format(selectedCandidate.annualEnergyCost)}`],
                     ]}
                   />
                   <MiniCompare
@@ -444,7 +590,11 @@ export function EnergyTool() {
                   />
                 </div>
               ) : (
-                <p className="text-sm text-foreground/70">Select a NetApp candidate to see the comparison.</p>
+                <p className="text-sm text-foreground/70">
+                  {mode === "manual"
+                    ? "Apply a manual NetApp configuration to see the comparison."
+                    : "Select a NetApp candidate to see the comparison."}
+                </p>
               )}
             </CardContent>
           </Card>
