@@ -65,6 +65,7 @@ export function EnergyTool() {
 
   const [fb, setFb] = useState<FbPowerResult | null>(null);
   const [candidates, setCandidates] = useState<NetAppCandidate[]>([]);
+  const [selected, setSelected] = useState<NetAppCandidate | null>(null);
   const [computeError, setComputeError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -132,10 +133,12 @@ export function EnergyTool() {
       );
       setFb(fbResult);
       setCandidates(netapp);
+      setSelected(netapp[0] ?? null);
     } catch (err) {
       setComputeError(err instanceof Error ? err.message : "Failed to compute results");
       setFb(null);
       setCandidates([]);
+      setSelected(null);
     }
   };
 
@@ -154,6 +157,21 @@ export function EnergyTool() {
       high: fb.effectiveTb * (1 + tolFrac),
     };
   }, [fb, inputs.tolPct]);
+
+  const netappBtu = useMemo(() => (selected ? Math.round(selected.weightedW * 3.412) : null), [selected]);
+
+  const savings = useMemo(() => {
+    if (!fb || !selected) return null;
+    const deltaW = fb.weightedW - selected.weightedW;
+    const deltaKwh = fb.kwhWithPue - selected.kwhYearWithPue;
+    const deltaCost = fb.annualCost - selected.annualEnergyCost;
+    return {
+      deltaW,
+      deltaKwh,
+      deltaCost,
+      pctCost: fb.annualCost > 0 ? (deltaCost / fb.annualCost) * 100 : null,
+    };
+  }, [fb, selected]);
 
   return (
     <div className="space-y-6">
@@ -312,8 +330,21 @@ export function EnergyTool() {
                       </tr>
                     </thead>
                     <tbody>
-                      {candidates.slice(0, 8).map((c) => (
-                        <tr key={`${c.controllerModel}-${c.expansionQty}`} className="border-b border-border/60">
+                      {candidates.slice(0, 8).map((c) => {
+                        const isSelected =
+                          selected?.controllerModel === c.controllerModel &&
+                          selected?.expansionQty === c.expansionQty;
+                        return (
+                        <tr
+                          key={`${c.controllerModel}-${c.expansionQty}`}
+                          className={
+                            "border-b border-border/60 cursor-pointer hover:bg-muted/40 " +
+                            (isSelected ? "bg-muted/50" : "")
+                          }
+                          onClick={() => setSelected(c)}
+                          role="button"
+                          tabIndex={0}
+                        >
                           <td className="py-2 pr-3 font-medium">{c.controllerModel}</td>
                           <td className="py-2 pr-3">{c.expansionQty}</td>
                           <td className="py-2 pr-3">{fmt0.format(c.effectiveTb)}</td>
@@ -321,15 +352,78 @@ export function EnergyTool() {
                           <td className="py-2 pr-3">${fmt0.format(c.annualEnergyCost)}</td>
                           <td className="py-2 pr-3">{c.wPerEffectiveTb ? fmt2.format(c.wPerEffectiveTb) : "—"}</td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
+                  <p className="mt-2 text-[11px] text-foreground/60">
+                    Click a NetApp row to see a side-by-side comparison.
+                  </p>
                 </div>
               )}
+
+              {selected ? (
+                <div className="mt-4 border-t border-border pt-4">
+                  <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                    Selected: {selected.controllerModel} + {selected.expansionQty} shelf{selected.expansionQty === 1 ? "" : "es"}
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <MiniCompare
+                      title="FlashBlade//E"
+                      items={[
+                        ["Effective TB", fmt0.format(fb.effectiveTb)],
+                        ["Weighted IT load (W)", fmt0.format(fb.weightedW)],
+                        ["kWh / year (with PUE)", fmt0.format(fb.kwhWithPue)],
+                        ["Annual energy cost", `$${fmt0.format(fb.annualCost)}`],
+                      ]}
+                    />
+                    <MiniCompare
+                      title="NetApp"
+                      items={[
+                        ["Effective TB", fmt0.format(selected.effectiveTb)],
+                        ["Weighted IT load (W)", fmt0.format(selected.weightedW)],
+                        ["kWh / year (with PUE)", fmt0.format(selected.kwhYearWithPue)],
+                        ["Annual energy cost", `$${fmt0.format(selected.annualEnergyCost)}`],
+                      ]}
+                    />
+                    <MiniCompare
+                      title="Δ (Pure − NetApp)"
+                      items={[
+                        ["Δ IT load (W)", fmt0.format(savings?.deltaW ?? 0)],
+                        ["Δ kWh / year", fmt0.format(savings?.deltaKwh ?? 0)],
+                        ["Δ annual cost", `$${fmt0.format(savings?.deltaCost ?? 0)}`],
+                        ["Δ cost %", savings?.pctCost == null ? "—" : `${fmt1.format(savings.pctCost)}%`],
+                      ]}
+                    />
+                  </div>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function MiniCompare({
+  title,
+  items,
+}: {
+  title: string;
+  items: Array<[string, string]>;
+}) {
+  return (
+    <div className="rounded-md border border-border p-3">
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground/60">{title}</div>
+      <div className="space-y-2 text-sm">
+        {items.map(([k, v]) => (
+          <div key={k} className="flex items-center justify-between gap-3">
+            <span className="text-foreground/60">{k}</span>
+            <span className="font-semibold text-foreground">{v}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
