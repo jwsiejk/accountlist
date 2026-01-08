@@ -11,6 +11,18 @@ const reportPath = path.join(dataDir, "vendor_update_report.json");
 const csvFiles = ["pure_flashblade_e.csv", "netapp_e_series.csv"];
 const jsonNamePattern = /(compat|catalog)/i;
 
+const UA_PRIMARY =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+const UA_FALLBACK =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0";
+const DEFAULT_HEADERS = {
+  "User-Agent": UA_PRIMARY,
+  Accept: "text/html,application/xhtml+xml,application/pdf;q=0.9,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+  "Cache-Control": "no-cache",
+  Pragma: "no-cache",
+};
+
 const parseCsv = (text) => {
   const rows = [];
   let row = [];
@@ -141,8 +153,14 @@ const readPreviousReport = async () => {
 const fetchWithTimeout = async (url, options = {}) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
+  const headers = { ...DEFAULT_HEADERS, ...(options.headers ?? {}) };
   try {
-    const res = await fetch(url, { ...options, signal: controller.signal, redirect: "follow" });
+    const res = await fetch(url, {
+      ...options,
+      headers,
+      signal: controller.signal,
+      redirect: "follow",
+    });
     return res;
   } finally {
     clearTimeout(timeout);
@@ -161,9 +179,15 @@ const checkUrl = async (url) => {
 
   let getRes;
   let bodyBuffer = null;
-  if (headRes.ok || headRes.status === 405 || headRes.status === 403) {
+  if (headRes.ok || headRes.status === 405 || headRes.status === 403 || headRes.status === 429) {
     try {
       getRes = await fetchWithTimeout(url, { method: "GET" });
+      if (getRes.status === 403 || getRes.status === 429) {
+        getRes = await fetchWithTimeout(url, {
+          method: "GET",
+          headers: { "User-Agent": UA_FALLBACK },
+        });
+      }
       bodyBuffer = Buffer.from(await getRes.arrayBuffer());
     } catch (err) {
       return {
@@ -178,6 +202,16 @@ const checkUrl = async (url) => {
   }
 
   const res = getRes ?? headRes;
+  if (res.status === 403 || res.status === 429) {
+    return {
+      url,
+      status: res.status,
+      finalUrl: res.url ?? url,
+      etag: res.headers.get("etag"),
+      lastModified: res.headers.get("last-modified"),
+      error: `Blocked by vendor site (${res.status}). Link may still be valid in a browser.`,
+    };
+  }
   return {
     url,
     status: res.status,
