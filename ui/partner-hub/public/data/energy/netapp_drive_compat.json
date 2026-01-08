@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "updatedAtISO": "2025-02-14T00:00:00Z",
+  "controllers": [
+    {
+      "model": "E2860",
+      "expansionShelves": [
+        {
+          "model": "DE460C 60-bay",
+          "supportedDriveSizesTB": [8, 12, 16],
+          "maxExpansionQty": 10
+        }
+      ]
+    }
+  ]
+}
