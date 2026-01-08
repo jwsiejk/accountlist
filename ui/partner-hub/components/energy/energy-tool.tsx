@@ -27,6 +27,7 @@ type EnergyMeta = {
   sourceFiles?: string[];
   copiedFiles?: string[];
   sha256?: Record<string, string>;
+  reportFiles?: string[];
 };
 
 type Inputs = {
@@ -52,6 +53,32 @@ type ManualInputs = {
   expansionQty: number;
 };
 
+type VendorReportEntry = {
+  url: string;
+  status?: number;
+  finalUrl?: string;
+  etag?: string | null;
+  lastModified?: string | null;
+  contentHash?: string | null;
+  error?: string;
+  previous?: {
+    status?: number;
+    finalUrl?: string;
+    etag?: string | null;
+    lastModified?: string | null;
+    contentHash?: string | null;
+  };
+};
+
+type VendorUpdateReport = {
+  checkedAtISO: string;
+  ok: VendorReportEntry[];
+  redirected: VendorReportEntry[];
+  changed: VendorReportEntry[];
+  missing: VendorReportEntry[];
+  error: VendorReportEntry[];
+};
+
 const defaults: Omit<Inputs, "dfmTb" | "capacityPb"> = {
   pureUtilPct: 50,
   purePue: 1.35,
@@ -75,6 +102,9 @@ export function EnergyTool() {
   const [energyMeta, setEnergyMeta] = useState<EnergyMeta | null>(null);
   const [metaError, setMetaError] = useState<string | null>(null);
   const [assumptionsOpen, setAssumptionsOpen] = useState(false);
+  const [vendorReport, setVendorReport] = useState<VendorUpdateReport | null>(null);
+  const [vendorReportError, setVendorReportError] = useState<string | null>(null);
+  const [sourceCheckHint, setSourceCheckHint] = useState<string | null>(null);
 
   const [inputs, setInputs] = useState<Inputs>(() => ({
     dfmTb: 48,
@@ -134,6 +164,35 @@ export function EnergyTool() {
         setLoadError(err instanceof Error ? err.message : "Failed to load energy datasets");
       } finally {
         setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [basePath]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setVendorReportError(null);
+        const res = await fetch(`${basePath}/data/energy/vendor_update_report.json`);
+        if (res.status === 404) {
+          if (!cancelled) setVendorReport(null);
+          return;
+        }
+        if (!res.ok) {
+          throw new Error(`Failed to load vendor update report (${res.status})`);
+        }
+        const data = (await res.json()) as VendorUpdateReport;
+        if (!cancelled) {
+          setVendorReport(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setVendorReportError(err instanceof Error ? err.message : "Failed to load vendor update report");
+        }
       }
     })();
 
@@ -395,6 +454,26 @@ export function EnergyTool() {
     URL.revokeObjectURL(url);
   };
 
+  const handleCheckSources = async () => {
+    const command = "node ui/partner-hub/scripts/check-vendor-sources.mjs";
+    try {
+      await navigator.clipboard.writeText(command);
+      setSourceCheckHint(`Run locally: ${command} (command copied)`);
+    } catch {
+      setSourceCheckHint(`Run locally: ${command}`);
+    }
+  };
+
+  const reportSections: Array<[string, VendorReportEntry[]]> = vendorReport
+    ? [
+        ["Changed", vendorReport.changed],
+        ["Redirected", vendorReport.redirected],
+        ["Missing", vendorReport.missing],
+        ["Errors", vendorReport.error],
+        ["OK", vendorReport.ok],
+      ]
+    : [];
+
   return (
     <div className="space-y-6">
       <header className="space-y-2">
@@ -580,8 +659,16 @@ export function EnergyTool() {
               >
                 Assumptions &amp; Sources
               </button>
+              <button
+                type="button"
+                className="inline-flex h-10 items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-semibold text-foreground transition hover:bg-muted/50"
+                onClick={handleCheckSources}
+              >
+                Check sources (local)
+              </button>
               {loading ? <span className="text-xs text-foreground/60">Loading datasets…</span> : null}
               {computeError ? <span className="text-xs font-semibold text-red-600">{computeError}</span> : null}
+              {sourceCheckHint ? <span className="text-xs text-foreground/60">{sourceCheckHint}</span> : null}
             </div>
           </CardContent>
         </Card>
@@ -833,6 +920,62 @@ export function EnergyTool() {
                 </ul>
               ) : (
                 <p className="text-foreground/60">No source links available for the current selection.</p>
+              )}
+            </section>
+
+            <section className="space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/60">D) Source freshness (local)</h3>
+              {vendorReport ? (
+                <div className="space-y-3 text-xs text-foreground/70">
+                  <p>
+                    Last checked: {vendorReport.checkedAtISO} ·{" "}
+                    {vendorReport.ok.length} ok, {vendorReport.redirected.length} redirected,{" "}
+                    {vendorReport.changed.length} changed, {vendorReport.missing.length} missing,{" "}
+                    {vendorReport.error.length} error
+                  </p>
+                  {reportSections.map(([label, entries]) => (
+                    <div key={label} className="space-y-1">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-foreground/60">
+                        {label}
+                      </div>
+                      {entries.length > 0 ? (
+                        <ul className="space-y-1">
+                          {entries.map((entry) => (
+                            <li key={`${label}-${entry.url}`}>
+                              <a
+                                className="text-primary underline-offset-2 hover:underline"
+                                href={entry.url}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                {entry.url}
+                              </a>
+                              {entry.finalUrl && entry.finalUrl !== entry.url ? (
+                                <>
+                                  <span className="text-foreground/50"> → </span>
+                                  <a
+                                    className="text-primary underline-offset-2 hover:underline"
+                                    href={entry.finalUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                  >
+                                    {entry.finalUrl}
+                                  </a>
+                                </>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-foreground/50">None.</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : vendorReportError ? (
+                <p className="text-foreground/60">{vendorReportError}</p>
+              ) : (
+                <p className="text-foreground/60">Run the local source check to see freshness status.</p>
               )}
             </section>
           </CardContent>

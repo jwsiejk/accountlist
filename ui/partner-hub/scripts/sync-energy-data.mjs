@@ -8,6 +8,7 @@ const sourceFiles = [
   "energy/data/netapp_e_series.csv",
   "energy/data/pure_flashblade_e.csv",
 ];
+const reportFile = "energy/data/vendor_update_report.json";
 
 const destDir = path.join(cwd, "public", "data", "energy");
 
@@ -21,6 +22,7 @@ const main = async () => {
 
   const copiedFiles = [];
   const sha256 = {};
+  const reportFiles = [];
 
   for (const rel of sourceFiles) {
     const sourcePath = path.join(repoRoot, rel);
@@ -30,11 +32,26 @@ const main = async () => {
     sha256[path.basename(rel)] = await readFileSha256(destPath);
   }
 
+  const reportSourcePath = path.join(repoRoot, reportFile);
+  try {
+    await fs.access(reportSourcePath);
+    const reportDestPath = path.join(destDir, path.basename(reportFile));
+    await fs.copyFile(reportSourcePath, reportDestPath);
+    copiedFiles.push(path.join("ui", "partner-hub", "public", "data", "energy", path.basename(reportFile)));
+    sha256[path.basename(reportFile)] = await readFileSha256(reportDestPath);
+    reportFiles.push(reportFile);
+  } catch (err) {
+    if (err && err.code !== "ENOENT") {
+      throw err;
+    }
+  }
+
   const meta = {
     lastSyncedISO: new Date().toISOString(),
     sourceFiles,
     copiedFiles,
     sha256,
+    reportFiles,
   };
 
   const metaPath = path.join(destDir, "energy_data_meta.json");

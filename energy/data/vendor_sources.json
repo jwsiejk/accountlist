@@ -1,0 +1,25 @@
+[
+  {
+    "vendor": "Pure",
+    "product_line": "FlashBlade//E",
+    "url": "https://www.purestorage.com/content/dam/pdf/en/datasheets/ds-pure-storage-flashblade-e.pdf",
+    "notes": "FlashBlade//E datasheet for chassis and XFM power figures.",
+    "modelsCovered": [
+      "EC chassis (fully populated)",
+      "EX chassis (fully populated)",
+      "XFM (External Fabric Module)"
+    ]
+  },
+  {
+    "vendor": "NetApp",
+    "product_line": "E-Series",
+    "url": "https://www.netapp.com/e-series/e2800/",
+    "notes": "E2800 product page power table for controller and disk shelves.",
+    "modelsCovered": [
+      "E2860",
+      "E2824",
+      "E2812",
+      "DE460C 60-bay"
+    ]
+  }
+]
