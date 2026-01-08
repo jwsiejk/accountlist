@@ -1,0 +1,15 @@
+{
+  "lastSyncedISO": "2026-01-08T13:58:14.055Z",
+  "sourceFiles": [
+    "energy/data/netapp_e_series.csv",
+    "energy/data/pure_flashblade_e.csv"
+  ],
+  "copiedFiles": [
+    "ui\\partner-hub\\public\\data\\energy\\netapp_e_series.csv",
+    "ui\\partner-hub\\public\\data\\energy\\pure_flashblade_e.csv"
+  ],
+  "sha256": {
+    "netapp_e_series.csv": "1089d3fa909cae1bed9f77d77eb93855828ed7d460a08d9b24c4b824682258cd",
+    "pure_flashblade_e.csv": "c7cd7000559aaf4b3e8ca08925f241c6b2957247c5f031d4e94bf16319e2338e"
+  }
+}
