@@ -178,6 +178,45 @@ const fetchWithTimeout = async (url, options = {}) => {
 };
 
 const hashBuffer = (buf) => crypto.createHash("sha256").update(buf).digest("hex");
+const isPdfUrl = (url) => /\.pdf(\?|#|$)/i.test(url);
+const isHtmlContentType = (contentType = "") => {
+  const normalized = contentType.toLowerCase();
+  return normalized.includes("text/html") || normalized.includes("application/xhtml+xml");
+};
+
+const decodeHtmlEntities = (text) => {
+  const named = {
+    amp: "&",
+    lt: "<",
+    gt: ">",
+    quot: '"',
+    apos: "'",
+    nbsp: " ",
+  };
+  return text.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (match, entity) => {
+    if (entity[0] === "#") {
+      const value = entity[1].toLowerCase() === "x" ? parseInt(entity.slice(2), 16) : parseInt(entity.slice(1), 10);
+      if (!Number.isNaN(value)) {
+        return String.fromCodePoint(value);
+      }
+      return match;
+    }
+    return named[entity] ?? match;
+  });
+};
+
+const extractVisibleText = (html) => {
+  const withoutScripts = html
+    .replace(/<script\b[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript\b[\s\S]*?<\/noscript>/gi, " ");
+  const bodyMatch = withoutScripts.match(/<body\b[^>]*>([\s\S]*?)<\/body>/i);
+  const bodyHtml = bodyMatch ? bodyMatch[1] : withoutScripts;
+  const withoutComments = bodyHtml.replace(/<!--[\s\S]*?-->/g, " ");
+  const withoutTags = withoutComments.replace(/<\/?[^>]+>/g, " ");
+  const decoded = decodeHtmlEntities(withoutTags);
+  return decoded.replace(/\s+/g, " ").trim();
+};
 
 const checkUrl = async (url) => {
   let headRes;
@@ -222,13 +261,21 @@ const checkUrl = async (url) => {
       error: `Blocked by vendor site (${res.status}). Link may still be valid in a browser.`,
     };
   }
+  const finalUrl = res.url ?? url;
+  const contentType = getRes?.headers.get("content-type") ?? headRes.headers.get("content-type") ?? "";
+  const shouldHashHtml = isHtmlContentType(contentType) || !isPdfUrl(finalUrl);
+  const contentHash = bodyBuffer
+    ? shouldHashHtml
+      ? hashBuffer(Buffer.from(extractVisibleText(bodyBuffer.toString("utf8")), "utf8"))
+      : hashBuffer(bodyBuffer)
+    : null;
   return {
     url,
     status: res.status,
-    finalUrl: res.url ?? url,
+    finalUrl,
     etag: res.headers.get("etag"),
     lastModified: res.headers.get("last-modified"),
-    contentHash: bodyBuffer ? hashBuffer(bodyBuffer) : null,
+    contentHash,
   };
 };
 
