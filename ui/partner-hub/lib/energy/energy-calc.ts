@@ -222,8 +222,6 @@ export type NetAppCandidate = {
   kwhPerEffectiveTbYear: number | null;
 };
 
-const allowedNetAppControllers = new Set(["E2860", "E5760", "E4060"]);
-
 type NetAppShelfPower = {
   model: string;
   typicalW: number;
@@ -247,10 +245,24 @@ function getExpansionShelf(netappRows: NetAppRow[]): NetAppShelfPower {
   };
 }
 
-function getControllerRows(netappRows: NetAppRow[]): NetAppRow[] {
-  return netappRows.filter(
-    (r) => r.Component_Type === "Controller_Shelf" && allowedNetAppControllers.has(String(r.Model ?? "")),
+function getExpansionShelfByModel(netappRows: NetAppRow[], expansionModel: string): NetAppShelfPower {
+  const exp = netappRows.find(
+    (row) => row.Component_Type === "Expansion_Shelf" && String(row.Model ?? "") === expansionModel,
   );
+  if (!exp) {
+    throw new Error(`Unknown expansion shelf model: ${expansionModel}`);
+  }
+  return {
+    model: String(exp.Model),
+    typicalW: exp.Typical_W,
+    idleW: exp.Idle_W,
+    drives: toInt(exp.Drives_per_unit),
+    weightedW: (u: number) => exp.Idle_W + u * (exp.Typical_W - exp.Idle_W),
+  };
+}
+
+function getControllerRows(netappRows: NetAppRow[]): NetAppRow[] {
+  return netappRows.filter((r) => r.Component_Type === "Controller_Shelf");
 }
 
 export function getNetAppControllerModels(netappRows: NetAppRow[]): string[] {
@@ -261,6 +273,7 @@ export function getNetAppControllerModels(netappRows: NetAppRow[]): string[] {
 export function buildNetAppCandidate(
   netappRows: NetAppRow[],
   controllerModel: string,
+  expansionModel: string,
   expansionQty: number,
   util: number,
   pue: number,
@@ -269,7 +282,7 @@ export function buildNetAppCandidate(
   drr: number,
   driveTb: number,
 ): NetAppCandidate {
-  const exp = getExpansionShelf(netappRows);
+  const exp = getExpansionShelfByModel(netappRows, expansionModel);
   const ctrl = getControllerRows(netappRows).find((row) => String(row.Model) === controllerModel);
   if (!ctrl) {
     throw new Error(`Unknown controller model: ${controllerModel}`);

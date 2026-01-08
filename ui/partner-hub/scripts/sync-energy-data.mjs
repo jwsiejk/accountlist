@@ -6,6 +6,7 @@ const cwd = process.cwd();
 const repoRoot = path.resolve(cwd, "..", "..");
 const sourceFiles = [
   "energy/data/netapp_e_series.csv",
+  "energy/data/netapp_drive_compat.json",
   "energy/data/pure_flashblade_e.csv",
 ];
 const reportFile = "energy/data/vendor_update_report.json";
