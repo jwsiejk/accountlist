@@ -4,9 +4,24 @@ import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(__dirname, "..", "..", "..");
-const dataDir = path.join(repoRoot, "energy", "data");
-const reportPath = path.join(dataDir, "vendor_update_report.json");
+
+const findRepoRoot = async (startDir) => {
+  let current = path.resolve(startDir);
+  for (let i = 0; i < 6; i += 1) {
+    try {
+      await fs.access(path.join(current, "energy", "data"));
+      return current;
+    } catch (err) {
+      if (err && err.code !== "ENOENT") {
+        throw err;
+      }
+    }
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return null;
+};
 
 const csvFiles = ["pure_flashblade_e.csv", "netapp_e_series.csv"];
 const jsonNamePattern = /(compat|catalog)/i;
@@ -128,24 +143,19 @@ const readJsonFiles = async (dir) => {
   return results;
 };
 
-const readPreviousReport = async () => {
+const loadState = async (statePath) => {
   try {
-    const text = await fs.readFile(reportPath, "utf8");
+    const text = await fs.readFile(statePath, "utf8");
     const data = JSON.parse(text);
-    const entries = [
-      ...(data.ok ?? []),
-      ...(data.redirected ?? []),
-      ...(data.changed ?? []),
-      ...(data.missing ?? []),
-      ...(data.error ?? []),
-    ];
-    const map = new Map();
-    entries.forEach((entry) => {
-      if (entry?.url) map.set(entry.url, entry);
-    });
-    return map;
+    return {
+      version: 1,
+      updatedAtISO: data.updatedAtISO ?? "",
+      entries: data.entries ?? {},
+    };
   } catch (err) {
-    if (err && err.code === "ENOENT") return new Map();
+    if (err && err.code === "ENOENT") {
+      return { version: 1, updatedAtISO: "", entries: {} };
+    }
     throw err;
   }
 };
@@ -222,21 +232,20 @@ const checkUrl = async (url) => {
   };
 };
 
-const categorize = (entry, previous) => {
+const categorize = (entry, previousHash) => {
   if (entry.error) return "error";
   if (entry.status === 404 || entry.status === 410) return "missing";
   if (!entry.status || entry.status >= 400) return "error";
-  const changed =
-    previous &&
-    ((previous.contentHash && entry.contentHash && previous.contentHash !== entry.contentHash) ||
-      (previous.etag && entry.etag && previous.etag !== entry.etag) ||
-      (previous.lastModified && entry.lastModified && previous.lastModified !== entry.lastModified));
-  if (changed) return "changed";
+  if (previousHash && entry.contentHash && previousHash !== entry.contentHash) return "changed";
   if (entry.finalUrl && entry.finalUrl !== entry.url) return "redirected";
   return "ok";
 };
 
 const main = async () => {
+  const repoRoot = (await findRepoRoot(process.cwd())) ?? path.resolve(__dirname, "..", "..", "..");
+  const dataDir = path.join(repoRoot, "energy", "data");
+  const reportPath = path.join(dataDir, "vendor_update_report.json");
+  const statePath = path.join(dataDir, "vendor_source_state.json");
   const urls = new Set();
 
   for (const file of csvFiles) {
@@ -257,9 +266,10 @@ const main = async () => {
     collectUrlsFromJson(data, urls);
   }
 
-  const previousReport = await readPreviousReport();
+  const state = await loadState(statePath);
+  const checkedAtISO = new Date().toISOString();
   const report = {
-    checkedAtISO: new Date().toISOString(),
+    checkedAtISO,
     ok: [],
     redirected: [],
     changed: [],
@@ -269,21 +279,23 @@ const main = async () => {
 
   for (const url of urls) {
     const entry = await checkUrl(url);
-    const previous = previousReport.get(url);
-    if (previous) {
-      entry.previous = {
-        status: previous.status,
-        finalUrl: previous.finalUrl,
-        etag: previous.etag,
-        lastModified: previous.lastModified,
-        contentHash: previous.contentHash,
-      };
-    }
-    const bucket = categorize(entry, previous);
+    const previousHash = state.entries[url]?.contentHash ?? "";
+    entry.previous = previousHash;
+    const bucket = categorize(entry, previousHash);
     report[bucket].push(entry);
+    state.entries[url] = {
+      lastStatus: entry.status ?? null,
+      finalUrl: entry.finalUrl ?? null,
+      etag: entry.etag ?? null,
+      lastModified: entry.lastModified ?? null,
+      contentHash: entry.contentHash ?? null,
+      lastCheckedISO: checkedAtISO,
+    };
   }
 
+  state.updatedAtISO = checkedAtISO;
   await fs.writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+  await fs.writeFile(statePath, `${JSON.stringify(state, null, 2)}\n`);
   console.log(`Wrote ${reportPath}`);
 };
 
