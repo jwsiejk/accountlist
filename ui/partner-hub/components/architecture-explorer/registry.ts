@@ -1,6 +1,8 @@
+import { flashbladeS } from "./packs/storage/pure/flashblade-s";
+import { vastPlatformX } from "./packs/storage/vast/vast-platform-x";
 import { Domain, VendorPack } from "./types";
 
-export const PACKS: VendorPack[] = [];
+export const PACKS: VendorPack[] = [flashbladeS, vastPlatformX];
 
 const DOMAINS: Domain[] = ["Storage", "Compute", "Network"];
 
