@@ -19,6 +19,9 @@ export interface VendorPack {
   vendor: string;
   product: string;
   model: string;
+  pitch: string;
+  positioning: string;
+  watchouts: string[];
   spec: ArchitectureSpec;
   tags?: string[];
 }
