@@ -19,6 +19,7 @@ import {
   type Node,
   type ReactFlowInstance,
 } from "@xyflow/react";
+import dagre from "dagre";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,6 +34,7 @@ import type {
 } from "./types";
 
 type ExplorerMode = "compare" | "single" | "walkthrough";
+type LayoutMode = "flow" | "layered";
 
 type PackSelection = {
   vendor: string;
@@ -85,6 +87,20 @@ const resolvePack = (domain: Domain, selection: PackSelection): VendorPack | und
   return grouped[selection.vendor]?.[selection.product]?.[selection.model];
 };
 
+const NODE_WIDTH = 190;
+const NODE_HEIGHT = 90;
+const LANE_DEFINITIONS: Array<{ id: string; label: string; kinds: NodeKind[] }> = [
+  { id: "client", label: "client/protocol", kinds: ["external", "network"] },
+  { id: "services", label: "metadata/services", kinds: ["system", "service"] },
+  { id: "fabric", label: "fabric/data", kinds: ["database", "storage", "compute"] },
+  { id: "mgmt", label: "mgmt", kinds: [] },
+];
+
+const resolveLaneIndex = (kind: NodeKind): number => {
+  const laneIndex = LANE_DEFINITIONS.findIndex((lane) => lane.kinds.includes(kind));
+  return laneIndex === -1 ? LANE_DEFINITIONS.length - 1 : laneIndex;
+};
+
 const derivePackSelection = (domain: Domain): PackSelection => {
   const grouped = groupPacks(domain);
   const vendor = Object.keys(grouped)[0] ?? "";
@@ -94,19 +110,40 @@ const derivePackSelection = (domain: Domain): PackSelection => {
   return { vendor, product, model };
 };
 
-const layoutNodes = (nodes: ArchitectureNode[]): Node<ReactFlowNodeData>[] => {
-  const columns = Math.min(3, Math.max(nodes.length, 1));
-  const columnWidth = 230;
-  const rowHeight = 150;
+const layoutNodes = (pack: VendorPack, layoutMode: LayoutMode): Node<ReactFlowNodeData>[] => {
+  const graph = new dagre.graphlib.Graph();
+  graph.setDefaultEdgeLabel(() => ({}));
+  graph.setGraph({
+    rankdir: layoutMode === "flow" ? "LR" : "TB",
+    nodesep: 60,
+    ranksep: 80,
+  });
 
-  return nodes.map((node, index) => {
-    const col = index % columns;
-    const row = Math.floor(index / columns);
+  pack.spec.nodes.forEach((node) => {
+    graph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+  });
+  pack.spec.edges.forEach((edge) => {
+    graph.setEdge(edge.from, edge.to);
+  });
+
+  dagre.layout(graph);
+
+  const laneWidth = NODE_WIDTH + 160;
+  const laneOffset = 40;
+
+  return pack.spec.nodes.map((node) => {
     const style = KIND_STYLES[node.kind];
+    const layout = graph.node(node.id) as { x: number; y: number };
+    const laneIndex = resolveLaneIndex(node.kind);
+    const positionX =
+      layoutMode === "flow"
+        ? layout.x
+        : laneOffset + laneIndex * laneWidth + NODE_WIDTH / 2;
+    const positionY = layout.y;
 
     return {
       id: node.id,
-      position: { x: col * columnWidth, y: row * rowHeight },
+      position: { x: positionX - NODE_WIDTH / 2, y: positionY - NODE_HEIGHT / 2 },
       data: {
         label: node.label,
         kind: node.kind,
@@ -120,7 +157,7 @@ const layoutNodes = (nodes: ArchitectureNode[]): Node<ReactFlowNodeData>[] => {
         borderWidth: 2,
         borderStyle: "solid",
         padding: 12,
-        width: 190,
+        width: NODE_WIDTH,
         fontWeight: 600,
       },
     };
@@ -192,6 +229,7 @@ const FlowCanvas = ({
   highlightedEdgeIds,
   onNodeSelect,
   selectedNodeId,
+  layoutMode,
 }: {
   pack: VendorPack;
   selectedChannel: FlowChannel;
@@ -199,8 +237,9 @@ const FlowCanvas = ({
   highlightedEdgeIds?: Set<string>;
   selectedNodeId?: string;
   onNodeSelect: (node: ArchitectureNode) => void;
+  layoutMode: LayoutMode;
 }) => {
-  const nodes = useMemo(() => layoutNodes(pack.spec.nodes), [pack]);
+  const nodes = useMemo(() => layoutNodes(pack, layoutMode), [pack, layoutMode]);
 
   const edges = useMemo(
     () => buildFlowEdges(pack, selectedChannel, highlightedEdgeIds),
@@ -351,6 +390,7 @@ export function ArchitectureExplorer() {
   const [domain, setDomain] = useState<Domain>(domains[0] ?? "Storage");
   const [mode, setMode] = useState<ExplorerMode>("compare");
   const [selectedChannel, setSelectedChannel] = useState<FlowChannel>("data");
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>("layered");
   const [walkthroughStepIndex, setWalkthroughStepIndex] = useState(0);
 
   const initialSelection = useMemo(() => derivePackSelection(domain), [domain]);
@@ -497,6 +537,22 @@ export function ArchitectureExplorer() {
               </Button>
             ))}
           </div>
+
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-background p-1">
+            <span className="pl-2 text-[10px] font-semibold uppercase tracking-wide text-foreground/60">
+              Layout
+            </span>
+            {(["flow", "layered"] as LayoutMode[]).map((option) => (
+              <Button
+                key={option}
+                variant={layoutMode === option ? "primary" : "ghost"}
+                className="h-8 px-3 text-xs capitalize"
+                onClick={() => setLayoutMode(option)}
+              >
+                {option}
+              </Button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -529,6 +585,7 @@ export function ArchitectureExplorer() {
                   highlightedEdgeIds={mode === "walkthrough" ? highlightedEdgeIds : undefined}
                   selectedNodeId={selectedNode?.side === "left" ? selectedNode.nodeId : undefined}
                   onNodeSelect={handleSelectNode("left")}
+                  layoutMode={layoutMode}
                 />
               </CardContent>
             </Card>
@@ -606,14 +663,15 @@ export function ArchitectureExplorer() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="h-[420px]">
-                <FlowCanvas
-                  pack={rightPack}
-                  selectedChannel={selectedChannel}
-                  highlightedNodeIds={undefined}
-                  highlightedEdgeIds={undefined}
-                  selectedNodeId={selectedNode?.side === "right" ? selectedNode.nodeId : undefined}
-                  onNodeSelect={handleSelectNode("right")}
-                />
+                  <FlowCanvas
+                    pack={rightPack}
+                    selectedChannel={selectedChannel}
+                    highlightedNodeIds={undefined}
+                    highlightedEdgeIds={undefined}
+                    selectedNodeId={selectedNode?.side === "right" ? selectedNode.nodeId : undefined}
+                    onNodeSelect={handleSelectNode("right")}
+                    layoutMode={layoutMode}
+                  />
                 </CardContent>
               </Card>
             ) : (
