@@ -15,6 +15,42 @@ export const vastPlatformX: VendorPack = {
     "Confirm client protocol mix (NFS/SMB/S3) aligns with performance targets.",
     "Reserve network capacity for east-west traffic between enclosures.",
   ],
+  walkthrough: [
+    {
+      id: "vast-step-1",
+      title: "AI/analytics clients",
+      script: "Begin with the AI/analytics cluster driving parallel read/write demand.",
+      nodeIds: ["app-cluster"],
+    },
+    {
+      id: "vast-step-2",
+      title: "Client gateway",
+      script: "The gateway terminates NFS/SMB/S3 and fans traffic into the platform.",
+      nodeIds: ["client-gateway"],
+      edgeIds: ["apps-to-gateway"],
+    },
+    {
+      id: "vast-step-3",
+      title: "Metadata engine",
+      script: "Metadata services keep the global namespace and policy control centralized.",
+      nodeIds: ["metadata-engine"],
+      edgeIds: ["gateway-to-metadata"],
+    },
+    {
+      id: "vast-step-4",
+      title: "Performance tier",
+      script: "CBOX delivers NVMe performance for hot data and metadata.",
+      nodeIds: ["cbox"],
+      edgeIds: ["gateway-to-cbox", "metadata-to-cbox"],
+    },
+    {
+      id: "vast-step-5",
+      title: "Capacity tier",
+      script: "DBOX provides efficient capacity for snapshots and colder datasets.",
+      nodeIds: ["dbox"],
+      edgeIds: ["cbox-to-dbox"],
+    },
+  ],
   spec: {
     nodes: [
       {

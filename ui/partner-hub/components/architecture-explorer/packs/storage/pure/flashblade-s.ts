@@ -15,6 +15,42 @@ export const flashbladeS: VendorPack = {
     "Separate metadata services from data movers for predictable performance under mixed workloads.",
     "Validate protection policy requirements when consolidating backup and analytics on the same platform.",
   ],
+  walkthrough: [
+    {
+      id: "fb-step-1",
+      title: "Parallel clients",
+      script: "Start with the AI/analytics clients generating high-concurrency file and object traffic.",
+      nodeIds: ["client-nodes"],
+    },
+    {
+      id: "fb-step-2",
+      title: "Protocol front-end",
+      script: "Data movers handle NFS/SMB/S3 sessions before fanning traffic into the chassis.",
+      nodeIds: ["data-movers"],
+      edgeIds: ["client-to-movers"],
+    },
+    {
+      id: "fb-step-3",
+      title: "FlashBlade//S core",
+      script: "Highlight the FlashBlade//S chassis delivering parallel IO at scale.",
+      nodeIds: ["flashblade-s"],
+      edgeIds: ["movers-to-blades"],
+    },
+    {
+      id: "fb-step-4",
+      title: "Metadata control plane",
+      script: "Metadata services keep namespaces, snapshots, and policy aligned.",
+      nodeIds: ["metadata-services"],
+      edgeIds: ["metadata-to-blades"],
+    },
+    {
+      id: "fb-step-5",
+      title: "Ops automation",
+      script: "Ops and automation teams drive provisioning and governance flows.",
+      nodeIds: ["admin-ops"],
+      edgeIds: ["ops-to-metadata"],
+    },
+  ],
   spec: {
     nodes: [
       {

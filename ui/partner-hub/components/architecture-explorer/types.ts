@@ -24,6 +24,7 @@ export interface VendorPack {
   watchouts: string[];
   spec: ArchitectureSpec;
   tags?: string[];
+  walkthrough?: WalkthroughStep[];
 }
 
 export interface ArchitectureSpec {
@@ -56,4 +57,12 @@ export interface ArchitectureFlow {
   path?: string[];
   description?: string;
   metadata?: Record<string, string>;
+}
+
+export interface WalkthroughStep {
+  id: string;
+  title: string;
+  script: string;
+  nodeIds?: string[];
+  edgeIds?: string[];
 }
