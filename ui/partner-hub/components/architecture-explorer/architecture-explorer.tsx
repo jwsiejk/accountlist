@@ -89,16 +89,24 @@ const resolvePack = (domain: Domain, selection: PackSelection): VendorPack | und
 
 const NODE_WIDTH = 190;
 const NODE_HEIGHT = 90;
-const LANE_DEFINITIONS: Array<{ id: string; label: string; kinds: NodeKind[] }> = [
-  { id: "client", label: "client/protocol", kinds: ["external", "network"] },
-  { id: "services", label: "metadata/services", kinds: ["system", "service"] },
-  { id: "fabric", label: "fabric/data", kinds: ["database", "storage", "compute"] },
-  { id: "mgmt", label: "mgmt", kinds: [] },
-];
+const LANE_SPACING = NODE_HEIGHT + 140;
+const LANE_OFFSET = 40;
 
-const resolveLaneIndex = (kind: NodeKind): number => {
-  const laneIndex = LANE_DEFINITIONS.findIndex((lane) => lane.kinds.includes(kind));
-  return laneIndex === -1 ? LANE_DEFINITIONS.length - 1 : laneIndex;
+const getLane = (kind: NodeKind): number => {
+  switch (kind) {
+    case "external":
+    case "network":
+      return 0;
+    case "system":
+    case "service":
+      return 1;
+    case "database":
+    case "storage":
+    case "compute":
+      return 2;
+    default:
+      return 3;
+  }
 };
 
 const derivePackSelection = (domain: Domain): PackSelection => {
@@ -113,10 +121,11 @@ const derivePackSelection = (domain: Domain): PackSelection => {
 const layoutNodes = (pack: VendorPack, layoutMode: LayoutMode): Node<ReactFlowNodeData>[] => {
   const graph = new dagre.graphlib.Graph();
   graph.setDefaultEdgeLabel(() => ({}));
+  const isLayered = layoutMode === "layered";
   graph.setGraph({
-    rankdir: layoutMode === "flow" ? "LR" : "TB",
-    nodesep: 60,
-    ranksep: 80,
+    rankdir: "LR",
+    nodesep: isLayered ? 70 : 60,
+    ranksep: isLayered ? 90 : 80,
   });
 
   pack.spec.nodes.forEach((node) => {
@@ -128,18 +137,14 @@ const layoutNodes = (pack: VendorPack, layoutMode: LayoutMode): Node<ReactFlowNo
 
   dagre.layout(graph);
 
-  const laneWidth = NODE_WIDTH + 160;
-  const laneOffset = 40;
-
   return pack.spec.nodes.map((node) => {
     const style = KIND_STYLES[node.kind];
     const layout = graph.node(node.id) as { x: number; y: number };
-    const laneIndex = resolveLaneIndex(node.kind);
-    const positionX =
-      layoutMode === "flow"
-        ? layout.x
-        : laneOffset + laneIndex * laneWidth + NODE_WIDTH / 2;
-    const positionY = layout.y;
+    const laneIndex = getLane(node.kind);
+    const positionX = layout.x;
+    const positionY = isLayered
+      ? LANE_OFFSET + laneIndex * LANE_SPACING + NODE_HEIGHT / 2
+      : layout.y;
 
     return {
       id: node.id,
