@@ -89,11 +89,23 @@ const resolvePack = (domain: Domain, selection: PackSelection): VendorPack | und
 
 const NODE_WIDTH = 190;
 const NODE_HEIGHT = 90;
-const CANVAS_HEIGHT = 420;
-const LANE_PADDING = NODE_HEIGHT / 2 + 20;
+
+/**
+ * The diagram canvas height is currently constrained by:
+ *   <CardContent className="h-[420px]">
+ * Keep this in sync with the UI height so layered lanes stay on-screen.
+ */
+const DIAGRAM_CANVAS_HEIGHT = 420;
+const LAYERED_PADDING_Y = 28;
+
 const LAYOUT_STORAGE_KEY = "partner-hub:architecture-layout-mode";
 
 const getLane = (kind: NodeKind): number => {
+  // Lane intent:
+  // 0: client/protocol/external-ish
+  // 1: system/service
+  // 2: data/capacity/fabric-ish
+  // 3: management/other
   switch (kind) {
     case "external":
     case "network":
@@ -122,19 +134,43 @@ const derivePackSelection = (domain: Domain): PackSelection => {
 const layoutNodes = (pack: VendorPack, layoutMode: LayoutMode): Node<ReactFlowNodeData>[] => {
   const graph = new dagre.graphlib.Graph();
   graph.setDefaultEdgeLabel(() => ({}));
-  const isLayered = layoutMode === "layered";
-  const maxLaneIndex = pack.spec.nodes.reduce((max, node) => {
-    const laneIndex = getLane(node.kind);
-    return Math.max(max, laneIndex);
-  }, 0);
-  const laneCount = maxLaneIndex + 1;
-  const availableLaneHeight = CANVAS_HEIGHT - LANE_PADDING * 2;
-  const laneSpacing = laneCount > 1 ? availableLaneHeight / (laneCount - 1) : 0;
-  const lanePositions = new Map<number, number>();
 
-  for (let laneIndex = 0; laneIndex < laneCount; laneIndex += 1) {
-    lanePositions.set(laneIndex, LANE_PADDING + laneIndex * laneSpacing);
-  }
+  const isLayered = layoutMode === "layered";
+
+  // Build lane helpers for layered mode (adaptive to canvas height)
+  const laneYForKind: (kind: NodeKind) => number = (() => {
+    if (!isLayered) {
+      return () => 0;
+    }
+
+    // Only reserve lanes that are actually used in this pack
+    const usedLanes = Array.from(new Set(pack.spec.nodes.map((n) => getLane(n.kind)))).sort(
+      (a, b) => a - b,
+    );
+
+    const compactIndexByLane = new Map<number, number>();
+    usedLanes.forEach((lane, idx) => compactIndexByLane.set(lane, idx));
+
+    const laneCount = Math.max(1, usedLanes.length);
+
+    // Centers should fit within canvas:
+    // min center = padding + NODE_HEIGHT/2
+    // max center = canvasHeight - padding - NODE_HEIGHT/2
+    const minCenterY = LAYERED_PADDING_Y + NODE_HEIGHT / 2;
+    const maxCenterY = Math.max(
+      minCenterY,
+      DIAGRAM_CANVAS_HEIGHT - LAYERED_PADDING_Y - NODE_HEIGHT / 2,
+    );
+
+    const usableCenterSpan = Math.max(0, maxCenterY - minCenterY);
+    const laneSpacing = laneCount > 1 ? usableCenterSpan / (laneCount - 1) : 0;
+
+    return (kind: NodeKind) => {
+      const rawLane = getLane(kind);
+      const compactLane = compactIndexByLane.get(rawLane) ?? 0;
+      return minCenterY + compactLane * laneSpacing;
+    };
+  })();
 
   graph.setGraph({
     rankdir: "LR",
@@ -143,14 +179,15 @@ const layoutNodes = (pack: VendorPack, layoutMode: LayoutMode): Node<ReactFlowNo
   });
 
   pack.spec.nodes.forEach((node) => {
-    const laneIndex = getLane(node.kind);
-    const laneY = lanePositions.get(laneIndex) ?? LANE_PADDING;
+    const laneY = isLayered ? laneYForKind(node.kind) : undefined;
+
     graph.setNode(node.id, {
       width: NODE_WIDTH,
       height: NODE_HEIGHT,
-      ...(isLayered ? { y: laneY } : {}),
+      ...(isLayered && typeof laneY === "number" ? { y: laneY } : {}),
     });
   });
+
   pack.spec.edges.forEach((edge) => {
     graph.setEdge(edge.from, edge.to);
   });
@@ -160,9 +197,9 @@ const layoutNodes = (pack: VendorPack, layoutMode: LayoutMode): Node<ReactFlowNo
   return pack.spec.nodes.map((node) => {
     const style = KIND_STYLES[node.kind];
     const layout = graph.node(node.id) as { x: number; y: number };
-    const laneIndex = getLane(node.kind);
+
     const positionX = layout.x;
-    const positionY = isLayered ? lanePositions.get(laneIndex) ?? LANE_PADDING : layout.y;
+    const positionY = isLayered ? laneYForKind(node.kind) : layout.y;
 
     return {
       id: node.id,
@@ -192,9 +229,8 @@ const buildFlowEdges = (
   selectedChannel: FlowChannel,
   highlightedEdgeIds?: Set<string>,
 ): Edge[] => {
-  const edgeMap = new Map(
-    pack.spec.edges.map((edge) => [`${edge.from}->${edge.to}`, edge.id]),
-  );
+  const edgeMap = new Map(pack.spec.edges.map((edge) => [`${edge.from}->${edge.to}`, edge.id]));
+
   const flow = pack.spec.flows.find((item) => item.channel === selectedChannel);
   const flowEdgeIds = new Set<string>();
 
@@ -280,10 +316,8 @@ const FlowCanvas = ({
         style: {
           ...baseStyle,
           borderWidth: isSelected || isHighlighted ? 3 : 2,
-          borderColor:
-            isHighlighted || isSelected ? "hsl(var(--primary))" : baseStyle.borderColor,
-          boxShadow:
-            isSelected || isHighlighted ? "0 0 0 3px rgba(59,130,246,0.3)" : "none",
+          borderColor: isHighlighted || isSelected ? "hsl(var(--primary))" : baseStyle.borderColor,
+          boxShadow: isSelected || isHighlighted ? "0 0 0 3px rgba(59,130,246,0.3)" : "none",
         },
       } as Node<ReactFlowNodeData>;
     });
@@ -347,9 +381,7 @@ const PackSelector = ({
   };
 
   const handleProductChange = (product: string) => {
-    const model = product
-      ? Object.keys(groupedPacks[selection.vendor]?.[product] ?? {})[0] ?? ""
-      : "";
+    const model = product ? Object.keys(groupedPacks[selection.vendor]?.[product] ?? {})[0] ?? "" : "";
     onSelectionChange({ ...selection, product, model });
   };
 
@@ -433,10 +465,8 @@ export function ArchitectureExplorer() {
 
   const leftPack = resolvePack(domain, selectionState.left);
   const rightPack = resolvePack(domain, selectionState.right);
-  const walkthroughSteps = useMemo<WalkthroughStep[]>(
-    () => leftPack?.walkthrough ?? [],
-    [leftPack],
-  );
+
+  const walkthroughSteps = useMemo<WalkthroughStep[]>(() => leftPack?.walkthrough ?? [], [leftPack]);
   const activeWalkthroughStep = walkthroughSteps[walkthroughStepIndex];
 
   useEffect(() => {
@@ -468,6 +498,7 @@ export function ArchitectureExplorer() {
 
   const activePack =
     mode === "walkthrough" ? leftPack : selectedNode?.side === "right" ? rightPack : leftPack;
+
   const activeNode = useMemo(() => {
     if (!activePack || !selectedNode) return undefined;
     return activePack.spec.nodes.find((node) => node.id === selectedNode.nodeId);
@@ -520,7 +551,10 @@ export function ArchitectureExplorer() {
   const walkthroughScript =
     activeWalkthroughStep?.script ?? "No walkthrough steps are available for this pack yet.";
 
-  const gridCols = mode === "compare" ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_320px]" : "lg:grid-cols-[minmax(0,1fr)_320px]";
+  const gridCols =
+    mode === "compare"
+      ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_320px]"
+      : "lg:grid-cols-[minmax(0,1fr)_320px]";
 
   return (
     <section className="space-y-6">
@@ -652,9 +686,7 @@ export function ArchitectureExplorer() {
                   <Button
                     variant="ghost"
                     className="h-8 px-3 text-xs"
-                    onClick={() =>
-                      setWalkthroughStepIndex((prev) => Math.max(prev - 1, 0))
-                    }
+                    onClick={() => setWalkthroughStepIndex((prev) => Math.max(prev - 1, 0))}
                     disabled={walkthroughStepIndex === 0}
                   >
                     Back

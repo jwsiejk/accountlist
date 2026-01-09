@@ -1,9 +1,64 @@
 [
   {
+    "vendor": "NetApp",
+    "product_line": "E-Series",
+    "url": "https://www.netapp.com/data-storage/e-series/e2800/",
+    "notes": "E2800 product page power table for controller shelves and disk shelves (also shows EOA notice).",
+    "modelsCovered": [
+      "E2860",
+      "E2824",
+      "E2812",
+      "DE460C 60-bay",
+      "DE224C 24-bay",
+      "DE212C 12-bay"
+    ]
+  },
+  {
+    "vendor": "NetApp",
+    "product_line": "E-Series",
+    "url": "https://www.netapp.com/e-series/e2800/",
+    "notes": "Legacy E2800 product page URL (retained for continuity with existing checks and references).",
+    "modelsCovered": [
+      "E2860",
+      "E2824",
+      "E2812",
+      "DE460C 60-bay"
+    ]
+  },
+  {
+    "vendor": "NetApp",
+    "product_line": "E-Series",
+    "url": "https://www.netapp.com/e-series/e5700/",
+    "notes": "E5700 product page (high-level specs and lifecycle notice; power tables are sourced from DS-4309).",
+    "modelsCovered": [
+      "E5760",
+      "E5724",
+      "DE460C 60-bay",
+      "DE224C 24-bay"
+    ]
+  },
+  {
+    "vendor": "NetApp",
+    "product_line": "E-Series",
+    "url": "https://www.netapp.com/media/116571-ds-4309-hybrid-flash-arrays-e4060-e4012.pdf",
+    "notes": "DS-4309 datasheet power tables for E4000 system shelves and DE disk shelves; also used as source for E5700 system shelf power in the dataset.",
+    "modelsCovered": [
+      "E5760",
+      "E5724",
+      "E4060",
+      "E4012",
+      "DE460C 60-bay (E5700 page)",
+      "DE224C 24-bay (E5700 page)",
+      "DE460C 60-bay (E4000 sheet)",
+      "DE212C 12-bay (E4000 sheet)",
+      "DE224C 24-bay (E4000 sheet)"
+    ]
+  },
+  {
     "vendor": "Pure",
     "product_line": "FlashBlade//E",
     "url": "https://www.purestorage.com/content/dam/pdf/en/datasheets/ds-pure-storage-flashblade-e.pdf",
-    "notes": "FlashBlade//E datasheet for chassis and XFM power figures.",
+    "notes": "FlashBlade//E datasheet (PS2390-03-en 01/25) for chassis and XFM power figures.",
     "modelsCovered": [
       "EC chassis (fully populated)",
       "EX chassis (fully populated)",
@@ -11,15 +66,14 @@
     ]
   },
   {
-    "vendor": "NetApp",
-    "product_line": "E-Series",
-    "url": "https://www.netapp.com/e-series/e2800/",
-    "notes": "E2800 product page power table for controller and disk shelves.",
+    "vendor": "Pure",
+    "product_line": "FlashBlade//E",
+    "url": "https://www.purestorage.com/products/unstructured-data-storage/flashblade-e.html",
+    "notes": "FlashBlade//E product page technical specifications; used as canonical Source_URL in the Energy tool dataset.",
     "modelsCovered": [
-      "E2860",
-      "E2824",
-      "E2812",
-      "DE460C 60-bay"
+      "EC chassis (fully populated)",
+      "EX chassis (fully populated)",
+      "XFM (External Fabric Module)"
     ]
   }
 ]

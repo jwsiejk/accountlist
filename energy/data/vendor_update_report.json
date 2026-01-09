@@ -1,12 +1,12 @@
 {
-  "checkedAtISO": "2026-01-08T17:19:29.966Z",
+  "checkedAtISO": "2026-01-09T23:52:31.670Z",
   "ok": [
     {
       "url": "https://www.purestorage.com/content/dam/pdf/en/datasheets/ds-pure-storage-flashblade-e.pdf",
       "status": 200,
       "finalUrl": "https://www.purestorage.com/content/dam/pdf/en/datasheets/ds-pure-storage-flashblade-e.pdf",
-      "etag": "\"362a8-63e115565a3b3-gzip\"",
-      "lastModified": "Fri, 05 Sep 2025 17:40:28 GMT",
+      "etag": "\"362a8-62cf996969ecd-gzip\"",
+      "lastModified": "Fri, 31 Jan 2025 05:12:25 GMT",
       "contentHash": "bc45a49221fb9324f59d34901279f3b5a28d9702b0f2f13d5915506167a7595a",
       "previous": "bc45a49221fb9324f59d34901279f3b5a28d9702b0f2f13d5915506167a7595a"
     },

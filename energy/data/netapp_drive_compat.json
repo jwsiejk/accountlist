@@ -1,14 +1,276 @@
 {
-  "version": 1,
-  "updatedAtISO": "2025-02-14T00:00:00Z",
+  "version": 2,
+  "updatedAtISO": "2026-01-09T23:21:00Z",
   "controllers": [
     {
       "model": "E2860",
       "expansionShelves": [
         {
           "model": "DE460C 60-bay",
-          "supportedDriveSizesTB": [8, 12, 16],
-          "maxExpansionQty": 10
+          "supportedDriveSizesTB": [
+            4,
+            8,
+            12,
+            16,
+            18
+          ],
+          "maxExpansionQty": 3
+        },
+        {
+          "model": "DE224C 24-bay",
+          "supportedDriveSizesTB": [
+            4,
+            8,
+            12,
+            16,
+            18
+          ],
+          "maxExpansionQty": 3
+        },
+        {
+          "model": "DE212C 12-bay",
+          "supportedDriveSizesTB": [
+            4,
+            8,
+            12,
+            16,
+            18
+          ],
+          "maxExpansionQty": 3
+        }
+      ]
+    },
+    {
+      "model": "E2824",
+      "expansionShelves": [
+        {
+          "model": "DE460C 60-bay",
+          "supportedDriveSizesTB": [
+            4,
+            8,
+            12,
+            16,
+            18
+          ],
+          "maxExpansionQty": 3
+        },
+        {
+          "model": "DE224C 24-bay",
+          "supportedDriveSizesTB": [
+            4,
+            8,
+            12,
+            16,
+            18
+          ],
+          "maxExpansionQty": 3
+        },
+        {
+          "model": "DE212C 12-bay",
+          "supportedDriveSizesTB": [
+            4,
+            8,
+            12,
+            16,
+            18
+          ],
+          "maxExpansionQty": 3
+        }
+      ]
+    },
+    {
+      "model": "E2812",
+      "expansionShelves": [
+        {
+          "model": "DE460C 60-bay",
+          "supportedDriveSizesTB": [
+            4,
+            8,
+            12,
+            16,
+            18
+          ],
+          "maxExpansionQty": 7
+        },
+        {
+          "model": "DE224C 24-bay",
+          "supportedDriveSizesTB": [
+            4,
+            8,
+            12,
+            16,
+            18
+          ],
+          "maxExpansionQty": 7
+        },
+        {
+          "model": "DE212C 12-bay",
+          "supportedDriveSizesTB": [
+            4,
+            8,
+            12,
+            16,
+            18
+          ],
+          "maxExpansionQty": 7
+        }
+      ]
+    },
+    {
+      "model": "E5760",
+      "expansionShelves": [
+        {
+          "model": "DE460C 60-bay",
+          "supportedDriveSizesTB": [
+            4,
+            8,
+            12,
+            16,
+            18
+          ],
+          "maxExpansionQty": 7
+        },
+        {
+          "model": "DE224C 24-bay",
+          "supportedDriveSizesTB": [
+            4,
+            8,
+            12,
+            16,
+            18
+          ],
+          "maxExpansionQty": 7
+        },
+        {
+          "model": "DE212C 12-bay",
+          "supportedDriveSizesTB": [
+            4,
+            8,
+            12,
+            16,
+            18
+          ],
+          "maxExpansionQty": 7
+        }
+      ]
+    },
+    {
+      "model": "E5724",
+      "expansionShelves": [
+        {
+          "model": "DE460C 60-bay",
+          "supportedDriveSizesTB": [
+            4,
+            8,
+            12,
+            16,
+            18
+          ],
+          "maxExpansionQty": 7
+        },
+        {
+          "model": "DE224C 24-bay",
+          "supportedDriveSizesTB": [
+            4,
+            8,
+            12,
+            16,
+            18
+          ],
+          "maxExpansionQty": 7
+        },
+        {
+          "model": "DE212C 12-bay",
+          "supportedDriveSizesTB": [
+            4,
+            8,
+            12,
+            16,
+            18
+          ],
+          "maxExpansionQty": 7
+        }
+      ]
+    },
+    {
+      "model": "E4060",
+      "expansionShelves": [
+        {
+          "model": "DE460C 60-bay",
+          "supportedDriveSizesTB": [
+            4,
+            8,
+            12,
+            16,
+            18,
+            22
+          ],
+          "maxExpansionQty": 4
+        },
+        {
+          "model": "DE224C 24-bay",
+          "supportedDriveSizesTB": [
+            4,
+            8,
+            12,
+            16,
+            18,
+            22
+          ],
+          "maxExpansionQty": 4
+        },
+        {
+          "model": "DE212C 12-bay",
+          "supportedDriveSizesTB": [
+            4,
+            8,
+            12,
+            16,
+            18,
+            22
+          ],
+          "maxExpansionQty": 4
+        }
+      ]
+    },
+    {
+      "model": "E4012",
+      "expansionShelves": [
+        {
+          "model": "DE460C 60-bay",
+          "supportedDriveSizesTB": [
+            4,
+            8,
+            12,
+            16,
+            18,
+            22
+          ],
+          "maxExpansionQty": 7
+        },
+        {
+          "model": "DE224C 24-bay",
+          "supportedDriveSizesTB": [
+            4,
+            8,
+            12,
+            16,
+            18,
+            22
+          ],
+          "maxExpansionQty": 7
+        },
+        {
+          "model": "DE212C 12-bay",
+          "supportedDriveSizesTB": [
+            4,
+            8,
+            12,
+            16,
+            18,
+            22
+          ],
+          "maxExpansionQty": 7
         }
       ]
     }
