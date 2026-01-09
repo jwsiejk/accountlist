@@ -2,597 +2,573 @@
 
 import "@xyflow/react/dist/style.css";
 
-import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 
 import {
-  ReactFlow,
   Background,
   Controls,
+  ReactFlow,
   type Edge,
   type Node,
   type ReactFlowInstance,
-  useEdgesState,
-  useNodesState,
 } from "@xyflow/react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  diagramScenarios,
-  type ArchitectureNodeCategory,
-  type ArchitectureNodeData,
-} from "./diagramScenarios";
+import { groupPacks, listDomains } from "./registry";
+import type { ArchitectureNode, Domain, FlowChannel, NodeKind, VendorPack } from "./types";
 
-type ViewMode = "explore" | "blast" | "demo";
+type ExplorerMode = "compare" | "single" | "walkthrough";
 
-type CategoryStyle = {
-  label: ArchitectureNodeCategory;
+type PackSelection = {
+  vendor: string;
+  product: string;
+  model: string;
+};
+
+type SelectionState = {
+  left: PackSelection;
+  right: PackSelection;
+};
+
+type NodeSelection = {
+  side: "left" | "right";
+  nodeId: string;
+};
+
+type ReactFlowNodeData = {
+  label: string;
+  kind: NodeKind;
+  description?: string;
+};
+
+type KindStyle = {
   backgroundColor: string;
   borderColor: string;
   textColor: string;
 };
 
-const CATEGORY_STYLES: Record<ArchitectureNodeCategory, CategoryStyle> = {
-  Compute: {
-    label: "Compute",
-    backgroundColor: "#DBEAFE",
-    borderColor: "#60A5FA",
-    textColor: "#1E3A8A",
-  },
-  Storage: {
-    label: "Storage",
-    backgroundColor: "#DCFCE7",
-    borderColor: "#4ADE80",
-    textColor: "#166534",
-  },
-  Network: {
-    label: "Network",
-    backgroundColor: "#FEF3C7",
-    borderColor: "#FBBF24",
-    textColor: "#92400E",
-  },
-  Security: {
-    label: "Security",
-    backgroundColor: "#FCE7F3",
-    borderColor: "#F472B6",
-    textColor: "#9D174D",
-  },
-  Operations: {
-    label: "Operations",
-    backgroundColor: "#EDE9FE",
-    borderColor: "#A78BFA",
-    textColor: "#5B21B6",
-  },
+const KIND_STYLES: Record<NodeKind, KindStyle> = {
+  system: { backgroundColor: "#DBEAFE", borderColor: "#60A5FA", textColor: "#1E3A8A" },
+  service: { backgroundColor: "#EDE9FE", borderColor: "#A78BFA", textColor: "#4C1D95" },
+  database: { backgroundColor: "#DCFCE7", borderColor: "#4ADE80", textColor: "#14532D" },
+  storage: { backgroundColor: "#FEF3C7", borderColor: "#FBBF24", textColor: "#92400E" },
+  compute: { backgroundColor: "#FCE7F3", borderColor: "#F472B6", textColor: "#9D174D" },
+  network: { backgroundColor: "#E0F2FE", borderColor: "#38BDF8", textColor: "#075985" },
+  external: { backgroundColor: "#F3F4F6", borderColor: "#9CA3AF", textColor: "#374151" },
 };
 
-const decorateNodes = (nodes: Node<ArchitectureNodeData>[]) =>
-  nodes.map((node) => {
-    const categoryStyle = CATEGORY_STYLES[node.data.category];
+const FLOW_LABELS: Record<FlowChannel, string> = {
+  data: "READ/WRITE",
+  metadata: "CREATE/LIST",
+  mgmt: "MGMT",
+};
+
+const CHANNEL_OPTIONS: FlowChannel[] = ["data", "metadata"];
+
+const resolvePack = (domain: Domain, selection: PackSelection): VendorPack | undefined => {
+  const grouped = groupPacks(domain);
+  return grouped[selection.vendor]?.[selection.product]?.[selection.model];
+};
+
+const derivePackSelection = (domain: Domain): PackSelection => {
+  const grouped = groupPacks(domain);
+  const vendor = Object.keys(grouped)[0] ?? "";
+  const product = vendor ? Object.keys(grouped[vendor] ?? {})[0] ?? "" : "";
+  const model = product ? Object.keys(grouped[vendor]?.[product] ?? {})[0] ?? "" : "";
+
+  return { vendor, product, model };
+};
+
+const layoutNodes = (nodes: ArchitectureNode[]): Node<ReactFlowNodeData>[] => {
+  const columns = Math.min(3, Math.max(nodes.length, 1));
+  const columnWidth = 230;
+  const rowHeight = 150;
+
+  return nodes.map((node, index) => {
+    const col = index % columns;
+    const row = Math.floor(index / columns);
+    const style = KIND_STYLES[node.kind];
+
     return {
-      ...node,
+      id: node.id,
+      position: { x: col * columnWidth, y: row * rowHeight },
+      data: {
+        label: node.label,
+        kind: node.kind,
+        description: node.description,
+      },
       style: {
-        backgroundColor: categoryStyle.backgroundColor,
-        borderColor: categoryStyle.borderColor,
-        color: categoryStyle.textColor,
+        backgroundColor: style.backgroundColor,
+        borderColor: style.borderColor,
+        color: style.textColor,
         borderRadius: 12,
         borderWidth: 2,
         borderStyle: "solid",
         padding: 12,
-        width: 180,
+        width: 190,
         fontWeight: 600,
       },
     };
   });
-
-const buildShareUrl = (scenarioId: string) => {
-  if (typeof window === "undefined") return "";
-  const url = new URL(window.location.href);
-  url.searchParams.set("scenario", scenarioId);
-  return url.toString();
 };
 
-const buildDownstreamSet = (startId: string, edges: Edge[]) => {
-  const visited = new Set<string>();
-  const queue: string[] = [startId];
+const buildFlowEdges = (
+  pack: VendorPack,
+  selectedChannel: FlowChannel,
+): Edge[] => {
+  const edgeMap = new Map(
+    pack.spec.edges.map((edge) => [`${edge.from}->${edge.to}`, edge.id]),
+  );
+  const flow = pack.spec.flows.find((item) => item.channel === selectedChannel);
+  const flowEdgeIds = new Set<string>();
 
-  while (queue.length) {
-    const current = queue.shift();
-    if (!current || visited.has(current)) continue;
-    visited.add(current);
-
-    for (const edge of edges) {
-      if (edge.source === current && !visited.has(edge.target)) {
-        queue.push(edge.target);
-      }
-    }
+  if (flow?.path && flow.path.length > 1) {
+    flow.path.forEach((nodeId, index) => {
+      const next = flow.path?.[index + 1];
+      if (!next) return;
+      const edgeId = edgeMap.get(`${nodeId}->${next}`);
+      if (edgeId) flowEdgeIds.add(edgeId);
+    });
+  } else if (flow) {
+    const edgeId = edgeMap.get(`${flow.from}->${flow.to}`);
+    if (edgeId) flowEdgeIds.add(edgeId);
   }
 
-  return visited;
+  return pack.spec.edges.map((edge) => {
+    const isActive = flowEdgeIds.has(edge.id);
+    return {
+      id: edge.id,
+      source: edge.from,
+      target: edge.to,
+      label: edge.label,
+      animated: isActive,
+      style: {
+        stroke: isActive ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
+        strokeWidth: isActive ? 2.6 : 1.4,
+        opacity: isActive ? 1 : 0.2,
+      },
+      labelStyle: {
+        fill: "hsl(var(--foreground))",
+        fontSize: 12,
+        opacity: isActive ? 0.95 : 0.4,
+      },
+    };
+  });
 };
 
-const Legend = () => (
-  <Card className="h-fit">
-    <CardHeader className="pb-2">
-      <CardTitle className="text-base">Legend</CardTitle>
-    </CardHeader>
-    <CardContent className="space-y-3 text-sm">
-      {Object.values(CATEGORY_STYLES).map((category) => (
-        <div key={category.label} className="flex items-center gap-3">
-          <span
-            className="h-3 w-3 rounded-sm border"
-            style={{
-              backgroundColor: category.backgroundColor,
-              borderColor: category.borderColor,
-            }}
-          />
-          <span className="font-medium" style={{ color: category.textColor }}>
-            {category.label}
-          </span>
-        </div>
-      ))}
-    </CardContent>
-  </Card>
-);
+const buildTalkTrack = (pack: VendorPack, node: ArchitectureNode | undefined) => {
+  if (!node) {
+    return "Q: What should I highlight first?\nA: Select a component in the diagram to unlock a guided talk track.";
+  }
 
-export function ArchitectureExplorer() {
-  const [scenarioId, setScenarioId] = useState(diagramScenarios[0]?.id ?? "");
-  const [viewMode, setViewMode] = useState<ViewMode>("explore");
-  const [demoStep, setDemoStep] = useState(0);
+  const description = node.description ?? "This component anchors a critical part of the architecture.";
 
-  const scenario = useMemo(
-    () => diagramScenarios.find((s) => s.id === scenarioId) ?? diagramScenarios[0],
-    [scenarioId],
-  );
+  return `Q: What does ${node.label} do in this architecture?\nA: ${description}\n\nQ: Why does it matter for ${pack.product}?\nA: ${pack.positioning}\n\nQ: What should we watch for?\nA: ${pack.watchouts[0] ?? "Validate performance, scale, and operational readiness with the customer."}`;
+};
 
-  // Ensure local typed views of scenario data (handles cases where diagramScenarios is not strongly typed)
-  const scenarioNodes = useMemo(
-    () => decorateNodes((scenario?.nodes ?? []) as Node<ArchitectureNodeData>[]),
-    [scenario],
-  );
+const FlowCanvas = ({
+  pack,
+  selectedChannel,
+  onNodeSelect,
+  selectedNodeId,
+}: {
+  pack: VendorPack;
+  selectedChannel: FlowChannel;
+  selectedNodeId?: string;
+  onNodeSelect: (node: ArchitectureNode) => void;
+}) => {
+  const nodes = useMemo(() => layoutNodes(pack.spec.nodes), [pack]);
 
-  const scenarioEdges = useMemo(() => ((scenario?.edges ?? []) as Edge[]), [scenario]);
+  const edges = useMemo(() => buildFlowEdges(pack, selectedChannel), [pack, selectedChannel]);
 
-  // ✅ FIX #1: generic must be Node<ArchitectureNodeData>, not ArchitectureNodeData
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node<ArchitectureNodeData>>(scenarioNodes);
-
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(scenarioEdges);
-
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(
-    (scenario?.nodes?.[0] as Node<ArchitectureNodeData> | undefined)?.id ?? null,
-  );
-
-  const [flowInstance, setFlowInstance] = useState<
-    ReactFlowInstance<Node<ArchitectureNodeData>, Edge> | null
-  >(null);
-  const [copyState, setCopyState] = useState("Copy share link");
-
-  // Read scenario from query string on first load
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const params = new URLSearchParams(window.location.search);
-    const scenarioParam = params.get("scenario");
-    if (scenarioParam && diagramScenarios.some((s) => s.id === scenarioParam)) {
-      setScenarioId(scenarioParam);
-    }
-  }, []);
-
-  // When scenario changes, reset graph state + selection + fit view
-  useEffect(() => {
-    setNodes(scenarioNodes);
-    setEdges(scenarioEdges);
-    setSelectedNodeId((scenario?.nodes?.[0] as Node<ArchitectureNodeData> | undefined)?.id ?? null);
-    setViewMode("explore");
-    setDemoStep(0);
-
-    if (flowInstance) {
-      requestAnimationFrame(() => flowInstance.fitView({ padding: 0.2, duration: 400 }));
-    }
-  }, [scenario, scenarioNodes, scenarioEdges, setNodes, setEdges, flowInstance]);
-
-  // Keep URL in sync (so share links work)
-  useEffect(() => {
-    if (typeof window === "undefined" || !scenarioId) return;
-
-    const url = new URL(window.location.href);
-    url.searchParams.set("scenario", scenarioId);
-    window.history.replaceState({}, "", url.toString());
-  }, [scenarioId]);
-
-  const selectedNode = nodes.find((n) => n.id === selectedNodeId);
-
-  const demoOrder = useMemo(
-    () => ((scenario?.nodes ?? []) as Node<ArchitectureNodeData>[]).map((n) => n.id),
-    [scenario],
-  );
-
-  // Apply graph highlighting based on mode
-  const downstreamSet = useMemo(() => {
-    if (viewMode !== "blast" || !selectedNodeId) return null;
-    return buildDownstreamSet(selectedNodeId, edges);
-  }, [viewMode, selectedNodeId, edges]);
-
-  const demoNodeId = useMemo(() => {
-    if (viewMode !== "demo") return null;
-    return demoOrder[demoStep] ?? null;
-  }, [viewMode, demoOrder, demoStep]);
-
-  const displayNodes = useMemo((): Node<ArchitectureNodeData>[] => {
-    return nodes.map((node): Node<ArchitectureNodeData> => {
+  const displayNodes = useMemo(() => {
+    return nodes.map((node) => {
+      const baseStyle = (node.style ?? {}) as CSSProperties;
       const isSelected = node.id === selectedNodeId;
 
-      // keep whatever dimming logic you have; default to 1
-      const baseStyle = (node.style ?? {}) as CSSProperties;
-
-      const style: CSSProperties = {
-        ...baseStyle,
-        opacity: typeof baseStyle.opacity === "number" ? baseStyle.opacity : 1,
-        borderWidth: isSelected ? 3 : 2, // ✅ force number (not unknown)
-        boxShadow: isSelected ? "0 0 0 3px rgba(59,130,246,0.35)" : "none",
-      };
-
-      return { ...node, style };
+      return {
+        ...node,
+        style: {
+          ...baseStyle,
+          borderWidth: isSelected ? 3 : 2,
+          boxShadow: isSelected ? "0 0 0 3px rgba(59,130,246,0.3)" : "none",
+        },
+      } as Node<ReactFlowNodeData>;
     });
   }, [nodes, selectedNodeId]);
 
-  const displayEdges = useMemo(() => {
-    if (!downstreamSet) return edges;
+  const [flowInstance, setFlowInstance] = useState<
+    ReactFlowInstance<Node<ReactFlowNodeData>, Edge> | null
+  >(null);
 
-    return edges.map((edge) => {
-      const inScope = downstreamSet.has(edge.source) && downstreamSet.has(edge.target);
-      return {
-        ...edge,
-        style: {
-          ...(edge.style ?? {}),
-          opacity: inScope ? 1 : 0.15,
-          strokeWidth: inScope ? 2 : 1,
-        },
-      };
-    });
-  }, [edges, downstreamSet]);
-
-  // Keep demo step in sync with selection + viewport
   useEffect(() => {
-    if (viewMode !== "demo" || !demoNodeId) return;
-    setSelectedNodeId(demoNodeId);
-
     if (!flowInstance) return;
-    const node = nodes.find((n) => n.id === demoNodeId);
-    if (!node) return;
+    requestAnimationFrame(() => flowInstance.fitView({ padding: 0.2, duration: 300 }));
+  }, [flowInstance, nodes, edges]);
 
-    requestAnimationFrame(() => {
-      try {
-        // fitView supports selecting a subset of nodes in React Flow v12+
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (flowInstance as any).fitView?.({ nodes: [node], padding: 0.35, duration: 450 });
-      } catch {
-        flowInstance.fitView({ padding: 0.2, duration: 450 });
-      }
-    });
-  }, [viewMode, demoNodeId, flowInstance, nodes]);
+  const handleNodeClick = useCallback(
+    (_event: ReactMouseEvent, node: Node<ReactFlowNodeData>) => {
+      const original = pack.spec.nodes.find((item) => item.id === node.id);
+      if (original) onNodeSelect(original);
+    },
+    [onNodeSelect, pack],
+  );
 
-  const handleCopyShare = async () => {
-    const shareUrl = buildShareUrl(scenarioId);
-    if (!shareUrl) return;
+  return (
+    <div className="h-full rounded-lg border border-dashed border-border/70">
+      <ReactFlow<Node<ReactFlowNodeData>, Edge>
+        nodes={displayNodes}
+        edges={edges}
+        onNodeClick={handleNodeClick}
+        onInit={(instance) => setFlowInstance(instance)}
+        fitView
+      >
+        <Background gap={16} color="hsl(var(--border))" />
+        <Controls />
+      </ReactFlow>
+    </div>
+  );
+};
 
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopyState("Copied!");
-      window.setTimeout(() => setCopyState("Copy share link"), 2000);
-    } catch {
-      setCopyState("Copy failed");
-      window.setTimeout(() => setCopyState("Copy share link"), 2000);
+const PackSelector = ({
+  label,
+  selection,
+  onSelectionChange,
+  groupedPacks,
+}: {
+  label: string;
+  selection: PackSelection;
+  onSelectionChange: (selection: PackSelection) => void;
+  groupedPacks: ReturnType<typeof groupPacks>;
+}) => {
+  const vendors = Object.keys(groupedPacks);
+  const products = selection.vendor ? Object.keys(groupedPacks[selection.vendor] ?? {}) : [];
+  const models =
+    selection.vendor && selection.product
+      ? Object.keys(groupedPacks[selection.vendor]?.[selection.product] ?? {})
+      : [];
+
+  const handleVendorChange = (vendor: string) => {
+    const product = Object.keys(groupedPacks[vendor] ?? {})[0] ?? "";
+    const model = product ? Object.keys(groupedPacks[vendor]?.[product] ?? {})[0] ?? "" : "";
+    onSelectionChange({ vendor, product, model });
+  };
+
+  const handleProductChange = (product: string) => {
+    const model = product
+      ? Object.keys(groupedPacks[selection.vendor]?.[product] ?? {})[0] ?? ""
+      : "";
+    onSelectionChange({ ...selection, product, model });
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">{label}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="space-y-1">
+          <span className="text-xs font-semibold uppercase tracking-wide text-foreground/60">Vendor</span>
+          <select
+            className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+            value={selection.vendor}
+            onChange={(event) => handleVendorChange(event.target.value)}
+          >
+            {vendors.map((vendor) => (
+              <option key={vendor} value={vendor}>
+                {vendor}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="space-y-1">
+          <span className="text-xs font-semibold uppercase tracking-wide text-foreground/60">Product</span>
+          <select
+            className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+            value={selection.product}
+            onChange={(event) => handleProductChange(event.target.value)}
+          >
+            {products.map((product) => (
+              <option key={product} value={product}>
+                {product}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="space-y-1">
+          <span className="text-xs font-semibold uppercase tracking-wide text-foreground/60">Model</span>
+          <select
+            className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+            value={selection.model}
+            onChange={(event) => onSelectionChange({ ...selection, model: event.target.value })}
+          >
+            {models.map((model) => (
+              <option key={model} value={model}>
+                {model}
+              </option>
+            ))}
+          </select>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+export function ArchitectureExplorer() {
+  const domains = useMemo(() => listDomains(), []);
+  const [domain, setDomain] = useState<Domain>(domains[0] ?? "Storage");
+  const [mode, setMode] = useState<ExplorerMode>("compare");
+  const [selectedChannel, setSelectedChannel] = useState<FlowChannel>("data");
+
+  const initialSelection = useMemo(() => derivePackSelection(domain), [domain]);
+  const [selectionState, setSelectionState] = useState<SelectionState>({
+    left: initialSelection,
+    right: initialSelection,
+  });
+
+  const [selectedNode, setSelectedNode] = useState<NodeSelection | null>(null);
+
+  useEffect(() => {
+    setSelectionState({ left: initialSelection, right: initialSelection });
+    setSelectedNode(null);
+  }, [initialSelection]);
+
+  const groupedPacks = useMemo(() => groupPacks(domain), [domain]);
+
+  const leftPack = resolvePack(domain, selectionState.left);
+  const rightPack = resolvePack(domain, selectionState.right);
+
+  const handleSelectNode = (side: "left" | "right") => (node: ArchitectureNode) => {
+    setSelectedNode({ side, nodeId: node.id });
+  };
+
+  const activePack = selectedNode?.side === "right" ? rightPack : leftPack;
+  const activeNode = useMemo(() => {
+    if (!activePack || !selectedNode) return undefined;
+    return activePack.spec.nodes.find((node) => node.id === selectedNode.nodeId);
+  }, [activePack, selectedNode]);
+
+  const connectedNodes = useMemo(() => {
+    if (!activePack || !activeNode) return [];
+
+    return activePack.spec.edges
+      .filter((edge) => edge.from === activeNode.id || edge.to === activeNode.id)
+      .map((edge) => (edge.from === activeNode.id ? edge.to : edge.from))
+      .map((nodeId) => activePack.spec.nodes.find((node) => node.id === nodeId)?.label)
+      .filter((label): label is string => Boolean(label));
+  }, [activePack, activeNode]);
+
+  const componentBullets = useMemo(() => {
+    if (!activePack || !activeNode) {
+      return [
+        "Select a component to reveal key points.",
+        "We will summarize its role, dependencies, and flow alignment.",
+      ];
     }
-  };
 
-  const handleExportScenario = () => {
-    if (!scenario) return;
+    return [
+      activeNode.description ?? "Core component in the solution architecture.",
+      `Role: ${activeNode.kind.toUpperCase()}`,
+      connectedNodes.length
+        ? `Connected to: ${connectedNodes.join(", ")}.`
+        : "No direct dependencies defined in this pack.",
+    ];
+  }, [activePack, activeNode, connectedNodes]);
 
-    const payload = {
-      id: scenario.id,
-      label: scenario.label,
-      brief: scenario.brief,
-      nodes,
-      edges,
-      exportedAt: new Date().toISOString(),
-    };
+  const talkTrack = useMemo(() => {
+    if (!activePack) {
+      return "Q: Which pack is active?\nA: Choose a pack to view a guided talk track.";
+    }
 
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `${scenario.id}-architecture.json`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
-  };
+    return buildTalkTrack(activePack, activeNode);
+  }, [activePack, activeNode]);
+
+  const gridCols = mode === "compare" ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_320px]" : "lg:grid-cols-[minmax(0,1fr)_320px]";
 
   return (
     <section className="space-y-6">
       <header className="space-y-2">
-        <h1 className="text-2xl font-semibold">Infrastructure Presales Studio</h1>
+        <h1 className="text-2xl font-semibold">Architecture Explorer</h1>
         <p className="text-sm text-foreground/70">
-          A scenario-based solution map for datacenter discovery: explore components, simulate blast radius,
-          and run a guided demo.
+          Compare vendor architecture packs, explore data flows, and drive partner-ready talk tracks.
         </p>
       </header>
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-              Scenario
-            </span>
-            <select
-              value={scenarioId}
-              onChange={(e) => setScenarioId(e.target.value)}
-              className="w-64 rounded-lg border border-border bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            >
-              {diagramScenarios.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
+
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="space-y-1">
+          <span className="text-xs font-semibold uppercase tracking-wide text-foreground/60">Domain</span>
+          <select
+            className="h-10 w-48 rounded-md border border-border bg-background px-3 text-sm"
+            value={domain}
+            onChange={(event) => setDomain(event.target.value as Domain)}
+          >
+            {domains.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-background p-1">
+            {(["compare", "single", "walkthrough"] as ExplorerMode[]).map((option) => (
+              <Button
+                key={option}
+                variant={mode === option ? "primary" : "ghost"}
+                className="h-8 px-3 text-xs capitalize"
+                onClick={() => setMode(option)}
+              >
+                {option}
+              </Button>
+            ))}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-2 rounded-lg border border-border bg-background p-1">
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-background p-1">
+            {CHANNEL_OPTIONS.map((channel) => (
               <Button
-                variant={viewMode === "explore" ? "primary" : "ghost"}
+                key={channel}
+                variant={selectedChannel === channel ? "primary" : "ghost"}
                 className="h-8 px-3 text-xs"
-                onClick={() => setViewMode("explore")}
+                onClick={() => setSelectedChannel(channel)}
               >
-                Explore
+                {FLOW_LABELS[channel]}
               </Button>
-              <Button
-                variant={viewMode === "blast" ? "primary" : "ghost"}
-                className="h-8 px-3 text-xs"
-                onClick={() => setViewMode("blast")}
-                disabled={!selectedNodeId}
-                title={!selectedNodeId ? "Select a node to enable blast radius." : ""}
-              >
-                Blast radius
-              </Button>
-              <Button
-                variant={viewMode === "demo" ? "primary" : "ghost"}
-                className="h-8 px-3 text-xs"
-                onClick={() => {
-                  setViewMode("demo");
-                  setDemoStep(0);
-                }}
-                disabled={demoOrder.length === 0}
-              >
-                Demo
-              </Button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className={`grid gap-6 ${gridCols}`}>
+        <div className="space-y-4">
+          <PackSelector
+            label={mode === "single" ? "Pack" : "Left pack"}
+            selection={selectionState.left}
+            onSelectionChange={(selection) =>
+              setSelectionState((prev) => ({
+                ...prev,
+                left: selection,
+              }))
+            }
+            groupedPacks={groupedPacks}
+          />
+
+          {leftPack ? (
+            <Card className="min-h-[420px]">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">
+                  {leftPack.vendor} {leftPack.product} {leftPack.model}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="h-[420px]">
+                <FlowCanvas
+                  pack={leftPack}
+                  selectedChannel={selectedChannel}
+                  selectedNodeId={selectedNode?.side === "left" ? selectedNode.nodeId : undefined}
+                  onNodeSelect={handleSelectNode("left")}
+                />
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="py-10 text-sm text-foreground/70">
+                No packs available for this domain yet.
+              </CardContent>
+            </Card>
+          )}
+
+          {mode === "walkthrough" ? (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Walkthrough — coming next</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm text-foreground/70">
+                <p>Step-by-step walkthroughs are in progress.</p>
+                <p>We will add scripted stages, callouts, and checkpoints for each flow.</p>
+              </CardContent>
+            </Card>
+          ) : null}
+        </div>
+
+        {mode === "compare" ? (
+          <div className="space-y-4">
+            <PackSelector
+              label="Right pack"
+              selection={selectionState.right}
+              onSelectionChange={(selection) =>
+                setSelectionState((prev) => ({
+                  ...prev,
+                  right: selection,
+                }))
+              }
+              groupedPacks={groupedPacks}
+            />
+
+            {rightPack ? (
+              <Card className="min-h-[420px]">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">
+                    {rightPack.vendor} {rightPack.product} {rightPack.model}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="h-[420px]">
+                  <FlowCanvas
+                    pack={rightPack}
+                    selectedChannel={selectedChannel}
+                    selectedNodeId={selectedNode?.side === "right" ? selectedNode.nodeId : undefined}
+                    onNodeSelect={handleSelectNode("right")}
+                  />
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="py-10 text-sm text-foreground/70">
+                  No packs available for this domain yet.
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        ) : null}
+
+        <Card className="h-fit">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Instructor Panel</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm text-foreground/70">
+            <div className="space-y-1">
+              <span className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                {activePack ? `${activePack.vendor} · ${activePack.product}` : "Select a pack"}
+              </span>
+              <h2 className="text-lg font-semibold text-foreground">
+                {activeNode?.label ?? "Click a node to begin"}
+              </h2>
             </div>
 
-            {viewMode === "demo" ? (
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="secondary"
-                  className="h-8 px-3 text-xs border border-border"
-                  onClick={() => setDemoStep((s) => Math.max(0, s - 1))}
-                  disabled={demoStep <= 0}
-                >
-                  Prev
-                </Button>
-                <Button
-                  variant="secondary"
-                  className="h-8 px-3 text-xs border border-border"
-                  onClick={() => setDemoStep((s) => Math.min(demoOrder.length - 1, s + 1))}
-                  disabled={demoStep >= demoOrder.length - 1}
-                >
-                  Next
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="h-8 px-3 text-xs"
-                  onClick={() => setViewMode("explore")}
-                >
-                  Exit
-                </Button>
-              </div>
-            ) : null}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">Component bullets</p>
+              <ul className="mt-2 list-disc space-y-1 pl-5">
+                {componentBullets.map((bullet) => (
+                  <li key={bullet}>{bullet}</li>
+                ))}
+              </ul>
+            </div>
 
-            <Button variant="secondary" className="border border-border" onClick={handleCopyShare}>
-              {copyState}
-            </Button>
-            <Button
-              variant="secondary"
-              className="border border-border"
-              onClick={handleExportScenario}
-            >
-              Export scenario JSON
-            </Button>
-            <Button
-              variant="secondary"
-              className="border border-border"
-              onClick={() => flowInstance?.fitView({ padding: 0.2, duration: 400 })}
-            >
-              Reset View
-            </Button>
-          </div>
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <Card className="min-h-[420px]">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">
-                {viewMode === "blast" ? "Impact Map" : "Solution Map"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="h-[420px]">
-              <div className="h-full rounded-lg border border-dashed border-border/70">
-                <ReactFlow<Node<ArchitectureNodeData>, Edge>
-                  nodes={displayNodes}
-                  edges={displayEdges}
-                  onNodesChange={onNodesChange}
-                  onEdgesChange={onEdgesChange}
-                  onInit={(instance) => setFlowInstance(instance)}
-                  // ✅ FIX #2: type the unused event param so it’s not implicit any
-                  onNodeClick={(_event: ReactMouseEvent, node: Node<ArchitectureNodeData>) =>
-                    setSelectedNodeId(node.id)
-                  }
-                  fitView
-                >
-                  <Background gap={16} color="hsl(var(--border))" />
-                  <Controls />
-                </ReactFlow>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="space-y-6">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Scenario Brief</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 text-sm text-foreground/70">
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                    Business goal
-                  </p>
-                  <p className="text-foreground/80">{scenario.brief.problemStatement}</p>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                    Success criteria
-                  </p>
-                  <ul className="list-disc space-y-1 pl-5">
-                    {scenario.brief.successCriteria.map((bullet) => (
-                      <li key={bullet}>{bullet}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                    Constraints
-                  </p>
-                  <ul className="list-disc space-y-1 pl-5">
-                    {scenario.brief.constraints.map((bullet) => (
-                      <li key={bullet}>{bullet}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                <details className="rounded-lg border border-border/60 bg-muted/30 p-3">
-                  <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                    Delivery plan, assumptions, and risks
-                  </summary>
-                  <div className="mt-3 space-y-4">
-                    <div className="space-y-2">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                        Assumptions
-                      </p>
-                      <ul className="list-disc space-y-1 pl-5">
-                        {scenario.brief.assumptions.map((bullet) => (
-                          <li key={bullet}>{bullet}</li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div className="space-y-2">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                        Phased approach
-                      </p>
-                      <div className="space-y-3">
-                        {scenario.brief.phases.map((phase) => (
-                          <div key={phase.title} className="space-y-1">
-                            <p className="font-medium text-foreground/80">{phase.title}</p>
-                            <ul className="list-disc space-y-1 pl-5">
-                              {phase.bullets.map((bullet) => (
-                                <li key={bullet}>{bullet}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                        Risks and mitigations
-                      </p>
-                      <div className="space-y-2">
-                        {scenario.brief.risks.map((item) => (
-                          <div key={item.risk} className="rounded-md border border-border/60 bg-background p-2">
-                            <p className="font-medium text-foreground/80">{item.risk}</p>
-                            <p className="text-foreground/70">{item.mitigation}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </details>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Node Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 text-sm text-foreground/70">
-                {selectedNode ? (
-                  <>
-                    <div className="space-y-1">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                        {selectedNode.data.category}
-                      </span>
-                      <h3 className="text-lg font-semibold text-foreground">
-                        {selectedNode.data.label}
-                      </h3>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                          What it does
-                        </p>
-                        <p className="text-foreground/80">{selectedNode.data.notes.what}</p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                          Why this design
-                        </p>
-                        <p className="text-foreground/80">{selectedNode.data.notes.why}</p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                          Common alternatives
-                        </p>
-                        <ul className="list-disc space-y-1 pl-5">
-                          {selectedNode.data.notes.alternatives.map((bullet) => (
-                            <li key={bullet}>{bullet}</li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                          Tradeoffs
-                        </p>
-                        <ul className="list-disc space-y-1 pl-5">
-                          {selectedNode.data.notes.tradeoffs.map((bullet) => (
-                            <li key={bullet}>{bullet}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <p>Select a node to review architecture details.</p>
-                )}
-              </CardContent>
-            </Card>
-
-            <Legend />
-          </div>
-        </div>
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">Talk track</p>
+              <p className="mt-2 whitespace-pre-line text-foreground/80">{talkTrack}</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </section>
   );
