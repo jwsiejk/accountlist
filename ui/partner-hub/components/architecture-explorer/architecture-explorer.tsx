@@ -23,7 +23,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { groupPacks, listDomains } from "./registry";
-import type { ArchitectureNode, Domain, FlowChannel, NodeKind, VendorPack } from "./types";
+import type {
+  ArchitectureNode,
+  Domain,
+  FlowChannel,
+  NodeKind,
+  VendorPack,
+  WalkthroughStep,
+} from "./types";
 
 type ExplorerMode = "compare" | "single" | "walkthrough";
 
@@ -123,6 +130,7 @@ const layoutNodes = (nodes: ArchitectureNode[]): Node<ReactFlowNodeData>[] => {
 const buildFlowEdges = (
   pack: VendorPack,
   selectedChannel: FlowChannel,
+  highlightedEdgeIds?: Set<string>,
 ): Edge[] => {
   const edgeMap = new Map(
     pack.spec.edges.map((edge) => [`${edge.from}->${edge.to}`, edge.id]),
@@ -142,8 +150,11 @@ const buildFlowEdges = (
     if (edgeId) flowEdgeIds.add(edgeId);
   }
 
+  const activeEdgeIds =
+    highlightedEdgeIds && highlightedEdgeIds.size > 0 ? highlightedEdgeIds : flowEdgeIds;
+
   return pack.spec.edges.map((edge) => {
-    const isActive = flowEdgeIds.has(edge.id);
+    const isActive = activeEdgeIds.has(edge.id);
     return {
       id: edge.id,
       source: edge.from,
@@ -177,33 +188,44 @@ const buildTalkTrack = (pack: VendorPack, node: ArchitectureNode | undefined) =>
 const FlowCanvas = ({
   pack,
   selectedChannel,
+  highlightedNodeIds,
+  highlightedEdgeIds,
   onNodeSelect,
   selectedNodeId,
 }: {
   pack: VendorPack;
   selectedChannel: FlowChannel;
+  highlightedNodeIds?: Set<string>;
+  highlightedEdgeIds?: Set<string>;
   selectedNodeId?: string;
   onNodeSelect: (node: ArchitectureNode) => void;
 }) => {
   const nodes = useMemo(() => layoutNodes(pack.spec.nodes), [pack]);
 
-  const edges = useMemo(() => buildFlowEdges(pack, selectedChannel), [pack, selectedChannel]);
+  const edges = useMemo(
+    () => buildFlowEdges(pack, selectedChannel, highlightedEdgeIds),
+    [pack, selectedChannel, highlightedEdgeIds],
+  );
 
   const displayNodes = useMemo(() => {
     return nodes.map((node) => {
       const baseStyle = (node.style ?? {}) as CSSProperties;
       const isSelected = node.id === selectedNodeId;
+      const isHighlighted = highlightedNodeIds?.has(node.id) ?? false;
 
       return {
         ...node,
         style: {
           ...baseStyle,
-          borderWidth: isSelected ? 3 : 2,
-          boxShadow: isSelected ? "0 0 0 3px rgba(59,130,246,0.3)" : "none",
+          borderWidth: isSelected || isHighlighted ? 3 : 2,
+          borderColor:
+            isHighlighted || isSelected ? "hsl(var(--primary))" : baseStyle.borderColor,
+          boxShadow:
+            isSelected || isHighlighted ? "0 0 0 3px rgba(59,130,246,0.3)" : "none",
         },
       } as Node<ReactFlowNodeData>;
     });
-  }, [nodes, selectedNodeId]);
+  }, [nodes, selectedNodeId, highlightedNodeIds]);
 
   const [flowInstance, setFlowInstance] = useState<
     ReactFlowInstance<Node<ReactFlowNodeData>, Edge> | null
@@ -329,6 +351,7 @@ export function ArchitectureExplorer() {
   const [domain, setDomain] = useState<Domain>(domains[0] ?? "Storage");
   const [mode, setMode] = useState<ExplorerMode>("compare");
   const [selectedChannel, setSelectedChannel] = useState<FlowChannel>("data");
+  const [walkthroughStepIndex, setWalkthroughStepIndex] = useState(0);
 
   const initialSelection = useMemo(() => derivePackSelection(domain), [domain]);
   const [selectionState, setSelectionState] = useState<SelectionState>({
@@ -347,16 +370,41 @@ export function ArchitectureExplorer() {
 
   const leftPack = resolvePack(domain, selectionState.left);
   const rightPack = resolvePack(domain, selectionState.right);
+  const walkthroughSteps = useMemo<WalkthroughStep[]>(
+    () => leftPack?.walkthrough ?? [],
+    [leftPack],
+  );
+  const activeWalkthroughStep = walkthroughSteps[walkthroughStepIndex];
+
+  useEffect(() => {
+    if (mode !== "walkthrough") return;
+    setWalkthroughStepIndex(0);
+  }, [mode, leftPack?.id]);
+
+  useEffect(() => {
+    if (walkthroughStepIndex < walkthroughSteps.length) return;
+    setWalkthroughStepIndex(0);
+  }, [walkthroughStepIndex, walkthroughSteps.length]);
 
   const handleSelectNode = (side: "left" | "right") => (node: ArchitectureNode) => {
     setSelectedNode({ side, nodeId: node.id });
   };
 
-  const activePack = selectedNode?.side === "right" ? rightPack : leftPack;
+  const activePack =
+    mode === "walkthrough" ? leftPack : selectedNode?.side === "right" ? rightPack : leftPack;
   const activeNode = useMemo(() => {
     if (!activePack || !selectedNode) return undefined;
     return activePack.spec.nodes.find((node) => node.id === selectedNode.nodeId);
   }, [activePack, selectedNode]);
+
+  const highlightedNodeIds = useMemo(
+    () => new Set(activeWalkthroughStep?.nodeIds ?? []),
+    [activeWalkthroughStep],
+  );
+  const highlightedEdgeIds = useMemo(
+    () => new Set(activeWalkthroughStep?.edgeIds ?? []),
+    [activeWalkthroughStep],
+  );
 
   const connectedNodes = useMemo(() => {
     if (!activePack || !activeNode) return [];
@@ -392,6 +440,9 @@ export function ArchitectureExplorer() {
 
     return buildTalkTrack(activePack, activeNode);
   }, [activePack, activeNode]);
+
+  const walkthroughScript =
+    activeWalkthroughStep?.script ?? "No walkthrough steps are available for this pack yet.";
 
   const gridCols = mode === "compare" ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_320px]" : "lg:grid-cols-[minmax(0,1fr)_320px]";
 
@@ -474,6 +525,8 @@ export function ArchitectureExplorer() {
                 <FlowCanvas
                   pack={leftPack}
                   selectedChannel={selectedChannel}
+                  highlightedNodeIds={mode === "walkthrough" ? highlightedNodeIds : undefined}
+                  highlightedEdgeIds={mode === "walkthrough" ? highlightedEdgeIds : undefined}
                   selectedNodeId={selectedNode?.side === "left" ? selectedNode.nodeId : undefined}
                   onNodeSelect={handleSelectNode("left")}
                 />
@@ -490,11 +543,42 @@ export function ArchitectureExplorer() {
           {mode === "walkthrough" ? (
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Walkthrough — coming next</CardTitle>
+                <CardTitle className="text-base">Walkthrough</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2 text-sm text-foreground/70">
-                <p>Step-by-step walkthroughs are in progress.</p>
-                <p>We will add scripted stages, callouts, and checkpoints for each flow.</p>
+              <CardContent className="space-y-4 text-sm text-foreground/70">
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                    Step {walkthroughSteps.length ? walkthroughStepIndex + 1 : 0} of{" "}
+                    {walkthroughSteps.length}
+                  </p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {activeWalkthroughStep?.title ?? "No walkthrough steps available"}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    className="h-8 px-3 text-xs"
+                    onClick={() =>
+                      setWalkthroughStepIndex((prev) => Math.max(prev - 1, 0))
+                    }
+                    disabled={walkthroughStepIndex === 0}
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    variant="primary"
+                    className="h-8 px-3 text-xs"
+                    onClick={() =>
+                      setWalkthroughStepIndex((prev) =>
+                        Math.min(prev + 1, Math.max(walkthroughSteps.length - 1, 0)),
+                      )
+                    }
+                    disabled={walkthroughStepIndex >= walkthroughSteps.length - 1}
+                  >
+                    Next
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ) : null}
@@ -522,12 +606,14 @@ export function ArchitectureExplorer() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="h-[420px]">
-                  <FlowCanvas
-                    pack={rightPack}
-                    selectedChannel={selectedChannel}
-                    selectedNodeId={selectedNode?.side === "right" ? selectedNode.nodeId : undefined}
-                    onNodeSelect={handleSelectNode("right")}
-                  />
+                <FlowCanvas
+                  pack={rightPack}
+                  selectedChannel={selectedChannel}
+                  highlightedNodeIds={mode === "walkthrough" ? highlightedNodeIds : undefined}
+                  highlightedEdgeIds={mode === "walkthrough" ? highlightedEdgeIds : undefined}
+                  selectedNodeId={selectedNode?.side === "right" ? selectedNode.nodeId : undefined}
+                  onNodeSelect={handleSelectNode("right")}
+                />
                 </CardContent>
               </Card>
             ) : (
@@ -550,22 +636,43 @@ export function ArchitectureExplorer() {
                 {activePack ? `${activePack.vendor} · ${activePack.product}` : "Select a pack"}
               </span>
               <h2 className="text-lg font-semibold text-foreground">
-                {activeNode?.label ?? "Click a node to begin"}
+                {mode === "walkthrough"
+                  ? activeWalkthroughStep?.title ?? "Walkthrough script"
+                  : activeNode?.label ?? "Click a node to begin"}
               </h2>
             </div>
 
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">Component bullets</p>
-              <ul className="mt-2 list-disc space-y-1 pl-5">
-                {componentBullets.map((bullet) => (
-                  <li key={bullet}>{bullet}</li>
-                ))}
-              </ul>
+              {mode === "walkthrough" ? (
+                <>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                    Walkthrough cues
+                  </p>
+                  <p className="mt-2 text-sm text-foreground/80">
+                    Highlight the nodes and edges shown in this step, then advance to continue.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                    Component bullets
+                  </p>
+                  <ul className="mt-2 list-disc space-y-1 pl-5">
+                    {componentBullets.map((bullet) => (
+                      <li key={bullet}>{bullet}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
             </div>
 
             <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">Talk track</p>
-              <p className="mt-2 whitespace-pre-line text-foreground/80">{talkTrack}</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                {mode === "walkthrough" ? "Walkthrough script" : "Talk track"}
+              </p>
+              <p className="mt-2 whitespace-pre-line text-foreground/80">
+                {mode === "walkthrough" ? walkthroughScript : talkTrack}
+              </p>
             </div>
           </CardContent>
         </Card>
