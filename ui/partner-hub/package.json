@@ -21,6 +21,7 @@
         "reactflow": "^11.11.4"
     },
     "devDependencies": {
+        "@types/dagre": "^0.7.52",
         "@types/node": "^20.9.0",
         "@types/react": "^18.2.0",
         "@types/react-dom": "^18.2.0",
