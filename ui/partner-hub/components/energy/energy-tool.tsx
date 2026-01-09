@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   enumerateNetApp,
   fbPower,
-  getNetAppControllerModels,
   getTracks,
   buildNetAppCandidate,
   loadCsv,
@@ -17,6 +16,14 @@ import {
   type NetAppRow,
   type PureRow,
 } from "@/lib/energy/energy-calc";
+import {
+  getControllerModels,
+  getDriveSizes,
+  getExpansionModels,
+  getMaxExpansionQty,
+  loadNetAppDriveCompat,
+  type NetAppDriveCompat,
+} from "@/lib/energy/netapp-drive-compat";
 
 const fmt0 = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
 const fmt1 = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
@@ -50,6 +57,7 @@ type NetAppMode = "auto" | "manual";
 
 type ManualInputs = {
   controllerModel: string;
+  expansionModel: string;
   expansionQty: number;
 };
 
@@ -97,8 +105,10 @@ export function EnergyTool() {
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
   const [pureRows, setPureRows] = useState<PureRow[]>([]);
   const [netappRows, setNetappRows] = useState<NetAppRow[]>([]);
+  const [netappCompat, setNetappCompat] = useState<NetAppDriveCompat | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [compatError, setCompatError] = useState<string | null>(null);
   const [energyMeta, setEnergyMeta] = useState<EnergyMeta | null>(null);
   const [metaError, setMetaError] = useState<string | null>(null);
   const [assumptionsOpen, setAssumptionsOpen] = useState(false);
@@ -114,6 +124,7 @@ export function EnergyTool() {
   const [mode, setMode] = useState<NetAppMode>("auto");
   const [manualInputs, setManualInputs] = useState<ManualInputs>({
     controllerModel: "",
+    expansionModel: "",
     expansionQty: 0,
   });
 
@@ -164,6 +175,28 @@ export function EnergyTool() {
         setLoadError(err instanceof Error ? err.message : "Failed to load energy datasets");
       } finally {
         setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [basePath]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setCompatError(null);
+        const compat = await loadNetAppDriveCompat(basePath);
+        if (!cancelled) {
+          setNetappCompat(compat);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setCompatError(err instanceof Error ? err.message : "Failed to load NetApp compatibility data");
+          setNetappCompat(null);
+        }
       }
     })();
 
@@ -228,7 +261,43 @@ export function EnergyTool() {
 
   const tracks = useMemo(() => getTracks(pureRows), [pureRows]);
   const capacities = useMemo(() => validCaps(pureRows, inputs.dfmTb, 20), [pureRows, inputs.dfmTb]);
-  const controllerModels = useMemo(() => getNetAppControllerModels(netappRows), [netappRows]);
+  const controllerModels = useMemo(() => getControllerModels(netappCompat), [netappCompat]);
+  const expansionModels = useMemo(
+    () => getExpansionModels(netappCompat, manualInputs.controllerModel),
+    [netappCompat, manualInputs.controllerModel],
+  );
+  const driveSizes = useMemo(
+    () => getDriveSizes(netappCompat, manualInputs.controllerModel, manualInputs.expansionModel),
+    [netappCompat, manualInputs.controllerModel, manualInputs.expansionModel],
+  );
+  const maxExpansionQty = useMemo(
+    () => getMaxExpansionQty(netappCompat, manualInputs.controllerModel, manualInputs.expansionModel),
+    [netappCompat, manualInputs.controllerModel, manualInputs.expansionModel],
+  );
+  const allDriveSizes = useMemo(() => {
+    if (!netappCompat) return [];
+    const sizes = new Set<number>();
+    for (const controller of netappCompat.controllers) {
+      for (const shelf of controller.expansionShelves) {
+        for (const size of shelf.supportedDriveSizesTB) {
+          sizes.add(size);
+        }
+      }
+    }
+    return Array.from(sizes).sort((a, b) => a - b);
+  }, [netappCompat]);
+  const driveSizeOptions = mode === "manual" ? driveSizes : allDriveSizes;
+  const manualDriveSizeMissing =
+    mode === "manual" &&
+    manualInputs.controllerModel.length > 0 &&
+    manualInputs.expansionModel.length > 0 &&
+    driveSizes.length === 0;
+  const manualApplyDisabled =
+    loading ||
+    manualInputs.controllerModel.length === 0 ||
+    manualInputs.expansionModel.length === 0 ||
+    manualDriveSizeMissing ||
+    netappRows.length === 0;
 
   const runModel = () => {
     try {
@@ -273,12 +342,13 @@ export function EnergyTool() {
   };
 
   const runManual = () => {
-    if (!manualInputs.controllerModel) return;
+    if (!manualInputs.controllerModel || !manualInputs.expansionModel) return;
     try {
       setComputeError(null);
       const candidate = buildNetAppCandidate(
         netappRows,
         manualInputs.controllerModel,
+        manualInputs.expansionModel,
         manualInputs.expansionQty,
         inputs.naUtilPct / 100,
         inputs.naPue,
@@ -302,20 +372,46 @@ export function EnergyTool() {
   }, [pureRows.length, netappRows.length]);
 
   useEffect(() => {
-    if (controllerModels.length > 0 && !manualInputs.controllerModel) {
-      setManualInputs((prev) => ({ ...prev, controllerModel: controllerModels[0] }));
+    if (controllerModels.length === 0) return;
+    const controllerModel = manualInputs.controllerModel || controllerModels[0];
+    const controllerExpansionModels = getExpansionModels(netappCompat, controllerModel);
+    const expansionModel = manualInputs.expansionModel || controllerExpansionModels[0] || "";
+    const sizes = getDriveSizes(netappCompat, controllerModel, expansionModel);
+    const nextMax = getMaxExpansionQty(netappCompat, controllerModel, expansionModel);
+    setManualInputs((prev) => ({
+      ...prev,
+      controllerModel,
+      expansionModel,
+      expansionQty: nextMax != null ? Math.min(prev.expansionQty, nextMax) : prev.expansionQty,
+    }));
+    if (sizes.length > 0 && !sizes.includes(inputs.naDriveSizeTb)) {
+      setInputs((prev) => ({ ...prev, naDriveSizeTb: sizes[0] }));
     }
-  }, [controllerModels, manualInputs.controllerModel]);
+  }, [
+    controllerModels,
+    inputs.naDriveSizeTb,
+    manualInputs.controllerModel,
+    manualInputs.expansionModel,
+    netappCompat,
+  ]);
 
   useEffect(() => {
-    if (mode === "manual" && manualInputs.controllerModel && netappRows.length > 0) {
+    if (
+      mode === "manual" &&
+      manualInputs.controllerModel &&
+      manualInputs.expansionModel &&
+      !manualDriveSizeMissing &&
+      netappRows.length > 0
+    ) {
       runManual();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     mode,
     manualInputs.controllerModel,
+    manualInputs.expansionModel,
     manualInputs.expansionQty,
+    manualDriveSizeMissing,
     inputs.naUtilPct,
     inputs.naPue,
     inputs.naPrice,
@@ -324,6 +420,13 @@ export function EnergyTool() {
     inputs.naDriveSizeTb,
     netappRows.length,
   ]);
+
+  useEffect(() => {
+    if (driveSizeOptions.length === 0) return;
+    if (!driveSizeOptions.includes(inputs.naDriveSizeTb)) {
+      setInputs((prev) => ({ ...prev, naDriveSizeTb: driveSizeOptions[0] }));
+    }
+  }, [driveSizeOptions, inputs.naDriveSizeTb]);
 
   const band = useMemo(() => {
     if (!fb) return null;
@@ -431,7 +534,8 @@ export function EnergyTool() {
           overheadRawToUsable: inputs.naOverhead,
           drr: inputs.naDrr,
           driveSizeTb: inputs.naDriveSizeTb,
-          driveSizeSelection: "User-selected drive size input",
+          driveSizeSelection:
+            mode === "manual" ? "Compatibility dataset (controller + shelf pairing)" : "Compatibility dataset (all drives)",
         },
       },
       selectedNetApp: selectedCandidate
@@ -588,7 +692,23 @@ export function EnergyTool() {
               <NumberInput label="$ / kWh" value={inputs.naPrice} step={0.001} onChange={(v) => setInputs((p) => ({ ...p, naPrice: v }))} />
               <NumberInput label="Overhead (raw→usable)" value={inputs.naOverhead} step={0.01} onChange={(v) => setInputs((p) => ({ ...p, naOverhead: v }))} />
               <NumberInput label="DRR" value={inputs.naDrr} step={0.1} onChange={(v) => setInputs((p) => ({ ...p, naDrr: v }))} />
-              <NumberInput label="Drive size (TB)" value={inputs.naDriveSizeTb} step={1} onChange={(v) => setInputs((p) => ({ ...p, naDriveSizeTb: v }))} />
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                  Drive size (TB)
+                </label>
+                <select
+                  className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+                  value={inputs.naDriveSizeTb}
+                  onChange={(e) => setInputs((p) => ({ ...p, naDriveSizeTb: Number(e.target.value) }))}
+                  disabled={loading || driveSizeOptions.length === 0}
+                >
+                  {driveSizeOptions.map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </div>
               {mode === "auto" ? (
                 <NumberInput label="Auto-match tolerance (±%)" value={inputs.tolPct} step={0.1} onChange={(v) => setInputs((p) => ({ ...p, tolPct: v }))} />
               ) : null}
@@ -607,10 +727,54 @@ export function EnergyTool() {
                     <select
                       className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
                       value={manualInputs.controllerModel}
-                      onChange={(e) => setManualInputs((prev) => ({ ...prev, controllerModel: e.target.value }))}
+                      onChange={(e) => {
+                        const controllerModel = e.target.value;
+                        const nextExpansionModels = getExpansionModels(netappCompat, controllerModel);
+                        const expansionModel = nextExpansionModels[0] ?? "";
+                        const sizes = getDriveSizes(netappCompat, controllerModel, expansionModel);
+                        const nextMax = getMaxExpansionQty(netappCompat, controllerModel, expansionModel);
+                        setManualInputs((prev) => ({
+                          ...prev,
+                          controllerModel,
+                          expansionModel,
+                          expansionQty: nextMax != null ? Math.min(prev.expansionQty, nextMax) : prev.expansionQty,
+                        }));
+                        if (sizes.length > 0) {
+                          setInputs((prev) => ({ ...prev, naDriveSizeTb: sizes[0] }));
+                        }
+                      }}
                       disabled={loading || controllerModels.length === 0}
                     >
                       {controllerModels.map((model) => (
+                        <option key={model} value={model}>
+                          {model}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                      Expansion shelf model
+                    </label>
+                    <select
+                      className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+                      value={manualInputs.expansionModel}
+                      onChange={(e) => {
+                        const expansionModel = e.target.value;
+                        const sizes = getDriveSizes(netappCompat, manualInputs.controllerModel, expansionModel);
+                        const nextMax = getMaxExpansionQty(netappCompat, manualInputs.controllerModel, expansionModel);
+                        setManualInputs((prev) => ({
+                          ...prev,
+                          expansionModel,
+                          expansionQty: nextMax != null ? Math.min(prev.expansionQty, nextMax) : prev.expansionQty,
+                        }));
+                        if (sizes.length > 0) {
+                          setInputs((prev) => ({ ...prev, naDriveSizeTb: sizes[0] }));
+                        }
+                      }}
+                      disabled={loading || expansionModels.length === 0}
+                    >
+                      {expansionModels.map((model) => (
                         <option key={model} value={model}>
                           {model}
                         </option>
@@ -622,10 +786,25 @@ export function EnergyTool() {
                     value={manualInputs.expansionQty}
                     step={1}
                     onChange={(value) =>
-                      setManualInputs((prev) => ({ ...prev, expansionQty: Math.max(0, value) }))
+                      setManualInputs((prev) => ({
+                        ...prev,
+                        expansionQty:
+                          maxExpansionQty != null ? Math.min(Math.max(0, value), maxExpansionQty) : Math.max(0, value),
+                      }))
                     }
                   />
                 </div>
+                {manualDriveSizeMissing ? (
+                  <div className="mt-2 rounded-md border border-amber-300/70 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                    No compatibility data for {manualInputs.controllerModel}/{manualInputs.expansionModel}. Update
+                    netapp_drive_compat.json.
+                  </div>
+                ) : null}
+                {compatError ? (
+                  <div className="mt-2 rounded-md border border-amber-300/70 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                    {compatError}
+                  </div>
+                ) : null}
                 <p className="mt-2 text-xs text-foreground/60">
                   Manual configs use the same power and capacity model as auto-matched candidates.
                 </p>
@@ -647,7 +826,7 @@ export function EnergyTool() {
                   type="button"
                   className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
                   onClick={runManual}
-                  disabled={loading || manualInputs.controllerModel.length === 0 || netappRows.length === 0}
+                  disabled={manualApplyDisabled}
                 >
                   Apply manual config
                 </button>
@@ -877,7 +1056,10 @@ export function EnergyTool() {
                     <li>$ / kWh: ${fmt2.format(inputs.naPrice)}</li>
                     <li>Overhead (raw→usable): {fmt2.format(inputs.naOverhead)}</li>
                     <li>DRR: {fmt2.format(inputs.naDrr)}</li>
-                    <li>Drive size selection: {fmt0.format(inputs.naDriveSizeTb)} TB (user input)</li>
+                    <li>
+                      Drive size selection: {fmt0.format(inputs.naDriveSizeTb)} TB{" "}
+                      {mode === "manual" ? "(compat pairing)" : "(compat list)"}
+                    </li>
                     <li>
                       Selected config:{" "}
                       {selectedCandidate
