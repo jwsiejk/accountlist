@@ -89,8 +89,8 @@ const resolvePack = (domain: Domain, selection: PackSelection): VendorPack | und
 
 const NODE_WIDTH = 190;
 const NODE_HEIGHT = 90;
-const LANE_SPACING = NODE_HEIGHT + 140;
-const LANE_OFFSET = 40;
+const CANVAS_HEIGHT = 420;
+const LANE_PADDING = NODE_HEIGHT / 2 + 20;
 const LAYOUT_STORAGE_KEY = "partner-hub:architecture-layout-mode";
 
 const getLane = (kind: NodeKind): number => {
@@ -123,6 +123,19 @@ const layoutNodes = (pack: VendorPack, layoutMode: LayoutMode): Node<ReactFlowNo
   const graph = new dagre.graphlib.Graph();
   graph.setDefaultEdgeLabel(() => ({}));
   const isLayered = layoutMode === "layered";
+  const maxLaneIndex = pack.spec.nodes.reduce((max, node) => {
+    const laneIndex = getLane(node.kind);
+    return Math.max(max, laneIndex);
+  }, 0);
+  const laneCount = maxLaneIndex + 1;
+  const availableLaneHeight = CANVAS_HEIGHT - LANE_PADDING * 2;
+  const laneSpacing = laneCount > 1 ? availableLaneHeight / (laneCount - 1) : 0;
+  const lanePositions = new Map<number, number>();
+
+  for (let laneIndex = 0; laneIndex < laneCount; laneIndex += 1) {
+    lanePositions.set(laneIndex, LANE_PADDING + laneIndex * laneSpacing);
+  }
+
   graph.setGraph({
     rankdir: "LR",
     nodesep: isLayered ? 70 : 60,
@@ -131,7 +144,7 @@ const layoutNodes = (pack: VendorPack, layoutMode: LayoutMode): Node<ReactFlowNo
 
   pack.spec.nodes.forEach((node) => {
     const laneIndex = getLane(node.kind);
-    const laneY = LANE_OFFSET + laneIndex * LANE_SPACING + NODE_HEIGHT / 2;
+    const laneY = lanePositions.get(laneIndex) ?? LANE_PADDING;
     graph.setNode(node.id, {
       width: NODE_WIDTH,
       height: NODE_HEIGHT,
@@ -149,9 +162,7 @@ const layoutNodes = (pack: VendorPack, layoutMode: LayoutMode): Node<ReactFlowNo
     const layout = graph.node(node.id) as { x: number; y: number };
     const laneIndex = getLane(node.kind);
     const positionX = layout.x;
-    const positionY = isLayered
-      ? LANE_OFFSET + laneIndex * LANE_SPACING + NODE_HEIGHT / 2
-      : layout.y;
+    const positionY = isLayered ? lanePositions.get(laneIndex) ?? LANE_PADDING : layout.y;
 
     return {
       id: node.id,
