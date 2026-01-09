@@ -91,6 +91,7 @@ const NODE_WIDTH = 190;
 const NODE_HEIGHT = 90;
 const LANE_SPACING = NODE_HEIGHT + 140;
 const LANE_OFFSET = 40;
+const LAYOUT_STORAGE_KEY = "partner-hub:architecture-layout-mode";
 
 const getLane = (kind: NodeKind): number => {
   switch (kind) {
@@ -129,7 +130,13 @@ const layoutNodes = (pack: VendorPack, layoutMode: LayoutMode): Node<ReactFlowNo
   });
 
   pack.spec.nodes.forEach((node) => {
-    graph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+    const laneIndex = getLane(node.kind);
+    const laneY = LANE_OFFSET + laneIndex * LANE_SPACING + NODE_HEIGHT / 2;
+    graph.setNode(node.id, {
+      width: NODE_WIDTH,
+      height: NODE_HEIGHT,
+      ...(isLayered ? { y: laneY } : {}),
+    });
   });
   pack.spec.edges.forEach((edge) => {
     graph.setEdge(edge.from, edge.to);
@@ -430,6 +437,19 @@ export function ArchitectureExplorer() {
     if (walkthroughStepIndex < walkthroughSteps.length) return;
     setWalkthroughStepIndex(0);
   }, [walkthroughStepIndex, walkthroughSteps.length]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem(LAYOUT_STORAGE_KEY);
+    if (stored === "flow" || stored === "layered") {
+      setLayoutMode(stored);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(LAYOUT_STORAGE_KEY, layoutMode);
+  }, [layoutMode]);
 
   const handleSelectNode = (side: "left" | "right") => (node: ArchitectureNode) => {
     setSelectedNode({ side, nodeId: node.id });
