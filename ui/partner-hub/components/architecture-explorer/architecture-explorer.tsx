@@ -609,8 +609,8 @@ export function ArchitectureExplorer() {
                 <FlowCanvas
                   pack={rightPack}
                   selectedChannel={selectedChannel}
-                  highlightedNodeIds={mode === "walkthrough" ? highlightedNodeIds : undefined}
-                  highlightedEdgeIds={mode === "walkthrough" ? highlightedEdgeIds : undefined}
+                  highlightedNodeIds={undefined}
+                  highlightedEdgeIds={undefined}
                   selectedNodeId={selectedNode?.side === "right" ? selectedNode.nodeId : undefined}
                   onNodeSelect={handleSelectNode("right")}
                 />
