@@ -20,6 +20,7 @@ export type PureRow = CsvRow & {
   Min_EX_Chassis: number;
   Min_XFMs: number;
   Max_Total_Chassis: number;
+  Rack_Units: number;
 };
 
 export type NetAppRow = CsvRow & {
@@ -33,6 +34,7 @@ export type PowerModel = {
   model: string;
   typicalW: number;
   idleW: number;
+  rackUnits: number;
   weightedW: (util: number) => number;
 };
 
@@ -58,6 +60,7 @@ export function loadPure(rows: CsvRow[]): PureRow[] {
       Min_EX_Chassis: toInt(r.Min_EX_Chassis, 1),
       Min_XFMs: toInt(r.Min_XFMs, 2),
       Max_Total_Chassis: toInt(r.Max_Total_Chassis, 999),
+      Rack_Units: toFloat(r.Rack_Units),
     };
     return out;
   });
@@ -124,6 +127,7 @@ function compPower(pureRows: PureRow[], dfmTb: number, nameContains: string): Po
     model: String(r.Model ?? ""),
     typicalW: r.Typical_W,
     idleW: r.Idle_W,
+    rackUnits: r.Rack_Units,
     weightedW: (util) => r.Idle_W + util * (r.Typical_W - r.Idle_W),
   };
 }
@@ -143,6 +147,7 @@ export type FbPowerResult = {
   annualCost: number;
   btuPerHour: number;
   effectiveTb: number;
+  rackUnits: number;
   components: {
     EC: { qty: number; model: string; idleWPer: number; typicalWPer: number; weightedWPer: number };
     EX: { qty: number; model: string; idleWPer: number; typicalWPer: number; weightedWPer: number };
@@ -168,6 +173,7 @@ export function fbPower(
   const kwhIt = kwhYear(w);
   const kwhWithPue = kwhIt * pue;
   const annualCost = kwhWithPue * price;
+  const rackUnits = ecQty * ecP.rackUnits + exQty * exP.rackUnits + xfmQty * xfmP.rackUnits;
 
   return {
     dfmTb,
@@ -181,6 +187,7 @@ export function fbPower(
     annualCost,
     btuPerHour: btuPerHour(w),
     effectiveTb: capacityPb * 1000 * drr,
+    rackUnits,
     components: {
       EC: {
         qty: ecQty,
@@ -213,6 +220,7 @@ export type NetAppCandidate = {
   controllerQty: number;
   expansionQty: number;
   effectiveTb: number;
+  rackUnits: number;
   pctDiffFromTarget: number;
   weightedW: number;
   kwhYearWithPue: number;
@@ -227,6 +235,7 @@ type NetAppShelfPower = {
   typicalW: number;
   idleW: number;
   drives: number;
+  rackUnits: number;
   weightedW: (util: number) => number;
 };
 
@@ -241,6 +250,7 @@ function getExpansionShelf(netappRows: NetAppRow[]): NetAppShelfPower {
     typicalW: exp.Typical_W,
     idleW: exp.Idle_W,
     drives: toInt(exp.Drives_per_unit),
+    rackUnits: exp.Rack_Units,
     weightedW: (u: number) => exp.Idle_W + u * (exp.Typical_W - exp.Idle_W),
   };
 }
@@ -257,6 +267,7 @@ function getExpansionShelfByModel(netappRows: NetAppRow[], expansionModel: strin
     typicalW: exp.Typical_W,
     idleW: exp.Idle_W,
     drives: toInt(exp.Drives_per_unit),
+    rackUnits: exp.Rack_Units,
     weightedW: (u: number) => exp.Idle_W + u * (exp.Typical_W - exp.Idle_W),
   };
 }
@@ -298,6 +309,7 @@ export function buildNetAppCandidate(
   const w = ctrlWeighted(util) + expansionQty * exp.weightedW(util);
   const kwhPue = kwhYear(w) * pue;
   const annual = kwhPue * price;
+  const rackUnits = ctrl.Rack_Units + expansionQty * exp.rackUnits;
 
   return {
     controllerModel,
@@ -305,6 +317,7 @@ export function buildNetAppCandidate(
     controllerQty: 1,
     expansionQty,
     effectiveTb: eff,
+    rackUnits,
     pctDiffFromTarget: 0,
     weightedW: w,
     kwhYearWithPue: kwhPue,
@@ -347,6 +360,7 @@ export function enumerateNetApp(
       const kwhPue = kwhYear(w) * pue;
       const annual = kwhPue * price;
       const pct = targetEffTb > 0 ? ((eff - targetEffTb) / targetEffTb) * 100 : 0;
+      const rackUnits = ctrl.Rack_Units + expQty * exp.rackUnits;
 
       if (Math.abs(pct) <= tolFrac * 100 + 1e-9) {
         out.push({
@@ -355,6 +369,7 @@ export function enumerateNetApp(
           controllerQty: 1,
           expansionQty: expQty,
           effectiveTb: eff,
+          rackUnits,
           pctDiffFromTarget: pct,
           weightedW: w,
           kwhYearWithPue: kwhPue,
