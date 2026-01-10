@@ -29,6 +29,7 @@ const fmt0 = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
 const fmt1 = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
 const fmt2 = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
 const formatRackUnits = (value: number | null | undefined) => (value == null ? "—" : fmt0.format(value));
+const DEFAULT_GRID_KGCO2E_PER_KWH = 0.4;
 
 type EnergyMeta = {
   lastSyncedISO?: string;
@@ -55,6 +56,7 @@ type Inputs = {
 };
 
 type NetAppMode = "auto" | "manual";
+type ViewMode = "energy" | "sustainability" | "both";
 
 type ManualInputs = {
   controllerModel: string;
@@ -116,6 +118,7 @@ export function EnergyTool() {
   const [vendorReport, setVendorReport] = useState<VendorUpdateReport | null>(null);
   const [vendorReportError, setVendorReportError] = useState<string | null>(null);
   const [sourceCheckHint, setSourceCheckHint] = useState<string | null>(null);
+  const [view, setView] = useState<ViewMode>("energy");
 
   const [inputs, setInputs] = useState<Inputs>(() => ({
     dfmTb: 48,
@@ -507,6 +510,7 @@ export function EnergyTool() {
     const deltaW = fb.weightedW - selectedCandidate.weightedW;
     const deltaKwh = fb.kwhWithPue - selectedCandidate.kwhYearWithPue;
     const deltaCost = fb.annualCost - selectedCandidate.annualEnergyCost;
+    const deltaEffectiveTb = fb.effectiveTb - selectedCandidate.effectiveTb;
     const deltaRackUnits =
       fb.rackUnits != null && selectedCandidate.rackUnits != null
         ? fb.rackUnits - selectedCandidate.rackUnits
@@ -515,10 +519,109 @@ export function EnergyTool() {
       deltaW,
       deltaKwh,
       deltaCost,
+      deltaEffectiveTb,
       deltaRackUnits,
       pctCost: fb.annualCost > 0 ? (deltaCost / fb.annualCost) * 100 : null,
     };
   }, [fb, selectedCandidate]);
+
+  const gridKgCo2ePerKwh = useMemo(() => {
+    const parsed = Number(process.env.NEXT_PUBLIC_GRID_KGCO2E_PER_KWH);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_GRID_KGCO2E_PER_KWH;
+  }, []);
+
+  const fbCo2eKgPerYear = fb ? fb.kwhWithPue * gridKgCo2ePerKwh : null;
+  const netappCo2eKgPerYear = selectedCandidate ? selectedCandidate.kwhYearWithPue * gridKgCo2ePerKwh : null;
+  const fbCo2ePerTbYear = fb && fb.effectiveTb > 0 ? fbCo2eKgPerYear / fb.effectiveTb : null;
+  const netappCo2ePerTbYear =
+    selectedCandidate && selectedCandidate.effectiveTb > 0 ? netappCo2eKgPerYear / selectedCandidate.effectiveTb : null;
+  const deltaCo2eKgPerYear =
+    fbCo2eKgPerYear != null && netappCo2eKgPerYear != null ? fbCo2eKgPerYear - netappCo2eKgPerYear : null;
+  const deltaCo2ePerTbYear =
+    fbCo2ePerTbYear != null && netappCo2ePerTbYear != null ? fbCo2ePerTbYear - netappCo2ePerTbYear : null;
+
+  const formatCo2eYear = (kg: number | null) => (kg == null ? "—" : `${fmt2.format(kg / 1000)} tCO₂e/year`);
+  const formatCo2ePerTbYear = (kg: number | null) =>
+    kg == null ? "—" : `${fmt2.format(kg / 1000)} tCO₂e / TB-year`;
+
+  const energyRowKeys = ["effectiveTb", "weightedW", "kwhPerYear", "annualCost", "rackUnits"] as const;
+  const energyTotalsRowKeys = ["effectiveTb", "weightedW", "kwhPerYear", "annualCost", "btuPerHour", "rackUnits"] as const;
+  const sustainabilityRowKeys = ["effectiveTb", "co2eYear", "co2ePerTbYear"] as const;
+  const combinedRowKeys = <T extends readonly string[]>(primary: T, secondary: readonly string[]) => {
+    const seen = new Set<string>();
+    const list: string[] = [];
+    for (const key of primary) {
+      if (!seen.has(key)) {
+        seen.add(key);
+        list.push(key);
+      }
+    }
+    for (const key of secondary) {
+      if (!seen.has(key)) {
+        seen.add(key);
+        list.push(key);
+      }
+    }
+    return list;
+  };
+
+  const compareRowKeys = useMemo(() => {
+    if (view === "energy") return energyRowKeys;
+    if (view === "sustainability") return sustainabilityRowKeys;
+    return combinedRowKeys(energyRowKeys, sustainabilityRowKeys);
+  }, [view]);
+
+  const totalsRowKeys = useMemo(() => {
+    if (view === "energy") return energyTotalsRowKeys;
+    if (view === "sustainability") return sustainabilityRowKeys;
+    return combinedRowKeys(energyTotalsRowKeys, sustainabilityRowKeys);
+  }, [view]);
+
+  const rowLabels: Record<string, string> = {
+    effectiveTb: "Effective TB",
+    weightedW: "Weighted IT load (W)",
+    kwhPerYear: "kWh / year (with PUE)",
+    annualCost: "Annual energy cost",
+    btuPerHour: "BTU / hour",
+    rackUnits: "Total rack units",
+    co2eYear: "CO₂e / year",
+    co2ePerTbYear: "CO₂e per effective TB-year",
+  };
+
+  const fbRowValues = fb
+    ? {
+        effectiveTb: fmt0.format(fb.effectiveTb),
+        weightedW: fmt0.format(fb.weightedW),
+        kwhPerYear: fmt0.format(fb.kwhWithPue),
+        annualCost: `$${fmt0.format(fb.annualCost)}`,
+        btuPerHour: fmt0.format(fb.btuPerHour),
+        rackUnits: formatRackUnits(fb.rackUnits),
+        co2eYear: formatCo2eYear(fbCo2eKgPerYear),
+        co2ePerTbYear: formatCo2ePerTbYear(fbCo2ePerTbYear),
+      }
+    : null;
+
+  const netappRowValues = selectedCandidate
+    ? {
+        effectiveTb: fmt0.format(selectedCandidate.effectiveTb),
+        weightedW: fmt0.format(selectedCandidate.weightedW),
+        kwhPerYear: fmt0.format(selectedCandidate.kwhYearWithPue),
+        annualCost: `$${fmt0.format(selectedCandidate.annualEnergyCost)}`,
+        rackUnits: formatRackUnits(selectedCandidate.rackUnits),
+        co2eYear: formatCo2eYear(netappCo2eKgPerYear),
+        co2ePerTbYear: formatCo2ePerTbYear(netappCo2ePerTbYear),
+      }
+    : null;
+
+  const deltaRowValues = {
+    effectiveTb: savings?.deltaEffectiveTb == null ? "—" : fmt0.format(savings.deltaEffectiveTb),
+    weightedW: savings?.deltaW == null ? "—" : fmt0.format(savings.deltaW),
+    kwhPerYear: savings?.deltaKwh == null ? "—" : fmt0.format(savings.deltaKwh),
+    annualCost: savings?.deltaCost == null ? "—" : `$${fmt0.format(savings.deltaCost)}`,
+    rackUnits: savings?.deltaRackUnits == null ? "—" : fmt0.format(savings.deltaRackUnits),
+    co2eYear: formatCo2eYear(deltaCo2eKgPerYear),
+    co2ePerTbYear: formatCo2ePerTbYear(deltaCo2ePerTbYear),
+  };
 
   const handleDownloadAssumptions = () => {
     const payload = {
@@ -543,6 +646,9 @@ export function EnergyTool() {
           driveSizeSelection:
             mode === "manual" ? "Compatibility dataset (controller + shelf pairing)" : "Compatibility dataset (all drives)",
         },
+        sustainability: {
+          gridKgCo2ePerKwh,
+        },
       },
       selectedNetApp: selectedCandidate
         ? {
@@ -557,10 +663,23 @@ export function EnergyTool() {
         ? {
             flashblade: {
               rackUnits: fb.rackUnits ?? null,
+              effectiveTb: fb.effectiveTb,
+              co2eKgPerYear: fbCo2eKgPerYear,
+              co2eKgPerTbYear: fbCo2ePerTbYear,
             },
-            netapp: selectedCandidate ? { rackUnits: selectedCandidate.rackUnits ?? null } : null,
+            netapp: selectedCandidate
+              ? {
+                  rackUnits: selectedCandidate.rackUnits ?? null,
+                  effectiveTb: selectedCandidate.effectiveTb,
+                  co2eKgPerYear: netappCo2eKgPerYear,
+                  co2eKgPerTbYear: netappCo2ePerTbYear,
+                }
+              : null,
             delta: {
               rackUnits: savings?.deltaRackUnits ?? null,
+              effectiveTb: savings?.deltaEffectiveTb ?? null,
+              co2eKgPerYear: deltaCo2eKgPerYear,
+              co2eKgPerTbYear: deltaCo2ePerTbYear,
             },
           }
         : null,
@@ -880,18 +999,50 @@ export function EnergyTool() {
 
       {fb ? (
         <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="text-xs font-semibold uppercase tracking-wide text-foreground/60">View</div>
+            <div className="flex rounded-md border border-border bg-background p-1 text-xs font-semibold uppercase tracking-wide text-foreground/70">
+              <button
+                type="button"
+                className={
+                  "flex-1 rounded-sm px-3 py-2 transition " +
+                  (view === "energy" ? "bg-muted text-foreground shadow-sm" : "hover:bg-muted/50")
+                }
+                onClick={() => setView("energy")}
+              >
+                Energy
+              </button>
+              <button
+                type="button"
+                className={
+                  "flex-1 rounded-sm px-3 py-2 transition " +
+                  (view === "sustainability" ? "bg-muted text-foreground shadow-sm" : "hover:bg-muted/50")
+                }
+                onClick={() => setView("sustainability")}
+              >
+                Sustainability
+              </button>
+              <button
+                type="button"
+                className={
+                  "flex-1 rounded-sm px-3 py-2 transition " +
+                  (view === "both" ? "bg-muted text-foreground shadow-sm" : "hover:bg-muted/50")
+                }
+                onClick={() => setView("both")}
+              >
+                Both
+              </button>
+            </div>
+          </div>
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">FlashBlade//E totals</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
-                <Metric label="Effective TB" value={fmt0.format(fb.effectiveTb)} />
-                <Metric label="Weighted IT load (W)" value={fmt0.format(fb.weightedW)} />
-                <Metric label="kWh / year (with PUE)" value={fmt0.format(fb.kwhWithPue)} />
-                <Metric label="Annual energy cost" value={`$${fmt0.format(fb.annualCost)}`} />
-                <Metric label="BTU / hour" value={fmt0.format(fb.btuPerHour)} />
-                <Metric label="Total rack units" value={formatRackUnits(fb.rackUnits)} />
+                {totalsRowKeys.map((key) => (
+                  <Metric key={key} label={rowLabels[key]} value={fbRowValues?.[key] ?? "—"} />
+                ))}
                 <div className="pt-2 text-xs text-foreground/60">
                   Composition: {fb.ecQty}×EC, {fb.exQty}×EX, {fb.xfmQty}×XFM
                 </div>
@@ -1015,33 +1166,18 @@ export function EnergyTool() {
                 <div className="grid gap-4 md:grid-cols-3">
                   <MiniCompare
                     title="FlashBlade//E"
-                    items={[
-                      ["Effective TB", fmt0.format(fb.effectiveTb)],
-                      ["Weighted IT load (W)", fmt0.format(fb.weightedW)],
-                      ["kWh / year (with PUE)", fmt0.format(fb.kwhWithPue)],
-                      ["Annual energy cost", `$${fmt0.format(fb.annualCost)}`],
-                      ["Total rack units", formatRackUnits(fb.rackUnits)],
-                    ]}
+                    items={compareRowKeys.map((key) => [rowLabels[key], fbRowValues?.[key] ?? "—"])}
                   />
                   <MiniCompare
                     title="NetApp"
-                    items={[
-                      ["Effective TB", fmt0.format(selectedCandidate.effectiveTb)],
-                      ["Weighted IT load (W)", fmt0.format(selectedCandidate.weightedW)],
-                      ["kWh / year (with PUE)", fmt0.format(selectedCandidate.kwhYearWithPue)],
-                      ["Annual energy cost", `$${fmt0.format(selectedCandidate.annualEnergyCost)}`],
-                      ["Total rack units", formatRackUnits(selectedCandidate.rackUnits)],
-                    ]}
+                    items={compareRowKeys.map((key) => [rowLabels[key], netappRowValues?.[key] ?? "—"])}
                   />
                   <MiniCompare
                     title="Δ (Pure − NetApp)"
-                    items={[
-                      ["Δ IT load (W)", fmt0.format(savings?.deltaW ?? 0)],
-                      ["Δ kWh / year", fmt0.format(savings?.deltaKwh ?? 0)],
-                      ["Δ annual cost", `$${fmt0.format(savings?.deltaCost ?? 0)}`],
-                      ["Δ cost %", savings?.pctCost == null ? "—" : `${fmt1.format(savings.pctCost)}%`],
-                      ["Δ rack units", savings?.deltaRackUnits == null ? "—" : fmt0.format(savings.deltaRackUnits)],
-                    ]}
+                    items={compareRowKeys.map((key) => [`Δ ${rowLabels[key]}`, deltaRowValues[key] ?? "—"])}
+                    footnote={
+                      savings?.pctCost == null ? "Cost %: —" : `Cost %: ${fmt1.format(savings.pctCost)}%`
+                    }
                   />
                 </div>
               ) : (
@@ -1211,9 +1347,11 @@ export function EnergyTool() {
 function MiniCompare({
   title,
   items,
+  footnote,
 }: {
   title: string;
   items: Array<[string, string]>;
+  footnote?: string;
 }) {
   return (
     <div className="rounded-md border border-border p-3">
@@ -1226,6 +1364,7 @@ function MiniCompare({
           </div>
         ))}
       </div>
+      {footnote ? <div className="mt-2 text-[11px] text-foreground/60">{footnote}</div> : null}
     </div>
   );
 }
