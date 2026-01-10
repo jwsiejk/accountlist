@@ -506,10 +506,12 @@ export function EnergyTool() {
     const deltaW = fb.weightedW - selectedCandidate.weightedW;
     const deltaKwh = fb.kwhWithPue - selectedCandidate.kwhYearWithPue;
     const deltaCost = fb.annualCost - selectedCandidate.annualEnergyCost;
+    const deltaRackUnits = fb.rackUnits - selectedCandidate.rackUnits;
     return {
       deltaW,
       deltaKwh,
       deltaCost,
+      deltaRackUnits,
       pctCost: fb.annualCost > 0 ? (deltaCost / fb.annualCost) * 100 : null,
     };
   }, [fb, selectedCandidate]);
@@ -866,6 +868,7 @@ export function EnergyTool() {
                 <Metric label="kWh / year (with PUE)" value={fmt0.format(fb.kwhWithPue)} />
                 <Metric label="Annual energy cost" value={`$${fmt0.format(fb.annualCost)}`} />
                 <Metric label="BTU / hour" value={fmt0.format(fb.btuPerHour)} />
+                <Metric label="Rack units" value={fmt0.format(fb.rackUnits)} />
                 <div className="pt-2 text-xs text-foreground/60">
                   Composition: {fb.ecQty}×EC, {fb.exQty}×EX, {fb.xfmQty}×XFM
                 </div>
@@ -897,6 +900,7 @@ export function EnergyTool() {
                             <tr>
                               <th className="py-2 pr-3 font-semibold">Controller</th>
                               <th className="py-2 pr-3 font-semibold">Exp shelves</th>
+                              <th className="py-2 pr-3 font-semibold">RU</th>
                               <th className="py-2 pr-3 font-semibold">Eff TB</th>
                               <th className="py-2 pr-3 font-semibold">Δ vs target</th>
                               <th className="py-2 pr-3 font-semibold">Annual $</th>
@@ -938,6 +942,7 @@ export function EnergyTool() {
                                     </div>
                                   </td>
                                   <td className="py-2 pr-3">{c.expansionQty}</td>
+                                  <td className="py-2 pr-3">{fmt0.format(c.rackUnits)}</td>
                                   <td className="py-2 pr-3">{fmt0.format(c.effectiveTb)}</td>
                                   <td className="py-2 pr-3">{fmt2.format(c.pctDiffFromTarget)}%</td>
                                   <td className="py-2 pr-3">${fmt0.format(c.annualEnergyCost)}</td>
@@ -982,6 +987,7 @@ export function EnergyTool() {
                       ["Weighted IT load (W)", fmt0.format(fb.weightedW)],
                       ["kWh / year (with PUE)", fmt0.format(fb.kwhWithPue)],
                       ["Annual energy cost", `$${fmt0.format(fb.annualCost)}`],
+                      ["Rack units", fmt0.format(fb.rackUnits)],
                     ]}
                   />
                   <MiniCompare
@@ -991,6 +997,7 @@ export function EnergyTool() {
                       ["Weighted IT load (W)", fmt0.format(selectedCandidate.weightedW)],
                       ["kWh / year (with PUE)", fmt0.format(selectedCandidate.kwhYearWithPue)],
                       ["Annual energy cost", `$${fmt0.format(selectedCandidate.annualEnergyCost)}`],
+                      ["Rack units", fmt0.format(selectedCandidate.rackUnits)],
                     ]}
                   />
                   <MiniCompare
@@ -1000,6 +1007,7 @@ export function EnergyTool() {
                       ["Δ kWh / year", fmt0.format(savings?.deltaKwh ?? 0)],
                       ["Δ annual cost", `$${fmt0.format(savings?.deltaCost ?? 0)}`],
                       ["Δ cost %", savings?.pctCost == null ? "—" : `${fmt1.format(savings.pctCost)}%`],
+                      ["Δ rack units", fmt0.format(savings?.deltaRackUnits ?? 0)],
                     ]}
                   />
                 </div>
