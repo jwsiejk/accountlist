@@ -72,10 +72,20 @@ describe("fbPower", () => {
     assert.equal(result.exQty, 2);
     assert.equal(result.xfmQty, 2);
     assert.equal(result.rackUnits, 26);
-    assert.ok(Math.abs(result.weightedW - 300) < 1e-6);
-    assert.ok(Math.abs(result.kwhIt - 2628) < 1e-6);
-    assert.ok(Math.abs(result.kwhWithPue - 3153.6) < 1e-6);
-    assert.ok(Math.abs(result.annualCost - 315.36) < 1e-6);
+    assert.deepEqual(
+      {
+        weightedW: result.weightedW,
+        kwhIt: result.kwhIt,
+        kwhWithPue: result.kwhWithPue,
+        annualCost: result.annualCost,
+      },
+      {
+        weightedW: 300,
+        kwhIt: 2628,
+        kwhWithPue: 3153.6,
+        annualCost: 315.36,
+      },
+    );
     assert.ok(Math.abs(result.btuPerHour - 1023.6) < 1e-6);
     assert.ok(Math.abs(result.effectiveTb - 10000) < 1e-6);
   });
@@ -98,6 +108,14 @@ describe("NetApp candidates", () => {
     assert.ok(Math.abs(candidate.kwhYearWithPue - 3942) < 1e-6);
     assert.ok(Math.abs(candidate.annualEnergyCost - 394.2) < 1e-6);
     assert.ok(Math.abs(candidate.effectiveTb - 2695.68) < 1e-6);
+  });
+
+  it("returns null rack units when any NetApp RU input is missing", () => {
+    const rows = makeNetAppRows();
+    rows[0] = { ...rows[0], Rack_Units: null };
+    const candidate = buildNetAppCandidate(rows, "C1", "DE460C 60-bay", 2, 0.5, 1.2, 0.1, 0.2, 1.3, 18);
+    assert.equal(candidate.rackUnits, null);
+    assert.ok(Math.abs(candidate.weightedW - 375) < 1e-6);
   });
 
   it("computes rack units in enumerateNetApp", () => {

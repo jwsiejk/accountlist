@@ -67,6 +67,7 @@ export function loadPure(rows: CsvRow[]): PureRow[] {
       Min_EX_Chassis: toInt(r.Min_EX_Chassis, 1),
       Min_XFMs: toInt(r.Min_XFMs, 2),
       Max_Total_Chassis: toInt(r.Max_Total_Chassis, 999),
+      // Rack_Units is optional in source CSVs; keep null so the UI shows — and can warn intentionally.
       Rack_Units: toOptionalFloat(r.Rack_Units),
     };
     return out;
@@ -80,6 +81,7 @@ export function loadNetApp(rows: CsvRow[]): NetAppRow[] {
       Typical_W: toFloat(r.Typical_W),
       Idle_W: toFloat(r.Idle_W),
       Drives_per_unit: toFloat(r.Drives_per_unit),
+      // Rack_Units is optional in source CSVs; keep null so the UI shows — and can warn intentionally.
       Rack_Units: toOptionalFloat(r.Rack_Units),
     };
     return out;
@@ -250,6 +252,7 @@ type NetAppShelfPower = {
 };
 
 function getExpansionShelf(netappRows: NetAppRow[]): NetAppShelfPower {
+  // Auto-mode assumes DE460C expansion shelves for enumeration; update here if supported shelves expand.
   const expRows = netappRows.filter(
     (r) => r.Component_Type === "Expansion_Shelf" && String(r.Model ?? "").includes("DE460C"),
   );
