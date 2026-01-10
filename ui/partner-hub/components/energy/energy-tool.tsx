@@ -525,10 +525,15 @@ export function EnergyTool() {
     };
   }, [fb, selectedCandidate]);
 
+  const gridKgCo2ePerKwhRaw = process.env.NEXT_PUBLIC_GRID_KGCO2E_PER_KWH;
   const gridKgCo2ePerKwh = useMemo(() => {
-    const parsed = Number(process.env.NEXT_PUBLIC_GRID_KGCO2E_PER_KWH);
+    const parsed = Number(gridKgCo2ePerKwhRaw);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_GRID_KGCO2E_PER_KWH;
-  }, []);
+  }, [gridKgCo2ePerKwhRaw]);
+  const gridFactorSource =
+    gridKgCo2ePerKwhRaw != null && Number.isFinite(Number(gridKgCo2ePerKwhRaw)) && Number(gridKgCo2ePerKwhRaw) > 0
+      ? "env override"
+      : "default";
 
   const fbCo2eKgPerYear = fb ? fb.kwhWithPue * gridKgCo2ePerKwh : null;
   const netappCo2eKgPerYear = selectedCandidate ? selectedCandidate.kwhYearWithPue * gridKgCo2ePerKwh : null;
@@ -544,12 +549,29 @@ export function EnergyTool() {
   const formatCo2ePerTbYear = (kg: number | null) =>
     kg == null ? "—" : `${fmt2.format(kg / 1000)} tCO₂e / TB-year`;
 
-  const energyRowKeys = ["effectiveTb", "weightedW", "kwhPerYear", "annualCost", "rackUnits"] as const;
-  const energyTotalsRowKeys = ["effectiveTb", "weightedW", "kwhPerYear", "annualCost", "btuPerHour", "rackUnits"] as const;
-  const sustainabilityRowKeys = ["effectiveTb", "co2eYear", "co2ePerTbYear"] as const;
-  const combinedRowKeys = <T extends readonly string[]>(primary: T, secondary: readonly string[]) => {
-    const seen = new Set<string>();
-    const list: string[] = [];
+  type RowKey =
+    | "effectiveTb"
+    | "weightedW"
+    | "kwhPerYear"
+    | "annualCost"
+    | "btuPerHour"
+    | "rackUnits"
+    | "co2eYear"
+    | "co2ePerTbYear";
+
+  const energyRowKeys = ["effectiveTb", "weightedW", "kwhPerYear", "annualCost", "rackUnits"] as const satisfies readonly RowKey[];
+  const energyTotalsRowKeys = [
+    "effectiveTb",
+    "weightedW",
+    "kwhPerYear",
+    "annualCost",
+    "btuPerHour",
+    "rackUnits",
+  ] as const satisfies readonly RowKey[];
+  const sustainabilityRowKeys = ["effectiveTb", "co2eYear", "co2ePerTbYear"] as const satisfies readonly RowKey[];
+  const combinedRowKeys = (primary: readonly RowKey[], secondary: readonly RowKey[]) => {
+    const seen = new Set<RowKey>();
+    const list: RowKey[] = [];
     for (const key of primary) {
       if (!seen.has(key)) {
         seen.add(key);
@@ -565,19 +587,19 @@ export function EnergyTool() {
     return list;
   };
 
-  const compareRowKeys = useMemo(() => {
-    if (view === "energy") return energyRowKeys;
-    if (view === "sustainability") return sustainabilityRowKeys;
+  const compareRowKeys = useMemo<RowKey[]>(() => {
+    if (view === "energy") return [...energyRowKeys];
+    if (view === "sustainability") return [...sustainabilityRowKeys];
     return combinedRowKeys(energyRowKeys, sustainabilityRowKeys);
   }, [view]);
 
-  const totalsRowKeys = useMemo(() => {
-    if (view === "energy") return energyTotalsRowKeys;
-    if (view === "sustainability") return sustainabilityRowKeys;
+  const totalsRowKeys = useMemo<RowKey[]>(() => {
+    if (view === "energy") return [...energyTotalsRowKeys];
+    if (view === "sustainability") return [...sustainabilityRowKeys];
     return combinedRowKeys(energyTotalsRowKeys, sustainabilityRowKeys);
   }, [view]);
 
-  const rowLabels: Record<string, string> = {
+  const rowLabels: Record<RowKey, string> = {
     effectiveTb: "Effective TB",
     weightedW: "Weighted IT load (W)",
     kwhPerYear: "kWh / year (with PUE)",
@@ -588,7 +610,7 @@ export function EnergyTool() {
     co2ePerTbYear: "CO₂e per effective TB-year",
   };
 
-  const fbRowValues = fb
+  const fbRowValues: Partial<Record<RowKey, string>> | null = fb
     ? {
         effectiveTb: fmt0.format(fb.effectiveTb),
         weightedW: fmt0.format(fb.weightedW),
@@ -601,7 +623,7 @@ export function EnergyTool() {
       }
     : null;
 
-  const netappRowValues = selectedCandidate
+  const netappRowValues: Partial<Record<RowKey, string>> | null = selectedCandidate
     ? {
         effectiveTb: fmt0.format(selectedCandidate.effectiveTb),
         weightedW: fmt0.format(selectedCandidate.weightedW),
@@ -613,7 +635,7 @@ export function EnergyTool() {
       }
     : null;
 
-  const deltaRowValues = {
+  const deltaRowValues: Partial<Record<RowKey, string>> = {
     effectiveTb: savings?.deltaEffectiveTb == null ? "—" : fmt0.format(savings.deltaEffectiveTb),
     weightedW: savings?.deltaW == null ? "—" : fmt0.format(savings.deltaW),
     kwhPerYear: savings?.deltaKwh == null ? "—" : fmt0.format(savings.deltaKwh),
@@ -622,6 +644,7 @@ export function EnergyTool() {
     co2eYear: formatCo2eYear(deltaCo2eKgPerYear),
     co2ePerTbYear: formatCo2ePerTbYear(deltaCo2ePerTbYear),
   };
+  const showCostFootnote = view !== "sustainability";
 
   const handleDownloadAssumptions = () => {
     const payload = {
@@ -1034,6 +1057,11 @@ export function EnergyTool() {
               </button>
             </div>
           </div>
+          {view !== "energy" ? (
+            <div className="text-xs text-foreground/60">
+              Carbon intensity: {fmt2.format(gridKgCo2ePerKwh)} kgCO₂e/kWh ({gridFactorSource})
+            </div>
+          ) : null}
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader>
@@ -1176,7 +1204,11 @@ export function EnergyTool() {
                     title="Δ (Pure − NetApp)"
                     items={compareRowKeys.map((key) => [`Δ ${rowLabels[key]}`, deltaRowValues[key] ?? "—"])}
                     footnote={
-                      savings?.pctCost == null ? "Cost %: —" : `Cost %: ${fmt1.format(savings.pctCost)}%`
+                      showCostFootnote
+                        ? savings?.pctCost == null
+                          ? "Cost %: —"
+                          : `Cost %: ${fmt1.format(savings.pctCost)}%`
+                        : undefined
                     }
                   />
                 </div>
