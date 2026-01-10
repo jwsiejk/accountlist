@@ -7,6 +7,7 @@
         "build": "node scripts/sync-energy-data.mjs && next build && node scripts/post-export.mjs",
         "start": "next start",
         "lint": "next lint",
+        "test": "tsc --noEmit false --module commonjs --moduleResolution node --target ES2020 --outDir .tmp-tests lib/energy/energy-calc.ts lib/energy/energy-calc.test.ts && node --test .tmp-tests/energy-calc.test.js",
         "build:export": "node scripts/sync-energy-data.mjs && next build && node scripts/post-export.mjs"
     },
     "dependencies": {
