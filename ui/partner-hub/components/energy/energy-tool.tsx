@@ -596,12 +596,12 @@ export function EnergyTool() {
       ]
     : [];
 
-  const hasMissingRackUnits = useMemo(() => {
-    if (fb?.rackUnits == null) return true;
-    if (selectedCandidate?.rackUnits == null) return true;
-    if (mode === "auto" && candidates.some((candidate) => candidate.rackUnits == null)) return true;
-    return false;
-  }, [candidates, fb?.rackUnits, mode, selectedCandidate?.rackUnits]);
+  const fbRackUnitsMissing = fb?.rackUnits == null;
+  const selectedRackUnitsMissing = selectedCandidate?.rackUnits == null;
+  const candidateTableRackUnitsMissing = useMemo(
+    () => mode === "auto" && candidates.slice(0, 8).some((candidate) => candidate.rackUnits == null),
+    [candidates, mode],
+  );
 
   return (
     <div className="space-y-6">
@@ -895,11 +895,6 @@ export function EnergyTool() {
                 <div className="pt-2 text-xs text-foreground/60">
                   Composition: {fb.ecQty}×EC, {fb.exQty}×EX, {fb.xfmQty}×XFM
                 </div>
-                {hasMissingRackUnits ? (
-                  <div className="text-xs text-foreground/60">
-                    Rack unit data is missing for one or more rows; values are shown as —.
-                  </div>
-                ) : null}
               </CardContent>
             </Card>
 
@@ -928,7 +923,7 @@ export function EnergyTool() {
                             <tr>
                               <th className="py-2 pr-3 font-semibold">Controller</th>
                               <th className="py-2 pr-3 font-semibold">Exp shelves</th>
-                              <th className="py-2 pr-3 font-semibold whitespace-nowrap">Total RU</th>
+                              <th className="py-2 pr-3 font-semibold whitespace-nowrap">Total rack units</th>
                               <th className="py-2 pr-3 font-semibold">Eff TB</th>
                               <th className="py-2 pr-3 font-semibold">Δ vs target</th>
                               <th className="py-2 pr-3 font-semibold">Annual $</th>
@@ -983,6 +978,11 @@ export function EnergyTool() {
                         <p className="mt-2 text-[11px] text-foreground/60">
                           Click a NetApp row to see a side-by-side comparison.
                         </p>
+                        {candidateTableRackUnitsMissing ? (
+                          <p className="mt-1 text-[11px] text-foreground/60">
+                            Some candidate rows are missing rack unit data, so totals display as —.
+                          </p>
+                        ) : null}
                       </div>
                     )}
                   </>
@@ -994,6 +994,11 @@ export function EnergyTool() {
               </CardContent>
             </Card>
           </div>
+          {fbRackUnitsMissing || selectedRackUnitsMissing ? (
+            <p className="text-xs text-foreground/60">
+              Rack unit data is missing for one or more selected rows, so totals display as —.
+            </p>
+          ) : null}
 
           <Card>
             <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
