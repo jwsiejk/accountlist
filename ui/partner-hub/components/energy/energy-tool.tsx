@@ -550,7 +550,7 @@ export function EnergyTool() {
 
   const formatCo2eYear = (kg: number | null) => (kg == null ? "—" : `${fmt2.format(kg / 1000)} tCO₂e/year`);
   const formatCo2ePerTbYear = (kg: number | null) =>
-    kg == null ? "—" : `${fmt2.format(kg / 1000)} tCO₂e / TB-year`;
+    kg == null ? "—" : `${fmt1.format(kg)} kgCO₂e / TB-year`;
 
   type RowKey =
     | "effectiveTb"
@@ -572,6 +572,7 @@ export function EnergyTool() {
     "rackUnits",
   ] as const satisfies readonly RowKey[];
   const sustainabilityRowKeys = ["effectiveTb", "co2eYear", "co2ePerTbYear"] as const satisfies readonly RowKey[];
+  const energyRowKeySet = new Set<RowKey>(energyRowKeys);
   const combinedRowKeys = (primary: readonly RowKey[], secondary: readonly RowKey[]) => {
     const seen = new Set<RowKey>();
     const list: RowKey[] = [];
@@ -590,12 +591,6 @@ export function EnergyTool() {
     return list;
   };
 
-  const compareRowKeys = useMemo<RowKey[]>(() => {
-    if (view === "energy") return [...energyRowKeys];
-    if (view === "sustainability") return [...sustainabilityRowKeys];
-    return combinedRowKeys(energyRowKeys, sustainabilityRowKeys);
-  }, [view]);
-
   const totalsRowKeys = useMemo<RowKey[]>(() => {
     if (view === "energy") return [...energyTotalsRowKeys];
     if (view === "sustainability") return [...sustainabilityRowKeys];
@@ -610,7 +605,7 @@ export function EnergyTool() {
     btuPerHour: "BTU / hour",
     rackUnits: "Total rack units",
     co2eYear: "CO₂e / year",
-    co2ePerTbYear: "CO₂e per effective TB-year",
+    co2ePerTbYear: "CO₂e per effective TB-year (kgCO₂e)",
   };
 
   const fbRowValues: Partial<Record<RowKey, string>> | null = fb
@@ -638,16 +633,36 @@ export function EnergyTool() {
       }
     : null;
 
+  const deltaCostWithPct =
+    savings?.deltaCost == null
+      ? "—"
+      : `$${fmt0.format(savings.deltaCost)}${
+          view !== "sustainability" && savings?.pctCost != null ? ` (${fmt1.format(savings.pctCost)}%)` : ""
+        }`;
   const deltaRowValues: Partial<Record<RowKey, string>> = {
     effectiveTb: savings?.deltaEffectiveTb == null ? "—" : fmt0.format(savings.deltaEffectiveTb),
     weightedW: savings?.deltaW == null ? "—" : fmt0.format(savings.deltaW),
     kwhPerYear: savings?.deltaKwh == null ? "—" : fmt0.format(savings.deltaKwh),
-    annualCost: savings?.deltaCost == null ? "—" : `$${fmt0.format(savings.deltaCost)}`,
+    annualCost: deltaCostWithPct,
     rackUnits: savings?.deltaRackUnits == null ? "—" : fmt0.format(savings.deltaRackUnits),
     co2eYear: formatCo2eYear(deltaCo2eKgPerYear),
     co2ePerTbYear: formatCo2ePerTbYear(deltaCo2ePerTbYear),
   };
-  const showCostFootnote = view !== "sustainability";
+
+  const comparePrimaryKeys = view === "sustainability" ? sustainabilityRowKeys : energyRowKeys;
+  const compareSecondaryKeys =
+    view === "both" ? sustainabilityRowKeys.filter((key) => !energyRowKeySet.has(key)) : [];
+  const buildCompareItems = (
+    keys: readonly RowKey[],
+    values: Partial<Record<RowKey, string>> | null,
+    prefix?: string,
+  ): Array<[string, string]> =>
+    keys.map(
+      (key): [string, string] => [
+        prefix ? `${prefix} ${rowLabels[key]}` : rowLabels[key],
+        values?.[key] ?? "—",
+      ],
+    );
 
   const handleDownloadAssumptions = () => {
     const payload = {
@@ -1197,22 +1212,27 @@ export function EnergyTool() {
                 <div className="grid gap-4 md:grid-cols-3">
                   <MiniCompare
                     title="FlashBlade//E"
-                    items={compareRowKeys.map((key) => [rowLabels[key], fbRowValues?.[key] ?? "—"])}
+                    items={buildCompareItems(comparePrimaryKeys, fbRowValues)}
+                    groupedItems={
+                      view === "both" ? buildCompareItems(compareSecondaryKeys, fbRowValues) : undefined
+                    }
+                    groupedLabel={view === "both" ? "Sustainability" : undefined}
                   />
                   <MiniCompare
                     title="NetApp"
-                    items={compareRowKeys.map((key) => [rowLabels[key], netappRowValues?.[key] ?? "—"])}
+                    items={buildCompareItems(comparePrimaryKeys, netappRowValues)}
+                    groupedItems={
+                      view === "both" ? buildCompareItems(compareSecondaryKeys, netappRowValues) : undefined
+                    }
+                    groupedLabel={view === "both" ? "Sustainability" : undefined}
                   />
                   <MiniCompare
                     title="Δ (Pure − NetApp)"
-                    items={compareRowKeys.map((key) => [`Δ ${rowLabels[key]}`, deltaRowValues[key] ?? "—"])}
-                    footnote={
-                      showCostFootnote
-                        ? savings?.pctCost == null
-                          ? "Cost %: —"
-                          : `Cost %: ${fmt1.format(savings.pctCost)}%`
-                        : undefined
+                    items={buildCompareItems(comparePrimaryKeys, deltaRowValues, "Δ")}
+                    groupedItems={
+                      view === "both" ? buildCompareItems(compareSecondaryKeys, deltaRowValues, "Δ") : undefined
                     }
+                    groupedLabel={view === "both" ? "Sustainability" : undefined}
                   />
                 </div>
               ) : (
@@ -1382,11 +1402,13 @@ export function EnergyTool() {
 function MiniCompare({
   title,
   items,
-  footnote,
+  groupedItems,
+  groupedLabel,
 }: {
   title: string;
   items: Array<[string, string]>;
-  footnote?: string;
+  groupedItems?: Array<[string, string]>;
+  groupedLabel?: string;
 }) {
   return (
     <div className="rounded-md border border-border p-3">
@@ -1399,7 +1421,23 @@ function MiniCompare({
           </div>
         ))}
       </div>
-      {footnote ? <div className="mt-2 text-[11px] text-foreground/60">{footnote}</div> : null}
+      {groupedItems && groupedItems.length > 0 ? (
+        <div className="mt-3 rounded-md border border-border/60 bg-muted/20 p-3">
+          {groupedLabel ? (
+            <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-foreground/60">
+              {groupedLabel}
+            </div>
+          ) : null}
+          <div className="space-y-2 text-sm">
+            {groupedItems.map(([k, v]) => (
+              <div key={k} className="flex items-center justify-between gap-3">
+                <span className="text-foreground/60">{k}</span>
+                <span className="font-semibold text-foreground">{v}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
