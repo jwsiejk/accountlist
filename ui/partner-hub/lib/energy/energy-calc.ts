@@ -5,6 +5,13 @@ const toFloat = (v: unknown, fallback = 0) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
+const toOptionalFloat = (v: unknown): number | null => {
+  if (v == null) return null;
+  if (typeof v === "string" && v.trim() === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
 const toInt = (v: unknown, fallback = 0) => {
   const n = Math.trunc(Number(v));
   return Number.isFinite(n) ? n : fallback;
@@ -20,21 +27,21 @@ export type PureRow = CsvRow & {
   Min_EX_Chassis: number;
   Min_XFMs: number;
   Max_Total_Chassis: number;
-  Rack_Units: number;
+  Rack_Units: number | null;
 };
 
 export type NetAppRow = CsvRow & {
   Typical_W: number;
   Idle_W: number;
   Drives_per_unit: number;
-  Rack_Units: number;
+  Rack_Units: number | null;
 };
 
 export type PowerModel = {
   model: string;
   typicalW: number;
   idleW: number;
-  rackUnits: number;
+  rackUnits: number | null;
   weightedW: (util: number) => number;
 };
 
@@ -60,7 +67,7 @@ export function loadPure(rows: CsvRow[]): PureRow[] {
       Min_EX_Chassis: toInt(r.Min_EX_Chassis, 1),
       Min_XFMs: toInt(r.Min_XFMs, 2),
       Max_Total_Chassis: toInt(r.Max_Total_Chassis, 999),
-      Rack_Units: toFloat(r.Rack_Units),
+      Rack_Units: toOptionalFloat(r.Rack_Units),
     };
     return out;
   });
@@ -73,7 +80,7 @@ export function loadNetApp(rows: CsvRow[]): NetAppRow[] {
       Typical_W: toFloat(r.Typical_W),
       Idle_W: toFloat(r.Idle_W),
       Drives_per_unit: toFloat(r.Drives_per_unit),
-      Rack_Units: toFloat(r.Rack_Units),
+      Rack_Units: toOptionalFloat(r.Rack_Units),
     };
     return out;
   });
@@ -147,7 +154,7 @@ export type FbPowerResult = {
   annualCost: number;
   btuPerHour: number;
   effectiveTb: number;
-  rackUnits: number;
+  rackUnits: number | null;
   components: {
     EC: { qty: number; model: string; idleWPer: number; typicalWPer: number; weightedWPer: number };
     EX: { qty: number; model: string; idleWPer: number; typicalWPer: number; weightedWPer: number };
@@ -173,7 +180,10 @@ export function fbPower(
   const kwhIt = kwhYear(w);
   const kwhWithPue = kwhIt * pue;
   const annualCost = kwhWithPue * price;
-  const rackUnits = ecQty * ecP.rackUnits + exQty * exP.rackUnits + xfmQty * xfmP.rackUnits;
+  const rackUnits =
+    ecP.rackUnits != null && exP.rackUnits != null && xfmP.rackUnits != null
+      ? ecQty * ecP.rackUnits + exQty * exP.rackUnits + xfmQty * xfmP.rackUnits
+      : null;
 
   return {
     dfmTb,
@@ -220,7 +230,7 @@ export type NetAppCandidate = {
   controllerQty: number;
   expansionQty: number;
   effectiveTb: number;
-  rackUnits: number;
+  rackUnits: number | null;
   pctDiffFromTarget: number;
   weightedW: number;
   kwhYearWithPue: number;
@@ -235,7 +245,7 @@ type NetAppShelfPower = {
   typicalW: number;
   idleW: number;
   drives: number;
-  rackUnits: number;
+  rackUnits: number | null;
   weightedW: (util: number) => number;
 };
 
@@ -309,7 +319,8 @@ export function buildNetAppCandidate(
   const w = ctrlWeighted(util) + expansionQty * exp.weightedW(util);
   const kwhPue = kwhYear(w) * pue;
   const annual = kwhPue * price;
-  const rackUnits = ctrl.Rack_Units + expansionQty * exp.rackUnits;
+  const rackUnits =
+    ctrl.Rack_Units != null && exp.rackUnits != null ? ctrl.Rack_Units + expansionQty * exp.rackUnits : null;
 
   return {
     controllerModel,
@@ -360,7 +371,8 @@ export function enumerateNetApp(
       const kwhPue = kwhYear(w) * pue;
       const annual = kwhPue * price;
       const pct = targetEffTb > 0 ? ((eff - targetEffTb) / targetEffTb) * 100 : 0;
-      const rackUnits = ctrl.Rack_Units + expQty * exp.rackUnits;
+      const rackUnits =
+        ctrl.Rack_Units != null && exp.rackUnits != null ? ctrl.Rack_Units + expQty * exp.rackUnits : null;
 
       if (Math.abs(pct) <= tolFrac * 100 + 1e-9) {
         out.push({
