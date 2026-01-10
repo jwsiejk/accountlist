@@ -1,5 +1,5 @@
 {
-  "lastSyncedISO": "2026-01-09T23:34:12.997Z",
+  "lastSyncedISO": "2026-01-10T00:00:46.071Z",
   "sourceFiles": [
     "energy/data/netapp_e_series.csv",
     "energy/data/netapp_drive_compat.json",
@@ -12,10 +12,10 @@
     "ui\\partner-hub\\public\\data\\energy\\vendor_update_report.json"
   ],
   "sha256": {
-    "netapp_e_series.csv": "1089d3fa909cae1bed9f77d77eb93855828ed7d460a08d9b24c4b824682258cd",
+    "netapp_e_series.csv": "ea71dfeb445020e3291a1f2fbb974b482d40e3f4394cdd03fd4c07479ca8670f",
     "netapp_drive_compat.json": "65c7c8c80ca4ea54cb38a1b82d2db218b9451130907ddf4e5e8f38b51614886a",
-    "pure_flashblade_e.csv": "c7cd7000559aaf4b3e8ca08925f241c6b2957247c5f031d4e94bf16319e2338e",
-    "vendor_update_report.json": "22907eed79c92f2adf8b31ee1b85243c83da3129aeec66048f60bd7c48fa67fd"
+    "pure_flashblade_e.csv": "1d2314b2642daec000119511c3f0d2e89fe42371e7450b744b5c9144aaa54256",
+    "vendor_update_report.json": "58567e9a495851188f8da08288c9d1e6d60c7eccae59624cea49f73e25eb8f0d"
   },
   "reportFiles": [
     "energy/data/vendor_update_report.json"

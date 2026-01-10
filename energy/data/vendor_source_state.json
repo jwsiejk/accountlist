@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAtISO": "2026-01-09T23:52:31.670Z",
+  "updatedAtISO": "2026-01-09T23:59:07.412Z",
   "entries": {
     "https://www.purestorage.com/content/dam/pdf/en/datasheets/ds-pure-storage-flashblade-e.pdf": {
       "lastStatus": 200,
@@ -32,7 +32,23 @@
       "etag": null,
       "lastModified": null,
       "contentHash": "9b2f538fb7d274c80ba93b1bd4668689ded1f7ff4ffe6071bc6c0dc7a8cd9dae",
-      "lastCheckedISO": "2026-01-09T23:52:31.670Z"
+      "lastCheckedISO": "2026-01-09T23:59:07.412Z"
+    },
+    "https://www.purestorage.com/products/unstructured-data-storage/flashblade-e.html": {
+      "lastStatus": 200,
+      "finalUrl": "https://www.purestorage.com/products/unstructured-data-storage/flashblade-e.html",
+      "etag": "\"b6007-647e620af4c59-gzip\"",
+      "lastModified": "Thu, 08 Jan 2026 20:19:36 GMT",
+      "contentHash": "8e99a8231935284d1c198b32e0aadd8b4939af4a39b77d5ab593a898f8d5077d",
+      "lastCheckedISO": "2026-01-09T23:59:07.412Z"
+    },
+    "https://www.netapp.com/data-storage/e-series/e2800/": {
+      "lastStatus": 200,
+      "finalUrl": "https://www.netapp.com/e-series/e2800/",
+      "etag": null,
+      "lastModified": null,
+      "contentHash": "154f3205225282aef11aad3a81ff73d89d5d0b9a4e8c6c2fcc2814e9603794ae",
+      "lastCheckedISO": "2026-01-09T23:59:07.412Z"
     }
   }
 }

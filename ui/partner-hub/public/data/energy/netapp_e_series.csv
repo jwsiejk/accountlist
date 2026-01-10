@@ -1,16 +1,16 @@
 Vendor,Family,Component_Type,Model,Unit,Typical_W,Max_W,Idle_W,Default_Idle_Factor,Drives_per_unit,Rack_Units,Notes,Source_URL
-NetApp,E2800,Controller_Shelf,E2860,shelf,1256.0,1537.0,1067.6,0.85,60,4,E2800 product page power table,https://www.netapp.com/e-series/e2800/
-NetApp,E2800,Controller_Shelf,E2824,shelf,501.4,673.6,426.19,0.85,24,2,E2800 product page power table,https://www.netapp.com/e-series/e2800/
-NetApp,E2800,Controller_Shelf,E2812,shelf,451.3,565.4,383.61,0.85,12,2,E2800 product page power table,https://www.netapp.com/e-series/e2800/
-NetApp,E-Series,Expansion_Shelf,DE460C 60-bay,shelf,1174.0,1460.0,997.9,0.85,60,4,E2800 page disk shelf power table,https://www.netapp.com/e-series/e2800/
-NetApp,E-Series,Expansion_Shelf,DE224C 24-bay,shelf,298.8,451.9,253.98,0.85,24,2,E2800 page disk shelf power table,https://www.netapp.com/e-series/e2800/
-NetApp,E-Series,Expansion_Shelf,DE212C 12-bay,shelf,248.7,343.7,211.39,0.85,12,2,E2800 page disk shelf power table,https://www.netapp.com/e-series/e2800/
-NetApp,E5700,Controller_Shelf,E5760,shelf,581.79,694.15,494.52,0.85,60,4,E5700 product page power table,https://www.netapp.com/e-series/e5700/
-NetApp,E5700,Controller_Shelf,E5724,shelf,581.79,694.15,494.52,0.85,24,2,E5700 product page power table,https://www.netapp.com/e-series/e5700/
-NetApp,E-Series,Expansion_Shelf,DE460C 60-bay (E5700 page),shelf,1090.84,1485.62,927.21,0.85,60,4,E5700 page disk shelf power table,https://www.netapp.com/e-series/e5700/
-NetApp,E-Series,Expansion_Shelf,DE224C 24-bay (E5700 page),shelf,309.7,422.06,263.25,0.85,24,2,E5700 page disk shelf power table,https://www.netapp.com/e-series/e5700/
+NetApp,E2800,Controller_Shelf,E2860,shelf,1256.0,1537.0,1067.6,0.85,60,4,E2800 product page power table,https://www.netapp.com/data-storage/e-series/e2800/
+NetApp,E2800,Controller_Shelf,E2824,shelf,501.4,673.6,426.19,0.85,24,2,E2800 product page power table,https://www.netapp.com/data-storage/e-series/e2800/
+NetApp,E2800,Controller_Shelf,E2812,shelf,451.3,565.4,383.6,0.85,12,2,E2800 product page power table,https://www.netapp.com/data-storage/e-series/e2800/
+NetApp,E-Series,Expansion_Shelf,DE460C 60-bay,shelf,1174.0,1460.0,997.9,0.85,60,4,E2800 page disk shelf power table,https://www.netapp.com/data-storage/e-series/e2800/
+NetApp,E-Series,Expansion_Shelf,DE224C 24-bay,shelf,298.8,451.9,253.98,0.85,24,2,E2800 page disk shelf power table,https://www.netapp.com/data-storage/e-series/e2800/
+NetApp,E-Series,Expansion_Shelf,DE212C 12-bay,shelf,248.7,343.7,211.4,0.85,12,2,E2800 page disk shelf power table,https://www.netapp.com/data-storage/e-series/e2800/
+NetApp,E5700,Controller_Shelf,E5760,shelf,581.79,694.15,494.52,0.85,60,4,E5700 product page power table,https://www.netapp.com/media/116571-ds-4309-hybrid-flash-arrays-e4060-e4012.pdf
+NetApp,E5700,Controller_Shelf,E5724,shelf,581.79,694.15,494.52,0.85,24,2,E5700 product page power table,https://www.netapp.com/media/116571-ds-4309-hybrid-flash-arrays-e4060-e4012.pdf
+NetApp,E-Series,Expansion_Shelf,DE460C 60-bay (E5700 page),shelf,1090.84,1485.62,927.21,0.85,60,4,E5700 page disk shelf power table,https://www.netapp.com/media/116571-ds-4309-hybrid-flash-arrays-e4060-e4012.pdf
+NetApp,E-Series,Expansion_Shelf,DE224C 24-bay (E5700 page),shelf,309.7,422.06,263.24,0.85,24,2,E5700 page disk shelf power table,https://www.netapp.com/media/116571-ds-4309-hybrid-flash-arrays-e4060-e4012.pdf
 NetApp,E4000,Controller_Shelf,E4060,shelf,581.79,694.15,494.52,0.85,60,4,E4060/E4012 datasheet power table,https://www.netapp.com/media/116571-ds-4309-hybrid-flash-arrays-e4060-e4012.pdf
 NetApp,E4000,Controller_Shelf,E4012,shelf,581.79,694.15,494.52,0.85,12,2,E4060/E4012 datasheet power table,https://www.netapp.com/media/116571-ds-4309-hybrid-flash-arrays-e4060-e4012.pdf
 NetApp,E-Series,Expansion_Shelf,DE460C 60-bay (E4000 sheet),shelf,1090.84,1485.62,927.21,0.85,60,4,E4060/E4012 datasheet disk shelf power,https://www.netapp.com/media/116571-ds-4309-hybrid-flash-arrays-e4060-e4012.pdf
-NetApp,E-Series,Expansion_Shelf,DE212C 12-bay (E4000 sheet),shelf,248.7,343.7,211.39,0.85,12,2,E4060/E4012 datasheet disk shelf power,https://www.netapp.com/media/116571-ds-4309-hybrid-flash-arrays-e4060-e4012.pdf
-NetApp,E-Series,Expansion_Shelf,DE224C 24-bay (E4000 sheet),shelf,309.7,422.06,263.25,0.85,24,2,E4060/E4012 datasheet disk shelf power,https://www.netapp.com/media/116571-ds-4309-hybrid-flash-arrays-e4060-e4012.pdf
+NetApp,E-Series,Expansion_Shelf,DE212C 12-bay (E4000 sheet),shelf,248.7,343.7,211.4,0.85,12,2,E4060/E4012 datasheet disk shelf power,https://www.netapp.com/media/116571-ds-4309-hybrid-flash-arrays-e4060-e4012.pdf
+NetApp,E-Series,Expansion_Shelf,DE224C 24-bay (E4000 sheet),shelf,309.7,422.06,263.24,0.85,24,2,E4060/E4012 datasheet disk shelf power,https://www.netapp.com/media/116571-ds-4309-hybrid-flash-arrays-e4060-e4012.pdf

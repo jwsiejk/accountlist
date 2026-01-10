@@ -1,32 +1,14 @@
 {
-  "checkedAtISO": "2026-01-09T23:31:06.636Z",
+  "checkedAtISO": "2026-01-09T23:59:07.412Z",
   "ok": [
     {
-      "url": "https://www.purestorage.com/content/dam/pdf/en/datasheets/ds-pure-storage-flashblade-e.pdf",
+      "url": "https://www.purestorage.com/products/unstructured-data-storage/flashblade-e.html",
       "status": 200,
-      "finalUrl": "https://www.purestorage.com/content/dam/pdf/en/datasheets/ds-pure-storage-flashblade-e.pdf",
-      "etag": "\"362a8-62cf996969ecd-gzip\"",
-      "lastModified": "Fri, 31 Jan 2025 05:12:25 GMT",
-      "contentHash": "bc45a49221fb9324f59d34901279f3b5a28d9702b0f2f13d5915506167a7595a",
-      "previous": "bc45a49221fb9324f59d34901279f3b5a28d9702b0f2f13d5915506167a7595a"
-    },
-    {
-      "url": "https://www.netapp.com/e-series/e2800/",
-      "status": 200,
-      "finalUrl": "https://www.netapp.com/e-series/e2800/",
-      "etag": null,
-      "lastModified": null,
-      "contentHash": "154f3205225282aef11aad3a81ff73d89d5d0b9a4e8c6c2fcc2814e9603794ae",
-      "previous": "154f3205225282aef11aad3a81ff73d89d5d0b9a4e8c6c2fcc2814e9603794ae"
-    },
-    {
-      "url": "https://www.netapp.com/e-series/e5700/",
-      "status": 200,
-      "finalUrl": "https://www.netapp.com/e-series/e5700/",
-      "etag": null,
-      "lastModified": null,
-      "contentHash": "f6598c4aee6fa60d29fa8d10966e7166db53544c415698ffcd3c17550f854444",
-      "previous": "f6598c4aee6fa60d29fa8d10966e7166db53544c415698ffcd3c17550f854444"
+      "finalUrl": "https://www.purestorage.com/products/unstructured-data-storage/flashblade-e.html",
+      "etag": "\"b6007-647e620af4c59-gzip\"",
+      "lastModified": "Thu, 08 Jan 2026 20:19:36 GMT",
+      "contentHash": "8e99a8231935284d1c198b32e0aadd8b4939af4a39b77d5ab593a898f8d5077d",
+      "previous": ""
     },
     {
       "url": "https://www.netapp.com/media/116571-ds-4309-hybrid-flash-arrays-e4060-e4012.pdf",
@@ -38,7 +20,17 @@
       "previous": "9b2f538fb7d274c80ba93b1bd4668689ded1f7ff4ffe6071bc6c0dc7a8cd9dae"
     }
   ],
-  "redirected": [],
+  "redirected": [
+    {
+      "url": "https://www.netapp.com/data-storage/e-series/e2800/",
+      "status": 200,
+      "finalUrl": "https://www.netapp.com/e-series/e2800/",
+      "etag": null,
+      "lastModified": null,
+      "contentHash": "154f3205225282aef11aad3a81ff73d89d5d0b9a4e8c6c2fcc2814e9603794ae",
+      "previous": ""
+    }
+  ],
   "changed": [],
   "missing": [],
   "error": []
