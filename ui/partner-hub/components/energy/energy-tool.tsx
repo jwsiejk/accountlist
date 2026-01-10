@@ -537,9 +537,12 @@ export function EnergyTool() {
 
   const fbCo2eKgPerYear = fb ? fb.kwhWithPue * gridKgCo2ePerKwh : null;
   const netappCo2eKgPerYear = selectedCandidate ? selectedCandidate.kwhYearWithPue * gridKgCo2ePerKwh : null;
-  const fbCo2ePerTbYear = fb && fb.effectiveTb > 0 ? fbCo2eKgPerYear / fb.effectiveTb : null;
+  const fbCo2ePerTbYear =
+    fb != null && fbCo2eKgPerYear != null && fb.effectiveTb > 0 ? fbCo2eKgPerYear / fb.effectiveTb : null;
   const netappCo2ePerTbYear =
-    selectedCandidate && selectedCandidate.effectiveTb > 0 ? netappCo2eKgPerYear / selectedCandidate.effectiveTb : null;
+    selectedCandidate != null && netappCo2eKgPerYear != null && selectedCandidate.effectiveTb > 0
+      ? netappCo2eKgPerYear / selectedCandidate.effectiveTb
+      : null;
   const deltaCo2eKgPerYear =
     fbCo2eKgPerYear != null && netappCo2eKgPerYear != null ? fbCo2eKgPerYear - netappCo2eKgPerYear : null;
   const deltaCo2ePerTbYear =
