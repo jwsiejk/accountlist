@@ -105,9 +105,12 @@ export async function POST(request: Request) {
       : ["No sources available"];
     slide.addNotes(`Sources:\n${sources.join("\n")}`);
 
-    const buffer = await pptx.write("nodebuffer");
+    const out = await pptx.write({ outputType: "nodebuffer" });
+
+    // out is typically a Buffer in Node, but normalize defensively
+    const buffer = Buffer.isBuffer(out) ? out : Buffer.from(out as any);
     const filename = `energy-presales-${payload.meta.generatedAt.slice(0, 10)}.pptx`;
-    return new Response(Buffer.from(buffer), {
+    return new Response(buffer, {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
         "Content-Disposition": `attachment; filename="${filename}"`,

@@ -22,7 +22,7 @@
         "react": "^18.3.1",
         "react-dom": "^18.0.0",
         "reactflow": "^11.11.4",
-        "zod": "^3.23.8"
+        "zod": "^3.25.76"
     },
     "devDependencies": {
         "@types/dagre": "^0.7.52",
