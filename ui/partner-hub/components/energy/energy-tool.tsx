@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   enumerateNetApp,
@@ -24,6 +24,7 @@ import {
   loadNetAppDriveCompat,
   type NetAppDriveCompat,
 } from "@/lib/energy/netapp-drive-compat";
+import { presalesExportSchema, type PresalesExportPayload } from "@/lib/exports/presalesExportSchema";
 
 const fmt0 = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
 const fmt1 = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
@@ -119,6 +120,9 @@ export function EnergyTool() {
   const [vendorReportError, setVendorReportError] = useState<string | null>(null);
   const [sourceCheckHint, setSourceCheckHint] = useState<string | null>(null);
   const [view, setView] = useState<ViewMode>("energy");
+  const [exportChoice, setExportChoice] = useState("");
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportLoading, setExportLoading] = useState<string | null>(null);
 
   const [inputs, setInputs] = useState<Inputs>(() => ({
     dfmTb: 48,
@@ -607,6 +611,16 @@ export function EnergyTool() {
     co2eYear: "CO₂e / year",
     co2ePerTbYear: "CO₂e per effective TB-year (kgCO₂e)",
   };
+  const rowUnits: Record<RowKey, string | null> = {
+    effectiveTb: "TB",
+    weightedW: "W",
+    kwhPerYear: "kWh/year",
+    annualCost: "USD/year",
+    btuPerHour: "BTU/hour",
+    rackUnits: "RU",
+    co2eYear: "tCO₂e/year",
+    co2ePerTbYear: "kgCO₂e/TB-year",
+  };
 
   const fbRowValues: Partial<Record<RowKey, string>> | null = fb
     ? {
@@ -664,10 +678,32 @@ export function EnergyTool() {
       ],
     );
 
-  const handleDownloadAssumptions = () => {
-    const payload = {
-      lastSyncedISO: energyMeta?.lastSyncedISO ?? null,
-      mode,
+  const buildNetAppSummary = (candidate: NetAppCandidate | null) => {
+    if (!candidate) return "No NetApp configuration selected";
+    const shelfLabel = `${candidate.expansionQty} shelf${candidate.expansionQty === 1 ? "" : "es"}`;
+    return `${candidate.controllerModel} + ${shelfLabel}`;
+  };
+
+  const buildPresalesExportPayload = (): PresalesExportPayload => {
+    const rowKeys = [...comparePrimaryKeys, ...compareSecondaryKeys];
+    const selectedIndex = selectedCandidate
+      ? candidates.findIndex((candidate) => candidateKey(candidate) === candidateKey(selectedCandidate))
+      : -1;
+    const payload: PresalesExportPayload = {
+      meta: {
+        toolName: "Energy Tool",
+        generatedAt: new Date().toISOString(),
+        viewMode: view,
+        dataset: energyMeta
+          ? {
+              lastSyncedISO: energyMeta.lastSyncedISO ?? null,
+              sourceFiles: energyMeta.sourceFiles ?? null,
+              copiedFiles: energyMeta.copiedFiles ?? null,
+              sha256: energyMeta.sha256 ?? null,
+              reportFiles: energyMeta.reportFiles ?? null,
+            }
+          : null,
+      },
       assumptions: {
         flashblade: {
           utilizationPct: inputs.pureUtilPct,
@@ -689,51 +725,190 @@ export function EnergyTool() {
         },
         sustainability: {
           gridKgCo2ePerKwh,
+          gridFactorSource,
         },
       },
-      selectedNetApp: selectedCandidate
-        ? {
-            controllerModel: selectedCandidate.controllerModel,
-            expansionModel: selectedCandidate.expansionModel,
-            expansionShelves: selectedCandidate.expansionQty,
-            driveSizeTb: inputs.naDriveSizeTb,
-            rackUnits: selectedCandidate.rackUnits ?? null,
-          }
-        : null,
+      selection: {
+        mode,
+        selectedNetAppConfig: selectedCandidate
+          ? {
+              controllerModel: selectedCandidate.controllerModel,
+              expansionModel: selectedCandidate.expansionModel,
+              expansionQty: selectedCandidate.expansionQty,
+              driveSizeTb: inputs.naDriveSizeTb,
+              rackUnits: selectedCandidate.rackUnits ?? null,
+              effectiveTb: selectedCandidate.effectiveTb,
+              kwhPerYear: selectedCandidate.kwhYearWithPue,
+              annualCost: selectedCandidate.annualEnergyCost,
+              summary: buildNetAppSummary(selectedCandidate),
+            }
+          : null,
+        matchInfo:
+          mode === "auto" && selectedCandidate
+            ? {
+                tolerancePct: inputs.tolPct,
+                candidateCount: candidates.length,
+                selectedIndex: selectedIndex >= 0 ? selectedIndex : 0,
+              }
+            : null,
+      },
       results: fb
         ? {
-            flashblade: {
-              rackUnits: fb.rackUnits ?? null,
+            flashbladeTotals: {
               effectiveTb: fb.effectiveTb,
+              weightedW: fb.weightedW,
+              kwhPerYear: fb.kwhWithPue,
+              annualCost: fb.annualCost,
+              btuPerHour: fb.btuPerHour,
+              rackUnits: fb.rackUnits ?? null,
               co2eKgPerYear: fbCo2eKgPerYear,
-              co2eKgPerTbYear: fbCo2ePerTbYear,
+              co2ePerTbYear: fbCo2ePerTbYear,
             },
-            netapp: selectedCandidate
+            netappTotals: selectedCandidate
               ? {
-                  rackUnits: selectedCandidate.rackUnits ?? null,
                   effectiveTb: selectedCandidate.effectiveTb,
+                  weightedW: selectedCandidate.weightedW,
+                  kwhPerYear: selectedCandidate.kwhYearWithPue,
+                  annualCost: selectedCandidate.annualEnergyCost,
+                  btuPerHour: null,
+                  rackUnits: selectedCandidate.rackUnits ?? null,
                   co2eKgPerYear: netappCo2eKgPerYear,
-                  co2eKgPerTbYear: netappCo2ePerTbYear,
+                  co2ePerTbYear: netappCo2ePerTbYear,
                 }
               : null,
-            delta: {
-              rackUnits: savings?.deltaRackUnits ?? null,
+            deltaTotals: {
               effectiveTb: savings?.deltaEffectiveTb ?? null,
+              weightedW: savings?.deltaW ?? null,
+              kwhPerYear: savings?.deltaKwh ?? null,
+              annualCost: savings?.deltaCost ?? null,
+              btuPerHour: null,
+              rackUnits: savings?.deltaRackUnits ?? null,
               co2eKgPerYear: deltaCo2eKgPerYear,
-              co2eKgPerTbYear: deltaCo2ePerTbYear,
+              co2ePerTbYear: deltaCo2ePerTbYear,
             },
           }
         : null,
-      sources: sourceList.map((item) => (item.type === "link" ? item.url : item.label)),
+      rows: rowKeys.map((key) => ({
+        key,
+        label: rowLabels[key],
+        flashblade: fbRowValues?.[key] ?? "—",
+        netapp: netappRowValues?.[key] ?? "—",
+        delta: deltaRowValues[key] ?? "—",
+        units: rowUnits[key] ?? null,
+      })),
+      sources: sourceList.map((item) => ({
+        label: item.label,
+        url: item.type === "link" ? item.url ?? null : null,
+        missing: item.type === "missing",
+      })),
     };
+    return presalesExportSchema.parse(payload);
+  };
 
+  const downloadJson = (payload: PresalesExportPayload, filename: string) => {
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "assumptions.json";
+    link.download = filename;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const escapeCsvCell = (value: string) => {
+    if (value.includes("\"")) {
+      value = value.replace(/\"/g, "\"\"");
+    }
+    if (value.includes(",") || value.includes("\n") || value.includes("\"")) {
+      return `"${value}"`;
+    }
+    return value;
+  };
+
+  const downloadCsv = (payload: PresalesExportPayload, filename: string) => {
+    const header = ["Row", "FlashBlade", "NetApp", "Delta", "Units", "Notes"];
+    const lines = [header.join(",")];
+    payload.rows.forEach((row) => {
+      lines.push(
+        [
+          escapeCsvCell(row.label),
+          escapeCsvCell(row.flashblade),
+          escapeCsvCell(row.netapp),
+          escapeCsvCell(row.delta),
+          escapeCsvCell(row.units ?? ""),
+          escapeCsvCell(row.notes ?? ""),
+        ].join(","),
+      );
+    });
+    const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const buildExportFilename = (extension: string, payload: PresalesExportPayload) => {
+    const datePart = payload.meta.generatedAt.slice(0, 10);
+    const summary = payload.selection.selectedNetAppConfig?.summary ?? "netapp";
+    const safeSummary = summary.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "");
+    return `energy-presales-${datePart}-${safeSummary}.${extension}`;
+  };
+
+  const requestExportFile = async (type: "pdf" | "pptx", payload: PresalesExportPayload) => {
+    setExportLoading(type);
+    try {
+      const res = await fetch(`${basePath}/api/exports/presales/${type}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        throw new Error(`Export failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = buildExportFilename(type, payload);
+      link.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExportLoading(null);
+    }
+  };
+
+  const handleDownloadAssumptions = () => {
+    const payload = buildPresalesExportPayload();
+    downloadJson(payload, "assumptions.json");
+  };
+
+  const handleExportChange = async (event: ChangeEvent<HTMLSelectElement>) => {
+    const selection = event.target.value;
+    setExportChoice(selection);
+    if (!selection) return;
+    try {
+      setExportError(null);
+      const payload = buildPresalesExportPayload();
+      if (selection === "csv") {
+        downloadCsv(payload, buildExportFilename("csv", payload));
+        return;
+      }
+      if (selection === "json") {
+        downloadJson(payload, buildExportFilename("json", payload));
+        return;
+      }
+      if (selection === "pdf" || selection === "pptx") {
+        await requestExportFile(selection, payload);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Export failed";
+      setExportError(message);
+      window.alert(message);
+    } finally {
+      setExportChoice("");
+    }
   };
 
   const handleCheckSources = async () => {
@@ -762,6 +937,7 @@ export function EnergyTool() {
     () => mode === "auto" && candidates.slice(0, 8).some((candidate) => candidate.rackUnits == null),
     [candidates, mode],
   );
+  const exportDisabled = loading || exportLoading != null || !fb || !selectedCandidate;
 
   return (
     <div className="space-y-6">
@@ -1023,6 +1199,21 @@ export function EnergyTool() {
               >
                 Assumptions &amp; Sources
               </button>
+              <select
+                className="h-10 rounded-md border border-border bg-background px-3 text-sm font-semibold text-foreground transition hover:bg-muted/50 disabled:opacity-50"
+                aria-label="Export"
+                value={exportChoice}
+                onChange={handleExportChange}
+                disabled={exportDisabled}
+              >
+                <option value="" disabled>
+                  Export…
+                </option>
+                <option value="pdf">PDF one-pager</option>
+                <option value="pptx">PPTX slide</option>
+                <option value="csv">CSV (totals + delta)</option>
+                <option value="json">JSON (assumptions + results)</option>
+              </select>
               <button
                 type="button"
                 className="inline-flex h-10 items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-semibold text-foreground transition hover:bg-muted/50"
@@ -1031,7 +1222,9 @@ export function EnergyTool() {
                 Check sources (local)
               </button>
               {loading ? <span className="text-xs text-foreground/60">Loading datasets…</span> : null}
+              {exportLoading ? <span className="text-xs text-foreground/60">Exporting {exportLoading}…</span> : null}
               {computeError ? <span className="text-xs font-semibold text-red-600">{computeError}</span> : null}
+              {exportError ? <span className="text-xs font-semibold text-red-600">{exportError}</span> : null}
               {sourceCheckHint ? <span className="text-xs text-foreground/60">{sourceCheckHint}</span> : null}
             </div>
           </CardContent>
