@@ -119,6 +119,7 @@ export function EnergyTool() {
   const [vendorReport, setVendorReport] = useState<VendorUpdateReport | null>(null);
   const [vendorReportError, setVendorReportError] = useState<string | null>(null);
   const [sourceCheckHint, setSourceCheckHint] = useState<string | null>(null);
+  const [checkSourcesActive, setCheckSourcesActive] = useState(false);
   const [view, setView] = useState<ViewMode>("energy");
   const [exportChoice, setExportChoice] = useState("");
   const [exportError, setExportError] = useState<string | null>(null);
@@ -913,6 +914,12 @@ export function EnergyTool() {
 
   const handleCheckSources = async () => {
     const command = "node ui/partner-hub/scripts/check-vendor-sources.mjs";
+    if (checkSourcesActive) {
+      setCheckSourcesActive(false);
+      setSourceCheckHint(null);
+      return;
+    }
+    setCheckSourcesActive(true);
     try {
       await navigator.clipboard.writeText(command);
       setSourceCheckHint(`Run locally: ${command} (command copied)`);
@@ -938,6 +945,13 @@ export function EnergyTool() {
     [candidates, mode],
   );
   const exportDisabled = loading || exportLoading != null || !fb || !selectedCandidate;
+  const toggleButtonClass = (isActive: boolean) =>
+    [
+      "inline-flex h-10 w-full items-center justify-center rounded-md border px-4 text-sm font-semibold transition-colors",
+      isActive
+        ? "border-primary bg-primary text-primary-foreground hover:bg-primary/90 ring-1 ring-primary/30"
+        : "border-border bg-background text-foreground hover:bg-muted/50",
+    ].join(" ");
 
   return (
     <div className="space-y-6">
@@ -1172,55 +1186,63 @@ export function EnergyTool() {
               </div>
             ) : null}
 
-            <div className="flex flex-wrap items-center gap-2">
-              {mode === "auto" ? (
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+              <div className="grid gap-2">
+                {mode === "auto" ? (
+                  <button
+                    type="button"
+                    className="inline-flex h-10 w-full items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+                    onClick={runModel}
+                    disabled={loading || pureRows.length === 0 || netappRows.length === 0}
+                  >
+                    Recalculate
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="inline-flex h-10 w-full items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+                    onClick={runManual}
+                    disabled={manualApplyDisabled}
+                  >
+                    Apply manual config
+                  </button>
+                )}
                 <button
                   type="button"
-                  className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
-                  onClick={runModel}
-                  disabled={loading || pureRows.length === 0 || netappRows.length === 0}
+                  className={toggleButtonClass(assumptionsOpen)}
+                  onClick={() => setAssumptionsOpen((prev) => !prev)}
+                  aria-pressed={assumptionsOpen}
                 >
-                  Recalculate
+                  Assumptions &amp; Sources
                 </button>
-              ) : (
                 <button
                   type="button"
-                  className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
-                  onClick={runManual}
-                  disabled={manualApplyDisabled}
+                  className={toggleButtonClass(checkSourcesActive)}
+                  onClick={handleCheckSources}
+                  aria-pressed={checkSourcesActive}
                 >
-                  Apply manual config
+                  Check Sources (local)
                 </button>
-              )}
-              <button
-                type="button"
-                className="inline-flex h-10 items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-semibold text-foreground transition hover:bg-muted/50"
-                onClick={() => setAssumptionsOpen((prev) => !prev)}
-              >
-                Assumptions &amp; Sources
-              </button>
-              <select
-                className="h-10 rounded-md border border-border bg-background px-3 text-sm font-semibold text-foreground transition hover:bg-muted/50 disabled:opacity-50"
-                aria-label="Export"
-                value={exportChoice}
-                onChange={handleExportChange}
-                disabled={exportDisabled}
-              >
-                <option value="" disabled>
-                  Export…
-                </option>
-                <option value="pdf">PDF one-pager</option>
-                <option value="pptx">PPTX slide</option>
-                <option value="csv">CSV (totals + delta)</option>
-                <option value="json">JSON (assumptions + results)</option>
-              </select>
-              <button
-                type="button"
-                className="inline-flex h-10 items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-semibold text-foreground transition hover:bg-muted/50"
-                onClick={handleCheckSources}
-              >
-                Check sources (local)
-              </button>
+              </div>
+              <div className="grid gap-2 sm:justify-items-end">
+                <select
+                  className="h-10 w-full min-w-[220px] rounded-md border border-border bg-background px-3 text-sm font-semibold text-foreground transition hover:bg-muted/50 disabled:opacity-50 sm:w-[260px]"
+                  aria-label="Export"
+                  value={exportChoice}
+                  onChange={handleExportChange}
+                  disabled={exportDisabled}
+                >
+                  <option value="" disabled>
+                    Export…
+                  </option>
+                  <option value="pdf">PDF one-pager</option>
+                  <option value="pptx">PPTX slide</option>
+                  <option value="csv">CSV (totals + delta)</option>
+                  <option value="json">JSON (assumptions + results)</option>
+                </select>
+              </div>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
               {loading ? <span className="text-xs text-foreground/60">Loading datasets…</span> : null}
               {exportLoading ? <span className="text-xs text-foreground/60">Exporting {exportLoading}…</span> : null}
               {computeError ? <span className="text-xs font-semibold text-red-600">{computeError}</span> : null}
