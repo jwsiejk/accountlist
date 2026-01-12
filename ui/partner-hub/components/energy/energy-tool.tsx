@@ -1186,47 +1186,47 @@ export function EnergyTool() {
               </div>
             ) : null}
 
-            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
-              <div className="grid gap-2">
-                {mode === "auto" ? (
-                  <button
-                    type="button"
-                    className="inline-flex h-10 w-full items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
-                    onClick={runModel}
-                    disabled={loading || pureRows.length === 0 || netappRows.length === 0}
-                  >
-                    Recalculate
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="inline-flex h-10 w-full items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
-                    onClick={runManual}
-                    disabled={manualApplyDisabled}
-                  >
-                    Apply manual config
-                  </button>
-                )}
+            {/* Controls: full-width vertical buttons + export below (right-aligned) */}
+            <div className="grid gap-2">
+              {mode === "auto" ? (
                 <button
                   type="button"
-                  className={toggleButtonClass(assumptionsOpen)}
-                  onClick={() => setAssumptionsOpen((prev) => !prev)}
-                  aria-pressed={assumptionsOpen}
+                  className="inline-flex h-10 w-full items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+                  onClick={runModel}
+                  disabled={loading || pureRows.length === 0 || netappRows.length === 0}
                 >
-                  Assumptions &amp; Sources
+                  Recalculate
                 </button>
+              ) : (
                 <button
                   type="button"
-                  className={toggleButtonClass(checkSourcesActive)}
-                  onClick={handleCheckSources}
-                  aria-pressed={checkSourcesActive}
+                  className="inline-flex h-10 w-full items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+                  onClick={runManual}
+                  disabled={manualApplyDisabled}
                 >
-                  Check Sources (local)
+                  Apply manual config
                 </button>
-              </div>
-              <div className="grid gap-2 sm:justify-items-end">
+              )}
+              <button
+                type="button"
+                className={toggleButtonClass(assumptionsOpen)}
+                onClick={() => setAssumptionsOpen((prev) => !prev)}
+                aria-pressed={assumptionsOpen}
+              >
+                Assumptions &amp; Sources
+              </button>
+              <button
+                type="button"
+                className={toggleButtonClass(checkSourcesActive)}
+                onClick={handleCheckSources}
+                aria-pressed={checkSourcesActive}
+              >
+                Check Sources (local)
+              </button>
+              {/* Export: below buttons, right-aligned. Full width on small screens. */}
+              <div className="flex justify-end">
                 <select
-                  className="h-10 w-full min-w-[220px] rounded-md border border-border bg-background px-3 text-sm font-semibold text-foreground transition hover:bg-muted/50 disabled:opacity-50 sm:w-[260px]"
+                  className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm font-semibold text-foreground transition hover:bg-muted/50 disabled:opacity-50 sm:w-[260px]"
                   aria-label="Export"
                   value={exportChoice}
                   onChange={handleExportChange}
