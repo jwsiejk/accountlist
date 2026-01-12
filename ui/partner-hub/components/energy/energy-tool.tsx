@@ -947,7 +947,7 @@ export function EnergyTool() {
   const exportDisabled = loading || exportLoading != null || !fb || !selectedCandidate;
   const toggleButtonClass = (isActive: boolean) =>
     [
-      "inline-flex h-10 w-full items-center justify-center rounded-md border px-4 text-sm font-semibold transition-colors",
+      "inline-flex h-10 items-center justify-center rounded-md border px-4 text-sm font-semibold transition-colors",
       isActive
         ? "border-primary bg-primary text-primary-foreground hover:bg-primary/90 ring-1 ring-primary/30"
         : "border-border bg-background text-foreground hover:bg-muted/50",
@@ -1186,12 +1186,12 @@ export function EnergyTool() {
               </div>
             ) : null}
 
-            {/* Controls: full-width vertical buttons + export below (right-aligned) */}
-            <div className="grid gap-2">
+            {/* Controls: stacked buttons (normal sizing; do not stretch full width) */}
+            <div className="grid gap-2 justify-items-start">
               {mode === "auto" ? (
                 <button
                   type="button"
-                  className="inline-flex h-10 w-full items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+                  className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
                   onClick={runModel}
                   disabled={loading || pureRows.length === 0 || netappRows.length === 0}
                 >
@@ -1200,7 +1200,7 @@ export function EnergyTool() {
               ) : (
                 <button
                   type="button"
-                  className="inline-flex h-10 w-full items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+                  className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
                   onClick={runManual}
                   disabled={manualApplyDisabled}
                 >
@@ -1223,24 +1223,6 @@ export function EnergyTool() {
               >
                 Check Sources (local)
               </button>
-              {/* Export: below buttons, right-aligned. Full width on small screens. */}
-              <div className="flex justify-end">
-                <select
-                  className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm font-semibold text-foreground transition hover:bg-muted/50 disabled:opacity-50 sm:w-[260px]"
-                  aria-label="Export"
-                  value={exportChoice}
-                  onChange={handleExportChange}
-                  disabled={exportDisabled}
-                >
-                  <option value="" disabled>
-                    Export…
-                  </option>
-                  <option value="pdf">PDF one-pager</option>
-                  <option value="pptx">PPTX slide</option>
-                  <option value="csv">CSV (totals + delta)</option>
-                  <option value="json">JSON (assumptions + results)</option>
-                </select>
-              </div>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               {loading ? <span className="text-xs text-foreground/60">Loading datasets…</span> : null}
@@ -1255,6 +1237,8 @@ export function EnergyTool() {
 
       {fb ? (
         <div className="space-y-4">
+          {/* Between the top inputs cards and the lower totals/candidates cards:
+              View control on the left, Export dropdown on the right */}
           <div className="flex flex-wrap items-center gap-3">
             <div className="text-xs font-semibold uppercase tracking-wide text-foreground/60">View</div>
             <div className="flex rounded-md border border-border bg-background p-1 text-xs font-semibold uppercase tracking-wide text-foreground/70">
@@ -1288,6 +1272,26 @@ export function EnergyTool() {
               >
                 Both
               </button>
+            </div>
+
+            {/* Export stays right-aligned and sits "between" the NetApp baseline card above
+                and the NetApp candidates card below (even when View is visible). */}
+            <div className="ml-auto flex w-full justify-end sm:w-auto">
+              <select
+                className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm font-semibold text-foreground transition hover:bg-muted/50 disabled:opacity-50 sm:w-[260px]"
+                aria-label="Export"
+                value={exportChoice}
+                onChange={handleExportChange}
+                disabled={exportDisabled}
+              >
+                <option value="" disabled>
+                  Export…
+                </option>
+                <option value="pdf">PDF one-pager</option>
+                <option value="pptx">PPTX slide</option>
+                <option value="csv">CSV (totals + delta)</option>
+                <option value="json">JSON (assumptions + results)</option>
+              </select>
             </div>
           </div>
           {view !== "energy" ? (
