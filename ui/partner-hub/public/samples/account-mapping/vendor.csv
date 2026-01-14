@@ -1,13 +1,13 @@
-Account Name,CRM Account ID,Status,Owner,Manager,PAM,Segment,Region,State,Country,City,Primary Contact Name,Primary Contact Email,Primary Contact Role
-Acme Corp,CRM-1001,Customer,Jordan Lee,Sasha Patel,Kim Reyes,Enterprise,West,CA,USA,San Francisco,Avery Chen,avery.chen@acme.example.com,VP Operations
-Northwind Traders,CRM-1002,Prospect,Jamie Rivera,Morgan Fox,Casey Yang,Mid-Market,East,NY,USA,New York,Rowan Park,rowan.park@northwind.example.com,Procurement Lead
-Globex Corporation,CRM-1003,Customer,Taylor Morgan,Jamie Chen,Riley Shah,Enterprise,Central,IL,USA,Chicago,Quinn Blake,quinn.blake@globex.example.com,Director of IT
-Initech,CRM-1004,Prospect,Alex Kim,Drew Martin,Jordan Brooks,SMB,Central,TX,USA,Austin,Reese Taylor,reese.taylor@initech.example.com,Operations Manager
-Umbrella Health,CRM-1005,Customer,Sam Carter,Jordan Miles,Alexis Harper,Enterprise,East,MA,USA,Boston,Casey Lin,casey.lin@umbrella.example.com,Chief Nursing Officer
-Stark Industries,CRM-1006,Customer,Riley Stone,Leslie Zhang,Taylor Brooks,Enterprise,East,NY,USA,New York,Emerson Gray,emerson.gray@stark.example.com,Head of R&D
-Wayne Enterprises,CRM-1007,Customer,Harper Lee,Quinn Ross,Jamie Patel,Enterprise,East,NJ,USA,Newark,Parker James,parker.james@wayne.example.com,Security Director
-Soylent Labs,CRM-1008,Prospect,Casey Morgan,Jordan Quinn,Reese Morgan,SMB,West,CA,USA,San Diego,Skyler Reed,skyler.reed@soylent.example.com,Lab Manager
-Hooli,CRM-1009,Prospect,Logan Perez,Alex Park,Cameron Patel,Mid-Market,West,CA,USA,Palo Alto,River Ellis,river.ellis@hooli.example.com,Platform Lead
-Oscorp,CRM-1010,Customer,Jamie Reed,Harper Diaz,Jordan Lee,Enterprise,East,NY,USA,Albany,Finley James,finley.james@oscorp.example.com,VP Strategy
-Tyrell Corp,CRM-1011,Prospect,Drew Allen,Cameron Cho,Rowan Scott,Mid-Market,West,WA,USA,Seattle,Ash Carter,ash.carter@tyrell.example.com,Program Manager
-Aperture Science,CRM-1012,Prospect,Reese Palmer,Alex Nguyen,Quinn Cole,SMB,Central,MI,USA,Detroit,Kendall Price,kendall.price@aperture.example.com,Facilities Lead
+Account Name,CRM Account ID,Status,Owner,Manager,PAM,Segment,Organization,Region,State,Country,City,Primary Contact Name,Primary Contact Email,Primary Contact Role
+Acme Corp,CRM-1001,Customer,Jordan Lee,Sasha Patel,Kim Reyes,Enterprise,Americas,East,CA,USA,San Francisco,Avery Chen,avery.chen@acme.example.com,VP Operations
+Northwind Traders,CRM-1002,Prospect,Jamie Rivera,Morgan Fox,Casey Yang,Mid-Market,Americas,West,NY,USA,New York,Rowan Park,rowan.park@northwind.example.com,Procurement Lead
+Globex Corporation,CRM-1003,Customer,Taylor Morgan,Jamie Chen,Riley Shah,Enterprise,Americas,West,IL,USA,Chicago,Quinn Blake,quinn.blake@globex.example.com,Director of IT
+Initech,CRM-1004,Prospect,Alex Kim,Drew Martin,Jordan Brooks,SMB,Americas,Central,TX,USA,Austin,Reese Taylor,reese.taylor@initech.example.com,Operations Manager
+Umbrella Health,CRM-1005,Customer,Sam Carter,Jordan Miles,Alexis Harper,Enterprise,Americas,Central,MA,USA,Boston,Casey Lin,casey.lin@umbrella.example.com,Chief Nursing Officer
+Stark Industries,CRM-1006,Customer,Riley Stone,Leslie Zhang,Taylor Brooks,Enterprise,Americas,TOLA,NY,USA,New York,Emerson Gray,emerson.gray@stark.example.com,Head of R&D
+Wayne Enterprises,CRM-1007,Customer,Harper Lee,Quinn Ross,Jamie Patel,Enterprise,Americas,TOLA,NJ,USA,Newark,Parker James,parker.james@wayne.example.com,Security Director
+Soylent Labs,CRM-1008,Prospect,Casey Morgan,Jordan Quinn,Reese Morgan,SMB,Americas,East,CA,USA,San Diego,Skyler Reed,skyler.reed@soylent.example.com,Lab Manager
+Hooli,CRM-1009,Prospect,Logan Perez,Alex Park,Cameron Patel,Mid-Market,Americas,East,CA,USA,Palo Alto,River Ellis,river.ellis@hooli.example.com,Platform Lead
+Oscorp,CRM-1010,Customer,Jamie Reed,Harper Diaz,Jordan Lee,Enterprise,Americas,East,NY,USA,Albany,Finley James,finley.james@oscorp.example.com,VP Strategy
+Tyrell Corp,CRM-1011,Prospect,Drew Allen,Cameron Cho,Rowan Scott,Mid-Market,Americas,East,WA,USA,Seattle,Ash Carter,ash.carter@tyrell.example.com,Program Manager
+Aperture Science,CRM-1012,Prospect,Reese Palmer,Alex Nguyen,Quinn Cole,SMB,Americas,West,MI,USA,Detroit,Kendall Price,kendall.price@aperture.example.com,Facilities Lead

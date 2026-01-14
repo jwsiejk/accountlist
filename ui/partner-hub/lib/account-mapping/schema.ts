@@ -38,6 +38,18 @@ export const canonicalFields = [
     description: "Segment or account type.",
   },
   {
+    key: "organization",
+    label: "Organization",
+    required: false,
+    description: "Organization or business unit.",
+  },
+  {
+    key: "region",
+    label: "Region",
+    required: false,
+    description: "Region or territory assignment.",
+  },
+  {
     key: "city",
     label: "City",
     required: false,
@@ -81,6 +93,8 @@ export const accountMappingSchema = z.object({
   pam_name: z.string().nullable().optional(),
   status: z.string().nullable().optional(),
   segment_type: z.string().nullable().optional(),
+  organization: z.string().nullable().optional(),
+  region: z.string().nullable().optional(),
   city: z.string().nullable().optional(),
   state: z.string().nullable().optional(),
   country: z.string().nullable().optional(),
