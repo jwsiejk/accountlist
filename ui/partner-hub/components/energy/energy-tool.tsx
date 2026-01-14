@@ -562,17 +562,26 @@ export function EnergyTool() {
     | "weightedW"
     | "kwhPerYear"
     | "annualCost"
+    | "costPct"
     | "btuPerHour"
     | "rackUnits"
     | "co2eYear"
     | "co2ePerTbYear";
 
-  const energyRowKeys = ["effectiveTb", "weightedW", "kwhPerYear", "annualCost", "rackUnits"] as const satisfies readonly RowKey[];
+  const energyRowKeys = [
+    "effectiveTb",
+    "weightedW",
+    "kwhPerYear",
+    "annualCost",
+    "costPct",
+    "rackUnits",
+  ] as const satisfies readonly RowKey[];
   const energyTotalsRowKeys = [
     "effectiveTb",
     "weightedW",
     "kwhPerYear",
     "annualCost",
+    "costPct",
     "btuPerHour",
     "rackUnits",
   ] as const satisfies readonly RowKey[];
@@ -607,6 +616,7 @@ export function EnergyTool() {
     weightedW: "Weighted IT load (W)",
     kwhPerYear: "kWh / year (with PUE)",
     annualCost: "Annual energy cost",
+    costPct: "Cost %",
     btuPerHour: "BTU / hour",
     rackUnits: "Total rack units",
     co2eYear: "CO₂e / year",
@@ -617,6 +627,7 @@ export function EnergyTool() {
     weightedW: "W",
     kwhPerYear: "kWh/year",
     annualCost: "USD/year",
+    costPct: null,
     btuPerHour: "BTU/hour",
     rackUnits: "RU",
     co2eYear: "tCO₂e/year",
@@ -629,6 +640,7 @@ export function EnergyTool() {
         weightedW: fmt0.format(fb.weightedW),
         kwhPerYear: fmt0.format(fb.kwhWithPue),
         annualCost: `$${fmt0.format(fb.annualCost)}`,
+        costPct: "—",
         btuPerHour: fmt0.format(fb.btuPerHour),
         rackUnits: formatRackUnits(fb.rackUnits),
         co2eYear: formatCo2eYear(fbCo2eKgPerYear),
@@ -642,23 +654,20 @@ export function EnergyTool() {
         weightedW: fmt0.format(selectedCandidate.weightedW),
         kwhPerYear: fmt0.format(selectedCandidate.kwhYearWithPue),
         annualCost: `$${fmt0.format(selectedCandidate.annualEnergyCost)}`,
+        costPct: "—",
         rackUnits: formatRackUnits(selectedCandidate.rackUnits),
         co2eYear: formatCo2eYear(netappCo2eKgPerYear),
         co2ePerTbYear: formatCo2ePerTbYear(netappCo2ePerTbYear),
       }
     : null;
 
-  const deltaCostWithPct =
-    savings?.deltaCost == null
-      ? "—"
-      : `$${fmt0.format(savings.deltaCost)}${
-          view !== "sustainability" && savings?.pctCost != null ? ` (${fmt1.format(savings.pctCost)}%)` : ""
-        }`;
   const deltaRowValues: Partial<Record<RowKey, string>> = {
     effectiveTb: savings?.deltaEffectiveTb == null ? "—" : fmt0.format(savings.deltaEffectiveTb),
     weightedW: savings?.deltaW == null ? "—" : fmt0.format(savings.deltaW),
     kwhPerYear: savings?.deltaKwh == null ? "—" : fmt0.format(savings.deltaKwh),
-    annualCost: deltaCostWithPct,
+    annualCost: savings?.deltaCost == null ? "—" : `$${fmt0.format(savings.deltaCost)}`,
+    costPct:
+      view !== "sustainability" && savings?.pctCost != null ? `${fmt1.format(savings.pctCost)}%` : "—",
     rackUnits: savings?.deltaRackUnits == null ? "—" : fmt0.format(savings.deltaRackUnits),
     co2eYear: formatCo2eYear(deltaCo2eKgPerYear),
     co2ePerTbYear: formatCo2ePerTbYear(deltaCo2ePerTbYear),
