@@ -980,7 +980,7 @@ export default function AccountMappingTool() {
 
   const baseReviewRows = useMemo(() => {
     return matchResults
-      .map((result) => {
+      .map<ReviewRow | null>((result) => {
         const vendor = vendorById.get(result.source.id);
         if (!vendor) {
           return null;
@@ -998,9 +998,9 @@ export default function AccountMappingTool() {
           status: result.status,
           baseStatus: result.status,
           reasons: result.best?.reasons ?? [],
-        } satisfies ReviewRow;
+        } as ReviewRow;
       })
-      .filter((row): row is ReviewRow => Boolean(row));
+      .filter((row): row is ReviewRow => row !== null);
   }, [matchResults, partnerById, vendorById]);
 
   const reviewRows = useMemo(() => {
