@@ -47,6 +47,10 @@ import {
   type TargetExportRow,
 } from "@/lib/account-mapping/exportSchema";
 import {
+  filterMergedSearchRows,
+  type MergedSearchRow,
+} from "@/lib/account-mapping/mergedSearch";
+import {
   findLatestRunByFiles,
   loadRuns,
   saveRun,
@@ -57,6 +61,7 @@ import {
 
 const DEFAULT_PROGRESS_STEP = 2000;
 const MAX_PREVIEW_ROWS = 20;
+const SEARCH_PREVIEW_ROWS = 2000;
 const REVIEW_ROW_HEIGHT = 168;
 const REVIEW_LIST_HEIGHT = 560;
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
@@ -64,6 +69,15 @@ const DEMO_VENDOR_URL = `${basePath}/samples/account-mapping/vendor.csv`;
 const DEMO_PARTNER_URL = `${basePath}/samples/account-mapping/partner.csv`;
 const INPUT_BASE_CLASSES =
   "rounded-md border border-foreground/20 bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
+const MERGED_SEARCH_EXTRA_HEADERS = [
+  "decision_status",
+  "normalized_name",
+  "vendor_crm_account_id",
+  "partner_crm_account_id",
+  "vendor_segment_type",
+  "partner_segment_type",
+] as const;
+const MERGED_SEARCH_HEADERS = [...mergedAccountExportHeaders, ...MERGED_SEARCH_EXTRA_HEADERS];
 
 type CsvParseResult = {
   headers: string[];
@@ -332,6 +346,221 @@ const PreviewTable = ({
     </table>
   </div>
 );
+
+const buildSearchOptions = (rows: Record<string, string>[], key: string) => {
+  const values = new Set<string>();
+  rows.forEach((row) => {
+    const value = row[key]?.trim();
+    if (value) {
+      values.add(value);
+    }
+  });
+  return Array.from(values).sort((a, b) => a.localeCompare(b));
+};
+
+const MergedDatasetSearchPanel = ({
+  datasetLabel,
+  rows,
+  headers,
+  onDownload,
+}: {
+  datasetLabel: string;
+  rows: MergedSearchRow[];
+  headers: string[];
+  onDownload: (rows: MergedSearchRow[]) => void;
+}) => {
+  const [search, setSearch] = useState("");
+  const [vendorOwnerFilter, setVendorOwnerFilter] = useState("");
+  const [partnerOwnerFilter, setPartnerOwnerFilter] = useState("");
+  const [matchTypeFilter, setMatchTypeFilter] = useState("");
+  const [overlapOnly, setOverlapOnly] = useState(true);
+  const debouncedSearch = useDebouncedValue(search, 150);
+
+  const vendorOwnerOptions = useMemo(
+    () => buildSearchOptions(rows, "vendor_owner"),
+    [rows],
+  );
+  const partnerOwnerOptions = useMemo(
+    () => buildSearchOptions(rows, "partner_owner"),
+    [rows],
+  );
+  const matchTypeOptions = useMemo(() => buildSearchOptions(rows, "match_type"), [rows]);
+
+  const filteredRows = useMemo(
+    () =>
+      filterMergedSearchRows(rows, {
+        search: debouncedSearch,
+        vendorOwner: vendorOwnerFilter,
+        partnerOwner: partnerOwnerFilter,
+        matchType: matchTypeFilter,
+        overlapOnly,
+      }),
+    [
+      debouncedSearch,
+      matchTypeFilter,
+      overlapOnly,
+      partnerOwnerFilter,
+      rows,
+      vendorOwnerFilter,
+    ],
+  );
+
+  const previewColumns = useMemo(() => {
+    const defaults = [
+      "vendor_account_name",
+      "partner_account_name",
+      "vendor_owner",
+      "partner_owner",
+      "match_type",
+      "match_score",
+      "decision_status",
+      "vendor_status",
+      "partner_status",
+    ];
+    return defaults.filter((column) => headers.includes(column));
+  }, [headers]);
+
+  const previewRows = useMemo(
+    () => filteredRows.slice(0, SEARCH_PREVIEW_ROWS),
+    [filteredRows],
+  );
+
+  const renderFilterInput = (
+    id: string,
+    label: string,
+    value: string,
+    onChange: (next: string) => void,
+    options: string[],
+  ) => {
+    const hasOptions = options.length > 0;
+    return (
+      <div className="space-y-2">
+        <label className="text-sm font-medium" htmlFor={id}>
+          {label}
+        </label>
+        {hasOptions ? (
+          <select
+            id={id}
+            className={`w-full ${INPUT_BASE_CLASSES}`}
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+          >
+            <option value="">All</option>
+            {options.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            id={id}
+            className={`w-full ${INPUT_BASE_CLASSES}`}
+            placeholder={`Filter by ${label.toLowerCase()}`}
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+          />
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <Card className="space-y-6">
+      <CardHeader className="gap-2">
+        <CardTitle className="text-lg">Search merged dataset</CardTitle>
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-foreground/60">
+          <span>Dataset: {datasetLabel}</span>
+          <span>
+            Showing {filteredRows.length.toLocaleString()} of {rows.length.toLocaleString()}
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {rows.length === 0 ? (
+          <p className="text-sm text-foreground/60">
+            No dataset available yet. Run a match or upload a merged CSV.
+          </p>
+        ) : (
+          <>
+            <div className="grid gap-4 lg:grid-cols-[2fr,1fr]">
+              <div className="space-y-2">
+                <label className="text-sm font-medium" htmlFor="merged-search">
+                  Global search
+                </label>
+                <input
+                  id="merged-search"
+                  className={`w-full ${INPUT_BASE_CLASSES}`}
+                  placeholder="Search merged results…"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                />
+                <p className="text-xs text-foreground/50">
+                  Search across owners, account names, match reasons, and IDs.
+                </p>
+              </div>
+              <div className="flex items-end gap-3">
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={overlapOnly}
+                    onChange={(event) => setOverlapOnly(event.target.checked)}
+                  />
+                  Overlap only
+                </label>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              {renderFilterInput(
+                "merged-filter-vendor-owner",
+                "Vendor owner",
+                vendorOwnerFilter,
+                setVendorOwnerFilter,
+                vendorOwnerOptions,
+              )}
+              {renderFilterInput(
+                "merged-filter-partner-owner",
+                "Partner owner",
+                partnerOwnerFilter,
+                setPartnerOwnerFilter,
+                partnerOwnerOptions,
+              )}
+              {renderFilterInput(
+                "merged-filter-match-type",
+                "Match type",
+                matchTypeFilter,
+                setMatchTypeFilter,
+                matchTypeOptions,
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-foreground/60">
+              <span>
+                Previewing {Math.min(previewRows.length, SEARCH_PREVIEW_ROWS).toLocaleString()}{" "}
+                rows
+              </span>
+              <Button
+                size="sm"
+                onClick={() => onDownload(filteredRows)}
+                disabled={filteredRows.length === 0}
+              >
+                Download filtered CSV
+              </Button>
+            </div>
+
+            {previewRows.length === 0 ? (
+              <p className="text-sm text-foreground/60">No rows match these filters.</p>
+            ) : (
+              <PreviewTable headers={previewColumns} rows={previewRows} />
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
 
 const useDebouncedValue = <T,>(value: T, delay: number) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -1114,6 +1343,32 @@ export default function AccountMappingTool() {
     [reviewRows],
   );
 
+  const runSearchDataset = useMemo<MergedSearchRow[]>(
+    () =>
+      reviewRows.map((row) => ({
+        vendor_account_name: row.vendor.rawName ?? "",
+        partner_account_name: row.partner?.rawName ?? "",
+        vendor_owner: row.vendor.ownerName ?? "",
+        vendor_manager: row.vendor.managerName ?? "",
+        vendor_pam: row.vendor.pamName ?? "",
+        partner_owner: row.partner?.ownerName ?? "",
+        partner_manager: row.partner?.managerName ?? "",
+        partner_pam: row.partner?.pamName ?? "",
+        vendor_status: row.vendor.status ?? "",
+        partner_status: row.partner?.status ?? "",
+        match_type: row.matchType ?? "",
+        match_score: row.matchScore !== null ? String(row.matchScore) : "",
+        match_reasons: row.reasons.join("; "),
+        decision_status: row.status,
+        normalized_name: row.normalizedName ?? "",
+        vendor_crm_account_id: row.vendor.crmAccountId ?? "",
+        partner_crm_account_id: row.partner?.crmAccountId ?? "",
+        vendor_segment_type: row.vendor.segmentType ?? "",
+        partner_segment_type: row.partner?.segmentType ?? "",
+      })),
+    [reviewRows],
+  );
+
   const targetRows = useMemo<TargetExportRow[]>(() => {
     if (!targetRule.mode) {
       return [];
@@ -1454,6 +1709,17 @@ export default function AccountMappingTool() {
     downloadCsv("targets.csv", csv);
     await saveRunSnapshot();
   }, [buildCsvRows, saveRunSnapshot, targetRows]);
+
+  const handleDownloadMergedSearch = useCallback(
+    (rows: MergedSearchRow[]) => {
+      const csv = buildCsv(
+        [...MERGED_SEARCH_HEADERS],
+        buildCsvRows(MERGED_SEARCH_HEADERS, rows),
+      );
+      downloadCsv("merged_search.csv", csv);
+    },
+    [buildCsvRows],
+  );
 
   const handleOpenRun = useCallback(
     (run: AccountMappingRun) => {
@@ -2268,6 +2534,13 @@ export default function AccountMappingTool() {
           </div>
         </CardContent>
       </Card>
+
+      <MergedDatasetSearchPanel
+        datasetLabel="Current run"
+        rows={runSearchDataset}
+        headers={MERGED_SEARCH_HEADERS}
+        onDownload={handleDownloadMergedSearch}
+      />
 
       <ManualLinkModal
         open={Boolean(manualLinkRow)}
