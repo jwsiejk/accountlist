@@ -1,0 +1,13 @@
+Account Name,CRM Account ID,Status,Owner,Manager,PAM,Segment,Region,State,Country,City,Primary Contact Name,Primary Contact Email,Primary Contact Role
+Acme Corporation,PRM-2001,Prospect,Jordan Lee,Sasha Patel,Kim Reyes,Enterprise,West,CA,USA,San Francisco,Avery Chen,avery.chen@acme-partner.example.com,Partner Ops Lead
+Northwind Trading Co,PRM-2002,Customer,Jamie Rivera,Morgan Fox,Casey Yang,Mid-Market,East,NY,USA,New York,Rowan Park,rowan.park@northwind-partner.example.com,Alliance Manager
+Globex Corp,PRM-2003,Customer,Taylor Morgan,Jamie Chen,Riley Shah,Enterprise,Central,IL,USA,Chicago,Quinn Blake,quinn.blake@globex-partner.example.com,Director of IT
+Initech LLC,PRM-2004,Prospect,Alex Kim,Drew Martin,Jordan Brooks,SMB,Central,TX,USA,Austin,Reese Taylor,reese.taylor@initech-partner.example.com,Ops Manager
+Umbrella Health Systems,PRM-2005,Prospect,Sam Carter,Jordan Miles,Alexis Harper,Enterprise,East,MA,USA,Boston,Casey Lin,casey.lin@umbrella-partner.example.com,Clinical Ops Lead
+Stark Industries,PRM-2006,Customer,Riley Stone,Leslie Zhang,Taylor Brooks,Enterprise,East,NY,USA,New York,Emerson Gray,emerson.gray@stark-partner.example.com,Head of R&D
+Wayne Enterprises,PRM-2007,Prospect,Harper Lee,Quinn Ross,Jamie Patel,Enterprise,East,NJ,USA,Newark,Parker James,parker.james@wayne-partner.example.com,Security Director
+Soylent Laboratories,PRM-2008,Customer,Casey Morgan,Jordan Quinn,Reese Morgan,SMB,West,CA,USA,San Diego,Skyler Reed,skyler.reed@soylent-partner.example.com,Lab Manager
+Hooli,PRM-2009,Prospect,Logan Perez,Alex Park,Cameron Patel,Mid-Market,West,CA,USA,Palo Alto,River Ellis,river.ellis@hooli-partner.example.com,Platform Lead
+Oscorp LLC,PRM-2010,Prospect,Jamie Reed,Harper Diaz,Jordan Lee,Enterprise,East,NY,USA,Albany,Finley James,finley.james@oscorp-partner.example.com,VP Strategy
+Tyrell Corporation,PRM-2011,Customer,Drew Allen,Cameron Cho,Rowan Scott,Mid-Market,West,WA,USA,Seattle,Ash Carter,ash.carter@tyrell-partner.example.com,Program Manager
+Black Mesa,PRM-2012,Prospect,Riley Kim,Jamie Zhou,Casey Hart,SMB,Central,NM,USA,Albuquerque,Spencer Lee,spencer.lee@blackmesa.example.com,Operations Lead
