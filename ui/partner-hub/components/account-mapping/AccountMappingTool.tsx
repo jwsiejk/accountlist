@@ -48,6 +48,14 @@ import {
 } from "@/lib/account-mapping/exportSchema";
 import { type MergedSearchRow } from "@/lib/account-mapping/mergedSearch";
 import {
+  buildBaseRows,
+  buildOptionsFor,
+  clearInvalidFilters,
+  getEligibleRows,
+  type FilterKey,
+  type MergedSearchFilterState,
+} from "@/lib/account-mapping/mergedSearchFilters";
+import {
   resolveMergedSearchDataset,
   type MergedSearchDatasetSelection,
 } from "@/lib/account-mapping/mergedSearchDataset";
@@ -59,6 +67,7 @@ import {
   type MatchPairSnapshot,
   type StoredCsvSnapshot,
 } from "@/lib/account-mapping/runHistory";
+import { Combobox } from "@/components/ui/combobox";
 
 const DEFAULT_PROGRESS_STEP = 2000;
 const MAX_PREVIEW_ROWS = 20;
@@ -361,30 +370,6 @@ const PreviewTable = ({
   </div>
 );
 
-const buildSearchOptions = (rows: Record<string, string>[], key: string) => {
-  const values = new Set<string>();
-  rows.forEach((row) => {
-    const value = row[key]?.trim();
-    if (value) {
-      values.add(value);
-    }
-  });
-  return Array.from(values).sort((a, b) => a.localeCompare(b));
-};
-
-const buildUnionOptions = (rows: Record<string, string>[], keys: string[]) => {
-  const values = new Set<string>();
-  rows.forEach((row) => {
-    keys.forEach((key) => {
-      const value = row[key]?.trim();
-      if (value) {
-        values.add(value);
-      }
-    });
-  });
-  return Array.from(values).sort((a, b) => a.localeCompare(b));
-};
-
 const MergedDatasetSearchPanelSimple = ({
   dataset,
   datasetLabel,
@@ -408,8 +393,9 @@ const MergedDatasetSearchPanelSimple = ({
   const [partnerOwnerFilter, setPartnerOwnerFilter] = useState("");
   const [regionFilter, setRegionFilter] = useState("");
   const [organizationFilter, setOrganizationFilter] = useState("");
-  const [customerProspectFilter, setCustomerProspectFilter] = useState("any");
+  const [customerProspectFilter, setCustomerProspectFilter] = useState("");
   const [overlapOnly, setOverlapOnly] = useState(false);
+  const [firstFilterKey, setFirstFilterKey] = useState<FilterKey | null>(null);
   const previousOwnersRef = useRef({ hasVendor: false, hasPartner: false });
 
   const hasVendorOwner = Boolean(vendorOwnerFilter);
@@ -428,29 +414,11 @@ const MergedDatasetSearchPanelSimple = ({
     previousOwnersRef.current = { hasVendor: hasVendorOwner, hasPartner: hasPartnerOwner };
   }, [hasPartnerOwner, hasVendorOwner]);
 
-  const vendorOwnerOptions = useMemo(
-    () => buildSearchOptions(rows, "vendor_owner"),
-    [rows],
-  );
-  const partnerOwnerOptions = useMemo(
-    () => buildSearchOptions(rows, "partner_owner"),
-    [rows],
-  );
-  const regionOptions = useMemo(
-    () => buildUnionOptions(rows, ["vendor_region", "partner_region"]),
-    [rows],
-  );
-  const organizationOptions = useMemo(
-    () => buildUnionOptions(rows, ["vendor_organization", "partner_organization"]),
-    [rows],
-  );
-
   const availableColumns = useMemo(
     () => SIMPLE_SEARCH_COLUMNS.filter((column) => headers.includes(column)),
     [headers],
   );
-  const hasVendorStatus = headers.includes("vendor_status");
-  const hasPartnerStatus = headers.includes("partner_status");
+  const hasAnyStatus = headers.includes("vendor_status") || headers.includes("partner_status");
 
   const missingUploadColumns = useMemo(() => {
     if (dataset !== "upload") {
@@ -468,11 +436,11 @@ const MergedDatasetSearchPanelSimple = ({
     }
     return normalizeFilter(value ?? "") === normalizeFilter(filter);
   };
-  const matchesStatus = (value: string | undefined, hasStatusColumn: boolean) => {
-    if (customerProspectFilter === "any" || !hasStatusColumn) {
+  const matchesEither = (row: MergedSearchRow, filter: string, keys: string[]) => {
+    if (!filter) {
       return true;
     }
-    return normalizeFilter(value ?? "") === customerProspectFilter;
+    return keys.some((key) => matchesExact(row[key], filter));
   };
 
   const hasVendorAccount = (row: MergedSearchRow) =>
@@ -486,39 +454,45 @@ const MergedDatasetSearchPanelSimple = ({
         if (hasVendorOwner && !matchesExact(row.vendor_owner, vendorOwnerFilter)) {
           return false;
         }
-        if (regionFilter && !matchesExact(row.vendor_region, regionFilter)) {
-          return false;
-        }
-        if (organizationFilter && !matchesExact(row.vendor_organization, organizationFilter)) {
-          return false;
-        }
-        if (!matchesStatus(row.vendor_status, hasVendorStatus)) {
-          return false;
-        }
       }
 
       if (side === "partner" || side === "both") {
         if (hasPartnerOwner && !matchesExact(row.partner_owner, partnerOwnerFilter)) {
           return false;
         }
-        if (regionFilter && !matchesExact(row.partner_region, regionFilter)) {
-          return false;
-        }
-        if (organizationFilter && !matchesExact(row.partner_organization, organizationFilter)) {
-          return false;
-        }
-        if (!matchesStatus(row.partner_status, hasPartnerStatus)) {
-          return false;
-        }
+      }
+
+      if (
+        regionFilter &&
+        !matchesEither(row, regionFilter, ["vendor_region", "partner_region"])
+      ) {
+        return false;
+      }
+
+      if (
+        organizationFilter &&
+        !matchesEither(row, organizationFilter, [
+          "vendor_organization",
+          "partner_organization",
+        ])
+      ) {
+        return false;
+      }
+
+      if (
+        customerProspectFilter &&
+        hasAnyStatus &&
+        !matchesEither(row, customerProspectFilter, ["vendor_status", "partner_status"])
+      ) {
+        return false;
       }
 
       return true;
     },
     [
       customerProspectFilter,
-      hasPartnerStatus,
+      hasAnyStatus,
       hasPartnerOwner,
-      hasVendorStatus,
       hasVendorOwner,
       organizationFilter,
       partnerOwnerFilter,
@@ -526,6 +500,97 @@ const MergedDatasetSearchPanelSimple = ({
       vendorOwnerFilter,
     ],
   );
+
+  const filterState = useMemo<MergedSearchFilterState>(
+    () => ({
+      vendorOwner: vendorOwnerFilter,
+      partnerOwner: partnerOwnerFilter,
+      region: regionFilter,
+      organization: organizationFilter,
+      custProspect: customerProspectFilter,
+    }),
+    [
+      customerProspectFilter,
+      organizationFilter,
+      partnerOwnerFilter,
+      regionFilter,
+      vendorOwnerFilter,
+    ],
+  );
+
+  const activeFilterKeys = useMemo<FilterKey[]>(
+    () => [
+      vendorOwnerFilter ? "vendorOwner" : null,
+      partnerOwnerFilter ? "partnerOwner" : null,
+      regionFilter ? "region" : null,
+      organizationFilter ? "organization" : null,
+      customerProspectFilter ? "custProspect" : null,
+    ].filter((value): value is FilterKey => value !== null),
+    [
+      customerProspectFilter,
+      organizationFilter,
+      partnerOwnerFilter,
+      regionFilter,
+      vendorOwnerFilter,
+    ],
+  );
+
+  useEffect(() => {
+    if (!overlapOnly) {
+      setFirstFilterKey(null);
+      return;
+    }
+    if (activeFilterKeys.length === 0) {
+      setFirstFilterKey(null);
+      return;
+    }
+    if (firstFilterKey && activeFilterKeys.includes(firstFilterKey)) {
+      return;
+    }
+    setFirstFilterKey(activeFilterKeys[0]);
+  }, [activeFilterKeys, firstFilterKey, overlapOnly]);
+
+  const baseRows = useMemo(
+    () => buildBaseRows(rows, overlapOnly),
+    [overlapOnly, rows],
+  );
+
+  const optionsFor = useMemo(
+    () =>
+      buildOptionsFor({
+        rows: baseRows,
+        filters: filterState,
+        firstFilterKey: overlapOnly ? firstFilterKey : null,
+      }),
+    [baseRows, filterState, firstFilterKey, overlapOnly],
+  );
+
+  useEffect(() => {
+    const cleanedFilters = clearInvalidFilters(filterState, optionsFor);
+    if (cleanedFilters.vendorOwner !== vendorOwnerFilter) {
+      setVendorOwnerFilter(cleanedFilters.vendorOwner);
+    }
+    if (cleanedFilters.partnerOwner !== partnerOwnerFilter) {
+      setPartnerOwnerFilter(cleanedFilters.partnerOwner);
+    }
+    if (cleanedFilters.region !== regionFilter) {
+      setRegionFilter(cleanedFilters.region);
+    }
+    if (cleanedFilters.organization !== organizationFilter) {
+      setOrganizationFilter(cleanedFilters.organization);
+    }
+    if (cleanedFilters.custProspect !== customerProspectFilter) {
+      setCustomerProspectFilter(cleanedFilters.custProspect);
+    }
+  }, [
+    customerProspectFilter,
+    filterState,
+    optionsFor,
+    organizationFilter,
+    partnerOwnerFilter,
+    regionFilter,
+    vendorOwnerFilter,
+  ]);
 
   const sections = useMemo(() => {
     if (!hasAnyOwner) {
@@ -542,18 +607,27 @@ const MergedDatasetSearchPanelSimple = ({
       hasPartnerAccount(row) && !hasVendorAccount(row);
 
     if (hasVendorOwner && hasPartnerOwner) {
-      const shared = rows.filter(
-        (row) => isOverlap(row) && matchesSideFilters(row, "both"),
-      );
-      const vendorOnly = rows.filter(
-        (row) => isVendorOnly(row) && matchesSideFilters(row, "vendor"),
-      );
-      const partnerOnly = rows.filter(
-        (row) => isPartnerOnly(row) && matchesSideFilters(row, "partner"),
+      const overlapRows = rows.filter(isOverlap);
+      const shared = getEligibleRows({ rows: overlapRows, filters: filterState }).filter(
+        (row) => matchesSideFilters(row, "both"),
       );
       if (overlapOnly) {
         return [{ id: "shared", title: "Shared accounts", rows: shared }];
       }
+      const vendorOnly = getEligibleRows({
+        rows,
+        filters: filterState,
+        excludeKey: "partnerOwner",
+      })
+        .filter(isVendorOnly)
+        .filter((row) => matchesSideFilters(row, "vendor"));
+      const partnerOnly = getEligibleRows({
+        rows,
+        filters: filterState,
+        excludeKey: "vendorOwner",
+      })
+        .filter(isPartnerOnly)
+        .filter((row) => matchesSideFilters(row, "partner"));
       return [
         { id: "shared", title: "Shared accounts", rows: shared },
         { id: "vendor-only", title: "Vendor-only accounts", rows: vendorOnly },
@@ -562,20 +636,23 @@ const MergedDatasetSearchPanelSimple = ({
     }
 
     const side: "vendor" | "partner" = hasVendorOwner ? "vendor" : "partner";
-    const baseRows = rows.filter((row) => {
+    const results = getEligibleRows({
+      rows: baseRows,
+      filters: filterState,
+      excludeKey: side === "vendor" ? "partnerOwner" : "vendorOwner",
+    }).filter((row) => {
       if (side === "vendor" && !hasVendorAccount(row)) {
         return false;
       }
       if (side === "partner" && !hasPartnerAccount(row)) {
         return false;
       }
-      if (overlapOnly && !(hasVendorAccount(row) && hasPartnerAccount(row))) {
-        return false;
-      }
       return matchesSideFilters(row, side);
     });
-    return [{ id: "results", title: "Results", rows: baseRows }];
+    return [{ id: "results", title: "Results", rows: results }];
   }, [
+    baseRows,
+    filterState,
     hasAnyOwner,
     hasPartnerOwner,
     hasVendorOwner,
@@ -595,31 +672,24 @@ const MergedDatasetSearchPanelSimple = ({
     [sections],
   );
 
-  const renderFilterSelect = (
-    id: string,
+  const renderFilterCombobox = (
     label: string,
     value: string,
     onChange: (next: string) => void,
     options: string[],
-    placeholder = "All",
+    placeholder: string,
+    disabled = false,
   ) => (
     <div className="min-w-[180px] flex-1 space-y-2">
-      <label className="text-sm font-medium" htmlFor={id}>
-        {label}
-      </label>
-      <select
-        id={id}
-        className={`w-full ${INPUT_BASE_CLASSES}`}
+      <label className="text-sm font-medium">{label}</label>
+      <Combobox
         value={value}
-        onChange={(event) => onChange(event.target.value)}
-      >
-        <option value="">{placeholder}</option>
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
+        onChange={onChange}
+        options={options}
+        placeholder={placeholder}
+        disabled={disabled}
+        emptyLabel="No matches"
+      />
     </div>
   );
 
@@ -677,63 +747,57 @@ const MergedDatasetSearchPanelSimple = ({
           </div>
         ) : (
           <>
-            <div className="flex flex-wrap items-end gap-3">
-              {renderFilterSelect(
-                "merged-filter-vendor-owner",
+            <div className="grid gap-3 lg:grid-cols-[repeat(5,minmax(180px,1fr))]">
+              {renderFilterCombobox(
                 "Vendor owner",
                 vendorOwnerFilter,
                 setVendorOwnerFilter,
-                vendorOwnerOptions,
+                optionsFor.vendorOwner,
+                "All vendor owners",
               )}
-              {renderFilterSelect(
-                "merged-filter-partner-owner",
+              {renderFilterCombobox(
                 "Partner owner",
                 partnerOwnerFilter,
                 setPartnerOwnerFilter,
-                partnerOwnerOptions,
+                optionsFor.partnerOwner,
+                "All partner owners",
               )}
-              {renderFilterSelect(
-                "merged-filter-region",
+              {renderFilterCombobox(
                 "Region",
                 regionFilter,
                 setRegionFilter,
-                regionOptions,
+                optionsFor.region,
+                "All regions",
               )}
-              {renderFilterSelect(
-                "merged-filter-organization",
+              {renderFilterCombobox(
                 "Organization",
                 organizationFilter,
                 setOrganizationFilter,
-                organizationOptions,
+                optionsFor.organization,
+                "All organizations",
               )}
-              <div className="min-w-[180px] flex-1 space-y-2">
-                <label className="text-sm font-medium" htmlFor="merged-filter-status">
-                  Customer / Prospect
-                </label>
-                <select
-                  id="merged-filter-status"
-                  className={`w-full ${INPUT_BASE_CLASSES}`}
-                  value={customerProspectFilter}
-                  onChange={(event) => setCustomerProspectFilter(event.target.value)}
-                >
-                  <option value="any">Any</option>
-                  <option value="customer">Customer</option>
-                  <option value="prospect">Prospect</option>
-                </select>
-              </div>
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4"
-                  checked={overlapOnly}
-                  onChange={(event) => setOverlapOnly(event.target.checked)}
-                />
-                Overlap only
-              </label>
+              {renderFilterCombobox(
+                "Customer / Prospect",
+                customerProspectFilter,
+                setCustomerProspectFilter,
+                optionsFor.custProspect,
+                hasAnyStatus ? "All statuses" : "Status unavailable",
+                !hasAnyStatus,
+              )}
             </div>
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input
+                type="checkbox"
+                className="h-4 w-4"
+                checked={overlapOnly}
+                onChange={(event) => setOverlapOnly(event.target.checked)}
+              />
+              Overlap only
+            </label>
 
             <p className="text-xs text-foreground/50">
-              Select owners/region to filter overlap. Filters apply to each side independently.
+              Filters apply to owners by side, while region, organization, and status match
+              either side.
             </p>
 
             <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-foreground/60">
