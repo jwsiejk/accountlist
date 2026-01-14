@@ -50,8 +50,11 @@ import { type MergedSearchRow } from "@/lib/account-mapping/mergedSearch";
 import {
   buildBaseRows,
   buildOptionsFor,
+  buildOptionsWithCounts,
   clearInvalidFilters,
+  createEmptyFilterState,
   getEligibleRows,
+  isFilterStateEmpty,
   type FilterKey,
   type MergedSearchFilterState,
 } from "@/lib/account-mapping/mergedSearchFilters";
@@ -67,7 +70,7 @@ import {
   type MatchPairSnapshot,
   type StoredCsvSnapshot,
 } from "@/lib/account-mapping/runHistory";
-import { Combobox } from "@/components/ui/combobox";
+import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 
 const DEFAULT_PROGRESS_STEP = 2000;
 const MAX_PREVIEW_ROWS = 20;
@@ -565,6 +568,16 @@ const MergedDatasetSearchPanelSimple = ({
     [baseRows, filterState, firstFilterKey, overlapOnly],
   );
 
+  const optionsWithCounts = useMemo(
+    () =>
+      buildOptionsWithCounts({
+        rows: baseRows,
+        filters: filterState,
+        firstFilterKey: overlapOnly ? firstFilterKey : null,
+      }),
+    [baseRows, filterState, firstFilterKey, overlapOnly],
+  );
+
   useEffect(() => {
     const cleanedFilters = clearInvalidFilters(filterState, optionsFor);
     if (cleanedFilters.vendorOwner !== vendorOwnerFilter) {
@@ -591,6 +604,21 @@ const MergedDatasetSearchPanelSimple = ({
     regionFilter,
     vendorOwnerFilter,
   ]);
+
+  const isClearDisabled = useMemo(
+    () => isFilterStateEmpty(filterState),
+    [filterState],
+  );
+
+  const handleClearAll = () => {
+    const emptyFilters = createEmptyFilterState();
+    setVendorOwnerFilter(emptyFilters.vendorOwner);
+    setPartnerOwnerFilter(emptyFilters.partnerOwner);
+    setRegionFilter(emptyFilters.region);
+    setOrganizationFilter(emptyFilters.organization);
+    setCustomerProspectFilter(emptyFilters.custProspect);
+    setFirstFilterKey(null);
+  };
 
   const sections = useMemo(() => {
     if (!hasAnyOwner) {
@@ -676,7 +704,7 @@ const MergedDatasetSearchPanelSimple = ({
     label: string,
     value: string,
     onChange: (next: string) => void,
-    options: string[],
+    options: ComboboxOption[],
     placeholder: string,
     disabled = false,
   ) => (
@@ -752,48 +780,59 @@ const MergedDatasetSearchPanelSimple = ({
                 "Vendor owner",
                 vendorOwnerFilter,
                 setVendorOwnerFilter,
-                optionsFor.vendorOwner,
+                optionsWithCounts.vendorOwner,
                 "All vendor owners",
               )}
               {renderFilterCombobox(
                 "Partner owner",
                 partnerOwnerFilter,
                 setPartnerOwnerFilter,
-                optionsFor.partnerOwner,
+                optionsWithCounts.partnerOwner,
                 "All partner owners",
               )}
               {renderFilterCombobox(
                 "Region",
                 regionFilter,
                 setRegionFilter,
-                optionsFor.region,
+                optionsWithCounts.region,
                 "All regions",
               )}
               {renderFilterCombobox(
                 "Organization",
                 organizationFilter,
                 setOrganizationFilter,
-                optionsFor.organization,
+                optionsWithCounts.organization,
                 "All organizations",
               )}
               {renderFilterCombobox(
                 "Customer / Prospect",
                 customerProspectFilter,
                 setCustomerProspectFilter,
-                optionsFor.custProspect,
+                optionsWithCounts.custProspect,
                 hasAnyStatus ? "All statuses" : "Status unavailable",
                 !hasAnyStatus,
               )}
             </div>
-            <label className="flex items-center gap-2 text-sm font-medium">
-              <input
-                type="checkbox"
-                className="h-4 w-4"
-                checked={overlapOnly}
-                onChange={(event) => setOverlapOnly(event.target.checked)}
-              />
-              Overlap only
-            </label>
+            <div className="flex flex-wrap items-center justify-between gap-3 text-sm font-medium">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={overlapOnly}
+                  onChange={(event) => setOverlapOnly(event.target.checked)}
+                />
+                Overlap only
+              </label>
+              <Button
+                variant="secondary"
+                size="sm"
+                type="button"
+                onClick={handleClearAll}
+                disabled={isClearDisabled}
+              >
+                Clear all
+              </Button>
+            </div>
 
             <p className="text-xs text-foreground/50">
               Filters apply to owners by side, while region, organization, and status match

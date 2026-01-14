@@ -4,8 +4,11 @@ import * as assert from "node:assert/strict";
 import {
   buildBaseRows,
   buildOptionsFor,
+  buildOptionsWithCounts,
   clearInvalidFilters,
+  createEmptyFilterState,
   getEligibleRows,
+  isFilterStateEmpty,
   type MergedSearchFilterState,
 } from "./mergedSearchFilters";
 import type { MergedSearchRow } from "./mergedSearch";
@@ -100,5 +103,54 @@ describe("merged search cascading filters", () => {
     assert.equal(cleaned.vendorOwner, "");
     assert.equal(cleaned.region, "");
     assert.equal(cleaned.custProspect, "");
+  });
+
+  it("counts options per key using eligible rows", () => {
+    const baseRows = buildBaseRows(rows, true);
+    const options = buildOptionsWithCounts({
+      rows: baseRows,
+      filters: {
+        vendorOwner: "",
+        partnerOwner: "",
+        region: "",
+        organization: "",
+        custProspect: "",
+      },
+      firstFilterKey: null,
+    });
+
+    assert.deepEqual(options.vendorOwner, [
+      { value: "Alice", count: 2 },
+    ]);
+    assert.deepEqual(options.partnerOwner, [
+      { value: "Bob", count: 1 },
+      { value: "Cara", count: 1 },
+    ]);
+    assert.deepEqual(options.region, [
+      { value: "West", count: 2 },
+      { value: "East", count: 1 },
+      { value: "South", count: 1 },
+    ]);
+    assert.deepEqual(options.organization, [
+      { value: "OrgA", count: 2 },
+      { value: "OrgB", count: 1 },
+      { value: "OrgC", count: 1 },
+    ]);
+    assert.deepEqual(options.custProspect, [
+      { value: "Customer", count: 2 },
+      { value: "Prospect", count: 2 },
+    ]);
+  });
+
+  it("tracks when filter state is empty", () => {
+    const emptyState = createEmptyFilterState();
+    assert.equal(isFilterStateEmpty(emptyState), true);
+    assert.equal(
+      isFilterStateEmpty({
+        ...emptyState,
+        region: "West",
+      }),
+      false,
+    );
   });
 });
