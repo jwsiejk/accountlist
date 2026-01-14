@@ -6,6 +6,7 @@ export type MergedSearchFilters = {
   partnerOwner: string;
   matchType: string;
   overlapOnly: boolean;
+  statusRule: string;
 };
 
 const normalize = (value: string) => value.trim().toLowerCase();
@@ -25,6 +26,7 @@ export const filterMergedSearchRows = (
   filters: MergedSearchFilters,
 ) => {
   const normalizedSearch = normalize(filters.search);
+  const normalizedStatusRule = normalize(filters.statusRule);
 
   return rows.filter((row) => {
     if (filters.overlapOnly) {
@@ -44,6 +46,26 @@ export const filterMergedSearchRows = (
 
     if (!matchesTextFilter(row.match_type ?? "", filters.matchType)) {
       return false;
+    }
+
+    if (normalizedStatusRule && normalizedStatusRule !== "any") {
+      const vendorStatus = normalize(row.vendor_status ?? "");
+      const partnerStatus = normalize(row.partner_status ?? "");
+      if (normalizedStatusRule === "vendor-customer-partner-prospect") {
+        if (vendorStatus !== "customer" || partnerStatus !== "prospect") {
+          return false;
+        }
+      }
+      if (normalizedStatusRule === "vendor-prospect-partner-customer") {
+        if (vendorStatus !== "prospect" || partnerStatus !== "customer") {
+          return false;
+        }
+      }
+      if (normalizedStatusRule === "either-customer") {
+        if (vendorStatus !== "customer" && partnerStatus !== "customer") {
+          return false;
+        }
+      }
     }
 
     if (!normalizedSearch) {

@@ -36,6 +36,7 @@ describe("merged search filters", () => {
       partnerOwner: "",
       matchType: "",
       overlapOnly: false,
+      statusRule: "any",
     });
     assert.equal(filtered.length, 1);
     assert.equal(filtered[0].vendor_account_name, "Acme Corp");
@@ -48,6 +49,7 @@ describe("merged search filters", () => {
       partnerOwner: "",
       matchType: "",
       overlapOnly: true,
+      statusRule: "any",
     });
     assert.equal(filtered.length, 1);
     assert.equal(filtered[0].vendor_account_name, "Acme Corp");

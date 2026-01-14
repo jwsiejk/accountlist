@@ -55,6 +55,17 @@ import {
   type MergedSearchDatasetSelection,
 } from "@/lib/account-mapping/mergedSearchDataset";
 import {
+  COLUMN_SELECTION_STORAGE_KEY,
+  SAVED_SEARCHES_STORAGE_KEY,
+  getColumnSelection,
+  loadSavedSearches,
+  resolveColumnSelection,
+  saveColumnSelection,
+  saveSavedSearches,
+  type MergedSearchStoredFilters,
+  type SavedSearchPreset,
+} from "@/lib/account-mapping/mergedSearchStorage";
+import {
   findLatestRunByFiles,
   loadRuns,
   saveRun,
@@ -82,6 +93,23 @@ const MERGED_SEARCH_EXTRA_HEADERS = [
   "partner_segment_type",
 ] as const;
 const MERGED_SEARCH_HEADERS = [...mergedAccountExportHeaders, ...MERGED_SEARCH_EXTRA_HEADERS];
+const DEFAULT_MERGED_COLUMNS = [
+  "vendor_account_name",
+  "partner_account_name",
+  "vendor_owner",
+  "partner_owner",
+  "match_type",
+  "match_score",
+  "decision_status",
+  "vendor_status",
+  "partner_status",
+] as const;
+const STATUS_RULE_OPTIONS = [
+  { value: "any", label: "Any" },
+  { value: "vendor-customer-partner-prospect", label: "vendor=Customer & partner=Prospect" },
+  { value: "vendor-prospect-partner-customer", label: "vendor=Prospect & partner=Customer" },
+  { value: "either-customer", label: "either side=Customer" },
+] as const;
 
 type CsvParseResult = {
   headers: string[];
@@ -351,6 +379,16 @@ const PreviewTable = ({
   </div>
 );
 
+const resolveDefaultMergedColumns = (headers: string[]) => {
+  const matchedDefaults = DEFAULT_MERGED_COLUMNS.filter((column) =>
+    headers.includes(column),
+  );
+  if (matchedDefaults.length > 0) {
+    return matchedDefaults;
+  }
+  return headers.slice(0, 8);
+};
+
 const buildSearchOptions = (rows: Record<string, string>[], key: string) => {
   const values = new Set<string>();
   rows.forEach((row) => {
@@ -386,7 +424,64 @@ const MergedDatasetSearchPanel = ({
   const [partnerOwnerFilter, setPartnerOwnerFilter] = useState("");
   const [matchTypeFilter, setMatchTypeFilter] = useState("");
   const [overlapOnly, setOverlapOnly] = useState(true);
+  const [statusRule, setStatusRule] = useState("any");
+  const [columnSearch, setColumnSearch] = useState("");
+  const [columnsOpen, setColumnsOpen] = useState(false);
+  const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
+  const [savedSearches, setSavedSearches] = useState<SavedSearchPreset[]>([]);
+  const [presetName, setPresetName] = useState("");
+  const [selectedPresetId, setSelectedPresetId] = useState("");
+  const [renamePresetName, setRenamePresetName] = useState("");
+  const savedSearchesLoadedRef = useRef(false);
   const debouncedSearch = useDebouncedValue(search, 150);
+
+  const hasStatusColumns =
+    headers.includes("vendor_status") && headers.includes("partner_status");
+
+  const defaultColumns = useMemo(() => resolveDefaultMergedColumns(headers), [headers]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    setSavedSearches(loadSavedSearches(window.localStorage));
+    savedSearchesLoadedRef.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || headers.length === 0) {
+      return;
+    }
+    const stored = getColumnSelection(window.localStorage, dataset);
+    const resolved = resolveColumnSelection(stored, headers, defaultColumns);
+    setSelectedColumns(resolved);
+  }, [dataset, defaultColumns, headers]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || headers.length === 0) {
+      return;
+    }
+    if (selectedColumns.length === 0) {
+      return;
+    }
+    saveColumnSelection(window.localStorage, dataset, selectedColumns);
+  }, [dataset, headers.length, selectedColumns]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (!savedSearchesLoadedRef.current) {
+      return;
+    }
+    saveSavedSearches(window.localStorage, savedSearches);
+  }, [savedSearches]);
+
+  useEffect(() => {
+    if (!hasStatusColumns) {
+      setStatusRule("any");
+    }
+  }, [hasStatusColumns]);
 
   const vendorOwnerOptions = useMemo(
     () => buildSearchOptions(rows, "vendor_owner"),
@@ -398,6 +493,159 @@ const MergedDatasetSearchPanel = ({
   );
   const matchTypeOptions = useMemo(() => buildSearchOptions(rows, "match_type"), [rows]);
 
+  const currentFilters: MergedSearchStoredFilters = useMemo(
+    () => ({
+      search,
+      vendorOwner: vendorOwnerFilter,
+      partnerOwner: partnerOwnerFilter,
+      matchType: matchTypeFilter,
+      overlapOnly,
+      statusRule,
+    }),
+    [
+      matchTypeFilter,
+      overlapOnly,
+      partnerOwnerFilter,
+      search,
+      statusRule,
+      vendorOwnerFilter,
+    ],
+  );
+
+  const filteredColumnOptions = useMemo(() => {
+    const normalized = columnSearch.trim().toLowerCase();
+    if (!normalized) {
+      return headers;
+    }
+    return headers.filter((header) => header.toLowerCase().includes(normalized));
+  }, [columnSearch, headers]);
+
+  const quickPresets = useMemo(() => {
+    const base = [
+      {
+        id: "overlap-only",
+        label: "Overlap only",
+        filters: { overlapOnly: true, statusRule: "any" },
+      },
+    ];
+    if (!hasStatusColumns) {
+      return base;
+    }
+    return [
+      ...base,
+      {
+        id: "vendor-customer-partner-prospect",
+        label: "Vendor customers where Partner is prospect",
+        filters: {
+          overlapOnly: true,
+          statusRule: "vendor-customer-partner-prospect",
+        },
+      },
+      {
+        id: "vendor-prospect-partner-customer",
+        label: "Vendor prospects where Partner is customer",
+        filters: {
+          overlapOnly: true,
+          statusRule: "vendor-prospect-partner-customer",
+        },
+      },
+      {
+        id: "either-customer",
+        label: "Either side is customer",
+        filters: {
+          overlapOnly: true,
+          statusRule: "either-customer",
+        },
+      },
+    ];
+  }, [hasStatusColumns]);
+
+  const applyFilters = useCallback((filters: Partial<MergedSearchStoredFilters>) => {
+    if (filters.search !== undefined) {
+      setSearch(filters.search);
+    }
+    if (filters.vendorOwner !== undefined) {
+      setVendorOwnerFilter(filters.vendorOwner);
+    }
+    if (filters.partnerOwner !== undefined) {
+      setPartnerOwnerFilter(filters.partnerOwner);
+    }
+    if (filters.matchType !== undefined) {
+      setMatchTypeFilter(filters.matchType);
+    }
+    if (filters.overlapOnly !== undefined) {
+      setOverlapOnly(filters.overlapOnly);
+    }
+    if (filters.statusRule !== undefined) {
+      setStatusRule(filters.statusRule);
+    }
+  }, []);
+
+  const handleSavePreset = useCallback(() => {
+    const trimmed = presetName.trim();
+    if (!trimmed) {
+      return;
+    }
+    const id =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `preset-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const nextPreset: SavedSearchPreset = {
+      id,
+      name: trimmed,
+      createdAt: new Date().toISOString(),
+      filters: currentFilters,
+    };
+    setSavedSearches((prev) => [nextPreset, ...prev]);
+    setPresetName("");
+    setSelectedPresetId(id);
+    setRenamePresetName(trimmed);
+  }, [currentFilters, presetName]);
+
+  const handleApplyPreset = useCallback(
+    (preset: SavedSearchPreset) => {
+      applyFilters(preset.filters);
+    },
+    [applyFilters],
+  );
+
+  const handleRenamePreset = useCallback(() => {
+    const trimmed = renamePresetName.trim();
+    if (!trimmed || !selectedPresetId) {
+      return;
+    }
+    setSavedSearches((prev) =>
+      prev.map((preset) =>
+        preset.id === selectedPresetId ? { ...preset, name: trimmed } : preset,
+      ),
+    );
+  }, [renamePresetName, selectedPresetId]);
+
+  const handleDeletePreset = useCallback(() => {
+    if (!selectedPresetId) {
+      return;
+    }
+    setSavedSearches((prev) => prev.filter((preset) => preset.id !== selectedPresetId));
+    setSelectedPresetId("");
+    setRenamePresetName("");
+  }, [selectedPresetId]);
+
+  const selectedPreset = useMemo(
+    () => savedSearches.find((preset) => preset.id === selectedPresetId) ?? null,
+    [savedSearches, selectedPresetId],
+  );
+
+  useEffect(() => {
+    if (selectedPreset) {
+      setRenamePresetName(selectedPreset.name);
+    }
+  }, [selectedPreset]);
+
+  const previewColumns = useMemo(
+    () => resolveColumnSelection(selectedColumns, headers, defaultColumns),
+    [defaultColumns, headers, selectedColumns],
+  );
+
   const filteredRows = useMemo(
     () =>
       filterMergedSearchRows(rows, {
@@ -406,6 +654,7 @@ const MergedDatasetSearchPanel = ({
         partnerOwner: partnerOwnerFilter,
         matchType: matchTypeFilter,
         overlapOnly,
+        statusRule,
       }),
     [
       debouncedSearch,
@@ -413,28 +662,10 @@ const MergedDatasetSearchPanel = ({
       overlapOnly,
       partnerOwnerFilter,
       rows,
+      statusRule,
       vendorOwnerFilter,
     ],
   );
-
-  const previewColumns = useMemo(() => {
-    const defaults = [
-      "vendor_account_name",
-      "partner_account_name",
-      "vendor_owner",
-      "partner_owner",
-      "match_type",
-      "match_score",
-      "decision_status",
-      "vendor_status",
-      "partner_status",
-    ];
-    const matchedDefaults = defaults.filter((column) => headers.includes(column));
-    if (matchedDefaults.length > 0) {
-      return matchedDefaults;
-    }
-    return headers.slice(0, 8);
-  }, [headers]);
 
   const previewRows = useMemo(
     () => filteredRows.slice(0, SEARCH_PREVIEW_ROWS),
@@ -581,18 +812,235 @@ const MergedDatasetSearchPanel = ({
               )}
             </div>
 
+            {hasStatusColumns && (
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium" htmlFor="merged-filter-status-rule">
+                    Status rule
+                  </label>
+                  <select
+                    id="merged-filter-status-rule"
+                    className={`w-full ${INPUT_BASE_CLASSES}`}
+                    value={statusRule}
+                    onChange={(event) => setStatusRule(event.target.value)}
+                  >
+                    {STATUS_RULE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-foreground/50">
+                    Optional filter when vendor_status and partner_status are available.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {quickPresets.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                  Quick presets
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {quickPresets.map((preset) => (
+                    <Button
+                      key={preset.id}
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => applyFilters(preset.filters)}
+                    >
+                      {preset.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-3 rounded-lg border border-foreground/10 bg-foreground/[0.02] p-4">
+              <div className="space-y-1">
+                <p className="text-sm font-semibold">Saved searches</p>
+                <p className="text-xs text-foreground/60">
+                  Stored in localStorage under <code>{SAVED_SEARCHES_STORAGE_KEY}</code>.
+                </p>
+              </div>
+              <div className="grid gap-3 md:grid-cols-[1.4fr,auto]">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium" htmlFor="merged-save-preset">
+                    Save current search
+                  </label>
+                  <input
+                    id="merged-save-preset"
+                    className={`w-full ${INPUT_BASE_CLASSES}`}
+                    placeholder="Name this preset..."
+                    value={presetName}
+                    onChange={(event) => setPresetName(event.target.value)}
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button size="sm" onClick={handleSavePreset} disabled={!presetName.trim()}>
+                    Save preset
+                  </Button>
+                </div>
+              </div>
+              <div className="grid gap-3 md:grid-cols-[1.4fr,auto]">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium" htmlFor="merged-saved-presets">
+                    Saved presets
+                  </label>
+                  <select
+                    id="merged-saved-presets"
+                    className={`w-full ${INPUT_BASE_CLASSES}`}
+                    value={selectedPresetId}
+                    onChange={(event) => {
+                      const nextId = event.target.value;
+                      setSelectedPresetId(nextId);
+                      const nextPreset =
+                        savedSearches.find((preset) => preset.id === nextId) ?? null;
+                      setRenamePresetName(nextPreset?.name ?? "");
+                    }}
+                  >
+                    <option value="">Select saved preset</option>
+                    {savedSearches.map((preset) => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.name}
+                      </option>
+                    ))}
+                  </select>
+                  {savedSearches.length === 0 && (
+                    <p className="text-xs text-foreground/60">No presets saved yet.</p>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-end gap-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => selectedPreset && handleApplyPreset(selectedPreset)}
+                    disabled={!selectedPreset}
+                  >
+                    Apply
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={handleRenamePreset}
+                    disabled={!selectedPreset || !renamePresetName.trim()}
+                  >
+                    Rename
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleDeletePreset}
+                    disabled={!selectedPreset}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              </div>
+              <div className="grid gap-3 md:grid-cols-[1.4fr,auto]">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium" htmlFor="merged-rename-preset">
+                    Rename selected preset
+                  </label>
+                  <input
+                    id="merged-rename-preset"
+                    className={`w-full ${INPUT_BASE_CLASSES}`}
+                    placeholder="Update preset name..."
+                    value={renamePresetName}
+                    onChange={(event) => setRenamePresetName(event.target.value)}
+                    disabled={!selectedPreset}
+                  />
+                </div>
+                <div className="flex items-end">
+                  <span className="text-xs text-foreground/50">
+                    Saved to localStorage automatically.
+                  </span>
+                </div>
+              </div>
+            </div>
+
             <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-foreground/60">
               <span>
                 Previewing {Math.min(previewRows.length, SEARCH_PREVIEW_ROWS).toLocaleString()}{" "}
                 rows
               </span>
-              <Button
-                size="sm"
-                onClick={() => onDownload(filteredRows, headers)}
-                disabled={filteredRows.length === 0}
-              >
-                Download filtered CSV
-              </Button>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setColumnsOpen((prev) => !prev)}
+                  >
+                    Columns
+                  </Button>
+                  {columnsOpen && (
+                    <div className="absolute right-0 top-full z-10 mt-2 w-72 rounded-lg border border-foreground/10 bg-background p-3 text-xs shadow-lg">
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                          Visible columns
+                        </label>
+                        <input
+                          className={`w-full ${INPUT_BASE_CLASSES}`}
+                          placeholder="Search columns..."
+                          value={columnSearch}
+                          onChange={(event) => setColumnSearch(event.target.value)}
+                        />
+                        <p className="text-[11px] text-foreground/60">
+                          {selectedColumns.length} of {headers.length} selected. Stored under{" "}
+                          <code>{COLUMN_SELECTION_STORAGE_KEY}</code>.
+                        </p>
+                      </div>
+                      <div className="mt-3 max-h-48 overflow-auto rounded-md border border-foreground/10 bg-background">
+                        {filteredColumnOptions.length === 0 ? (
+                          <p className="px-3 py-4 text-center text-[11px] text-foreground/60">
+                            No columns match that search.
+                          </p>
+                        ) : (
+                          <ul className="divide-y divide-foreground/10">
+                            {filteredColumnOptions.map((column) => {
+                              const isSelected = selectedColumns.includes(column);
+                              return (
+                                <li key={column} className="px-3 py-2">
+                                  <label className="flex items-center gap-2">
+                                    <input
+                                      type="checkbox"
+                                      className="h-4 w-4"
+                                      checked={isSelected}
+                                      onChange={() => {
+                                        setSelectedColumns((prev) => {
+                                          if (prev.includes(column)) {
+                                            const next = prev.filter(
+                                              (entry) => entry !== column,
+                                            );
+                                            return next.length > 0 ? next : prev;
+                                          }
+                                          const next = [...prev, column];
+                                          return headers.filter((header) =>
+                                            next.includes(header),
+                                          );
+                                        });
+                                      }}
+                                    />
+                                    <span className="text-xs text-foreground/70">{column}</span>
+                                  </label>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => onDownload(filteredRows, headers)}
+                  disabled={filteredRows.length === 0}
+                >
+                  Download filtered CSV
+                </Button>
+              </div>
             </div>
 
             {previewRows.length === 0 ? (
