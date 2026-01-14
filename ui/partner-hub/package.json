@@ -7,7 +7,7 @@
         "build": "node scripts/sync-energy-data.mjs && next build && node scripts/post-export.mjs",
         "start": "next start",
         "lint": "next lint",
-        "test": "tsc --noEmit false --module commonjs --moduleResolution node --target ES2020 --outDir .tmp-tests --rootDir . lib/energy/energy-calc.ts lib/energy/energy-calc.test.ts lib/exports/presalesExportSchema.ts lib/exports/presalesExportSchema.test.ts app/api/exports/presales/pdf/route.ts app/api/exports/presales/pptx/route.ts app/api/exports/presales/presales-export.routes.test.ts && node --test .tmp-tests/lib/energy/energy-calc.test.js .tmp-tests/lib/exports/presalesExportSchema.test.js .tmp-tests/app/api/exports/presales/presales-export.routes.test.js",
+        "test": "tsc --noEmit false --module commonjs --moduleResolution node --target ES2020 --outDir .tmp-tests --rootDir . lib/energy/energy-calc.ts lib/energy/energy-calc.test.ts lib/exports/presalesExportSchema.ts lib/exports/presalesExportSchema.test.ts app/api/exports/presales/pdf/route.ts app/api/exports/presales/pptx/route.ts app/api/exports/presales/presales-export.routes.test.ts lib/account-mapping/schema.ts lib/account-mapping/schema.test.ts lib/account-mapping/inference.ts lib/account-mapping/inference.test.ts && node --test .tmp-tests/lib/energy/energy-calc.test.js .tmp-tests/lib/exports/presalesExportSchema.test.js .tmp-tests/app/api/exports/presales/presales-export.routes.test.js .tmp-tests/lib/account-mapping/schema.test.js .tmp-tests/lib/account-mapping/inference.test.js",
         "build:export": "node scripts/sync-energy-data.mjs && next build && node scripts/post-export.mjs"
     },
     "dependencies": {
@@ -18,6 +18,7 @@
         "next": "^14.0.0",
         "next-themes": "^0.2.1",
         "pdf-lib": "^1.17.1",
+        "papaparse": "^5.5.3",
         "pptxgenjs": "^3.12.0",
         "react": "^18.3.1",
         "react-dom": "^18.0.0",
