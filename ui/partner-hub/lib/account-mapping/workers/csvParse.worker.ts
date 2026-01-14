@@ -28,7 +28,7 @@ type CsvParseError = {
   message: string;
 };
 
-const ctx: DedicatedWorkerGlobalScope = self as DedicatedWorkerGlobalScope;
+const ctx: any = self;
 
 ctx.onmessage = (event: MessageEvent<CsvParseMessage>) => {
   const { file, options } = event.data;
