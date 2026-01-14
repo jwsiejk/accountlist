@@ -2,19 +2,28 @@
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
+import {
+  formatComboboxOptionLabel,
+  toComboboxOption,
+  type ComboboxOption,
+  type ComboboxOptionInput,
+} from "./comboboxUtils";
+
 const INPUT_BASE_CLASSES =
   "rounded-md border border-foreground/20 bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
 
 type ComboboxProps = {
   value: string;
   onChange: (value: string) => void;
-  options: string[];
+  options: ComboboxOptionInput[];
   placeholder?: string;
   emptyLabel?: string;
   disabled?: boolean;
 };
 
 const normalizeValue = (value: string) => value.trim().toLowerCase();
+
+export type { ComboboxOption } from "./comboboxUtils";
 
 export const Combobox = ({
   value,
@@ -28,6 +37,11 @@ export const Combobox = ({
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState(value);
   const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
+
+  const normalizedOptions = useMemo(
+    () => options.map((option) => toComboboxOption(option)),
+    [options],
+  );
 
   useEffect(() => {
     if (!isOpen) {
@@ -51,13 +65,20 @@ export const Combobox = ({
 
   const filteredOptions = useMemo(() => {
     if (!inputValue) {
-      return options;
+      return normalizedOptions;
     }
     const normalizedInput = normalizeValue(inputValue);
-    return options.filter((option) =>
-      normalizeValue(option).includes(normalizedInput),
-    );
-  }, [inputValue, options]);
+    return normalizedOptions.filter((option) => {
+      const normalizedValue = normalizeValue(option.value);
+      if (normalizedValue.includes(normalizedInput)) {
+        return true;
+      }
+      if (option.label) {
+        return normalizeValue(option.label).includes(normalizedInput);
+      }
+      return false;
+    });
+  }, [inputValue, normalizedOptions]);
 
   const handleSelect = (nextValue: string) => {
     onChange(nextValue);
@@ -90,7 +111,7 @@ export const Combobox = ({
       if (highlightedIndex !== null) {
         const option = filteredOptions[highlightedIndex];
         if (option) {
-          handleSelect(option);
+          handleSelect(option.value);
         }
       }
       return;
@@ -159,7 +180,7 @@ export const Combobox = ({
               filteredOptions.map((option, index) => {
                 const isHighlighted = highlightedIndex === index;
                 return (
-                  <li key={option}>
+                  <li key={option.value}>
                     <button
                       type="button"
                       className={`w-full px-3 py-2 text-left ${
@@ -168,10 +189,10 @@ export const Combobox = ({
                       onMouseEnter={() => setHighlightedIndex(index)}
                       onMouseDown={(event) => {
                         event.preventDefault();
-                        handleSelect(option);
+                        handleSelect(option.value);
                       }}
                     >
-                      {option}
+                      {formatComboboxOptionLabel(option)}
                     </button>
                   </li>
                 );

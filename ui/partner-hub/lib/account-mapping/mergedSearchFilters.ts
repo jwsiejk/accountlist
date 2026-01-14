@@ -16,6 +16,11 @@ export type MergedSearchFilterState = {
 };
 
 export type FilterOptions = Record<FilterKey, string[]>;
+export type FilterOptionWithCount = {
+  value: string;
+  count: number;
+};
+export type FilterOptionsWithCounts = Record<FilterKey, FilterOptionWithCount[]>;
 
 const normalizeValue = (value: string) => value.trim().toLowerCase();
 
@@ -102,6 +107,29 @@ const collectOptions = (rows: MergedSearchRow[], keys: string[]) => {
   return Array.from(values).sort((a, b) => a.localeCompare(b));
 };
 
+const collectOptionCounts = (rows: MergedSearchRow[], keys: string[]) => {
+  const counts = new Map<string, number>();
+  rows.forEach((row) => {
+    const rowValues = new Set<string>();
+    keys.forEach((key) => {
+      const value = row[key]?.trim();
+      if (value) {
+        rowValues.add(value);
+      }
+    });
+    rowValues.forEach((value) => {
+      counts.set(value, (counts.get(value) ?? 0) + 1);
+    });
+  });
+
+  return Array.from(counts.entries())
+    .map(([value, count]) => ({ value, count }))
+    .sort(
+      (a, b) =>
+        b.count - a.count || a.value.localeCompare(b.value, undefined, { sensitivity: "base" }),
+    );
+};
+
 export const buildOptionsFor = ({
   rows,
   filters,
@@ -149,6 +177,56 @@ export const buildOptionsFor = ({
   }, {} as FilterOptions);
 };
 
+export const buildOptionsWithCounts = ({
+  rows,
+  filters,
+  firstFilterKey,
+}: {
+  rows: MergedSearchRow[];
+  filters: MergedSearchFilterState;
+  firstFilterKey: FilterKey | null;
+}): FilterOptionsWithCounts => {
+  const keys: FilterKey[] = [
+    "vendorOwner",
+    "partnerOwner",
+    "region",
+    "organization",
+    "custProspect",
+  ];
+
+  return keys.reduce<FilterOptionsWithCounts>((acc, key) => {
+    const eligibleRows =
+      firstFilterKey && key === firstFilterKey
+        ? rows
+        : getEligibleRows({ rows, filters, excludeKey: key });
+
+    if (key === "vendorOwner") {
+      acc[key] = collectOptionCounts(eligibleRows, ["vendor_owner"]);
+      return acc;
+    }
+    if (key === "partnerOwner") {
+      acc[key] = collectOptionCounts(eligibleRows, ["partner_owner"]);
+      return acc;
+    }
+    if (key === "region") {
+      acc[key] = collectOptionCounts(eligibleRows, [
+        "vendor_region",
+        "partner_region",
+      ]);
+      return acc;
+    }
+    if (key === "organization") {
+      acc[key] = collectOptionCounts(eligibleRows, [
+        "vendor_organization",
+        "partner_organization",
+      ]);
+      return acc;
+    }
+    acc[key] = collectOptionCounts(eligibleRows, ["vendor_status", "partner_status"]);
+    return acc;
+  }, {} as FilterOptionsWithCounts);
+};
+
 const isValidSelection = (value: string, options: string[]) => {
   if (!value) {
     return true;
@@ -181,3 +259,14 @@ export const clearInvalidFilters = (
 
   return next;
 };
+
+export const createEmptyFilterState = (): MergedSearchFilterState => ({
+  vendorOwner: "",
+  partnerOwner: "",
+  region: "",
+  organization: "",
+  custProspect: "",
+});
+
+export const isFilterStateEmpty = (filters: MergedSearchFilterState) =>
+  Object.values(filters).every((value) => !value);
