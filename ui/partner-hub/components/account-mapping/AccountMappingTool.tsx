@@ -33,12 +33,27 @@ import {
   type MappingDecisionStatus,
   type ReviewRowStatus,
 } from "@/lib/account-mapping/decisionStore";
+import { buildCsv, downloadCsv, type CsvValue } from "@/lib/account-mapping/csv";
 import {
   loadTemplates,
   saveTemplates,
   type MappingTemplate,
   TEMPLATE_STORAGE_KEY,
 } from "@/lib/account-mapping/templateStorage";
+import {
+  mergedAccountExportHeaders,
+  targetExportHeaders,
+  type MergedAccountExportRow,
+  type TargetExportRow,
+} from "@/lib/account-mapping/exportSchema";
+import {
+  findLatestRunByFiles,
+  loadRuns,
+  saveRun,
+  type AccountMappingRun,
+  type MatchPairSnapshot,
+  type StoredCsvSnapshot,
+} from "@/lib/account-mapping/runHistory";
 
 const DEFAULT_PROGRESS_STEP = 2000;
 const MAX_PREVIEW_ROWS = 20;
@@ -116,6 +131,21 @@ type ReviewRow = {
   status: ReviewRowStatus;
   baseStatus: MatchResult["status"];
   reasons: string[];
+};
+
+type TargetRuleMode = "both" | "either";
+
+type TargetRuleState = {
+  mode: TargetRuleMode;
+  vendorStatus: string;
+  partnerStatus: string;
+  eitherStatus: string;
+};
+
+type DiffSummary = {
+  newMatches: number;
+  removedMatches: number;
+  newlyUnmatched: number;
 };
 
 const STATUS_STYLES: Record<ReviewRowStatus, string> = {
@@ -457,6 +487,17 @@ export default function AccountMappingTool() {
   );
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [manualLinkRowId, setManualLinkRowId] = useState<string | null>(null);
+  const [targetRule, setTargetRule] = useState<TargetRuleState>({
+    mode: "both",
+    vendorStatus: "",
+    partnerStatus: "",
+    eitherStatus: "",
+  });
+  const [runHistory, setRunHistory] = useState<AccountMappingRun[]>([]);
+  const [runHistoryStatus, setRunHistoryStatus] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
+  const [runHistoryError, setRunHistoryError] = useState<string | null>(null);
 
   const vendorWorkerRef = useRef<Worker | null>(null);
   const partnerWorkerRef = useRef<Worker | null>(null);
@@ -492,6 +533,24 @@ export default function AccountMappingTool() {
     setTemplates(next);
     saveTemplates(next);
   }, []);
+
+  const refreshRunHistory = useCallback(() => {
+    setRunHistoryStatus("loading");
+    setRunHistoryError(null);
+    loadRuns()
+      .then((runs) => {
+        setRunHistory(runs);
+        setRunHistoryStatus("ready");
+      })
+      .catch((error: Error) => {
+        setRunHistoryStatus("error");
+        setRunHistoryError(error.message);
+      });
+  }, []);
+
+  useEffect(() => {
+    refreshRunHistory();
+  }, [refreshRunHistory]);
 
   const parseCsvFile = useCallback(
     (file: File, setState: Dispatch<SetStateAction<CsvParseState>>, workerRef: MutableRefObject<Worker | null>) => {
@@ -826,6 +885,34 @@ export default function AccountMappingTool() {
     });
   }, [baseReviewRows, decisions, partnerByAccountKey]);
 
+  const statusOptions = useMemo(() => {
+    const statusSet = new Set<string>();
+    vendorRecords.forEach((record) => {
+      const value = record.status?.trim();
+      if (value) {
+        statusSet.add(value);
+      }
+    });
+    partnerRecords.forEach((record) => {
+      const value = record.status?.trim();
+      if (value) {
+        statusSet.add(value);
+      }
+    });
+    return Array.from(statusSet).sort((a, b) => a.localeCompare(b));
+  }, [partnerRecords, vendorRecords]);
+
+  const matchPairs = useMemo<MatchPairSnapshot[]>(
+    () =>
+      reviewRows
+        .filter((row) => row.partnerAccountKey && row.status !== "rejected")
+        .map((row) => ({
+          vendorAccountKey: row.vendorAccountKey,
+          partnerAccountKey: row.partnerAccountKey as string,
+        })),
+    [reviewRows],
+  );
+
   const debouncedSearch = useDebouncedValue(searchTerm, 200);
 
   const filteredRows = useMemo(() => {
@@ -870,6 +957,69 @@ export default function AccountMappingTool() {
     return { total, matched, needsReview, unmatched };
   }, [reviewRows]);
 
+  const mergedExportRows = useMemo<MergedAccountExportRow[]>(
+    () =>
+      reviewRows.map((row) => ({
+        vendor_account_name: row.vendor.rawName ?? "",
+        partner_account_name: row.partner?.rawName ?? "",
+        vendor_owner: row.vendor.ownerName ?? "",
+        vendor_manager: row.vendor.managerName ?? "",
+        vendor_pam: row.vendor.pamName ?? "",
+        partner_owner: row.partner?.ownerName ?? "",
+        partner_manager: row.partner?.managerName ?? "",
+        partner_pam: row.partner?.pamName ?? "",
+        vendor_status: row.vendor.status ?? "",
+        partner_status: row.partner?.status ?? "",
+        match_score: row.matchScore !== null ? String(row.matchScore) : "",
+        match_type: row.matchType ?? "",
+        match_reasons: row.reasons.join("; "),
+      })),
+    [reviewRows],
+  );
+
+  const targetRows = useMemo<TargetExportRow[]>(() => {
+    if (!targetRule.mode) {
+      return [];
+    }
+
+    return reviewRows
+      .filter((row) => row.partnerAccountKey && row.status !== "rejected")
+      .filter((row) => {
+        const vendorStatus = row.vendor.status?.trim() ?? "";
+        const partnerStatus = row.partner?.status?.trim() ?? "";
+
+        if (targetRule.mode === "both") {
+          if (!targetRule.vendorStatus || !targetRule.partnerStatus) {
+            return false;
+          }
+          return (
+            vendorStatus === targetRule.vendorStatus &&
+            partnerStatus === targetRule.partnerStatus
+          );
+        }
+
+        if (!targetRule.eitherStatus) {
+          return false;
+        }
+
+        return (
+          vendorStatus === targetRule.eitherStatus ||
+          partnerStatus === targetRule.eitherStatus
+        );
+      })
+      .map((row) => ({
+        vendor_account_name: row.vendor.rawName ?? "",
+        partner_account_name: row.partner?.rawName ?? "",
+        vendor_status: row.vendor.status ?? "",
+        partner_status: row.partner?.status ?? "",
+        match_score: row.matchScore !== null ? String(row.matchScore) : "",
+        match_type: row.matchType ?? "",
+        match_reasons: row.reasons.join("; "),
+      }));
+  }, [reviewRows, targetRule]);
+
+  const targetPreview = useMemo(() => targetRows.slice(0, 6), [targetRows]);
+
   const selectedRow = useMemo(
     () => reviewRows.find((row) => row.id === selectedRowId) ?? null,
     [reviewRows, selectedRowId],
@@ -880,11 +1030,69 @@ export default function AccountMappingTool() {
     [manualLinkRowId, reviewRows],
   );
 
+  const vendorFileName = vendorState.file?.name ?? "";
+  const partnerFileName = partnerState.file?.name ?? "";
+
+  const latestComparableRun = useMemo(() => {
+    if (!vendorFileName || !partnerFileName) {
+      return undefined;
+    }
+    return findLatestRunByFiles(runHistory, vendorFileName, partnerFileName);
+  }, [partnerFileName, runHistory, vendorFileName]);
+
+  const diffSummary = useMemo<DiffSummary | null>(() => {
+    if (!latestComparableRun) {
+      return null;
+    }
+
+    const currentMatchKeys = new Set(
+      matchPairs.map((pair) => `${pair.vendorAccountKey}::${pair.partnerAccountKey}`),
+    );
+    const previousMatchKeys = new Set(
+      latestComparableRun.matchPairs.map(
+        (pair) => `${pair.vendorAccountKey}::${pair.partnerAccountKey}`,
+      ),
+    );
+
+    let newMatches = 0;
+    let removedMatches = 0;
+
+    currentMatchKeys.forEach((key) => {
+      if (!previousMatchKeys.has(key)) {
+        newMatches += 1;
+      }
+    });
+
+    previousMatchKeys.forEach((key) => {
+      if (!currentMatchKeys.has(key)) {
+        removedMatches += 1;
+      }
+    });
+
+    const previousMatchedVendorKeys = new Set(
+      latestComparableRun.matchPairs.map((pair) => pair.vendorAccountKey),
+    );
+    const currentUnmatchedVendorKeys = new Set(
+      reviewRows
+        .filter((row) => !row.partnerAccountKey || row.status === "rejected")
+        .map((row) => row.vendorAccountKey),
+    );
+
+    let newlyUnmatched = 0;
+    currentUnmatchedVendorKeys.forEach((key) => {
+      if (previousMatchedVendorKeys.has(key)) {
+        newlyUnmatched += 1;
+      }
+    });
+
+    return { newMatches, removedMatches, newlyUnmatched };
+  }, [latestComparableRun, matchPairs, reviewRows]);
+
   const hasUploads = Boolean(vendorState.result && partnerState.result);
   const hasMappings = vendorValidation.success && partnerValidation.success;
   const hasMatches = matchResults.length > 0;
 
-  const currentStep = hasMatches ? 3 : hasMappings ? 2 : hasUploads ? 1 : 0;
+  const currentStep = hasMatches ? 4 : hasMappings ? 2 : hasUploads ? 1 : 0;
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -922,6 +1130,133 @@ export default function AccountMappingTool() {
 
   const vendorHeaders = vendorState.result?.headers ?? [];
   const partnerHeaders = partnerState.result?.headers ?? [];
+
+  const buildCsvRows = useCallback(
+    <T extends Record<string, CsvValue>>(headers: readonly string[], rows: T[]) =>
+      rows.map((row) => headers.map((header) => row[header] ?? "")),
+    [],
+  );
+
+  const buildSnapshot = (state: CsvParseState): StoredCsvSnapshot => ({
+    headers: state.result?.headers ?? [],
+    rows: state.result?.rows ?? [],
+    rowCount: state.result?.rowCount ?? 0,
+    inferredDelimiter: state.result?.inferredDelimiter ?? ",",
+  });
+
+  const buildRunId = () =>
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `run-${Date.now()}`;
+
+  const saveRunSnapshot = useCallback(async () => {
+    if (!vendorState.result || !partnerState.result) {
+      return;
+    }
+
+    const selectedTemplate = templates.find((template) => template.id === selectedTemplateId);
+    const templateNameValue = selectedTemplate?.name ?? "Custom mapping";
+
+    const nextRun: AccountMappingRun = {
+      runId: buildRunId(),
+      timestamp: new Date().toISOString(),
+      vendorFileName: vendorFileName || "Vendor CSV",
+      partnerFileName: partnerFileName || "Partner CSV",
+      rowCounts: {
+        vendor: vendorRecords.length,
+        partner: partnerRecords.length,
+        matches: matchPairs.length,
+        targets: targetRows.length,
+      },
+      templateName: templateNameValue,
+      templateId: selectedTemplate?.id,
+      vendorMapping,
+      partnerMapping,
+      vendorSnapshot: buildSnapshot(vendorState),
+      partnerSnapshot: buildSnapshot(partnerState),
+      decisions,
+      matchPairs,
+    };
+
+    try {
+      await saveRun(nextRun);
+      refreshRunHistory();
+    } catch (error) {
+      setRunHistoryStatus("error");
+      setRunHistoryError(
+        error instanceof Error ? error.message : "Failed to save run history",
+      );
+    }
+  }, [
+    decisions,
+    matchPairs,
+    partnerFileName,
+    partnerMapping,
+    partnerRecords.length,
+    partnerState,
+    refreshRunHistory,
+    selectedTemplateId,
+    targetRows.length,
+    templates,
+    vendorFileName,
+    vendorMapping,
+    vendorRecords.length,
+    vendorState,
+  ]);
+
+  const handleDownloadMerged = useCallback(async () => {
+    const csv = buildCsv(
+      [...mergedAccountExportHeaders],
+      buildCsvRows(mergedAccountExportHeaders, mergedExportRows),
+    );
+    downloadCsv("merged_accounts.csv", csv);
+    await saveRunSnapshot();
+  }, [buildCsvRows, mergedExportRows, saveRunSnapshot]);
+
+  const handleDownloadTargets = useCallback(async () => {
+    const csv = buildCsv(
+      [...targetExportHeaders],
+      buildCsvRows(targetExportHeaders, targetRows),
+    );
+    downloadCsv("targets.csv", csv);
+    await saveRunSnapshot();
+  }, [buildCsvRows, saveRunSnapshot, targetRows]);
+
+  const handleOpenRun = useCallback(
+    (run: AccountMappingRun) => {
+      setVendorState({
+        file: new File([""], run.vendorFileName),
+        status: "ready",
+        progressRows: run.vendorSnapshot.rowCount,
+        progressBytes: 0,
+        result: {
+          headers: run.vendorSnapshot.headers,
+          rows: run.vendorSnapshot.rows,
+          sampleRows: run.vendorSnapshot.rows.slice(0, MAX_PREVIEW_ROWS),
+          rowCount: run.vendorSnapshot.rowCount,
+          inferredDelimiter: run.vendorSnapshot.inferredDelimiter,
+        },
+      });
+      setPartnerState({
+        file: new File([""], run.partnerFileName),
+        status: "ready",
+        progressRows: run.partnerSnapshot.rowCount,
+        progressBytes: 0,
+        result: {
+          headers: run.partnerSnapshot.headers,
+          rows: run.partnerSnapshot.rows,
+          sampleRows: run.partnerSnapshot.rows.slice(0, MAX_PREVIEW_ROWS),
+          rowCount: run.partnerSnapshot.rowCount,
+          inferredDelimiter: run.partnerSnapshot.inferredDelimiter,
+        },
+      });
+      setVendorMapping(run.vendorMapping);
+      setPartnerMapping(run.partnerMapping);
+      setDecisions(run.decisions);
+      setSelectedTemplateId(run.templateId ?? "");
+    },
+    [],
+  );
 
   return (
     <section className="space-y-8">
@@ -1300,6 +1635,252 @@ export default function AccountMappingTool() {
               </p>
             </>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="space-y-6">
+        <CardHeader className="gap-2">
+          <CardTitle className="text-lg">Step 5: Export + run history</CardTitle>
+          <p className="text-sm text-foreground/60">
+            Download merged exports, build target lists, and save run snapshots for demos.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="space-y-3 rounded-lg border border-foreground/10 bg-muted/40 px-4 py-4">
+              <div>
+                <p className="text-sm font-semibold">Merged accounts export</p>
+                <p className="text-xs text-foreground/60">
+                  Includes owner/manager/PAM fields, statuses, and match diagnostics.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3 text-xs text-foreground/60">
+                <span>Rows: {mergedExportRows.length.toLocaleString()}</span>
+                <span>Matches: {matchPairs.length.toLocaleString()}</span>
+              </div>
+              <Button onClick={handleDownloadMerged} disabled={!hasMatches}>
+                Download merged_accounts.csv
+              </Button>
+            </div>
+
+            <div className="space-y-4 rounded-lg border border-foreground/10 bg-muted/40 px-4 py-4">
+              <div className="space-y-1">
+                <p className="text-sm font-semibold">Target list builder</p>
+                <p className="text-xs text-foreground/60">
+                  Build rules like “vendor=Customer AND partner=Prospect” or “either side = Customer”.
+                </p>
+              </div>
+              <div className="space-y-3">
+                <label className="text-sm font-medium">Rule mode</label>
+                <select
+                  className="w-full rounded-md border border-foreground/20 bg-background px-3 py-2 text-sm"
+                  value={targetRule.mode}
+                  onChange={(event) =>
+                    setTargetRule((prev) => ({
+                      ...prev,
+                      mode: event.target.value as TargetRuleMode,
+                    }))
+                  }
+                >
+                  <option value="both">Vendor AND Partner status</option>
+                  <option value="either">Either side status</option>
+                </select>
+              </div>
+              {targetRule.mode === "both" ? (
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Vendor status</label>
+                    <select
+                      className="w-full rounded-md border border-foreground/20 bg-background px-3 py-2 text-sm"
+                      value={targetRule.vendorStatus}
+                      onChange={(event) =>
+                        setTargetRule((prev) => ({
+                          ...prev,
+                          vendorStatus: event.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">Select vendor status</option>
+                      {statusOptions.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Partner status</label>
+                    <select
+                      className="w-full rounded-md border border-foreground/20 bg-background px-3 py-2 text-sm"
+                      value={targetRule.partnerStatus}
+                      onChange={(event) =>
+                        setTargetRule((prev) => ({
+                          ...prev,
+                          partnerStatus: event.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">Select partner status</option>
+                      {statusOptions.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Either side status</label>
+                  <select
+                    className="w-full rounded-md border border-foreground/20 bg-background px-3 py-2 text-sm"
+                    value={targetRule.eitherStatus}
+                    onChange={(event) =>
+                      setTargetRule((prev) => ({
+                        ...prev,
+                        eitherStatus: event.target.value,
+                      }))
+                    }
+                  >
+                    <option value="">Select status</option>
+                    {statusOptions.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-foreground/60">
+                <span>Live count: {targetRows.length.toLocaleString()}</span>
+                <Button
+                  size="sm"
+                  onClick={handleDownloadTargets}
+                  disabled={!hasMatches || targetRows.length === 0}
+                >
+                  Download targets.csv
+                </Button>
+              </div>
+              {targetRows.length === 0 ? (
+                <p className="text-xs text-foreground/60">
+                  Choose statuses to see a live preview of target matches.
+                </p>
+              ) : (
+                <div className="max-h-56 overflow-auto rounded-lg border border-foreground/10 bg-background">
+                  <table className="min-w-full divide-y divide-foreground/10 text-xs">
+                    <thead className="sticky top-0 bg-background">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-semibold text-foreground/70">
+                          Vendor
+                        </th>
+                        <th className="px-3 py-2 text-left font-semibold text-foreground/70">
+                          Partner
+                        </th>
+                        <th className="px-3 py-2 text-left font-semibold text-foreground/70">
+                          Vendor status
+                        </th>
+                        <th className="px-3 py-2 text-left font-semibold text-foreground/70">
+                          Partner status
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-foreground/10">
+                      {targetPreview.map((row) => (
+                        <tr key={`${row.vendor_account_name}-${row.partner_account_name}`}>
+                          <td className="px-3 py-2 text-foreground/70">
+                            {row.vendor_account_name}
+                          </td>
+                          <td className="px-3 py-2 text-foreground/70">
+                            {row.partner_account_name}
+                          </td>
+                          <td className="px-3 py-2 text-foreground/70">
+                            {row.vendor_status}
+                          </td>
+                          <td className="px-3 py-2 text-foreground/70">
+                            {row.partner_status}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="space-y-3 rounded-lg border border-foreground/10 bg-muted/40 px-4 py-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold">Run history</p>
+                  <p className="text-xs text-foreground/60">
+                    Save a snapshot to reopen the exact mapping results later.
+                  </p>
+                </div>
+                <Button size="sm" variant="secondary" onClick={saveRunSnapshot} disabled={!hasMatches}>
+                  Save run snapshot
+                </Button>
+              </div>
+              {runHistoryStatus === "loading" && (
+                <p className="text-xs text-foreground/60">Loading run history…</p>
+              )}
+              {runHistoryStatus === "error" && runHistoryError && (
+                <p className="text-xs text-destructive">{runHistoryError}</p>
+              )}
+              {runHistoryStatus !== "loading" && runHistory.length === 0 && (
+                <p className="text-xs text-foreground/60">No saved runs yet.</p>
+              )}
+              {runHistory.length > 0 && (
+                <ul className="space-y-3">
+                  {runHistory.slice(0, 5).map((run) => (
+                    <li key={run.runId} className="rounded-lg border border-foreground/10 bg-background px-3 py-3">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="space-y-1 text-xs text-foreground/60">
+                          <p className="text-sm font-semibold text-foreground">
+                            {run.vendorFileName} + {run.partnerFileName}
+                          </p>
+                          <p>{new Date(run.timestamp).toLocaleString()}</p>
+                          <p>
+                            Rows: {run.rowCounts.vendor.toLocaleString()} vendor /{" "}
+                            {run.rowCounts.partner.toLocaleString()} partner • Matches:{" "}
+                            {run.rowCounts.matches.toLocaleString()} • Targets:{" "}
+                            {run.rowCounts.targets.toLocaleString()}
+                          </p>
+                          {run.templateName ? <p>Template: {run.templateName}</p> : null}
+                        </div>
+                        <Button size="sm" onClick={() => handleOpenRun(run)}>
+                          Reopen
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="space-y-3 rounded-lg border border-foreground/10 bg-muted/40 px-4 py-4">
+              <p className="text-sm font-semibold">Diff since last run</p>
+              {latestComparableRun ? (
+                <div className="space-y-2 text-xs text-foreground/60">
+                  <p>
+                    Comparing against {new Date(latestComparableRun.timestamp).toLocaleString()} for{" "}
+                    {latestComparableRun.vendorFileName} + {latestComparableRun.partnerFileName}.
+                  </p>
+                  {diffSummary ? (
+                    <ul className="space-y-1">
+                      <li>New matches: {diffSummary.newMatches.toLocaleString()}</li>
+                      <li>Removed matches: {diffSummary.removedMatches.toLocaleString()}</li>
+                      <li>Newly unmatched: {diffSummary.newlyUnmatched.toLocaleString()}</li>
+                    </ul>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="text-xs text-foreground/60">
+                  Save at least one run with these filenames to see diff stats.
+                </p>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
