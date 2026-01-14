@@ -59,6 +59,10 @@ const DEFAULT_PROGRESS_STEP = 2000;
 const MAX_PREVIEW_ROWS = 20;
 const REVIEW_ROW_HEIGHT = 168;
 const REVIEW_LIST_HEIGHT = 560;
+const DEMO_VENDOR_URL = "/samples/account-mapping/vendor.csv";
+const DEMO_PARTNER_URL = "/samples/account-mapping/partner.csv";
+const INPUT_BASE_CLASSES =
+  "rounded-md border border-foreground/20 bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
 
 type CsvParseResult = {
   headers: string[];
@@ -97,6 +101,8 @@ const bytesToLabel = (value: number) => {
   }
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 };
+
+const formatMs = (value: number) => (value > 0 ? `${Math.round(value)} ms` : "—");
 
 const isMappingEmpty = (mapping: RawAccountMapping) =>
   Object.values(mapping).every((value) => !value);
@@ -148,6 +154,22 @@ type DiffSummary = {
   newlyUnmatched: number;
 };
 
+type RunStats = {
+  vendorParseMs: number;
+  partnerParseMs: number;
+  matchMs: number;
+  totalMs: number;
+};
+
+type TourStep = {
+  id: string;
+  title: string;
+  body: string;
+  highlight?: string;
+  autoAdvance?: boolean;
+  canAdvance?: boolean;
+};
+
 const STATUS_STYLES: Record<ReviewRowStatus, string> = {
   autoMatch: "bg-emerald-100 text-emerald-900",
   review: "bg-amber-100 text-amber-900",
@@ -196,6 +218,7 @@ const FileDropzone = ({
       <CardContent className="space-y-4">
         <div
           className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-foreground/20 bg-muted/40 px-4 py-6 text-center"
+          aria-label={`${label} file dropzone`}
           onDragOver={(event) => event.preventDefault()}
           onDrop={(event) => {
             event.preventDefault();
@@ -210,7 +233,12 @@ const FileDropzone = ({
             onChange={(event) => handleFiles(event.target.files)}
           />
           <p className="text-sm font-medium">Drop CSV here or browse</p>
-          <Button variant="secondary" onClick={() => inputRef.current?.click()}>
+          <Button
+            variant="secondary"
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            aria-label={`Browse ${label} CSV`}
+          >
             Browse file
           </Button>
           <p className="text-xs text-foreground/60">Supports 70,000+ rows with worker parsing.</p>
@@ -247,7 +275,9 @@ const FileDropzone = ({
               </div>
             )}
             {parseState.status === "error" && (
-              <p className="text-xs text-destructive">{parseState.error}</p>
+              <p className="text-xs text-destructive" role="alert">
+                {parseState.error}
+              </p>
             )}
             {parseState.result?.parseWarnings?.length ? (
               <div className="rounded-md border border-yellow-200 bg-yellow-50 px-3 py-2 text-xs text-yellow-900">
@@ -402,11 +432,18 @@ const ManualLinkModal = ({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4 py-10">
-      <div className="w-full max-w-2xl rounded-xl border border-foreground/10 bg-background shadow-xl">
+      <div
+        className="w-full max-w-2xl rounded-xl border border-foreground/10 bg-background shadow-xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="manual-link-title"
+      >
         <div className="flex items-center justify-between border-b border-foreground/10 px-6 py-4">
           <div>
             <p className="text-xs uppercase tracking-wide text-foreground/50">Manual link</p>
-            <p className="text-base font-semibold">{row.vendor.rawName || "Unnamed account"}</p>
+            <p className="text-base font-semibold" id="manual-link-title">
+              {row.vendor.rawName || "Unnamed account"}
+            </p>
             <p className="text-xs text-foreground/60">Normalized: {row.vendor.normalizedName}</p>
           </div>
           <Button variant="secondary" onClick={onClose}>
@@ -415,9 +452,12 @@ const ManualLinkModal = ({
         </div>
         <div className="space-y-4 px-6 py-4">
           <div>
-            <label className="text-sm font-medium">Search partner accounts</label>
+            <label className="text-sm font-medium" htmlFor="partner-search">
+              Search partner accounts
+            </label>
             <input
-              className="mt-2 w-full rounded-md border border-foreground/20 bg-background px-3 py-2 text-sm"
+              id="partner-search"
+              className={`mt-2 w-full ${INPUT_BASE_CLASSES}`}
               placeholder="Search partner list..."
               value={search}
               onChange={(event) => setSearch(event.target.value)}
@@ -498,11 +538,36 @@ export default function AccountMappingTool() {
     "idle" | "loading" | "ready" | "error"
   >("idle");
   const [runHistoryError, setRunHistoryError] = useState<string | null>(null);
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
+  const [demoError, setDemoError] = useState<string | null>(null);
+  const [tourStepIndex, setTourStepIndex] = useState<number | null>(null);
+  const [statsOpen, setStatsOpen] = useState(false);
+  const [runStats, setRunStats] = useState<RunStats>({
+    vendorParseMs: 0,
+    partnerParseMs: 0,
+    matchMs: 0,
+    totalMs: 0,
+  });
 
   const vendorWorkerRef = useRef<Worker | null>(null);
   const partnerWorkerRef = useRef<Worker | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const decisionsLoadedRef = useRef(false);
+  const vendorParseStartRef = useRef<number | null>(null);
+  const partnerParseStartRef = useRef<number | null>(null);
+  const runStartRef = useRef<number | null>(null);
+
+  const resetRunTracking = useCallback(() => {
+    runStartRef.current = null;
+    vendorParseStartRef.current = null;
+    partnerParseStartRef.current = null;
+    setRunStats({
+      vendorParseMs: 0,
+      partnerParseMs: 0,
+      matchMs: 0,
+      totalMs: 0,
+    });
+  }, []);
 
   useEffect(() => {
     setTemplates(loadTemplates());
@@ -553,13 +618,28 @@ export default function AccountMappingTool() {
   }, [refreshRunHistory]);
 
   const parseCsvFile = useCallback(
-    (file: File, setState: Dispatch<SetStateAction<CsvParseState>>, workerRef: MutableRefObject<Worker | null>) => {
+    (
+      file: File,
+      setState: Dispatch<SetStateAction<CsvParseState>>,
+      workerRef: MutableRefObject<Worker | null>,
+      kind: "vendor" | "partner",
+    ) => {
       if (workerRef.current) {
         workerRef.current.terminate();
       }
 
       const worker = buildWorker();
       workerRef.current = worker;
+
+      const startTime = performance.now();
+      if (!runStartRef.current) {
+        runStartRef.current = startTime;
+      }
+      if (kind === "vendor") {
+        vendorParseStartRef.current = startTime;
+      } else {
+        partnerParseStartRef.current = startTime;
+      }
 
       setState({
         file,
@@ -581,6 +661,21 @@ export default function AccountMappingTool() {
         }
 
         if (data.type === "complete") {
+          const endTime = performance.now();
+          const duration =
+            kind === "vendor"
+              ? vendorParseStartRef.current
+                ? endTime - vendorParseStartRef.current
+                : 0
+              : partnerParseStartRef.current
+                ? endTime - partnerParseStartRef.current
+                : 0;
+          setRunStats((prev) => ({
+            ...prev,
+            vendorParseMs: kind === "vendor" ? duration : prev.vendorParseMs,
+            partnerParseMs: kind === "partner" ? duration : prev.partnerParseMs,
+            totalMs: runStartRef.current ? endTime - runStartRef.current : prev.totalMs,
+          }));
           setState({
             file,
             status: "ready",
@@ -623,16 +718,28 @@ export default function AccountMappingTool() {
 
   const handleVendorFile = useCallback(
     (file: File) => {
-      parseCsvFile(file, setVendorState, vendorWorkerRef);
+      if (
+        (vendorState.file && partnerState.file) ||
+        (vendorState.file && vendorState.file.name !== file.name)
+      ) {
+        resetRunTracking();
+      }
+      parseCsvFile(file, setVendorState, vendorWorkerRef, "vendor");
     },
-    [parseCsvFile],
+    [parseCsvFile, partnerState.file, resetRunTracking, vendorState.file],
   );
 
   const handlePartnerFile = useCallback(
     (file: File) => {
-      parseCsvFile(file, setPartnerState, partnerWorkerRef);
+      if (
+        (vendorState.file && partnerState.file) ||
+        (partnerState.file && partnerState.file.name !== file.name)
+      ) {
+        resetRunTracking();
+      }
+      parseCsvFile(file, setPartnerState, partnerWorkerRef, "partner");
     },
-    [parseCsvFile],
+    [parseCsvFile, partnerState.file, resetRunTracking, vendorState.file],
   );
 
   useEffect(() => {
@@ -763,36 +870,44 @@ export default function AccountMappingTool() {
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid gap-3">
-          {canonicalFields.map((field) => (
-            <label key={field.key} className="grid gap-1 text-sm">
-              <span className="font-medium">
-                {field.label}
-                {field.required ? <span className="text-destructive"> *</span> : null}
-              </span>
-              <select
-                className="rounded-md border border-foreground/20 bg-background px-3 py-2 text-sm"
-                value={mapping[field.key]}
-                onChange={(event) =>
-                  setMapping((prev) => ({
-                    ...prev,
-                    [field.key]: event.target.value,
-                  }))
-                }
-              >
-                <option value="">Not mapped</option>
-                {headers.map((header) => (
-                  <option key={header} value={header}>
-                    {header}
-                  </option>
-                ))}
-              </select>
-              <span className="text-xs text-foreground/50">{field.description}</span>
-            </label>
-          ))}
+          {canonicalFields.map((field) => {
+            const fieldId = `${title.replace(/\s+/g, "-").toLowerCase()}-${field.key}`;
+            return (
+              <label key={field.key} className="grid gap-1 text-sm" htmlFor={fieldId}>
+                <span className="font-medium">
+                  {field.label}
+                  {field.required ? <span className="text-destructive"> *</span> : null}
+                </span>
+                <select
+                  id={fieldId}
+                  className={`${INPUT_BASE_CLASSES} w-full`}
+                  value={mapping[field.key]}
+                  onChange={(event) =>
+                    setMapping((prev) => ({
+                      ...prev,
+                      [field.key]: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="">Not mapped</option>
+                  {headers.map((header) => (
+                    <option key={header} value={header}>
+                      {header}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-xs text-foreground/50">{field.description}</span>
+              </label>
+            );
+          })}
         </div>
         {!validation.success && (
-          <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-            {validation.error.issues.map((issue) => issue.message).join(" ")}
+          <div
+            className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+            role="alert"
+          >
+            {validation.error.issues.map((issue) => issue.message).join(" ")} Map required fields
+            to continue.
           </div>
         )}
         <div className="text-xs text-foreground/60">
@@ -836,15 +951,32 @@ export default function AccountMappingTool() {
     [partnerRecords],
   );
 
-  const matchResults = useMemo(() => {
+  const matchComputation = useMemo(() => {
     if (vendorRecords.length === 0 || partnerRecords.length === 0) {
-      return [];
+      return { results: [], durationMs: 0 };
     }
-    return matchAccounts(
+    const startTime = performance.now();
+    const results = matchAccounts(
       vendorRecords.map((record) => ({ id: record.id, name: record.rawName })),
       partnerRecords.map((record) => ({ id: record.id, name: record.rawName })),
     );
+    const durationMs = performance.now() - startTime;
+    return { results, durationMs };
   }, [vendorRecords, partnerRecords]);
+
+  const matchResults = useMemo(() => matchComputation.results, [matchComputation.results]);
+
+  useEffect(() => {
+    if (!matchComputation.durationMs && matchResults.length === 0) {
+      return;
+    }
+    const endTime = performance.now();
+    setRunStats((prev) => ({
+      ...prev,
+      matchMs: matchComputation.durationMs,
+      totalMs: runStartRef.current ? endTime - runStartRef.current : prev.totalMs,
+    }));
+  }, [matchComputation.durationMs, matchResults.length]);
 
   const baseReviewRows = useMemo(() => {
     return matchResults
@@ -956,6 +1088,10 @@ export default function AccountMappingTool() {
     const unmatched = reviewRows.filter((row) => row.baseStatus === "unmatched").length;
     return { total, matched, needsReview, unmatched };
   }, [reviewRows]);
+
+  const autoMatchPercent = summary.total
+    ? Math.round((summary.matched / summary.total) * 100)
+    : 0;
 
   const mergedExportRows = useMemo<MergedAccountExportRow[]>(
     () =>
@@ -1093,6 +1229,102 @@ export default function AccountMappingTool() {
   const hasMatches = matchResults.length > 0;
 
   const currentStep = hasMatches ? 4 : hasMappings ? 2 : hasUploads ? 1 : 0;
+
+  const tourSteps = useMemo<TourStep[]>(
+    () => [
+      {
+        id: "intro",
+        title: "Welcome to account mapping",
+        body: "We’ll load a demo dataset and walk through how ops teams replace manual spreadsheet wrangling with a repeatable workflow.",
+        highlight: "Story arc: ingest → auto-match → review → targets → export.",
+        autoAdvance: true,
+        canAdvance: !isDemoLoading,
+      },
+      {
+        id: "upload",
+        title: "Instant ingest, no uploads required",
+        body: "Partner managers typically chase two exports that never align. We normalize them instantly and keep the UI responsive.",
+        highlight: `Parsed in ${formatMs(runStats.vendorParseMs + runStats.partnerParseMs)} total.`,
+        autoAdvance: true,
+        canAdvance: hasUploads,
+      },
+      {
+        id: "mapping",
+        title: "Auto-mapped fields + reusable templates",
+        body: "We infer canonical fields and let ops teams lock in mappings as templates for repeat runs.",
+        highlight: hasMappings ? "Required fields mapped—ready to match." : "Waiting on required fields.",
+        autoAdvance: true,
+        canAdvance: hasMappings,
+      },
+      {
+        id: "matching",
+        title: "Matching engine reduces review volume",
+        body: "We auto-score likely matches and funnel only ambiguous pairs into a focused review queue.",
+        highlight: `Auto-matched ${autoMatchPercent}% • Review queue reduced by ${summary.matched}.`,
+        autoAdvance: true,
+        canAdvance: hasMatches,
+      },
+      {
+        id: "review",
+        title: "Human-in-the-loop review stays fast",
+        body: "Approve, reject, or manually link accounts while keeping keyboard shortcuts for speed.",
+        highlight: `${summary.needsReview} accounts need review. ${summary.unmatched} need manual linking.`,
+        autoAdvance: true,
+        canAdvance: hasMatches,
+      },
+      {
+        id: "targets",
+        title: "Target lists generated in seconds",
+        body: "Ops can build cross-sell or expansion lists by combining vendor + partner lifecycle states.",
+        highlight: `Targets generated: ${targetRows.length}.`,
+        autoAdvance: true,
+        canAdvance: targetRows.length > 0,
+      },
+      {
+        id: "stats",
+        title: "Run stats make the value visible",
+        body: "Share parsing + matching performance with stakeholders for confidence and auditability.",
+        highlight: `Match time ${formatMs(runStats.matchMs)} • Total ${formatMs(runStats.totalMs)}.`,
+        autoAdvance: false,
+        canAdvance: runStats.totalMs > 0,
+      },
+    ],
+    [
+      autoMatchPercent,
+      hasMappings,
+      hasMatches,
+      hasUploads,
+      isDemoLoading,
+      runStats.matchMs,
+      runStats.partnerParseMs,
+      runStats.totalMs,
+      runStats.vendorParseMs,
+      summary.matched,
+      summary.needsReview,
+      summary.unmatched,
+      targetRows.length,
+    ],
+  );
+
+  const activeTourStep = tourStepIndex !== null ? tourSteps[tourStepIndex] : null;
+
+  useEffect(() => {
+    if (!activeTourStep || !activeTourStep.autoAdvance || !activeTourStep.canAdvance) {
+      return;
+    }
+    if (tourStepIndex === null || tourStepIndex >= tourSteps.length - 1) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setTourStepIndex((prev) => {
+        if (prev === null) {
+          return prev;
+        }
+        return Math.min(prev + 1, tourSteps.length - 1);
+      });
+    }, 1800);
+    return () => window.clearTimeout(timer);
+  }, [activeTourStep, tourStepIndex, tourSteps.length]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1258,15 +1490,93 @@ export default function AccountMappingTool() {
     [],
   );
 
+  const loadDemoDataset = useCallback(async () => {
+    setIsDemoLoading(true);
+    setDemoError(null);
+    setTourStepIndex(0);
+    setStatsOpen(true);
+    resetRunTracking();
+    setVendorMapping(createEmptyRawMapping());
+    setPartnerMapping(createEmptyRawMapping());
+    setSelectedTemplateId("");
+    setTemplateName("");
+    setDecisions([]);
+    setSelectedRowId(null);
+    setManualLinkRowId(null);
+    setDecisionFilter("pending");
+    setSearchTerm("");
+    setActiveTab("review");
+    setTargetRule({
+      mode: "both",
+      vendorStatus: "Customer",
+      partnerStatus: "Prospect",
+      eitherStatus: "",
+    });
+
+    try {
+      const [vendorResponse, partnerResponse] = await Promise.all([
+        fetch(DEMO_VENDOR_URL),
+        fetch(DEMO_PARTNER_URL),
+      ]);
+      if (!vendorResponse.ok || !partnerResponse.ok) {
+        throw new Error("Unable to load demo datasets. Please try again.");
+      }
+      const [vendorText, partnerText] = await Promise.all([
+        vendorResponse.text(),
+        partnerResponse.text(),
+      ]);
+
+      const vendorFile = new File([vendorText], "vendor-demo.csv", {
+        type: "text/csv",
+      });
+      const partnerFile = new File([partnerText], "partner-demo.csv", {
+        type: "text/csv",
+      });
+
+      handleVendorFile(vendorFile);
+      handlePartnerFile(partnerFile);
+    } catch (error) {
+      setDemoError(error instanceof Error ? error.message : "Unable to load demo dataset.");
+      setTourStepIndex(null);
+    } finally {
+      setIsDemoLoading(false);
+    }
+  }, [handlePartnerFile, handleVendorFile, resetRunTracking]);
+
   return (
     <section className="space-y-8">
       <header className="space-y-4">
-        <div className="space-y-2">
-          <h1 className="text-2xl font-semibold">Account Mapping</h1>
-          <p className="text-sm text-foreground/70">
-            Upload vendor + partner account lists, map fields, and save templates for reuse.
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="space-y-2">
+            <h1 className="text-2xl font-semibold">Account Mapping</h1>
+            <p className="text-sm text-foreground/70">
+              Match partner + vendor accounts, reduce review queues, and generate target lists in minutes.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              onClick={loadDemoDataset}
+              disabled={isDemoLoading}
+              aria-label="Load demo dataset"
+              aria-busy={isDemoLoading}
+            >
+              {isDemoLoading ? "Loading demo…" : "Load demo dataset"}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setTourStepIndex(0)}
+              aria-label="Start guided tour"
+              disabled={tourStepIndex !== null}
+            >
+              Start guided tour
+            </Button>
+          </div>
         </div>
+        {demoError && (
+          <p className="text-sm text-destructive" role="alert">
+            {demoError}
+          </p>
+        )}
         <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
           {["Upload", "Map", "Match", "Review", "Export"].map((step, index) => (
             <div
@@ -1285,9 +1595,54 @@ export default function AccountMappingTool() {
 
       <Card className="space-y-6">
         <CardHeader className="gap-2">
+          <CardTitle className="text-lg">Run stats</CardTitle>
+          <p className="text-sm text-foreground/60">
+            Client-side performance for parsing + matching. Share these metrics in your demo recap.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+            <div>
+              <p className="text-sm font-medium">Last run timings</p>
+              <p className="text-xs text-foreground/60">
+                Tracks the current session only — no network calls or server logging.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setStatsOpen((prev) => !prev)}
+              aria-expanded={statsOpen}
+              aria-controls="run-stats-drawer"
+            >
+              {statsOpen ? "Hide stats" : "View stats"}
+            </Button>
+          </div>
+          {statsOpen && (
+            <div
+              id="run-stats-drawer"
+              className="grid gap-3 rounded-lg border border-foreground/10 bg-muted/40 px-4 py-4 text-xs text-foreground/70 md:grid-cols-2"
+            >
+              <div className="space-y-1">
+                <p className="font-semibold text-foreground">Parse time</p>
+                <p>Vendor CSV: {formatMs(runStats.vendorParseMs)}</p>
+                <p>Partner CSV: {formatMs(runStats.partnerParseMs)}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="font-semibold text-foreground">Match time</p>
+                <p>Matching engine: {formatMs(runStats.matchMs)}</p>
+                <p>Total run time: {formatMs(runStats.totalMs)}</p>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="space-y-6">
+        <CardHeader className="gap-2">
           <CardTitle className="text-lg">Step 1: Upload CSVs</CardTitle>
           <p className="text-sm text-foreground/60">
-            Parsing happens in a web worker so large files stay responsive.
+            Parsing happens in a web worker so large files stay responsive. Or use the demo data above.
           </p>
         </CardHeader>
         <CardContent className="grid gap-4 lg:grid-cols-2">
@@ -1310,7 +1665,7 @@ export default function AccountMappingTool() {
         <CardHeader className="gap-2">
           <CardTitle className="text-lg">Step 2: Preview data</CardTitle>
           <p className="text-sm text-foreground/60">
-            First {MAX_PREVIEW_ROWS} rows are previewed for quick verification.
+            First {MAX_PREVIEW_ROWS} rows are previewed for quick verification before matching.
           </p>
         </CardHeader>
         <CardContent className="grid gap-6 lg:grid-cols-2">
@@ -1322,7 +1677,9 @@ export default function AccountMappingTool() {
                 rows={vendorState.result.sampleRows.slice(0, MAX_PREVIEW_ROWS)}
               />
             ) : (
-              <p className="text-sm text-foreground/60">Upload a vendor CSV to preview.</p>
+              <p className="text-sm text-foreground/60">
+                Upload a vendor CSV or use the demo dataset to preview instantly.
+              </p>
             )}
           </div>
           <div className="space-y-3">
@@ -1333,7 +1690,9 @@ export default function AccountMappingTool() {
                 rows={partnerState.result.sampleRows.slice(0, MAX_PREVIEW_ROWS)}
               />
             ) : (
-              <p className="text-sm text-foreground/60">Upload a partner CSV to preview.</p>
+              <p className="text-sm text-foreground/60">
+                Upload a partner CSV or use the demo dataset to preview instantly.
+              </p>
             )}
           </div>
         </CardContent>
@@ -1343,7 +1702,7 @@ export default function AccountMappingTool() {
         <CardHeader className="gap-2">
           <CardTitle className="text-lg">Step 3: Map columns</CardTitle>
           <p className="text-sm text-foreground/60">
-            Required fields must be mapped before saving templates.
+            Required fields must be mapped before saving templates. Auto-mapping uses header inference.
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -1367,9 +1726,12 @@ export default function AccountMappingTool() {
           <div className="rounded-lg border border-foreground/10 bg-muted/40 px-4 py-4">
             <div className="flex flex-wrap items-end gap-4">
               <div className="flex-1">
-                <label className="text-sm font-medium">Template name</label>
+                <label className="text-sm font-medium" htmlFor="template-name">
+                  Template name
+                </label>
                 <input
-                  className="mt-2 w-full rounded-md border border-foreground/20 bg-background px-3 py-2 text-sm"
+                  id="template-name"
+                  className={`mt-2 w-full ${INPUT_BASE_CLASSES}`}
                   value={templateName}
                   onChange={(event) => setTemplateName(event.target.value)}
                   placeholder="e.g. Salesforce export"
@@ -1387,9 +1749,12 @@ export default function AccountMappingTool() {
             </div>
 
             <div className="mt-4 flex flex-wrap items-center gap-3">
-              <label className="text-sm font-medium">Load template</label>
+              <label className="text-sm font-medium" htmlFor="template-select">
+                Load template
+              </label>
               <select
-                className="rounded-md border border-foreground/20 bg-background px-3 py-2 text-sm"
+                id="template-select"
+                className={INPUT_BASE_CLASSES}
                 value={selectedTemplateId}
                 onChange={(event) => {
                   setSelectedTemplateId(event.target.value);
@@ -1421,7 +1786,8 @@ export default function AccountMappingTool() {
         <CardContent className="space-y-6">
           {!hasMatches ? (
             <div className="rounded-lg border border-foreground/10 bg-muted/40 px-4 py-6 text-sm text-foreground/60">
-              Upload both CSVs and map the account name field to generate matching results.
+              Upload both CSVs (or load the demo dataset) and map the account name field to generate
+              matching results. Matches appear instantly once both lists are ready.
             </div>
           ) : (
             <>
@@ -1456,10 +1822,13 @@ export default function AccountMappingTool() {
 
               <div className="flex flex-wrap items-end gap-4">
                 <div className="min-w-[240px] flex-1">
-                  <label className="text-sm font-medium">Search accounts</label>
+                  <label className="text-sm font-medium" htmlFor="account-search">
+                    Search accounts
+                  </label>
                   <input
                     ref={searchInputRef}
-                    className="mt-2 w-full rounded-md border border-foreground/20 bg-background px-3 py-2 text-sm"
+                    id="account-search"
+                    className={`mt-2 w-full ${INPUT_BASE_CLASSES}`}
                     placeholder="Search by account name or normalized name…"
                     value={searchTerm}
                     onChange={(event) => setSearchTerm(event.target.value)}
@@ -1469,9 +1838,12 @@ export default function AccountMappingTool() {
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Decision filter</label>
+                  <label className="text-sm font-medium" htmlFor="decision-filter">
+                    Decision filter
+                  </label>
                   <select
-                    className="mt-2 w-full rounded-md border border-foreground/20 bg-background px-3 py-2 text-sm"
+                    id="decision-filter"
+                    className={`mt-2 w-full ${INPUT_BASE_CLASSES}`}
                     value={decisionFilter}
                     onChange={(event) =>
                       setDecisionFilter(event.target.value as "all" | "pending" | "decided")
@@ -1642,7 +2014,7 @@ export default function AccountMappingTool() {
         <CardHeader className="gap-2">
           <CardTitle className="text-lg">Step 5: Export + run history</CardTitle>
           <p className="text-sm text-foreground/60">
-            Download merged exports, build target lists, and save run snapshots for demos.
+            Download merged exports, build target lists, and save run snapshots for audit-ready demos.
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -1671,9 +2043,12 @@ export default function AccountMappingTool() {
                 </p>
               </div>
               <div className="space-y-3">
-                <label className="text-sm font-medium">Rule mode</label>
+                <label className="text-sm font-medium" htmlFor="target-rule-mode">
+                  Rule mode
+                </label>
                 <select
-                  className="w-full rounded-md border border-foreground/20 bg-background px-3 py-2 text-sm"
+                  id="target-rule-mode"
+                  className={`w-full ${INPUT_BASE_CLASSES}`}
                   value={targetRule.mode}
                   onChange={(event) =>
                     setTargetRule((prev) => ({
@@ -1689,9 +2064,12 @@ export default function AccountMappingTool() {
               {targetRule.mode === "both" ? (
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Vendor status</label>
+                    <label className="text-sm font-medium" htmlFor="target-vendor-status">
+                      Vendor status
+                    </label>
                     <select
-                      className="w-full rounded-md border border-foreground/20 bg-background px-3 py-2 text-sm"
+                      id="target-vendor-status"
+                      className={`w-full ${INPUT_BASE_CLASSES}`}
                       value={targetRule.vendorStatus}
                       onChange={(event) =>
                         setTargetRule((prev) => ({
@@ -1709,9 +2087,12 @@ export default function AccountMappingTool() {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Partner status</label>
+                    <label className="text-sm font-medium" htmlFor="target-partner-status">
+                      Partner status
+                    </label>
                     <select
-                      className="w-full rounded-md border border-foreground/20 bg-background px-3 py-2 text-sm"
+                      id="target-partner-status"
+                      className={`w-full ${INPUT_BASE_CLASSES}`}
                       value={targetRule.partnerStatus}
                       onChange={(event) =>
                         setTargetRule((prev) => ({
@@ -1731,9 +2112,12 @@ export default function AccountMappingTool() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Either side status</label>
+                  <label className="text-sm font-medium" htmlFor="target-either-status">
+                    Either side status
+                  </label>
                   <select
-                    className="w-full rounded-md border border-foreground/20 bg-background px-3 py-2 text-sm"
+                    id="target-either-status"
+                    className={`w-full ${INPUT_BASE_CLASSES}`}
                     value={targetRule.eitherStatus}
                     onChange={(event) =>
                       setTargetRule((prev) => ({
@@ -1897,6 +2281,63 @@ export default function AccountMappingTool() {
         }}
         onClose={() => setManualLinkRowId(null)}
       />
+      {activeTourStep && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
+          <div className="w-full max-w-2xl space-y-4 rounded-xl border border-foreground/10 bg-background p-6 shadow-xl">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="space-y-1">
+                <p className="text-xs uppercase tracking-wide text-foreground/50">Guided tour</p>
+                <h2 className="text-lg font-semibold">{activeTourStep.title}</h2>
+              </div>
+              <Button variant="secondary" onClick={() => setTourStepIndex(null)}>
+                Exit tour
+              </Button>
+            </div>
+            <p className="text-sm text-foreground/70">{activeTourStep.body}</p>
+            {activeTourStep.highlight ? (
+              <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-primary">
+                {activeTourStep.highlight}
+              </div>
+            ) : null}
+            <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-foreground/60">
+              <span>
+                Step {tourStepIndex !== null ? tourStepIndex + 1 : 1} of {tourSteps.length}
+              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={tourStepIndex === 0}
+                  onClick={() =>
+                    setTourStepIndex((prev) =>
+                      prev === null ? prev : Math.max(prev - 1, 0),
+                    )
+                  }
+                >
+                  Back
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (tourStepIndex === null) {
+                      return;
+                    }
+                    if (tourStepIndex >= tourSteps.length - 1) {
+                      setTourStepIndex(null);
+                      return;
+                    }
+                    setTourStepIndex(tourStepIndex + 1);
+                  }}
+                >
+                  {tourStepIndex !== null && tourStepIndex >= tourSteps.length - 1
+                    ? "Finish"
+                    : "Next"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
