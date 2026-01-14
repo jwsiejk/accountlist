@@ -51,6 +51,10 @@ import {
   type MergedSearchRow,
 } from "@/lib/account-mapping/mergedSearch";
 import {
+  resolveMergedSearchDataset,
+  type MergedSearchDatasetSelection,
+} from "@/lib/account-mapping/mergedSearchDataset";
+import {
   findLatestRunByFiles,
   loadRuns,
   saveRun,
@@ -359,15 +363,23 @@ const buildSearchOptions = (rows: Record<string, string>[], key: string) => {
 };
 
 const MergedDatasetSearchPanel = ({
+  dataset,
   datasetLabel,
   rows,
   headers,
   onDownload,
+  onDatasetChange,
+  uploadState,
+  onUploadFile,
 }: {
+  dataset: MergedSearchDatasetSelection;
   datasetLabel: string;
   rows: MergedSearchRow[];
   headers: string[];
-  onDownload: (rows: MergedSearchRow[]) => void;
+  onDownload: (rows: MergedSearchRow[], headers: string[]) => void;
+  onDatasetChange: (next: MergedSearchDatasetSelection) => void;
+  uploadState: CsvParseState;
+  onUploadFile: (file: File) => void;
 }) => {
   const [search, setSearch] = useState("");
   const [vendorOwnerFilter, setVendorOwnerFilter] = useState("");
@@ -417,7 +429,11 @@ const MergedDatasetSearchPanel = ({
       "vendor_status",
       "partner_status",
     ];
-    return defaults.filter((column) => headers.includes(column));
+    const matchedDefaults = defaults.filter((column) => headers.includes(column));
+    if (matchedDefaults.length > 0) {
+      return matchedDefaults;
+    }
+    return headers.slice(0, 8);
   }, [headers]);
 
   const previewRows = useMemo(
@@ -477,9 +493,38 @@ const MergedDatasetSearchPanel = ({
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
+        <div className="grid gap-4 lg:grid-cols-[1.2fr,1fr]">
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor="merged-dataset-selector">
+              Dataset selection
+            </label>
+            <select
+              id="merged-dataset-selector"
+              className={`w-full ${INPUT_BASE_CLASSES}`}
+              value={dataset}
+              onChange={(event) =>
+                onDatasetChange(event.target.value as MergedSearchDatasetSelection)
+              }
+            >
+              <option value="run">Current run</option>
+              <option value="upload">Uploaded merged CSV</option>
+            </select>
+          </div>
+          {dataset === "upload" && (
+            <FileDropzone
+              label="Merged CSV upload"
+              description="Upload any merged CSV to reuse the search filters."
+              parseState={uploadState}
+              onFileSelected={onUploadFile}
+            />
+          )}
+        </div>
+
         {rows.length === 0 ? (
           <p className="text-sm text-foreground/60">
-            No dataset available yet. Run a match or upload a merged CSV.
+            {dataset === "upload"
+              ? "Upload a merged CSV to start searching."
+              : "No current run data available yet. Run a match or upload a merged CSV."}
           </p>
         ) : (
           <>
@@ -543,7 +588,7 @@ const MergedDatasetSearchPanel = ({
               </span>
               <Button
                 size="sm"
-                onClick={() => onDownload(filteredRows)}
+                onClick={() => onDownload(filteredRows, headers)}
                 disabled={filteredRows.length === 0}
               >
                 Download filtered CSV
@@ -740,6 +785,13 @@ export default function AccountMappingTool() {
     progressBytes: 0,
     result: null,
   });
+  const [mergedSearchState, setMergedSearchState] = useState<CsvParseState>({
+    file: null,
+    status: "idle",
+    progressRows: 0,
+    progressBytes: 0,
+    result: null,
+  });
 
   const [vendorMapping, setVendorMapping] = useState<RawAccountMapping>(createEmptyRawMapping());
   const [partnerMapping, setPartnerMapping] = useState<RawAccountMapping>(
@@ -757,6 +809,8 @@ export default function AccountMappingTool() {
   );
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [manualLinkRowId, setManualLinkRowId] = useState<string | null>(null);
+  const [mergedSearchDatasetSelection, setMergedSearchDatasetSelection] =
+    useState<MergedSearchDatasetSelection>("run");
   const [targetRule, setTargetRule] = useState<TargetRuleState>({
     mode: "both",
     vendorStatus: "",
@@ -781,6 +835,7 @@ export default function AccountMappingTool() {
 
   const vendorWorkerRef = useRef<Worker | null>(null);
   const partnerWorkerRef = useRef<Worker | null>(null);
+  const mergedSearchWorkerRef = useRef<Worker | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const decisionsLoadedRef = useRef(false);
   const vendorParseStartRef = useRef<number | null>(null);
@@ -946,6 +1001,84 @@ export default function AccountMappingTool() {
     [],
   );
 
+  const parseSearchCsvFile = useCallback((file: File) => {
+    if (mergedSearchWorkerRef.current) {
+      mergedSearchWorkerRef.current.terminate();
+    }
+
+    const worker = buildWorker();
+    mergedSearchWorkerRef.current = worker;
+
+    setMergedSearchState({
+      file,
+      status: "parsing",
+      progressRows: 0,
+      progressBytes: 0,
+      result: null,
+    });
+
+    const handleWorkerError = (message: string) => {
+      setMergedSearchState((prev) => ({
+        ...prev,
+        status: "error",
+        error: message,
+      }));
+      worker.terminate();
+      mergedSearchWorkerRef.current = null;
+    };
+
+    worker.onerror = (event) => {
+      handleWorkerError(event.message || "CSV parser crashed while processing the upload.");
+    };
+
+    worker.onmessageerror = () => {
+      handleWorkerError("CSV parser encountered an unexpected message error.");
+    };
+
+    worker.onmessage = (event: MessageEvent<WorkerMessage>) => {
+      const data = event.data;
+      if (data.type === "progress") {
+        setMergedSearchState((prev) => ({
+          ...prev,
+          progressRows: data.rowCount,
+          progressBytes: data.cursor,
+        }));
+        return;
+      }
+
+      if (data.type === "complete") {
+        setMergedSearchState({
+          file,
+          status: "ready",
+          progressRows: data.rowCount,
+          progressBytes: file.size,
+          result: {
+            headers: data.headers,
+            sampleRows: data.sampleRows,
+            rows: data.rows,
+            rowCount: data.rowCount,
+            inferredDelimiter: data.inferredDelimiter,
+            parseWarnings: data.parseWarnings,
+          },
+        });
+        worker.terminate();
+        mergedSearchWorkerRef.current = null;
+      }
+
+      if (data.type === "error") {
+        handleWorkerError(data.message);
+      }
+    };
+
+    worker.postMessage({
+      file,
+      options: {
+        previewRows: 50,
+        progressStep: DEFAULT_PROGRESS_STEP,
+      },
+    });
+  }, []);
+
   const handleVendorFile = useCallback(
     (file: File) => {
       if (
@@ -988,6 +1121,7 @@ export default function AccountMappingTool() {
     () => () => {
       vendorWorkerRef.current?.terminate();
       partnerWorkerRef.current?.terminate();
+      mergedSearchWorkerRef.current?.terminate();
     },
     [],
   );
@@ -1368,6 +1502,45 @@ export default function AccountMappingTool() {
       })),
     [reviewRows],
   );
+  const uploadedSearchRows = useMemo<MergedSearchRow[]>(
+    () => (mergedSearchState.result?.rows ?? []) as MergedSearchRow[],
+    [mergedSearchState.result],
+  );
+  const uploadedSearchHeaders = mergedSearchState.result?.headers ?? [];
+
+  const hasRunDataset = runSearchDataset.length > 0;
+  const hasUploadedDataset = uploadedSearchRows.length > 0;
+
+  const activeMergedSearchDataset = useMemo(
+    () =>
+      resolveMergedSearchDataset(mergedSearchDatasetSelection, {
+        hasRunDataset,
+        hasUploadedDataset,
+      }),
+    [hasRunDataset, hasUploadedDataset, mergedSearchDatasetSelection],
+  );
+
+  useEffect(() => {
+    if (
+      activeMergedSearchDataset !== mergedSearchDatasetSelection &&
+      !hasRunDataset &&
+      hasUploadedDataset
+    ) {
+      setMergedSearchDatasetSelection(activeMergedSearchDataset);
+    }
+  }, [
+    activeMergedSearchDataset,
+    hasRunDataset,
+    hasUploadedDataset,
+    mergedSearchDatasetSelection,
+  ]);
+
+  const mergedSearchRows =
+    activeMergedSearchDataset === "run" ? runSearchDataset : uploadedSearchRows;
+  const mergedSearchHeaders =
+    activeMergedSearchDataset === "run" ? MERGED_SEARCH_HEADERS : uploadedSearchHeaders;
+  const mergedSearchLabel =
+    activeMergedSearchDataset === "run" ? "Current run" : "Uploaded merged CSV";
 
   const targetRows = useMemo<TargetExportRow[]>(() => {
     if (!targetRule.mode) {
@@ -1711,10 +1884,10 @@ export default function AccountMappingTool() {
   }, [buildCsvRows, saveRunSnapshot, targetRows]);
 
   const handleDownloadMergedSearch = useCallback(
-    (rows: MergedSearchRow[]) => {
+    (rows: MergedSearchRow[], headers: string[]) => {
       const csv = buildCsv(
-        [...MERGED_SEARCH_HEADERS],
-        buildCsvRows(MERGED_SEARCH_HEADERS, rows),
+        [...headers],
+        buildCsvRows(headers, rows),
       );
       downloadCsv("merged_search.csv", csv);
     },
@@ -2536,10 +2709,14 @@ export default function AccountMappingTool() {
       </Card>
 
       <MergedDatasetSearchPanel
-        datasetLabel="Current run"
-        rows={runSearchDataset}
-        headers={MERGED_SEARCH_HEADERS}
+        dataset={activeMergedSearchDataset}
+        datasetLabel={mergedSearchLabel}
+        rows={mergedSearchRows}
+        headers={mergedSearchHeaders}
         onDownload={handleDownloadMergedSearch}
+        onDatasetChange={setMergedSearchDatasetSelection}
+        uploadState={mergedSearchState}
+        onUploadFile={parseSearchCsvFile}
       />
 
       <ManualLinkModal
