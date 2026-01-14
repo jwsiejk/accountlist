@@ -49,22 +49,25 @@ ctx.onmessage = (event: MessageEvent<CsvParseMessage>) => {
     dynamicTyping: false,
     chunkSize: 1024 * 64,
     chunk: (results) => {
-      if (!headers.length && results.meta.fields) {
-        headers = results.meta.fields;
+      const meta = results?.meta;
+      const errors = results?.errors ?? [];
+
+      if (!headers.length && meta?.fields) {
+        headers = meta.fields;
       }
 
-      rowCount += results.data.length;
-      if (results.data.length) {
+      rowCount += results?.data?.length ?? 0;
+      if (results?.data?.length) {
         rows.push(...results.data);
       }
 
-      if (results.errors.length) {
-        results.errors.forEach((error) => {
+      if (errors.length) {
+        errors.forEach((error) => {
           parseWarnings.push(`${error.type}: ${error.message}`);
         });
       }
 
-      for (const row of results.data) {
+      for (const row of results?.data ?? []) {
         if (sampleRows.length < previewRows) {
           sampleRows.push(row);
         } else {
@@ -77,17 +80,20 @@ ctx.onmessage = (event: MessageEvent<CsvParseMessage>) => {
         ctx.postMessage({
           type: "progress",
           rowCount,
-          cursor: results.meta.cursor,
+          cursor: meta?.cursor ?? rowCount,
         } satisfies CsvParseProgress);
       }
     },
     complete: (results) => {
-      if (!headers.length && results.meta.fields) {
-        headers = results.meta.fields;
+      const meta = results?.meta;
+      const errors = results?.errors ?? [];
+
+      if (!headers.length && meta?.fields) {
+        headers = meta.fields;
       }
 
-      if (results.errors.length) {
-        results.errors.forEach((error) => {
+      if (errors.length) {
+        errors.forEach((error) => {
           parseWarnings.push(`${error.type}: ${error.message}`);
         });
       }
@@ -98,7 +104,7 @@ ctx.onmessage = (event: MessageEvent<CsvParseMessage>) => {
         sampleRows,
         rows,
         rowCount,
-        inferredDelimiter: results.meta.delimiter ?? ",",
+        inferredDelimiter: meta?.delimiter ?? ",",
         parseWarnings: parseWarnings.length ? parseWarnings : undefined,
       } satisfies CsvParseComplete);
     },
