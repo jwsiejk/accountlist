@@ -18,6 +18,7 @@ type CsvParseComplete = {
   type: "complete";
   headers: string[];
   sampleRows: Record<string, string>[];
+  rows: Record<string, string>[];
   rowCount: number;
   inferredDelimiter: string;
   parseWarnings?: string[];
@@ -37,6 +38,7 @@ ctx.onmessage = (event: MessageEvent<CsvParseMessage>) => {
 
   let headers: string[] = [];
   const sampleRows: Record<string, string>[] = [];
+  const rows: Record<string, string>[] = [];
   let rowCount = 0;
   let lastProgress = 0;
   const parseWarnings: string[] = [];
@@ -52,6 +54,9 @@ ctx.onmessage = (event: MessageEvent<CsvParseMessage>) => {
       }
 
       rowCount += results.data.length;
+      if (results.data.length) {
+        rows.push(...results.data);
+      }
 
       if (results.errors.length) {
         results.errors.forEach((error) => {
@@ -91,6 +96,7 @@ ctx.onmessage = (event: MessageEvent<CsvParseMessage>) => {
         type: "complete",
         headers,
         sampleRows,
+        rows,
         rowCount,
         inferredDelimiter: results.meta.delimiter ?? ",",
         parseWarnings: parseWarnings.length ? parseWarnings : undefined,
