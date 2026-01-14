@@ -9,8 +9,8 @@ const featureCards = [
     href: "/tools/architecture-explorer",
   },
   {
-    title: "Estimator",
-    description: "Size infrastructure footprints and budgetary ranges quickly.",
+    title: "Account Mapping",
+    description: "Normalize and match account lists to streamline partner alignment.",
     href: "/estimator",
   },
   {
