@@ -59,8 +59,9 @@ const DEFAULT_PROGRESS_STEP = 2000;
 const MAX_PREVIEW_ROWS = 20;
 const REVIEW_ROW_HEIGHT = 168;
 const REVIEW_LIST_HEIGHT = 560;
-const DEMO_VENDOR_URL = "/samples/account-mapping/vendor.csv";
-const DEMO_PARTNER_URL = "/samples/account-mapping/partner.csv";
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+const DEMO_VENDOR_URL = `${basePath}/samples/account-mapping/vendor.csv`;
+const DEMO_PARTNER_URL = `${basePath}/samples/account-mapping/partner.csv`;
 const INPUT_BASE_CLASSES =
   "rounded-md border border-foreground/20 bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
 
