@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { inferMappingFromHeaders } from "@/lib/account-mapping/inference";
-import { matchAccounts, type MatchResult } from "@/lib/account-mapping/match";
+import { matchAccounts, type MatchResult, type MatchType } from "@/lib/account-mapping/match";
 import { normalizeName } from "@/lib/account-mapping/normalize";
 import {
   canonicalFields,
@@ -133,7 +133,7 @@ type ReviewRow = {
   partnerAccountKey: string | null;
   normalizedName: string;
   matchScore: number | null;
-  matchType: string | null;
+  matchType: MatchType | null;
   status: ReviewRowStatus;
   baseStatus: MatchResult["status"];
   reasons: string[];
