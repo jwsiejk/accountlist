@@ -46,25 +46,11 @@ import {
   type MergedAccountExportRow,
   type TargetExportRow,
 } from "@/lib/account-mapping/exportSchema";
-import {
-  filterMergedSearchRows,
-  type MergedSearchRow,
-} from "@/lib/account-mapping/mergedSearch";
+import { type MergedSearchRow } from "@/lib/account-mapping/mergedSearch";
 import {
   resolveMergedSearchDataset,
   type MergedSearchDatasetSelection,
 } from "@/lib/account-mapping/mergedSearchDataset";
-import {
-  COLUMN_SELECTION_STORAGE_KEY,
-  SAVED_SEARCHES_STORAGE_KEY,
-  getColumnSelection,
-  loadSavedSearches,
-  resolveColumnSelection,
-  saveColumnSelection,
-  saveSavedSearches,
-  type MergedSearchStoredFilters,
-  type SavedSearchPreset,
-} from "@/lib/account-mapping/mergedSearchStorage";
 import {
   findLatestRunByFiles,
   loadRuns,
@@ -84,32 +70,26 @@ const DEMO_VENDOR_URL = `${basePath}/samples/account-mapping/vendor.csv`;
 const DEMO_PARTNER_URL = `${basePath}/samples/account-mapping/partner.csv`;
 const INPUT_BASE_CLASSES =
   "rounded-md border border-foreground/20 bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
-const MERGED_SEARCH_EXTRA_HEADERS = [
-  "decision_status",
-  "normalized_name",
-  "vendor_crm_account_id",
-  "partner_crm_account_id",
-  "vendor_segment_type",
-  "partner_segment_type",
-] as const;
-const MERGED_SEARCH_HEADERS = [...mergedAccountExportHeaders, ...MERGED_SEARCH_EXTRA_HEADERS];
-const DEFAULT_MERGED_COLUMNS = [
+const SIMPLE_SEARCH_COLUMNS = [
   "vendor_account_name",
   "partner_account_name",
   "vendor_owner",
   "partner_owner",
-  "match_type",
-  "match_score",
-  "decision_status",
   "vendor_status",
   "partner_status",
+  "vendor_region",
+  "partner_region",
+  "vendor_organization",
+  "partner_organization",
 ] as const;
-const STATUS_RULE_OPTIONS = [
-  { value: "any", label: "Any" },
-  { value: "vendor-customer-partner-prospect", label: "vendor=Customer & partner=Prospect" },
-  { value: "vendor-prospect-partner-customer", label: "vendor=Prospect & partner=Customer" },
-  { value: "either-customer", label: "either side=Customer" },
+const SIMPLE_SEARCH_REQUIRED_UPLOAD_COLUMNS = [
+  "vendor_account_name",
+  "partner_account_name",
+  "vendor_owner",
+  "partner_owner",
 ] as const;
+const SIMPLE_SEARCH_ID_COLUMNS = ["vendor_crm_account_id", "partner_crm_account_id"] as const;
+const SIMPLE_SEARCH_HEADERS = [...SIMPLE_SEARCH_COLUMNS, ...SIMPLE_SEARCH_ID_COLUMNS];
 
 type CsvParseResult = {
   headers: string[];
@@ -169,6 +149,8 @@ type AccountRecord = {
   pamName?: string;
   status?: string;
   segmentType?: string;
+  region?: string;
+  organization?: string;
   crmAccountId?: string;
 };
 
@@ -379,16 +361,6 @@ const PreviewTable = ({
   </div>
 );
 
-const resolveDefaultMergedColumns = (headers: string[]) => {
-  const matchedDefaults = DEFAULT_MERGED_COLUMNS.filter((column) =>
-    headers.includes(column),
-  );
-  if (matchedDefaults.length > 0) {
-    return matchedDefaults;
-  }
-  return headers.slice(0, 8);
-};
-
 const buildSearchOptions = (rows: Record<string, string>[], key: string) => {
   const values = new Set<string>();
   rows.forEach((row) => {
@@ -400,7 +372,20 @@ const buildSearchOptions = (rows: Record<string, string>[], key: string) => {
   return Array.from(values).sort((a, b) => a.localeCompare(b));
 };
 
-const MergedDatasetSearchPanel = ({
+const buildUnionOptions = (rows: Record<string, string>[], keys: string[]) => {
+  const values = new Set<string>();
+  rows.forEach((row) => {
+    keys.forEach((key) => {
+      const value = row[key]?.trim();
+      if (value) {
+        values.add(value);
+      }
+    });
+  });
+  return Array.from(values).sort((a, b) => a.localeCompare(b));
+};
+
+const MergedDatasetSearchPanelSimple = ({
   dataset,
   datasetLabel,
   rows,
@@ -419,69 +404,29 @@ const MergedDatasetSearchPanel = ({
   uploadState: CsvParseState;
   onUploadFile: (file: File) => void;
 }) => {
-  const [search, setSearch] = useState("");
   const [vendorOwnerFilter, setVendorOwnerFilter] = useState("");
   const [partnerOwnerFilter, setPartnerOwnerFilter] = useState("");
-  const [matchTypeFilter, setMatchTypeFilter] = useState("");
-  const [overlapOnly, setOverlapOnly] = useState(true);
-  const [statusRule, setStatusRule] = useState("any");
-  const [columnSearch, setColumnSearch] = useState("");
-  const [columnsOpen, setColumnsOpen] = useState(false);
-  const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
-  const [savedSearches, setSavedSearches] = useState<SavedSearchPreset[]>([]);
-  const [presetName, setPresetName] = useState("");
-  const [selectedPresetId, setSelectedPresetId] = useState("");
-  const [renamePresetName, setRenamePresetName] = useState("");
-  const savedSearchesLoadedRef = useRef(false);
-  const debouncedSearch = useDebouncedValue(search, 150);
+  const [regionFilter, setRegionFilter] = useState("");
+  const [organizationFilter, setOrganizationFilter] = useState("");
+  const [customerProspectFilter, setCustomerProspectFilter] = useState("any");
+  const [overlapOnly, setOverlapOnly] = useState(false);
+  const previousOwnersRef = useRef({ hasVendor: false, hasPartner: false });
 
-  const hasStatusColumns =
-    headers.includes("vendor_status") && headers.includes("partner_status");
-
-  const defaultColumns = useMemo(() => resolveDefaultMergedColumns(headers), [headers]);
+  const hasVendorOwner = Boolean(vendorOwnerFilter);
+  const hasPartnerOwner = Boolean(partnerOwnerFilter);
+  const hasAnyOwner = hasVendorOwner || hasPartnerOwner;
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
+    const hasBothOwners = hasVendorOwner && hasPartnerOwner;
+    const prev = previousOwnersRef.current;
+    if (hasBothOwners && !(prev.hasVendor && prev.hasPartner)) {
+      setOverlapOnly(true);
     }
-    setSavedSearches(loadSavedSearches(window.localStorage));
-    savedSearchesLoadedRef.current = true;
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || headers.length === 0) {
-      return;
+    if (!hasBothOwners && prev.hasVendor && prev.hasPartner) {
+      setOverlapOnly(false);
     }
-    const stored = getColumnSelection(window.localStorage, dataset);
-    const resolved = resolveColumnSelection(stored, headers, defaultColumns);
-    setSelectedColumns(resolved);
-  }, [dataset, defaultColumns, headers]);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || headers.length === 0) {
-      return;
-    }
-    if (selectedColumns.length === 0) {
-      return;
-    }
-    saveColumnSelection(window.localStorage, dataset, selectedColumns);
-  }, [dataset, headers.length, selectedColumns]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    if (!savedSearchesLoadedRef.current) {
-      return;
-    }
-    saveSavedSearches(window.localStorage, savedSearches);
-  }, [savedSearches]);
-
-  useEffect(() => {
-    if (!hasStatusColumns) {
-      setStatusRule("any");
-    }
-  }, [hasStatusColumns]);
+    previousOwnersRef.current = { hasVendor: hasVendorOwner, hasPartner: hasPartnerOwner };
+  }, [hasPartnerOwner, hasVendorOwner]);
 
   const vendorOwnerOptions = useMemo(
     () => buildSearchOptions(rows, "vendor_owner"),
@@ -491,226 +436,192 @@ const MergedDatasetSearchPanel = ({
     () => buildSearchOptions(rows, "partner_owner"),
     [rows],
   );
-  const matchTypeOptions = useMemo(() => buildSearchOptions(rows, "match_type"), [rows]);
-
-  const currentFilters: MergedSearchStoredFilters = useMemo(
-    () => ({
-      search,
-      vendorOwner: vendorOwnerFilter,
-      partnerOwner: partnerOwnerFilter,
-      matchType: matchTypeFilter,
-      overlapOnly,
-      statusRule,
-    }),
-    [
-      matchTypeFilter,
-      overlapOnly,
-      partnerOwnerFilter,
-      search,
-      statusRule,
-      vendorOwnerFilter,
-    ],
+  const regionOptions = useMemo(
+    () => buildUnionOptions(rows, ["vendor_region", "partner_region"]),
+    [rows],
+  );
+  const organizationOptions = useMemo(
+    () => buildUnionOptions(rows, ["vendor_organization", "partner_organization"]),
+    [rows],
   );
 
-  const filteredColumnOptions = useMemo(() => {
-    const normalized = columnSearch.trim().toLowerCase();
-    if (!normalized) {
-      return headers;
-    }
-    return headers.filter((header) => header.toLowerCase().includes(normalized));
-  }, [columnSearch, headers]);
-
-  const quickPresets = useMemo(() => {
-    const base = [
-      {
-        id: "overlap-only",
-        label: "Overlap only",
-        filters: { overlapOnly: true, statusRule: "any" },
-      },
-    ];
-    if (!hasStatusColumns) {
-      return base;
-    }
-    return [
-      ...base,
-      {
-        id: "vendor-customer-partner-prospect",
-        label: "Vendor customers where Partner is prospect",
-        filters: {
-          overlapOnly: true,
-          statusRule: "vendor-customer-partner-prospect",
-        },
-      },
-      {
-        id: "vendor-prospect-partner-customer",
-        label: "Vendor prospects where Partner is customer",
-        filters: {
-          overlapOnly: true,
-          statusRule: "vendor-prospect-partner-customer",
-        },
-      },
-      {
-        id: "either-customer",
-        label: "Either side is customer",
-        filters: {
-          overlapOnly: true,
-          statusRule: "either-customer",
-        },
-      },
-    ];
-  }, [hasStatusColumns]);
-
-  const applyFilters = useCallback((filters: Partial<MergedSearchStoredFilters>) => {
-    if (filters.search !== undefined) {
-      setSearch(filters.search);
-    }
-    if (filters.vendorOwner !== undefined) {
-      setVendorOwnerFilter(filters.vendorOwner);
-    }
-    if (filters.partnerOwner !== undefined) {
-      setPartnerOwnerFilter(filters.partnerOwner);
-    }
-    if (filters.matchType !== undefined) {
-      setMatchTypeFilter(filters.matchType);
-    }
-    if (filters.overlapOnly !== undefined) {
-      setOverlapOnly(filters.overlapOnly);
-    }
-    if (filters.statusRule !== undefined) {
-      setStatusRule(filters.statusRule);
-    }
-  }, []);
-
-  const handleSavePreset = useCallback(() => {
-    const trimmed = presetName.trim();
-    if (!trimmed) {
-      return;
-    }
-    const id =
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `preset-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    const nextPreset: SavedSearchPreset = {
-      id,
-      name: trimmed,
-      createdAt: new Date().toISOString(),
-      filters: currentFilters,
-    };
-    setSavedSearches((prev) => [nextPreset, ...prev]);
-    setPresetName("");
-    setSelectedPresetId(id);
-    setRenamePresetName(trimmed);
-  }, [currentFilters, presetName]);
-
-  const handleApplyPreset = useCallback(
-    (preset: SavedSearchPreset) => {
-      applyFilters(preset.filters);
-    },
-    [applyFilters],
+  const availableColumns = useMemo(
+    () => SIMPLE_SEARCH_COLUMNS.filter((column) => headers.includes(column)),
+    [headers],
   );
+  const hasVendorStatus = headers.includes("vendor_status");
+  const hasPartnerStatus = headers.includes("partner_status");
 
-  const handleRenamePreset = useCallback(() => {
-    const trimmed = renamePresetName.trim();
-    if (!trimmed || !selectedPresetId) {
-      return;
+  const missingUploadColumns = useMemo(() => {
+    if (dataset !== "upload") {
+      return [];
     }
-    setSavedSearches((prev) =>
-      prev.map((preset) =>
-        preset.id === selectedPresetId ? { ...preset, name: trimmed } : preset,
-      ),
+    return SIMPLE_SEARCH_REQUIRED_UPLOAD_COLUMNS.filter(
+      (column) => !headers.includes(column),
     );
-  }, [renamePresetName, selectedPresetId]);
+  }, [dataset, headers]);
 
-  const handleDeletePreset = useCallback(() => {
-    if (!selectedPresetId) {
-      return;
+  const normalizeFilter = (value: string) => value.trim().toLowerCase();
+  const matchesExact = (value: string | undefined, filter: string) => {
+    if (!filter) {
+      return true;
     }
-    setSavedSearches((prev) => prev.filter((preset) => preset.id !== selectedPresetId));
-    setSelectedPresetId("");
-    setRenamePresetName("");
-  }, [selectedPresetId]);
-
-  const selectedPreset = useMemo(
-    () => savedSearches.find((preset) => preset.id === selectedPresetId) ?? null,
-    [savedSearches, selectedPresetId],
-  );
-
-  useEffect(() => {
-    if (selectedPreset) {
-      setRenamePresetName(selectedPreset.name);
+    return normalizeFilter(value ?? "") === normalizeFilter(filter);
+  };
+  const matchesStatus = (value: string | undefined, hasStatusColumn: boolean) => {
+    if (customerProspectFilter === "any" || !hasStatusColumn) {
+      return true;
     }
-  }, [selectedPreset]);
+    return normalizeFilter(value ?? "") === customerProspectFilter;
+  };
 
-  const previewColumns = useMemo(
-    () => resolveColumnSelection(selectedColumns, headers, defaultColumns),
-    [defaultColumns, headers, selectedColumns],
-  );
+  const hasVendorAccount = (row: MergedSearchRow) =>
+    Boolean(row.vendor_account_name?.trim());
+  const hasPartnerAccount = (row: MergedSearchRow) =>
+    Boolean(row.partner_account_name?.trim());
 
-  const filteredRows = useMemo(
-    () =>
-      filterMergedSearchRows(rows, {
-        search: debouncedSearch,
-        vendorOwner: vendorOwnerFilter,
-        partnerOwner: partnerOwnerFilter,
-        matchType: matchTypeFilter,
-        overlapOnly,
-        statusRule,
-      }),
+  const matchesSideFilters = useCallback(
+    (row: MergedSearchRow, side: "vendor" | "partner" | "both") => {
+      if (side === "vendor" || side === "both") {
+        if (hasVendorOwner && !matchesExact(row.vendor_owner, vendorOwnerFilter)) {
+          return false;
+        }
+        if (regionFilter && !matchesExact(row.vendor_region, regionFilter)) {
+          return false;
+        }
+        if (organizationFilter && !matchesExact(row.vendor_organization, organizationFilter)) {
+          return false;
+        }
+        if (!matchesStatus(row.vendor_status, hasVendorStatus)) {
+          return false;
+        }
+      }
+
+      if (side === "partner" || side === "both") {
+        if (hasPartnerOwner && !matchesExact(row.partner_owner, partnerOwnerFilter)) {
+          return false;
+        }
+        if (regionFilter && !matchesExact(row.partner_region, regionFilter)) {
+          return false;
+        }
+        if (organizationFilter && !matchesExact(row.partner_organization, organizationFilter)) {
+          return false;
+        }
+        if (!matchesStatus(row.partner_status, hasPartnerStatus)) {
+          return false;
+        }
+      }
+
+      return true;
+    },
     [
-      debouncedSearch,
-      matchTypeFilter,
-      overlapOnly,
+      customerProspectFilter,
+      hasPartnerStatus,
+      hasPartnerOwner,
+      hasVendorStatus,
+      hasVendorOwner,
+      organizationFilter,
       partnerOwnerFilter,
-      rows,
-      statusRule,
+      regionFilter,
       vendorOwnerFilter,
     ],
   );
 
-  const previewRows = useMemo(
-    () => filteredRows.slice(0, SEARCH_PREVIEW_ROWS),
-    [filteredRows],
+  const sections = useMemo(() => {
+    if (!hasAnyOwner) {
+      return [];
+    }
+    if (rows.length === 0 || missingUploadColumns.length > 0) {
+      return [];
+    }
+
+    const isOverlap = (row: MergedSearchRow) => hasVendorAccount(row) && hasPartnerAccount(row);
+    const isVendorOnly = (row: MergedSearchRow) =>
+      hasVendorAccount(row) && !hasPartnerAccount(row);
+    const isPartnerOnly = (row: MergedSearchRow) =>
+      hasPartnerAccount(row) && !hasVendorAccount(row);
+
+    if (hasVendorOwner && hasPartnerOwner) {
+      const shared = rows.filter(
+        (row) => isOverlap(row) && matchesSideFilters(row, "both"),
+      );
+      const vendorOnly = rows.filter(
+        (row) => isVendorOnly(row) && matchesSideFilters(row, "vendor"),
+      );
+      const partnerOnly = rows.filter(
+        (row) => isPartnerOnly(row) && matchesSideFilters(row, "partner"),
+      );
+      if (overlapOnly) {
+        return [{ id: "shared", title: "Shared accounts", rows: shared }];
+      }
+      return [
+        { id: "shared", title: "Shared accounts", rows: shared },
+        { id: "vendor-only", title: "Vendor-only accounts", rows: vendorOnly },
+        { id: "partner-only", title: "Partner-only accounts", rows: partnerOnly },
+      ];
+    }
+
+    const side: "vendor" | "partner" = hasVendorOwner ? "vendor" : "partner";
+    const baseRows = rows.filter((row) => {
+      if (side === "vendor" && !hasVendorAccount(row)) {
+        return false;
+      }
+      if (side === "partner" && !hasPartnerAccount(row)) {
+        return false;
+      }
+      if (overlapOnly && !(hasVendorAccount(row) && hasPartnerAccount(row))) {
+        return false;
+      }
+      return matchesSideFilters(row, side);
+    });
+    return [{ id: "results", title: "Results", rows: baseRows }];
+  }, [
+    hasAnyOwner,
+    hasPartnerOwner,
+    hasVendorOwner,
+    matchesSideFilters,
+    missingUploadColumns.length,
+    overlapOnly,
+    rows,
+  ]);
+
+  const totalResults = useMemo(
+    () => sections.reduce((sum, section) => sum + section.rows.length, 0),
+    [sections],
   );
 
-  const renderFilterInput = (
+  const filteredDownloadRows = useMemo(
+    () => sections.flatMap((section) => section.rows),
+    [sections],
+  );
+
+  const renderFilterSelect = (
     id: string,
     label: string,
     value: string,
     onChange: (next: string) => void,
     options: string[],
-  ) => {
-    const hasOptions = options.length > 0;
-    return (
-      <div className="space-y-2">
-        <label className="text-sm font-medium" htmlFor={id}>
-          {label}
-        </label>
-        {hasOptions ? (
-          <select
-            id={id}
-            className={`w-full ${INPUT_BASE_CLASSES}`}
-            value={value}
-            onChange={(event) => onChange(event.target.value)}
-          >
-            <option value="">All</option>
-            {options.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <input
-            id={id}
-            className={`w-full ${INPUT_BASE_CLASSES}`}
-            placeholder={`Filter by ${label.toLowerCase()}`}
-            value={value}
-            onChange={(event) => onChange(event.target.value)}
-          />
-        )}
-      </div>
-    );
-  };
+    placeholder = "All",
+  ) => (
+    <div className="min-w-[180px] flex-1 space-y-2">
+      <label className="text-sm font-medium" htmlFor={id}>
+        {label}
+      </label>
+      <select
+        id={id}
+        className={`w-full ${INPUT_BASE_CLASSES}`}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        <option value="">{placeholder}</option>
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
 
   return (
     <Card className="space-y-6">
@@ -719,7 +630,7 @@ const MergedDatasetSearchPanel = ({
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-foreground/60">
           <span>Dataset: {datasetLabel}</span>
           <span>
-            Showing {filteredRows.length.toLocaleString()} of {rows.length.toLocaleString()}
+            Showing {totalResults.toLocaleString()} of {rows.length.toLocaleString()}
           </span>
         </div>
       </CardHeader>
@@ -744,7 +655,7 @@ const MergedDatasetSearchPanel = ({
           {dataset === "upload" && (
             <FileDropzone
               label="Merged CSV upload"
-              description="Upload any merged CSV to reuse the search filters."
+              description="Upload a merged CSV that matches the export schema."
               parseState={uploadState}
               onFileSelected={onUploadFile}
             />
@@ -757,296 +668,129 @@ const MergedDatasetSearchPanel = ({
               ? "Upload a merged CSV to start searching."
               : "No current run data available yet. Run a match or upload a merged CSV."}
           </p>
+        ) : missingUploadColumns.length > 0 ? (
+          <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <p className="font-semibold">This upload is missing required columns.</p>
+            <p className="text-xs">
+              Include: {missingUploadColumns.join(", ")}.
+            </p>
+          </div>
         ) : (
           <>
-            <div className="grid gap-4 lg:grid-cols-[2fr,1fr]">
-              <div className="space-y-2">
-                <label className="text-sm font-medium" htmlFor="merged-search">
-                  Global search
-                </label>
-                <input
-                  id="merged-search"
-                  className={`w-full ${INPUT_BASE_CLASSES}`}
-                  placeholder="Search merged results…"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                />
-                <p className="text-xs text-foreground/50">
-                  Search across owners, account names, match reasons, and IDs.
-                </p>
-              </div>
-              <div className="flex items-end gap-3">
-                <label className="flex items-center gap-2 text-sm font-medium">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={overlapOnly}
-                    onChange={(event) => setOverlapOnly(event.target.checked)}
-                  />
-                  Overlap only
-                </label>
-              </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-3">
-              {renderFilterInput(
+            <div className="flex flex-wrap items-end gap-3">
+              {renderFilterSelect(
                 "merged-filter-vendor-owner",
                 "Vendor owner",
                 vendorOwnerFilter,
                 setVendorOwnerFilter,
                 vendorOwnerOptions,
               )}
-              {renderFilterInput(
+              {renderFilterSelect(
                 "merged-filter-partner-owner",
                 "Partner owner",
                 partnerOwnerFilter,
                 setPartnerOwnerFilter,
                 partnerOwnerOptions,
               )}
-              {renderFilterInput(
-                "merged-filter-match-type",
-                "Match type",
-                matchTypeFilter,
-                setMatchTypeFilter,
-                matchTypeOptions,
+              {renderFilterSelect(
+                "merged-filter-region",
+                "Region",
+                regionFilter,
+                setRegionFilter,
+                regionOptions,
               )}
+              {renderFilterSelect(
+                "merged-filter-organization",
+                "Organization",
+                organizationFilter,
+                setOrganizationFilter,
+                organizationOptions,
+              )}
+              <div className="min-w-[180px] flex-1 space-y-2">
+                <label className="text-sm font-medium" htmlFor="merged-filter-status">
+                  Customer / Prospect
+                </label>
+                <select
+                  id="merged-filter-status"
+                  className={`w-full ${INPUT_BASE_CLASSES}`}
+                  value={customerProspectFilter}
+                  onChange={(event) => setCustomerProspectFilter(event.target.value)}
+                >
+                  <option value="any">Any</option>
+                  <option value="customer">Customer</option>
+                  <option value="prospect">Prospect</option>
+                </select>
+              </div>
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={overlapOnly}
+                  onChange={(event) => setOverlapOnly(event.target.checked)}
+                />
+                Overlap only
+              </label>
             </div>
 
-            {hasStatusColumns && (
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium" htmlFor="merged-filter-status-rule">
-                    Status rule
-                  </label>
-                  <select
-                    id="merged-filter-status-rule"
-                    className={`w-full ${INPUT_BASE_CLASSES}`}
-                    value={statusRule}
-                    onChange={(event) => setStatusRule(event.target.value)}
-                  >
-                    {STATUS_RULE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-foreground/50">
-                    Optional filter when vendor_status and partner_status are available.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {quickPresets.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                  Quick presets
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {quickPresets.map((preset) => (
-                    <Button
-                      key={preset.id}
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => applyFilters(preset.filters)}
-                    >
-                      {preset.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-3 rounded-lg border border-foreground/10 bg-foreground/[0.02] p-4">
-              <div className="space-y-1">
-                <p className="text-sm font-semibold">Saved searches</p>
-                <p className="text-xs text-foreground/60">
-                  Stored in localStorage under <code>{SAVED_SEARCHES_STORAGE_KEY}</code>.
-                </p>
-              </div>
-              <div className="grid gap-3 md:grid-cols-[1.4fr,auto]">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium" htmlFor="merged-save-preset">
-                    Save current search
-                  </label>
-                  <input
-                    id="merged-save-preset"
-                    className={`w-full ${INPUT_BASE_CLASSES}`}
-                    placeholder="Name this preset..."
-                    value={presetName}
-                    onChange={(event) => setPresetName(event.target.value)}
-                  />
-                </div>
-                <div className="flex items-end">
-                  <Button size="sm" onClick={handleSavePreset} disabled={!presetName.trim()}>
-                    Save preset
-                  </Button>
-                </div>
-              </div>
-              <div className="grid gap-3 md:grid-cols-[1.4fr,auto]">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium" htmlFor="merged-saved-presets">
-                    Saved presets
-                  </label>
-                  <select
-                    id="merged-saved-presets"
-                    className={`w-full ${INPUT_BASE_CLASSES}`}
-                    value={selectedPresetId}
-                    onChange={(event) => {
-                      const nextId = event.target.value;
-                      setSelectedPresetId(nextId);
-                      const nextPreset =
-                        savedSearches.find((preset) => preset.id === nextId) ?? null;
-                      setRenamePresetName(nextPreset?.name ?? "");
-                    }}
-                  >
-                    <option value="">Select saved preset</option>
-                    {savedSearches.map((preset) => (
-                      <option key={preset.id} value={preset.id}>
-                        {preset.name}
-                      </option>
-                    ))}
-                  </select>
-                  {savedSearches.length === 0 && (
-                    <p className="text-xs text-foreground/60">No presets saved yet.</p>
-                  )}
-                </div>
-                <div className="flex flex-wrap items-end gap-2">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => selectedPreset && handleApplyPreset(selectedPreset)}
-                    disabled={!selectedPreset}
-                  >
-                    Apply
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={handleRenamePreset}
-                    disabled={!selectedPreset || !renamePresetName.trim()}
-                  >
-                    Rename
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={handleDeletePreset}
-                    disabled={!selectedPreset}
-                  >
-                    Delete
-                  </Button>
-                </div>
-              </div>
-              <div className="grid gap-3 md:grid-cols-[1.4fr,auto]">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium" htmlFor="merged-rename-preset">
-                    Rename selected preset
-                  </label>
-                  <input
-                    id="merged-rename-preset"
-                    className={`w-full ${INPUT_BASE_CLASSES}`}
-                    placeholder="Update preset name..."
-                    value={renamePresetName}
-                    onChange={(event) => setRenamePresetName(event.target.value)}
-                    disabled={!selectedPreset}
-                  />
-                </div>
-                <div className="flex items-end">
-                  <span className="text-xs text-foreground/50">
-                    Saved to localStorage automatically.
-                  </span>
-                </div>
-              </div>
-            </div>
+            <p className="text-xs text-foreground/50">
+              Select owners/region to filter overlap. Filters apply to each side independently.
+            </p>
 
             <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-foreground/60">
               <span>
-                Previewing {Math.min(previewRows.length, SEARCH_PREVIEW_ROWS).toLocaleString()}{" "}
-                rows
+                {hasAnyOwner
+                  ? `Filtered results: ${totalResults.toLocaleString()}`
+                  : "Choose a vendor or partner owner to begin."}
               </span>
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => setColumnsOpen((prev) => !prev)}
-                  >
-                    Columns
-                  </Button>
-                  {columnsOpen && (
-                    <div className="absolute right-0 top-full z-10 mt-2 w-72 rounded-lg border border-foreground/10 bg-background p-3 text-xs shadow-lg">
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                          Visible columns
-                        </label>
-                        <input
-                          className={`w-full ${INPUT_BASE_CLASSES}`}
-                          placeholder="Search columns..."
-                          value={columnSearch}
-                          onChange={(event) => setColumnSearch(event.target.value)}
-                        />
-                        <p className="text-[11px] text-foreground/60">
-                          {selectedColumns.length} of {headers.length} selected. Stored under{" "}
-                          <code>{COLUMN_SELECTION_STORAGE_KEY}</code>.
-                        </p>
-                      </div>
-                      <div className="mt-3 max-h-48 overflow-auto rounded-md border border-foreground/10 bg-background">
-                        {filteredColumnOptions.length === 0 ? (
-                          <p className="px-3 py-4 text-center text-[11px] text-foreground/60">
-                            No columns match that search.
-                          </p>
-                        ) : (
-                          <ul className="divide-y divide-foreground/10">
-                            {filteredColumnOptions.map((column) => {
-                              const isSelected = selectedColumns.includes(column);
-                              return (
-                                <li key={column} className="px-3 py-2">
-                                  <label className="flex items-center gap-2">
-                                    <input
-                                      type="checkbox"
-                                      className="h-4 w-4"
-                                      checked={isSelected}
-                                      onChange={() => {
-                                        setSelectedColumns((prev) => {
-                                          if (prev.includes(column)) {
-                                            const next = prev.filter(
-                                              (entry) => entry !== column,
-                                            );
-                                            return next.length > 0 ? next : prev;
-                                          }
-                                          const next = [...prev, column];
-                                          return headers.filter((header) =>
-                                            next.includes(header),
-                                          );
-                                        });
-                                      }}
-                                    />
-                                    <span className="text-xs text-foreground/70">{column}</span>
-                                  </label>
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <Button
-                  size="sm"
-                  onClick={() => onDownload(filteredRows, headers)}
-                  disabled={filteredRows.length === 0}
-                >
-                  Download filtered CSV
-                </Button>
-              </div>
+              <Button
+                size="sm"
+                onClick={() => onDownload(filteredDownloadRows, headers)}
+                disabled={filteredDownloadRows.length === 0}
+              >
+                Download filtered CSV
+              </Button>
             </div>
 
-            {previewRows.length === 0 ? (
+            {!hasAnyOwner ? (
+              <p className="text-sm text-foreground/60">
+                Select a vendor or partner owner to see results.
+              </p>
+            ) : sections.length === 0 ? (
               <p className="text-sm text-foreground/60">No rows match these filters.</p>
             ) : (
-              <PreviewTable headers={previewColumns} rows={previewRows} />
+              <div className="space-y-6">
+                {sections.map((section) => {
+                  const visibleRows = section.rows.slice(0, SEARCH_PREVIEW_ROWS);
+                  return (
+                    <div key={section.id} className="space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold">{section.title}</p>
+                          <p className="text-xs text-foreground/60">
+                            {section.rows.length.toLocaleString()} accounts
+                          </p>
+                        </div>
+                        {section.rows.length > SEARCH_PREVIEW_ROWS && (
+                          <span className="text-xs text-foreground/50">
+                            Showing first {SEARCH_PREVIEW_ROWS.toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                      {section.rows.length === 0 ? (
+                        <p className="text-sm text-foreground/60">
+                          No accounts in this section.
+                        </p>
+                      ) : availableColumns.length === 0 ? (
+                        <p className="text-sm text-foreground/60">
+                          No displayable columns found in this dataset.
+                        </p>
+                      ) : (
+                        <PreviewTable headers={availableColumns} rows={visibleRows} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </>
         )}
@@ -1633,6 +1377,8 @@ export default function AccountMappingTool() {
           pamName: mapping.pam_name ? row[mapping.pam_name] ?? "" : "",
           status: mapping.status ? row[mapping.status] ?? "" : "",
           segmentType: mapping.segment_type ? row[mapping.segment_type] ?? "" : "",
+          region: mapping.region ? row[mapping.region] ?? "" : "",
+          organization: mapping.organization ? row[mapping.organization] ?? "" : "",
           crmAccountId: crmAccountId || undefined,
         };
       });
@@ -1931,22 +1677,15 @@ export default function AccountMappingTool() {
         vendor_account_name: row.vendor.rawName ?? "",
         partner_account_name: row.partner?.rawName ?? "",
         vendor_owner: row.vendor.ownerName ?? "",
-        vendor_manager: row.vendor.managerName ?? "",
-        vendor_pam: row.vendor.pamName ?? "",
         partner_owner: row.partner?.ownerName ?? "",
-        partner_manager: row.partner?.managerName ?? "",
-        partner_pam: row.partner?.pamName ?? "",
         vendor_status: row.vendor.status ?? "",
         partner_status: row.partner?.status ?? "",
-        match_type: row.matchType ?? "",
-        match_score: row.matchScore !== null ? String(row.matchScore) : "",
-        match_reasons: row.reasons.join("; "),
-        decision_status: row.status,
-        normalized_name: row.normalizedName ?? "",
         vendor_crm_account_id: row.vendor.crmAccountId ?? "",
         partner_crm_account_id: row.partner?.crmAccountId ?? "",
-        vendor_segment_type: row.vendor.segmentType ?? "",
-        partner_segment_type: row.partner?.segmentType ?? "",
+        vendor_region: row.vendor.region ?? "",
+        partner_region: row.partner?.region ?? "",
+        vendor_organization: row.vendor.organization ?? "",
+        partner_organization: row.partner?.organization ?? "",
       })),
     [reviewRows],
   );
@@ -1986,7 +1725,7 @@ export default function AccountMappingTool() {
   const mergedSearchRows =
     activeMergedSearchDataset === "run" ? runSearchDataset : uploadedSearchRows;
   const mergedSearchHeaders =
-    activeMergedSearchDataset === "run" ? MERGED_SEARCH_HEADERS : uploadedSearchHeaders;
+    activeMergedSearchDataset === "run" ? SIMPLE_SEARCH_HEADERS : uploadedSearchHeaders;
   const mergedSearchLabel =
     activeMergedSearchDataset === "run" ? "Current run" : "Uploaded merged CSV";
 
@@ -3156,7 +2895,7 @@ export default function AccountMappingTool() {
         </CardContent>
       </Card>
 
-      <MergedDatasetSearchPanel
+      <MergedDatasetSearchPanelSimple
         dataset={activeMergedSearchDataset}
         datasetLabel={mergedSearchLabel}
         rows={mergedSearchRows}
