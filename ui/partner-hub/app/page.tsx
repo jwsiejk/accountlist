@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, Download, Mail, Linkedin } from "lucide-react";
+import { ArrowUpRight, BadgeCheck, Download, Linkedin, Mail } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const credibilityChips = [
@@ -96,50 +96,94 @@ const toolCards = [
 export default function HomePage() {
   return (
     <div className="space-y-12">
-      <section className="rounded-3xl border border-border bg-gradient-to-br from-primary/10 via-white to-secondary/10 p-10 shadow-sm dark:via-slate-900">
-        <div className="space-y-5">
-          <p className="text-sm font-medium text-primary">Senior Solutions Architect / Presales Engineer</p>
-          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            James Siejk — Senior Solutions Architect / Presales Engineer
-          </h1>
-          <p className="max-w-3xl text-base text-foreground/70">
-            30+ years in enterprise infrastructure. I own the technical side of sales campaigns:
-            discovery, architecture, validation, demos, and technical decision support across data
-            center and cloud.
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href="/resume/James_Siejk_Resume.pdf"
-              className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-foreground shadow transition hover:bg-primary/90"
-            >
-              <Download className="h-4 w-4" aria-hidden />
-              Download Resume
-            </Link>
-            <Link
-              href="https://www.linkedin.com/in/james-siejk"
-              className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-muted"
-            >
-              <Linkedin className="h-4 w-4" aria-hidden />
-              View LinkedIn
-            </Link>
-            <Link
-              href="/about"
-              className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-muted"
-            >
-              <Mail className="h-4 w-4" aria-hidden />
-              Contact
-            </Link>
+      <section className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-primary/10 via-white to-secondary/10 p-10 shadow-sm dark:via-slate-900">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.12)_1px,_transparent_1px)] [background-size:20px_20px] opacity-40" />
+        <div className="relative grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+          <div className="space-y-6">
+            <p className="text-sm font-medium text-primary">
+              Senior Solutions Architect / Presales Engineer
+            </p>
+            <h1 className="text-4xl font-bold tracking-tight leading-tight sm:text-5xl">
+              James Siejk — Senior Solutions Architect / Presales Engineer
+            </h1>
+            <p className="max-w-3xl text-base text-foreground/70">
+              30+ years in enterprise infrastructure. I own the technical side of sales campaigns:
+              discovery, architecture, validation, demos, and technical decision support across data
+              center and cloud.
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                href="/resume/James_Siejk_Resume.pdf"
+                className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-foreground shadow transition hover:bg-primary/90"
+              >
+                <Download className="h-4 w-4" aria-hidden />
+                Download Resume
+              </Link>
+              <Link
+                href="https://www.linkedin.com/in/james-siejk-b93a2481/"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-background/80 px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-muted"
+              >
+                <Linkedin className="h-4 w-4" aria-hidden />
+                View LinkedIn
+              </Link>
+              <Link
+                href="/about"
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-background/80 px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-muted"
+              >
+                <Mail className="h-4 w-4" aria-hidden />
+                Contact
+              </Link>
+            </div>
+            <div className="flex flex-wrap gap-2 pt-2">
+              {credibilityChips.map((chip) => (
+                <span
+                  key={chip}
+                  className="rounded-full border border-white/50 bg-white/70 px-3 py-1 text-xs font-medium text-foreground/70 shadow-sm backdrop-blur dark:border-slate-700/70 dark:bg-slate-900/60"
+                >
+                  {chip}
+                </span>
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="mt-6 flex flex-wrap gap-2">
-          {credibilityChips.map((chip) => (
-            <span
-              key={chip}
-              className="rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-medium text-foreground/70"
-            >
-              {chip}
-            </span>
-          ))}
+          <Card className="border-border/70 bg-background/90 shadow-md backdrop-blur">
+            <CardHeader className="space-y-2">
+              <CardTitle className="text-base font-semibold text-foreground">At a glance</CardTitle>
+              <p className="text-sm text-foreground/70">
+                Senior Solutions Architect / Presales Engineer — infrastructure, partners, GTM
+                execution.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-border/60 bg-muted/40 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-foreground/50">
+                    30+ years
+                  </p>
+                  <p className="text-sm font-semibold text-foreground">Enterprise infrastructure</p>
+                </div>
+                <div className="rounded-xl border border-border/60 bg-muted/40 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-foreground/50">
+                    Partner enablement
+                  </p>
+                  <p className="text-sm font-semibold text-foreground">National partners</p>
+                </div>
+                <div className="rounded-xl border border-border/60 bg-muted/40 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-foreground/50">
+                    POCs & demos
+                  </p>
+                  <p className="text-sm font-semibold text-foreground">Hands-on validation</p>
+                </div>
+                <div className="rounded-xl border border-border/60 bg-muted/40 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-foreground/50">
+                    BOM & solution reviews
+                  </p>
+                  <p className="text-sm font-semibold text-foreground">De-risk decisions</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </section>
 
@@ -206,17 +250,32 @@ export default function HomePage() {
           {caseStudies.map((study) => (
             <Card key={study.title} className="border-border/70">
               <CardHeader>
-                <CardTitle className="text-base">{study.title}</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">{study.title}</CardTitle>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                    <BadgeCheck className="h-3 w-3" aria-hidden />
+                    Case study
+                  </span>
+                </div>
               </CardHeader>
               <CardContent className="space-y-3 text-sm text-foreground/70">
                 <p>
-                  <span className="font-semibold text-foreground">Problem:</span> {study.summary.problem}
+                  <span className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                    Problem:
+                  </span>{" "}
+                  {study.summary.problem}
                 </p>
                 <p>
-                  <span className="font-semibold text-foreground">Approach:</span> {study.summary.approach}
+                  <span className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                    Approach:
+                  </span>{" "}
+                  {study.summary.approach}
                 </p>
                 <p>
-                  <span className="font-semibold text-foreground">Outcome:</span> {study.summary.outcome}
+                  <span className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                    Outcome:
+                  </span>{" "}
+                  {study.summary.outcome}
                 </p>
                 <Link
                   href={study.href}
