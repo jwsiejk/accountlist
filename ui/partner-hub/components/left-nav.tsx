@@ -22,12 +22,12 @@ export function LeftNav() {
   return (
     <aside
       className={clsx(
-        "flex h-full flex-col border-r border-border bg-white/70 backdrop-blur transition-all dark:bg-slate-900/70",
+        "flex h-full flex-col border-r border-border/60 bg-white/70 backdrop-blur transition-all dark:bg-slate-900/70",
         collapsed ? "w-16" : "w-64",
       )}
     >
       <button
-        className="flex items-center justify-between px-4 py-3 text-xs font-semibold uppercase tracking-wider text-foreground/60"
+        className="flex items-center justify-between px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-foreground/50"
         onClick={() => setCollapsed((prev) => !prev)}
         aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
       >
@@ -38,9 +38,11 @@ export function LeftNav() {
         {links.map((link) => {
           const active = link.href === "/" ? pathname === "/" : pathname.startsWith(link.href);
           const baseClasses = clsx(
-            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition hover:bg-muted",
-            active ? "bg-primary/10 text-primary" : "text-foreground/70",
-            collapsed && "justify-center px-0",
+            "flex items-center gap-3 rounded-lg border-l-2 border-transparent px-3 py-2 text-sm font-medium transition hover:border-primary/40 hover:bg-muted/60",
+            active
+              ? "border-primary bg-primary/10 text-foreground shadow-sm"
+              : "text-foreground/70",
+            collapsed && "justify-center border-l-0 px-0",
           );
 
           return (

@@ -31,6 +31,9 @@ const fmt1 = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
 const fmt2 = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
 const formatRackUnits = (value: number | null | undefined) => (value == null ? "—" : fmt0.format(value));
 const DEFAULT_GRID_KGCO2E_PER_KWH = 0.4;
+const INPUT_BASE_CLASSES =
+  "h-10 w-full rounded-lg border border-border/70 bg-background px-3 text-sm text-foreground shadow-sm transition placeholder:text-foreground/40 focus-visible:outline-none focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+const LABEL_CLASSES = "text-xs font-semibold uppercase tracking-wide text-foreground/60";
 
 type EnergyMeta = {
   lastSyncedISO?: string;
@@ -956,17 +959,17 @@ export function EnergyTool() {
   const exportDisabled = loading || exportLoading != null || !fb || !selectedCandidate;
   const toggleButtonClass = (isActive: boolean) =>
     [
-      "inline-flex h-10 items-center justify-center rounded-md border px-4 text-sm font-semibold transition-colors",
+      "inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-colors",
       isActive
-        ? "border-primary bg-primary text-primary-foreground hover:bg-primary/90 ring-1 ring-primary/30"
+        ? "border-primary bg-primary text-foreground hover:bg-primary/90 ring-1 ring-primary/30"
         : "border-border bg-background text-foreground hover:bg-muted/50",
     ].join(" ");
 
   return (
-    <div className="space-y-6">
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold">Energy Tool</h1>
-        <p className="text-sm text-foreground/70">
+    <div className="space-y-8 md:space-y-10">
+      <header className="space-y-3">
+        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Energy Tool</h1>
+        <p className="max-w-2xl text-base text-foreground/70">
           Compare annual energy consumption and cost between a FlashBlade//E configuration and a NetApp E-Series baseline.
         </p>
       </header>
@@ -988,11 +991,9 @@ export function EnergyTool() {
           <CardContent className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1">
-                <label className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                  DFM size (TB)
-                </label>
+                <label className={LABEL_CLASSES}>DFM size (TB)</label>
                 <select
-                  className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+                  className={INPUT_BASE_CLASSES}
                   value={inputs.dfmTb}
                   onChange={(e) => {
                     const dfmTb = Number(e.target.value);
@@ -1014,11 +1015,9 @@ export function EnergyTool() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                  Capacity (Usable PB)
-                </label>
+                <label className={LABEL_CLASSES}>Capacity (Usable PB)</label>
                 <select
-                  className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+                  className={INPUT_BASE_CLASSES}
                   value={inputs.capacityPb}
                   onChange={(e) => setInputs((prev) => ({ ...prev, capacityPb: Number(e.target.value) }))}
                   disabled={loading || capacities.length === 0}
@@ -1047,7 +1046,7 @@ export function EnergyTool() {
             <CardTitle className="text-base">NetApp baseline inputs</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex w-full rounded-md border border-border bg-background p-1 text-xs font-semibold uppercase tracking-wide text-foreground/70">
+            <div className="flex w-full rounded-lg border border-border/70 bg-background p-1 text-xs font-semibold uppercase tracking-wide text-foreground/70">
               <button
                 type="button"
                 className={
@@ -1077,11 +1076,9 @@ export function EnergyTool() {
               <NumberInput label="Overhead (raw→usable)" value={inputs.naOverhead} step={0.01} onChange={(v) => setInputs((p) => ({ ...p, naOverhead: v }))} />
               <NumberInput label="DRR" value={inputs.naDrr} step={0.1} onChange={(v) => setInputs((p) => ({ ...p, naDrr: v }))} />
               <div className="space-y-1">
-                <label className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                  Drive size (TB)
-                </label>
+                <label className={LABEL_CLASSES}>Drive size (TB)</label>
                 <select
-                  className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+                  className={INPUT_BASE_CLASSES}
                   value={inputs.naDriveSizeTb}
                   onChange={(e) => setInputs((p) => ({ ...p, naDriveSizeTb: Number(e.target.value) }))}
                   disabled={loading || driveSizeOptions.length === 0}
@@ -1099,17 +1096,15 @@ export function EnergyTool() {
             </div>
 
             {mode === "manual" ? (
-              <div className="rounded-md border border-border bg-muted/30 p-3">
+              <div className="rounded-lg border border-border/70 bg-muted/30 p-4">
                 <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground/60">
                   Manual configuration
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                      Controller model
-                    </label>
+                    <label className={LABEL_CLASSES}>Controller model</label>
                     <select
-                      className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+                      className={INPUT_BASE_CLASSES}
                       value={manualInputs.controllerModel}
                       onChange={(e) => {
                         const controllerModel = e.target.value;
@@ -1137,11 +1132,9 @@ export function EnergyTool() {
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                      Expansion shelf model
-                    </label>
+                    <label className={LABEL_CLASSES}>Expansion shelf model</label>
                     <select
-                      className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+                      className={INPUT_BASE_CLASSES}
                       value={manualInputs.expansionModel}
                       onChange={(e) => {
                         const expansionModel = e.target.value;
@@ -1200,7 +1193,7 @@ export function EnergyTool() {
               {mode === "auto" ? (
                 <button
                   type="button"
-                  className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+                  className="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-foreground transition hover:opacity-90 disabled:opacity-50"
                   onClick={runModel}
                   disabled={loading || pureRows.length === 0 || netappRows.length === 0}
                 >
@@ -1209,7 +1202,7 @@ export function EnergyTool() {
               ) : (
                 <button
                   type="button"
-                  className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+                  className="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-foreground transition hover:opacity-90 disabled:opacity-50"
                   onClick={runManual}
                   disabled={manualApplyDisabled}
                 >
@@ -1250,7 +1243,7 @@ export function EnergyTool() {
               View control on the left, Export dropdown on the right */}
           <div className="flex flex-wrap items-center gap-3">
             <div className="text-xs font-semibold uppercase tracking-wide text-foreground/60">View</div>
-            <div className="flex rounded-md border border-border bg-background p-1 text-xs font-semibold uppercase tracking-wide text-foreground/70">
+            <div className="flex rounded-lg border border-border/70 bg-background p-1 text-xs font-semibold uppercase tracking-wide text-foreground/70">
               <button
                 type="button"
                 className={
@@ -1287,7 +1280,7 @@ export function EnergyTool() {
                 and the NetApp candidates card below (even when View is visible). */}
             <div className="ml-auto flex w-full justify-end sm:w-auto">
               <select
-                className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm font-semibold text-foreground transition hover:bg-muted/50 disabled:opacity-50 sm:w-[260px]"
+                className={`${INPUT_BASE_CLASSES} font-semibold text-foreground transition hover:bg-muted/50 disabled:opacity-50 sm:w-[260px]`}
                 aria-label="Export"
                 value={exportChoice}
                 onChange={handleExportChange}
@@ -1692,13 +1685,13 @@ function NumberInput({
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-xs font-semibold uppercase tracking-wide text-foreground/60">{label}</label>
+      <label className={LABEL_CLASSES}>{label}</label>
       <input
         type="number"
         step={step ?? 1}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+        className={INPUT_BASE_CLASSES}
       />
     </div>
   );

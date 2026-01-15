@@ -29,8 +29,8 @@ export function AppHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-6">
+    <header className="sticky top-0 z-20 border-b border-border bg-background/90 backdrop-blur">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-6 lg:px-10">
         <Link
           href="/"
           aria-label="Portfolio Hub Home"
@@ -57,7 +57,7 @@ export function AppHeader() {
         <div className="relative mx-auto flex w-full max-w-xl items-center">
           <Search className="absolute left-3 h-4 w-4 text-foreground/40" aria-hidden />
           <input
-            className="h-10 w-full rounded-lg border border-border bg-background/60 pl-9 pr-3 text-sm shadow-inner outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/40 focus:ring-offset-2 focus:ring-offset-background"
+            className="h-10 w-full rounded-lg border border-border/70 bg-background/80 pl-9 pr-3 text-sm text-foreground shadow-inner outline-none transition focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             placeholder="Search portfolio resources"
             type="search"
             aria-label="Search"
