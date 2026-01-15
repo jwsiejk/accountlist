@@ -54,21 +54,52 @@ describe("merged search cascading filters", () => {
   ];
 
   const baseFilters: MergedSearchFilterState = {
+    accountNames: [],
     vendorOwner: "Alice",
+    vendorRegion: "",
+    vendorOrganization: "",
+    vendorStatus: "",
     partnerOwner: "",
-    region: "South",
-    organization: "",
-    custProspect: "",
+    partnerRegion: "South",
+    partnerOrganization: "",
+    partnerStatus: "",
   };
 
   it("filters eligible rows while excluding one key", () => {
     const eligibleRows = getEligibleRows({
       rows,
       filters: baseFilters,
-      excludeKey: "region",
+      excludeKey: "partnerRegion",
     });
     assert.equal(eligibleRows.length, 2);
     assert.equal(eligibleRows[0].vendor_owner, "Alice");
+  });
+
+  it("matches account names on either side", () => {
+    const eligibleRows = getEligibleRows({
+      rows,
+      filters: {
+        ...baseFilters,
+        accountNames: ["partner two"],
+        vendorOwner: "",
+        partnerRegion: "",
+      },
+    });
+    assert.equal(eligibleRows.length, 1);
+    assert.equal(eligibleRows[0].partner_account_name, "Partner Two");
+  });
+
+  it("does not match partner values for vendor-only filters", () => {
+    const eligibleRows = getEligibleRows({
+      rows,
+      filters: {
+        ...baseFilters,
+        vendorOwner: "",
+        partnerRegion: "",
+        vendorRegion: "East",
+      },
+    });
+    assert.equal(eligibleRows.length, 0);
   });
 
   it("builds cascading options with a first filter key", () => {
@@ -79,66 +110,78 @@ describe("merged search cascading filters", () => {
       firstFilterKey: "vendorOwner",
     });
     assert.deepEqual(options.vendorOwner, ["Alice"]);
-    assert.deepEqual(options.region, ["East", "South", "West"]);
+    assert.deepEqual(options.partnerRegion, ["East", "South"]);
   });
 
   it("clears invalid selections based on options", () => {
     const options = {
+      accountNames: ["Vendor One", "Partner Two"],
       vendorOwner: ["Alice"],
+      vendorRegion: ["West"],
+      vendorOrganization: ["OrgA"],
+      vendorStatus: ["Customer"],
       partnerOwner: ["Bob"],
-      region: ["West"],
-      organization: ["OrgA"],
-      custProspect: ["Customer"],
+      partnerRegion: ["East"],
+      partnerOrganization: ["OrgB"],
+      partnerStatus: ["Prospect"],
     };
     const cleaned = clearInvalidFilters(
       {
+        accountNames: ["Vendor One", "Missing"],
         vendorOwner: "Dan",
+        vendorRegion: "East",
+        vendorOrganization: "OrgA",
+        vendorStatus: "Prospect",
         partnerOwner: "Bob",
-        region: "East",
-        organization: "OrgA",
-        custProspect: "Prospect",
+        partnerRegion: "East",
+        partnerOrganization: "OrgX",
+        partnerStatus: "Prospect",
       },
       options,
     );
+    assert.deepEqual(cleaned.accountNames, ["Vendor One"]);
     assert.equal(cleaned.vendorOwner, "");
-    assert.equal(cleaned.region, "");
-    assert.equal(cleaned.custProspect, "");
+    assert.equal(cleaned.vendorRegion, "");
+    assert.equal(cleaned.vendorStatus, "");
+    assert.equal(cleaned.partnerOrganization, "");
   });
 
   it("counts options per key using eligible rows", () => {
     const baseRows = buildBaseRows(rows, true);
     const options = buildOptionsWithCounts({
       rows: baseRows,
-      filters: {
-        vendorOwner: "",
-        partnerOwner: "",
-        region: "",
-        organization: "",
-        custProspect: "",
-      },
+      filters: createEmptyFilterState(),
       firstFilterKey: null,
     });
 
-    assert.deepEqual(options.vendorOwner, [
-      { value: "Alice", count: 2 },
+    assert.deepEqual(options.accountNames, [
+      { value: "Partner One", count: 1 },
+      { value: "Partner Two", count: 1 },
+      { value: "Vendor One", count: 1 },
+      { value: "Vendor Two", count: 1 },
     ]);
+    assert.deepEqual(options.vendorOwner, [{ value: "Alice", count: 2 }]);
     assert.deepEqual(options.partnerOwner, [
       { value: "Bob", count: 1 },
       { value: "Cara", count: 1 },
     ]);
-    assert.deepEqual(options.region, [
-      { value: "West", count: 2 },
+    assert.deepEqual(options.vendorRegion, [{ value: "West", count: 2 }]);
+    assert.deepEqual(options.partnerRegion, [
       { value: "East", count: 1 },
       { value: "South", count: 1 },
     ]);
-    assert.deepEqual(options.organization, [
-      { value: "OrgA", count: 2 },
+    assert.deepEqual(options.vendorOrganization, [{ value: "OrgA", count: 2 }]);
+    assert.deepEqual(options.partnerOrganization, [
       { value: "OrgB", count: 1 },
       { value: "OrgC", count: 1 },
     ]);
-    assert.deepEqual(options.custProspect, [
-      { value: "Customer", count: 2 },
-      { value: "Prospect", count: 2 },
+    assert.deepEqual(options.vendorStatus, [
+      { value: "Customer", count: 1 },
+      { value: "Prospect", count: 1 },
+    ]);
+    assert.deepEqual(options.partnerStatus, [
+      { value: "Customer", count: 1 },
+      { value: "Prospect", count: 1 },
     ]);
   });
 
@@ -148,7 +191,7 @@ describe("merged search cascading filters", () => {
     assert.equal(
       isFilterStateEmpty({
         ...emptyState,
-        region: "West",
+        partnerRegion: "West",
       }),
       false,
     );
