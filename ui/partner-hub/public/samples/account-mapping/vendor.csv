@@ -1,13 +1,519 @@
 Account Name,CRM Account ID,Status,Owner,Manager,PAM,Segment,Organization,Region,State,Country,City,Primary Contact Name,Primary Contact Email,Primary Contact Role
-Acme Corp,CRM-1001,Customer,Jordan Lee,Sasha Patel,Kim Reyes,Enterprise,Americas,East,CA,USA,San Francisco,Avery Chen,avery.chen@acme.example.com,VP Operations
-Northwind Traders,CRM-1002,Prospect,Jamie Rivera,Morgan Fox,Casey Yang,Mid-Market,Americas,West,NY,USA,New York,Rowan Park,rowan.park@northwind.example.com,Procurement Lead
-Globex Corporation,CRM-1003,Customer,Taylor Morgan,Jamie Chen,Riley Shah,Enterprise,Americas,West,IL,USA,Chicago,Quinn Blake,quinn.blake@globex.example.com,Director of IT
-Initech,CRM-1004,Prospect,Alex Kim,Drew Martin,Jordan Brooks,SMB,Americas,Central,TX,USA,Austin,Reese Taylor,reese.taylor@initech.example.com,Operations Manager
-Umbrella Health,CRM-1005,Customer,Sam Carter,Jordan Miles,Alexis Harper,Enterprise,Americas,Central,MA,USA,Boston,Casey Lin,casey.lin@umbrella.example.com,Chief Nursing Officer
-Stark Industries,CRM-1006,Customer,Riley Stone,Leslie Zhang,Taylor Brooks,Enterprise,Americas,TOLA,NY,USA,New York,Emerson Gray,emerson.gray@stark.example.com,Head of R&D
-Wayne Enterprises,CRM-1007,Customer,Harper Lee,Quinn Ross,Jamie Patel,Enterprise,Americas,TOLA,NJ,USA,Newark,Parker James,parker.james@wayne.example.com,Security Director
-Soylent Labs,CRM-1008,Prospect,Casey Morgan,Jordan Quinn,Reese Morgan,SMB,Americas,East,CA,USA,San Diego,Skyler Reed,skyler.reed@soylent.example.com,Lab Manager
-Hooli,CRM-1009,Prospect,Logan Perez,Alex Park,Cameron Patel,Mid-Market,Americas,East,CA,USA,Palo Alto,River Ellis,river.ellis@hooli.example.com,Platform Lead
-Oscorp,CRM-1010,Customer,Jamie Reed,Harper Diaz,Jordan Lee,Enterprise,Americas,East,NY,USA,Albany,Finley James,finley.james@oscorp.example.com,VP Strategy
-Tyrell Corp,CRM-1011,Prospect,Drew Allen,Cameron Cho,Rowan Scott,Mid-Market,Americas,East,WA,USA,Seattle,Ash Carter,ash.carter@tyrell.example.com,Program Manager
-Aperture Science,CRM-1012,Prospect,Reese Palmer,Alex Nguyen,Quinn Cole,SMB,Americas,West,MI,USA,Detroit,Kendall Price,kendall.price@aperture.example.com,Facilities Lead
+Acme Corp,CRM-1001,Customer,Emily Lee,Mason Robinson,Sophia White,Enterprise,Americas,West,CA,USA,San Francisco,Ethan Walker,ethan.walker@acme.example.com,IT Director
+Northwind Traders,CRM-1002,Prospect,Sophia Smith,Emma Moore,Michael Perez,Mid-Market,Americas,TOLA,NY,USA,New York,Mason Phillips,mason.phillips@northwind.example.com,Security Manager
+Globex Corporation,CRM-1003,Customer,Aiden Lee,Ethan Scott,Chloe Brown,Enterprise,Americas,TOLA,IL,USA,Chicago,Olivia Davis,olivia.davis@globex.example.com,Procurement Lead
+Initech,CRM-1004,Prospect,Ryan Turner,Kevin Smith,Jane Baker,SMB,Americas,Central,TX,USA,Austin,Hannah Davis,hannah.davis@initech.example.com,Head of Sales
+Umbrella Health,CRM-1005,Customer,Lisa Moore,Reese Martinez,Chloe Martinez,Enterprise,Americas,Central,MA,USA,Boston,Avery Clark,avery.clark@umbrella.example.com,Head of Sales
+Stark Industries,CRM-1006,Customer,Brian Rodriguez,Brian Roberts,Lisa Smith,Enterprise,Americas,Central,NY,USA,New York,Chloe Nelson,chloe.nelson@stark.example.com,Head of Sales
+Wayne Enterprises,CRM-1007,Customer,Olivia Anderson,Quinn Wilson,Kevin Taylor,Enterprise,Americas,East,NJ,USA,Newark,Jamie Thomas,jamie.thomas@wayne.example.com,VP Finance
+Soylent Labs,CRM-1008,Prospect,Cameron Turner,Quinn White,Emma Allen,SMB,Americas,TOLA,CA,USA,San Diego,Ryan Adams,ryan.adams@soylent.example.com,IT Director
+Hooli,CRM-1009,Prospect,Eric Walker,Noah Miller,Michael Adams,Mid-Market,Americas,TOLA,CA,USA,Palo Alto,Parker Smith,parker.smith@hooli.example.com,Director of Procurement
+Oscorp,CRM-1010,Customer,Hannah Thomas,Mason Young,Parker Wright,Enterprise,Americas,Central,NY,USA,Albany,Lisa Adams,lisa.adams@oscorp.example.com,IT Director
+Tyrell Corp,CRM-1011,Prospect,Aiden Carter,Ethan Lewis,Parker Scott,Mid-Market,Americas,East,WA,USA,Seattle,Casey Carter,casey.carter@tyrell.example.com,Procurement Lead
+Aperture Science,CRM-1012,Prospect,Emily Mitchell,Taylor Harris,Morgan Turner,SMB,Americas,East,MI,USA,Detroit,Noah Jackson,noah.jackson@aperture.example.com,Director of Procurement
+Atlas Industries Corp,CRM-3000,Customer,Lisa Robinson,Chloe Parker,Kevin Thompson,Mid-Market,Americas,West,MN,USA,Minneapolis,Casey Roberts,casey.roberts@atlasindustries.example.com,IT Director
+Beacon Analytics Inc,CRM-3001,Customer,Emma Wright,Morgan Moore,Aiden Mitchell,Enterprise,Americas,TOLA,CA,USA,San Francisco,Jordan Baker,jordan.baker@beaconanalytics.example.com,Security Manager
+Blue Chemicals Group,CRM-3002,Prospect,Lisa Adams,Taylor Jackson,Emma Wright,Enterprise,Americas,TOLA,MO,USA,Kansas City,Avery Allen,avery.allen@bluechemicals.example.com,VP Operations
+Bright Communications Corp,CRM-3003,Prospect,Aiden Garcia,Sarah Moore,Jordan Clark,Enterprise,Americas,TOLA,CA,USA,Los Angeles,Cameron Taylor,cameron.taylor@brightcommunications.example.com,VP Operations
+Bright Horizon Group,CRM-3004,Customer,Jane Thompson,Sarah Phillips,David Rodriguez,Strategic,Americas,Central,AZ,USA,Phoenix,Hannah Wright,hannah.wright@brighthorizon.example.com,VP Operations
+Brookside Education Inc,CRM-3005,Customer,Avery Parker,Olivia Roberts,Jane Campbell,SMB,Americas,Central,OH,USA,Cleveland,Paul Roberts,paul.roberts@brooksideeducation.example.com,VP Operations
+Canyon Retail Holdings,CRM-3006,Customer,Avery Carter,Jamie Hall,Quinn Lewis,Strategic,Americas,TOLA,MA,USA,Boston,Olivia Parker,olivia.parker@canyonretail.example.com,VP Operations
+Cedar Point LLC,CRM-3007,Prospect,Jamie Thomas,Hannah Adams,Sophia Wilson,Enterprise,Americas,East,LA,USA,New Orleans,Jordan Miller,jordan.miller@cedarpoint.example.com,Security Manager
+Cedar Solutions Corp,CRM-3008,Prospect,Rowan Adams,Jordan Walker,Quinn White,Mid-Market,Americas,East,TX,USA,Dallas,Jamie Young,jamie.young@cedarsolutions.example.com,VP Finance
+Cobalt Chemicals Group,CRM-3009,Prospect,Parker Johnson,Rowan Thomas,Cameron Jackson,Strategic,Americas,West,TN,USA,Nashville,Quinn Turner,quinn.turner@cobaltchemicals.example.com,VP Operations
+Cobalt Utilities Group,CRM-3010,Customer,Rowan Martinez,Kevin Wright,Avery Moore,Enterprise,Americas,TOLA,GA,USA,Atlanta,Rachel Martin,rachel.martin@cobaltutilities.example.com,VP Finance
+Crescent Diagnostics Holdings,CRM-3011,Prospect,Paul Green,Grace Davis,Ethan Green,Mid-Market,Americas,West,NY,USA,New York,Morgan Thomas,morgan.thomas@crescentdiagnostics.example.com,Director of Procurement
+Crescent Tech LLC,CRM-3012,Customer,Sarah Turner,Parker Davis,Eric Hall,Mid-Market,Americas,West,LA,USA,New Orleans,David Martinez,david.martinez@crescenttech.example.com,Security Manager
+Evergreen Supply Corp,CRM-3013,Customer,Jane Mitchell,Paul Roberts,Avery Nelson,SMB,Americas,TOLA,PA,USA,Philadelphia,Angela Turner,angela.turner@evergreensupply.example.com,Procurement Lead
+Falcon Robotics Corp,CRM-3014,Prospect,Laura Perez,Hannah Parker,Chris Harris,Strategic,Americas,East,MA,USA,Boston,Chris Taylor,chris.taylor@falconrobotics.example.com,VP Finance
+Frontier Networks Inc,CRM-3015,Prospect,Jordan Mitchell,Michael Green,Laura Rodriguez,Strategic,Americas,TOLA,GA,USA,Atlanta,Olivia Wright,olivia.wright@frontiernetworks.example.com,IT Director
+Goldcrest Aviation Holdings,CRM-3016,Customer,Aiden Roberts,Rachel Jackson,Morgan Thomas,Strategic,Americas,TOLA,TX,USA,Austin,Casey Martinez,casey.martinez@goldcrestaviation.example.com,VP Operations
+Granite Systems Group,CRM-3017,Prospect,Avery Scott,Avery Martin,Sarah Green,Enterprise,Americas,West,NY,USA,New York,Lisa Carter,lisa.carter@granitesystems.example.com,IT Director
+Greenfield Farms Inc,CRM-3018,Customer,John Clark,Amy Lewis,Mason Rodriguez,Enterprise,Americas,TOLA,OH,USA,Cleveland,Taylor White,taylor.white@greenfieldfarms.example.com,Head of Sales
+Harbor Tech Inc,CRM-3019,Prospect,Grace Rodriguez,Rachel Clark,Grace Baker,Enterprise,Americas,TOLA,TX,USA,Dallas,Parker Lee,parker.lee@harbortech.example.com,VP Operations
+Hearthstone Hotels Corp,CRM-3020,Customer,Parker Wilson,Rachel Thompson,Jamie King,Mid-Market,Americas,West,TX,USA,Houston,Cameron Carter,cameron.carter@hearthstonehotels.example.com,VP Operations
+Heritage Capital Group,CRM-3021,Customer,Quinn Carter,Liam Lewis,Mark Green,Mid-Market,Americas,Central,CA,USA,San Diego,David Brown,david.brown@heritagecapital.example.com,IT Director
+Heritage Grocers Holding,CRM-3022,Prospect,Michael Brown,Eric Jackson,Emily Thompson,Mid-Market,Americas,East,GA,USA,Atlanta,Ryan King,ryan.king@heritagegrocers.example.com,VP Finance
+Highland Partners LLC,CRM-3023,Customer,Mason Green,Mason Martinez,Sophia Allen,Mid-Market,Americas,West,MA,USA,Boston,John Wilson,john.wilson@highlandpartners.example.com,Director of Procurement
+Iron Education Corp,CRM-3024,Customer,Liam Turner,Morgan Garcia,Mark Rodriguez,Strategic,Americas,TOLA,CO,USA,Denver,Emily Green,emily.green@ironeducation.example.com,Security Manager
+Keystone Insurance Holdings,CRM-3025,Prospect,Ryan Robinson,Jamie Martin,Chris Miller,Enterprise,Americas,West,PA,USA,Philadelphia,Cameron Parker,cameron.parker@keystoneinsurance.example.com,Security Manager
+Lone Star Inc,CRM-3026,Customer,Mark Garcia,Kevin Young,Ethan Perez,Strategic,Americas,TOLA,TX,USA,Austin,Paul Wright,paul.wright@lonestar.example.com,IT Director
+Maple Leaf Markets Corp,CRM-3027,Customer,John Moore,Sarah Walker,Quinn King,Enterprise,Americas,West,MO,USA,Kansas City,Avery Smith,avery.smith@mapleleafmarkets.example.com,VP Operations
+Mariner Foods LLC,CRM-3028,Prospect,Olivia Perez,Parker King,Paul White,Enterprise,Americas,West,IL,USA,Chicago,Parker Robinson,parker.robinson@marinerfoods.example.com,Security Manager
+Mariner Retail Group,CRM-3029,Prospect,David Walker,Amy Taylor,Casey Allen,Mid-Market,Americas,Central,WA,USA,Seattle,Kevin Brown,kevin.brown@marinerretail.example.com,Head of Sales
+Orchard Apparel Holdings,CRM-3030,Customer,Taylor Rodriguez,Sarah Rodriguez,Rachel Carter,Mid-Market,Americas,West,IL,USA,Chicago,Emma Clark,emma.clark@orchardapparel.example.com,IT Director
+Pioneer Consulting Inc,CRM-3031,Customer,Quinn Taylor,Rowan Smith,Emily Scott,Strategic,Americas,Central,CA,USA,San Francisco,Ethan Davis,ethan.davis@pioneerconsulting.example.com,VP Operations
+Pioneer Health Group,CRM-3032,Prospect,Emma Smith,Amy Rodriguez,Angela Taylor,Strategic,Americas,East,CA,USA,San Francisco,Mark Lewis,mark.lewis@pioneerhealth.example.com,Security Manager
+Prairie Communications Corporation,CRM-3033,Prospect,Rachel Carter,Kevin Campbell,Laura Roberts,Enterprise,Americas,TOLA,LA,USA,New Orleans,Chris Roberts,chris.roberts@prairiecommunications.example.com,Security Manager
+Rainier Telecom Corp,CRM-3034,Customer,Jamie Jackson,Avery Garcia,Noah Miller,Strategic,Americas,East,OR,USA,Portland,David Martin,david.martin@rainiertelecom.example.com,Security Manager
+Redwood Energy Inc,CRM-3035,Customer,Aiden Thomas,Chris Roberts,Rachel Davis,Mid-Market,Americas,West,WA,USA,Seattle,Olivia Carter,olivia.carter@redwoodenergy.example.com,VP Operations
+Riverstone Capital Inc,CRM-3036,Prospect,Jamie Hall,Rowan Hall,Jamie Turner,Mid-Market,Americas,East,MN,USA,Minneapolis,Cameron Taylor,cameron.taylor@riverstonecapital.example.com,CFO
+Riverstone Financial Corp,CRM-3037,Customer,Sophia Miller,Morgan Johnson,Amy Green,Strategic,Americas,East,NY,USA,New York,Liam Davis,liam.davis@riverstonefinancial.example.com,VP Finance
+Sapphire Software Corp,CRM-3038,Prospect,Eric Moore,Taylor Rodriguez,Noah Martinez,Strategic,Americas,East,IL,USA,Chicago,Aiden Moore,aiden.moore@sapphiresoftware.example.com,Director of Procurement
+Seaside Resorts Corp,CRM-3039,Customer,David Robinson,Michael Parker,Kevin Martinez,Enterprise,Americas,East,GA,USA,Atlanta,Emily Martinez,emily.martinez@seasideresorts.example.com,Head of Sales
+Silver Oak Corp,CRM-3040,Prospect,John Johnson,Jamie Carter,Jordan King,Strategic,Americas,TOLA,AZ,USA,Phoenix,Michael Nelson,michael.nelson@silveroak.example.com,VP Finance
+Skyline Aviation LLC,CRM-3041,Customer,Taylor Lee,Ryan Allen,Emma Lee,Strategic,Americas,Central,LA,USA,New Orleans,Jordan Hall,jordan.hall@skylineaviation.example.com,VP Operations
+Sterling Medical Group,CRM-3042,Customer,Paul Adams,Mark Martin,Hannah Rodriguez,SMB,Americas,TOLA,CO,USA,Denver,Aiden Jackson,aiden.jackson@sterlingmedical.example.com,VP Operations
+Stonecroft Homes Holding,CRM-3043,Customer,Avery Adams,Hannah Wilson,Taylor Rodriguez,SMB,Americas,East,OR,USA,Portland,Michael White,michael.white@stonecrofthomes.example.com,Head of Sales
+Summit Peak Corp,CRM-3044,Customer,Emma Carter,John Carter,Michael Jackson,SMB,Americas,West,CA,USA,San Francisco,Brian Thomas,brian.thomas@summitpeak.example.com,VP Operations
+Trailhead Farms Holding,CRM-3045,Customer,Olivia Wright,Aiden King,Rowan Garcia,Strategic,Americas,Central,TN,USA,Nashville,Avery Roberts,avery.roberts@trailheadfarms.example.com,Procurement Lead
+Trailhead Outdoors Group,CRM-3046,Prospect,Grace Hall,Eric Wright,Olivia Scott,SMB,Americas,West,TN,USA,Nashville,Noah Allen,noah.allen@trailheadoutdoors.example.com,Procurement Lead
+Vertex Media Group,CRM-3047,Prospect,Laura White,Morgan Robinson,Michael Campbell,Mid-Market,Americas,Central,CA,USA,Los Angeles,Morgan Jackson,morgan.jackson@vertexmedia.example.com,CFO
+Westlake Partners Corp,CRM-3048,Prospect,Cameron Parker,Emily Wilson,Emily Parker,Enterprise,Americas,East,CA,USA,Los Angeles,Reese Miller,reese.miller@westlakepartners.example.com,VP Operations
+Windward Apparel Holdings,CRM-3049,Prospect,Cameron Mitchell,Jamie Jackson,Paul Wright,SMB,Americas,Central,MI,USA,Detroit,John Mitchell,john.mitchell@windwardapparel.example.com,VP Finance
+Redwood Holdings Holdings,CRM-3050,Prospect,Aiden Carter,Paul King,Mark Allen,Enterprise,Americas,West,OH,USA,Columbus,Daniel Moore,daniel.moore@redwoodholdings.example.com,VP Finance
+Lone Software Group,CRM-3051,Prospect,Aiden Carter,William Robinson,Mark Roberts,SMB,Americas,TOLA,NC,USA,Charlotte,Mark Brown,mark.brown@lonesoftware.example.com,VP Infrastructure
+Redwood Pharma Inc,CRM-3052,Prospect,Aiden Carter,James Martin,Charles King,SMB,Americas,East,NC,USA,Raleigh,Victoria Jackson,victoria.jackson@redwoodpharma.example.com,Director of Procurement
+Cardinal Communications LLC,CRM-3053,Prospect,Aiden Carter,Robert Miller,John Roberts,Mid-Market,Americas,Central,CA,USA,Los Angeles,Robert Lee,robert.lee@cardinalcommunications.example.com,Director of Procurement
+Skyline Retail Holdings,CRM-3054,Customer,Aiden Carter,Anthony Lee,Lily Perez,Enterprise,Americas,East,CA,USA,Los Angeles,Brian Scott,brian.scott@skylineretail.example.com,Head of Sales
+Hearthstone Tech LLC,CRM-3055,Prospect,Aiden Carter,Grace Scott,Sophia Thompson,Strategic,Americas,Central,FL,USA,Miami,David Adams,david.adams@hearthstonetech.example.com,IT Director
+Clearwater Software LLC,CRM-3056,Prospect,Aiden Carter,Paul Wilson,Paul King,Enterprise,Americas,West,WA,USA,Seattle,Ella Carter,ella.carter@clearwatersoftware.example.com,VP Operations
+Keystone Foods Group,CRM-3057,Prospect,Aiden Carter,Ava Carter,Emily Anderson,Enterprise,Americas,TOLA,OH,USA,Cleveland,Richard Taylor,richard.taylor@keystonefoods.example.com,IT Director
+Orchard Energy Corp,CRM-3058,Prospect,Aiden Carter,Harper Scott,Charlotte Allen,Mid-Market,Americas,TOLA,CO,USA,Denver,Andrew Thompson,andrew.thompson@orchardenergy.example.com,VP Finance
+Goldcrest Manufacturing Holdings,CRM-3059,Prospect,Aiden Garcia,Zoey Moore,Steven Garcia,Enterprise,Americas,East,NC,USA,Charlotte,James Carter,james.carter@goldcrestmanufacturing.example.com,VP Infrastructure
+Clearwater Tech Inc,CRM-3060,Customer,Aiden Garcia,Matthew Turner,Brian Adams,Enterprise,Americas,TOLA,FL,USA,Tampa,Harper Turner,harper.turner@clearwatertech.example.com,IT Director
+Harbor Logistics LLC,CRM-3061,Prospect,Aiden Garcia,Mark Martin,Hannah Phillips,Enterprise,Americas,TOLA,IL,USA,Chicago,William Adams,william.adams@harborlogistics.example.com,IT Director
+Keystone Energy Inc,CRM-3062,Customer,Aiden Garcia,Olivia Lewis,William Robinson,SMB,Americas,TOLA,FL,USA,Tampa,Ella Garcia,ella.garcia@keystoneenergy.example.com,VP Finance
+Maple Health Corp,CRM-3063,Prospect,Aiden Garcia,Richard Clark,Thomas Roberts,Strategic,Americas,Central,OH,USA,Columbus,David Anderson,david.anderson@maplehealth.example.com,VP Infrastructure
+Summit Media Group,CRM-3064,Prospect,Aiden Garcia,Victoria Roberts,Lily Moore,SMB,Americas,TOLA,CA,USA,Los Angeles,Isabella Young,isabella.young@summitmedia.example.com,VP Infrastructure
+Redwood Supply Inc,CRM-3065,Prospect,Aiden Garcia,Brian Davis,Daniel Hall,Enterprise,Americas,Central,NC,USA,Charlotte,Charles White,charles.white@redwoodsupply.example.com,CFO
+Westlake Farms Holdings,CRM-3066,Customer,Aiden Lee,Richard Walker,Scarlett Perez,Enterprise,Americas,TOLA,MI,USA,Detroit,Robert Moore,robert.moore@westlakefarms.example.com,VP Finance
+Crescent Homes Holdings,CRM-3067,Prospect,Aiden Lee,David Anderson,Matthew Walker,Enterprise,Americas,TOLA,TX,USA,Houston,Richard Anderson,richard.anderson@crescenthomes.example.com,Security Manager
+Maple Analytics Company,CRM-3068,Customer,Aiden Lee,Steven Robinson,Kevin Davis,SMB,Americas,TOLA,MN,USA,Minneapolis,Amelia Brown,amelia.brown@mapleanalytics.example.com,Director IT
+Falcon Apparel Group,CRM-3069,Prospect,Aiden Lee,Amelia Nelson,Olivia Martin,SMB,Americas,TOLA,FL,USA,Miami,Steven Mitchell,steven.mitchell@falconapparel.example.com,Security Manager
+Prairie Foods Company,CRM-3070,Prospect,Aiden Lee,John Garcia,Richard Lee,Enterprise,Americas,Central,FL,USA,Tampa,Paul Martin,paul.martin@prairiefoods.example.com,Procurement Lead
+Prairie Pharma Corp,CRM-3071,Customer,Aiden Lee,Michael King,James Wright,Strategic,Americas,TOLA,NC,USA,Raleigh,Hannah Garcia,hannah.garcia@prairiepharma.example.com,Security Manager
+Palisade Medical Inc,CRM-3072,Prospect,Aiden Lee,Kevin Baker,David Miller,Strategic,Americas,West,FL,USA,Miami,Brian Rodriguez,brian.rodriguez@palisademedical.example.com,Director IT
+Hearthstone Systems Corp,CRM-3073,Prospect,Aiden Roberts,Victoria Mitchell,Anthony Smith,SMB,Americas,East,TX,USA,Dallas,Ava Green,ava.green@hearthstonesystems.example.com,Head of Sales
+Metro Chemicals Holdings,CRM-3074,Prospect,Aiden Roberts,Scarlett Perez,Steven Thomas,Mid-Market,Americas,Central,NC,USA,Charlotte,Charlotte Nelson,charlotte.nelson@metrochemicals.example.com,VP Infrastructure
+Granite Services LLC,CRM-3075,Customer,Aiden Roberts,Isabella Harris,Charlotte King,Mid-Market,Americas,TOLA,AZ,USA,Phoenix,Mark Allen,mark.allen@graniteservices.example.com,IT Director
+Rainier Education Corporation,CRM-3076,Prospect,Aiden Roberts,David Allen,Ella Moore,SMB,Americas,West,MO,USA,St. Louis,Isabella Allen,isabella.allen@rainiereducation.example.com,Security Manager
+Rainier Grocers Inc,CRM-3077,Prospect,Aiden Roberts,Steven Adams,Paul Thomas,Strategic,Americas,West,CA,USA,Los Angeles,Daniel Martinez,daniel.martinez@rainiergrocers.example.com,Procurement Lead
+Redwood Analytics LLC,CRM-3078,Prospect,Aiden Roberts,Michael Rodriguez,Brian Scott,Strategic,Americas,Central,OH,USA,Columbus,Zoey Wright,zoey.wright@redwoodanalytics.example.com,Head of Sales
+Brookside Media Inc,CRM-3079,Customer,Aiden Roberts,Kevin Perez,Emily Green,SMB,Americas,TOLA,NC,USA,Charlotte,Evelyn Martin,evelyn.martin@brooksidemedia.example.com,VP Finance
+Redwood Software Corp,CRM-3080,Prospect,Aiden Roberts,Ella Perez,Charles Thompson,Enterprise,Americas,West,OR,USA,Portland,Isabella Phillips,isabella.phillips@redwoodsoftware.example.com,IT Director
+Heritage Utilities Corp,CRM-3081,Prospect,Aiden Roberts,William Wright,Olivia Moore,Strategic,Americas,West,NC,USA,Raleigh,Daniel Rodriguez,daniel.rodriguez@heritageutilities.example.com,Security Manager
+Oakmont Mining Group,CRM-3082,Prospect,Aiden Thomas,Richard Walker,Joshua Scott,Enterprise,Americas,East,CA,USA,Los Angeles,Lily Taylor,lily.taylor@oakmontmining.example.com,VP Finance
+Northbridge Apparel Corp,CRM-3083,Prospect,Aiden Thomas,Joshua Garcia,Scarlett Anderson,Enterprise,Americas,East,OR,USA,Portland,Mark King,mark.king@northbridgeapparel.example.com,Security Manager
+Blue Robotics Corp,CRM-3084,Prospect,Aiden Thomas,Lily Scott,Harper Anderson,Strategic,Americas,East,PA,USA,Philadelphia,Scarlett Perez,scarlett.perez@bluerobotics.example.com,Security Manager
+Copperline Energy Corp,CRM-3085,Customer,Aiden Thomas,Joseph Carter,Olivia Baker,Mid-Market,Americas,West,OH,USA,Cleveland,Ella Taylor,ella.taylor@copperlineenergy.example.com,Procurement Lead
+Pioneer Logistics Inc,CRM-3086,Prospect,Aiden Thomas,Isabella Baker,Daniel Baker,SMB,Americas,West,IN,USA,Indianapolis,Emma White,emma.white@pioneerlogistics.example.com,CFO
+Windward Construction Corp,CRM-3087,Prospect,Aiden Thomas,William Campbell,Grace Johnson,Mid-Market,Americas,TOLA,PA,USA,Philadelphia,Harper Garcia,harper.garcia@windwardconstruction.example.com,Director IT
+Cobalt Construction Company,CRM-3088,Customer,Aiden Thomas,John Baker,Matthew Brown,Enterprise,Americas,West,CA,USA,Los Angeles,Ella Brown,ella.brown@cobaltconstruction.example.com,VP Finance
+Highland Medical Company,CRM-3089,Customer,Aiden Thomas,Paul Turner,Zoey Harris,Enterprise,Americas,West,TX,USA,Austin,Robert Taylor,robert.taylor@highlandmedical.example.com,Security Manager
+Oakmont Foods Inc,CRM-3090,Prospect,Avery Adams,Anthony Turner,Victoria Green,Mid-Market,Americas,East,FL,USA,Orlando,John Adams,john.adams@oakmontfoods.example.com,IT Director
+Prairie Utilities Group,CRM-3091,Prospect,Avery Adams,Mark Jackson,Isabella Thomas,Enterprise,Americas,Central,CA,USA,San Francisco,Abigail Scott,abigail.scott@prairieutilities.example.com,VP Finance
+Orchard Hotels Corp,CRM-3092,Prospect,Avery Adams,John Allen,Michael Smith,Strategic,Americas,East,OH,USA,Columbus,Scarlett Brown,scarlett.brown@orchardhotels.example.com,IT Director
+Sterling Logistics Company,CRM-3093,Prospect,Avery Adams,Evelyn Harris,Emily Baker,SMB,Americas,Central,IL,USA,Chicago,William Baker,william.baker@sterlinglogistics.example.com,Head of Sales
+Westlake Security Group,CRM-3094,Customer,Avery Adams,Olivia Roberts,Charlotte Taylor,Strategic,Americas,East,TN,USA,Nashville,Joseph Brown,joseph.brown@westlakesecurity.example.com,VP Finance
+Palisade Foods LLC,CRM-3095,Prospect,Avery Adams,Emma Turner,Daniel Walker,Mid-Market,Americas,West,OH,USA,Cleveland,Steven Young,steven.young@palisadefoods.example.com,VP Operations
+Blue Energy Corporation,CRM-3096,Prospect,Avery Adams,Abigail Nelson,Daniel Garcia,Strategic,Americas,East,AZ,USA,Phoenix,Scarlett Moore,scarlett.moore@blueenergy.example.com,Procurement Lead
+Bluebird Security Holdings,CRM-3097,Prospect,Avery Carter,Andrew Hall,Isabella Wilson,Strategic,Americas,TOLA,OH,USA,Cleveland,Joseph King,joseph.king@bluebirdsecurity.example.com,IT Director
+Evergreen Outdoors Group,CRM-3098,Prospect,Avery Carter,Paul Green,Ella Anderson,SMB,Americas,East,TX,USA,Dallas,Kevin Adams,kevin.adams@evergreenoutdoors.example.com,VP Infrastructure
+Windward Analytics Group,CRM-3099,Prospect,Avery Carter,Hannah Roberts,Chloe Johnson,Mid-Market,Americas,East,NY,USA,New York,Mark Thomas,mark.thomas@windwardanalytics.example.com,Director of Procurement
+Prairie Services Group,CRM-3100,Customer,Avery Carter,James Brown,Robert Jackson,SMB,Americas,TOLA,CA,USA,Los Angeles,Emily Wright,emily.wright@prairieservices.example.com,VP Infrastructure
+Windward Solutions Company,CRM-3101,Prospect,Avery Carter,Matthew Hall,Ava Robinson,Mid-Market,Americas,West,TN,USA,Nashville,Robert Anderson,robert.anderson@windwardsolutions.example.com,Director of Procurement
+Bluebird Pharma Holdings,CRM-3102,Prospect,Avery Carter,Sophia Johnson,Abigail Baker,Enterprise,Americas,East,CA,USA,Los Angeles,John Scott,john.scott@bluebirdpharma.example.com,Director IT
+Sterling Chemicals Corporation,CRM-3103,Prospect,Avery Carter,William Brown,Lily Perez,Enterprise,Americas,East,PA,USA,Pittsburgh,Emily Taylor,emily.taylor@sterlingchemicals.example.com,Director IT
+Sterling Medical Corp,CRM-3104,Prospect,Avery Carter,Joshua Scott,Anthony Adams,Enterprise,Americas,TOLA,CO,USA,Denver,Joseph Phillips,joseph.phillips@sterlingmedical.example.com,VP Infrastructure
+Cedar Mining Corporation,CRM-3105,Prospect,Avery Carter,Abigail Phillips,Olivia Phillips,SMB,Americas,Central,WA,USA,Seattle,Victoria Johnson,victoria.johnson@cedarmining.example.com,Head of Sales
+Palisade Logistics Corporation,CRM-3106,Customer,Avery Parker,Joshua Anderson,Kevin Scott,Strategic,Americas,Central,TX,USA,Houston,Joshua Davis,joshua.davis@palisadelogistics.example.com,Head of Sales
+Sapphire Shipping Holdings,CRM-3107,Customer,Avery Parker,Brian Baker,Ava Anderson,SMB,Americas,Central,CA,USA,Los Angeles,Hannah Martinez,hannah.martinez@sapphireshipping.example.com,CFO
+Skyline Industries LLC,CRM-3108,Prospect,Avery Parker,David Walker,Joshua White,SMB,Americas,East,MI,USA,Detroit,Grace Robinson,grace.robinson@skylineindustries.example.com,Security Manager
+Mariner Tech Inc,CRM-3109,Prospect,Avery Parker,Emma Turner,Daniel Lewis,Strategic,Americas,East,MO,USA,Kansas City,Matthew White,matthew.white@marinertech.example.com,Procurement Lead
+Greenfield Systems Group,CRM-3110,Prospect,Avery Parker,Steven Wilson,Joshua Thompson,SMB,Americas,West,CA,USA,San Diego,Ava Allen,ava.allen@greenfieldsystems.example.com,Procurement Lead
+Atlas Logistics Corporation,CRM-3111,Prospect,Avery Parker,Joseph Carter,Joseph Taylor,Enterprise,Americas,West,PA,USA,Philadelphia,Ella Phillips,ella.phillips@atlaslogistics.example.com,VP Operations
+Goldcrest Foods Inc,CRM-3112,Prospect,Avery Parker,Abigail Lewis,Joshua Lee,Mid-Market,Americas,West,LA,USA,New Orleans,Amelia Lewis,amelia.lewis@goldcrestfoods.example.com,Director IT
+Aurora Holdings Corp,CRM-3113,Prospect,Avery Parker,Charlotte Phillips,Ava Young,SMB,Americas,East,WA,USA,Seattle,Anthony Moore,anthony.moore@auroraholdings.example.com,Procurement Lead
+Seaside Robotics Holdings,CRM-3114,Customer,Avery Parker,Steven Turner,Emily Walker,Strategic,Americas,Central,NC,USA,Raleigh,Abigail Thomas,abigail.thomas@seasiderobotics.example.com,IT Director
+Silver Homes Corp,CRM-3115,Customer,Avery Scott,Zoey Robinson,Mia Adams,Strategic,Americas,TOLA,FL,USA,Orlando,Anthony Miller,anthony.miller@silverhomes.example.com,IT Director
+Harbor Security Corp,CRM-3116,Prospect,Avery Scott,Anthony Miller,Scarlett Clark,Enterprise,Americas,East,NY,USA,New York,Daniel White,daniel.white@harborsecurity.example.com,Director of Procurement
+Cardinal Communications Group,CRM-3117,Prospect,Avery Scott,John Rodriguez,Mia Adams,Strategic,Americas,Central,CA,USA,San Francisco,Isabella Young,isabella.young@cardinalcommunications.example.com,Director of Procurement
+Pioneer Services Corp,CRM-3118,Prospect,Avery Scott,Michael Parker,Anthony Harris,Enterprise,Americas,TOLA,NY,USA,New York,Thomas Anderson,thomas.anderson@pioneerservices.example.com,VP Operations
+Stonecroft Chemicals Corp,CRM-3119,Prospect,Avery Scott,Zoey Baker,Scarlett Jackson,Enterprise,Americas,West,MO,USA,St. Louis,Richard Baker,richard.baker@stonecroftchemicals.example.com,Procurement Lead
+Frontier Construction Corporation,CRM-3120,Customer,Avery Scott,Andrew Allen,Daniel Walker,Enterprise,Americas,TOLA,AZ,USA,Phoenix,Thomas Perez,thomas.perez@frontierconstruction.example.com,Head of Sales
+Redwood Financial LLC,CRM-3121,Customer,Avery Scott,Thomas Young,John Martin,Mid-Market,Americas,TOLA,CA,USA,San Diego,Mia Taylor,mia.taylor@redwoodfinancial.example.com,Director IT
+Frontier Outdoors Corp,CRM-3122,Prospect,Avery Scott,Amelia Moore,Kevin Smith,Mid-Market,Americas,TOLA,OH,USA,Cleveland,Victoria Martinez,victoria.martinez@frontieroutdoors.example.com,Director of Procurement
+Keystone Energy LLC,CRM-3123,Prospect,Brian Rodriguez,Michael Jackson,Ella Johnson,Mid-Market,Americas,East,NY,USA,New York,Abigail King,abigail.king@keystoneenergy.example.com,Director of Procurement
+Aurora Tech Group,CRM-3124,Prospect,Brian Rodriguez,Kevin Wright,Olivia Martin,Strategic,Americas,TOLA,MI,USA,Detroit,Isabella Wright,isabella.wright@auroratech.example.com,Head of Sales
+Harbor Energy Inc,CRM-3125,Prospect,Brian Rodriguez,Joseph Scott,James Taylor,SMB,Americas,Central,NY,USA,New York,Hannah White,hannah.white@harborenergy.example.com,Director IT
+Pioneer Retail Corp,CRM-3126,Customer,Brian Rodriguez,Emma Wilson,Ella Green,SMB,Americas,Central,TX,USA,Dallas,Zoey Adams,zoey.adams@pioneerretail.example.com,Head of Sales
+Seaside Solutions LLC,CRM-3127,Prospect,Brian Rodriguez,Grace Davis,Hannah Moore,Strategic,Americas,West,TX,USA,Austin,Lily White,lily.white@seasidesolutions.example.com,VP Finance
+Cardinal Systems Inc,CRM-3128,Prospect,Brian Rodriguez,Brian Young,Emma Baker,Strategic,Americas,East,MO,USA,Kansas City,Richard Jackson,richard.jackson@cardinalsystems.example.com,VP Infrastructure
+Canyon Tech LLC,CRM-3129,Prospect,Brian Rodriguez,Lily Nelson,Robert Thompson,Mid-Market,Americas,Central,MA,USA,Boston,Daniel Roberts,daniel.roberts@canyontech.example.com,VP Infrastructure
+Rainier Farms Group,CRM-3130,Customer,Brian Rodriguez,Steven Carter,Steven Brown,SMB,Americas,Central,NC,USA,Charlotte,Evelyn King,evelyn.king@rainierfarms.example.com,Head of Sales
+Blue Financial Corp,CRM-3131,Customer,Brian Rodriguez,Brian Wilson,Kevin King,Mid-Market,Americas,Central,OR,USA,Portland,Chloe Hall,chloe.hall@bluefinancial.example.com,Director of Procurement
+Atlas Aviation Group,CRM-3132,Prospect,Brian Rodriguez,Victoria Campbell,Lily Smith,Mid-Market,Americas,Central,MN,USA,Minneapolis,David Baker,david.baker@atlasaviation.example.com,VP Finance
+Falcon Foods Corp,CRM-3133,Customer,Cameron Mitchell,Scarlett Thompson,Robert Baker,Enterprise,Americas,Central,WA,USA,Seattle,Anthony Mitchell,anthony.mitchell@falconfoods.example.com,VP Operations
+Bright Financial Inc,CRM-3134,Customer,Cameron Mitchell,Evelyn Thomas,Isabella Carter,Enterprise,Americas,Central,GA,USA,Atlanta,Olivia Hall,olivia.hall@brightfinancial.example.com,VP Infrastructure
+Blue Resorts Corporation,CRM-3135,Prospect,Cameron Mitchell,Chloe Clark,John Anderson,SMB,Americas,Central,TX,USA,Dallas,Michael Martinez,michael.martinez@blueresorts.example.com,VP Infrastructure
+Summit Medical Group,CRM-3136,Prospect,Cameron Mitchell,Ella Thomas,Ella Moore,Strategic,Americas,West,CO,USA,Denver,Joshua Johnson,joshua.johnson@summitmedical.example.com,Director IT
+Crescent Foods Inc,CRM-3137,Prospect,Cameron Mitchell,Charlotte Moore,Hannah Martinez,Strategic,Americas,West,MI,USA,Detroit,Richard Allen,richard.allen@crescentfoods.example.com,Procurement Lead
+Mariner Construction Corporation,CRM-3138,Prospect,Cameron Mitchell,Kevin Hall,Matthew Moore,Enterprise,Americas,East,LA,USA,New Orleans,Mark Lee,mark.lee@marinerconstruction.example.com,VP Operations
+Bluebird Pharma LLC,CRM-3139,Prospect,Cameron Parker,Ella Wilson,Mia Roberts,Strategic,Americas,West,LA,USA,New Orleans,Amelia Phillips,amelia.phillips@bluebirdpharma.example.com,VP Infrastructure
+Heritage Consulting Corp,CRM-3140,Prospect,Cameron Parker,John Clark,Isabella Jackson,Mid-Market,Americas,West,CA,USA,San Diego,Joseph Clark,joseph.clark@heritageconsulting.example.com,IT Director
+Goldcrest Networks LLC,CRM-3141,Prospect,Cameron Parker,Thomas Davis,Ava Wilson,Enterprise,Americas,West,MN,USA,Minneapolis,Evelyn Mitchell,evelyn.mitchell@goldcrestnetworks.example.com,Security Manager
+Skyline Chemicals Inc,CRM-3142,Prospect,Cameron Parker,Joseph King,Emily Scott,Enterprise,Americas,East,MA,USA,Boston,Lily Lee,lily.lee@skylinechemicals.example.com,IT Director
+Eastgate Shipping Company,CRM-3143,Prospect,Cameron Parker,Zoey White,John Perez,Enterprise,Americas,East,GA,USA,Atlanta,John Robinson,john.robinson@eastgateshipping.example.com,Security Manager
+Summit Diagnostics Corporation,CRM-3144,Prospect,Cameron Parker,Scarlett Wright,Daniel Roberts,SMB,Americas,TOLA,MO,USA,Kansas City,Ella King,ella.king@summitdiagnostics.example.com,Director of Procurement
+Bright Chemicals Company,CRM-3145,Prospect,Cameron Parker,Robert Moore,Kevin Adams,Strategic,Americas,Central,AZ,USA,Phoenix,James Smith,james.smith@brightchemicals.example.com,Procurement Lead
+Maple Solutions Corp,CRM-3146,Prospect,Cameron Parker,Sophia Scott,Emily Rodriguez,Enterprise,Americas,East,OH,USA,Cleveland,Victoria Clark,victoria.clark@maplesolutions.example.com,VP Finance
+Prairie Solutions Holdings,CRM-3147,Prospect,Cameron Turner,Paul Wilson,Amelia Turner,Enterprise,Americas,East,CA,USA,San Diego,Scarlett Garcia,scarlett.garcia@prairiesolutions.example.com,VP Finance
+Heritage Capital LLC,CRM-3148,Prospect,Cameron Turner,Isabella Phillips,Sophia Jackson,Mid-Market,Americas,West,FL,USA,Orlando,Zoey Scott,zoey.scott@heritagecapital.example.com,IT Director
+Cobalt Health Inc,CRM-3149,Prospect,Cameron Turner,Amelia Robinson,William Garcia,SMB,Americas,TOLA,FL,USA,Tampa,Zoey Martin,zoey.martin@cobalthealth.example.com,VP Finance
+Vertex Security Inc,CRM-3150,Prospect,Cameron Turner,Ella Clark,Brian Scott,Strategic,Americas,East,TX,USA,Dallas,Charles Smith,charles.smith@vertexsecurity.example.com,Security Manager
+Beacon Financial Group,CRM-3151,Customer,Cameron Turner,Abigail White,Mark Baker,Strategic,Americas,Central,CA,USA,San Diego,Olivia Martin,olivia.martin@beaconfinancial.example.com,VP Finance
+Summit Retail Inc,CRM-3152,Prospect,Cameron Turner,Amelia Davis,Emma Adams,Enterprise,Americas,Central,MO,USA,Kansas City,Steven Jackson,steven.jackson@summitretail.example.com,VP Infrastructure
+Frontier Mining LLC,CRM-3153,Prospect,Cameron Turner,Richard Green,Richard Thompson,Strategic,Americas,West,LA,USA,New Orleans,Mark Martin,mark.martin@frontiermining.example.com,Procurement Lead
+Bright Construction Holdings,CRM-3154,Prospect,Cameron Turner,Andrew Johnson,Andrew Green,Strategic,Americas,TOLA,FL,USA,Tampa,Amelia Miller,amelia.miller@brightconstruction.example.com,VP Finance
+Aurora Homes Inc,CRM-3155,Prospect,David Robinson,Andrew Adams,William White,Enterprise,Americas,West,OR,USA,Portland,Chloe Harris,chloe.harris@aurorahomes.example.com,Director of Procurement
+Clearwater Aviation Corp,CRM-3156,Prospect,David Robinson,Richard Lee,Isabella Mitchell,Enterprise,Americas,TOLA,MO,USA,Kansas City,Daniel Thomas,daniel.thomas@clearwateraviation.example.com,Director of Procurement
+Mariner Partners Company,CRM-3157,Prospect,David Robinson,Brian Walker,Kevin Walker,SMB,Americas,Central,TX,USA,Houston,John Nelson,john.nelson@marinerpartners.example.com,VP Finance
+Cardinal Systems Holdings,CRM-3158,Prospect,David Robinson,Joseph Martinez,Mark White,Strategic,Americas,TOLA,MA,USA,Boston,John Martin,john.martin@cardinalsystems.example.com,VP Operations
+Mariner Health Group,CRM-3159,Customer,David Robinson,Joseph Mitchell,Michael Martin,Mid-Market,Americas,East,TX,USA,Dallas,Hannah Jackson,hannah.jackson@marinerhealth.example.com,CFO
+Silver Shipping Company,CRM-3160,Customer,David Robinson,Anthony Baker,Ella Allen,SMB,Americas,East,CA,USA,San Francisco,Chloe Walker,chloe.walker@silvershipping.example.com,VP Operations
+Palisade Consulting Corp,CRM-3161,Customer,David Walker,Emily Wilson,Joshua Thompson,Strategic,Americas,Central,MA,USA,Boston,Robert Allen,robert.allen@palisadeconsulting.example.com,CFO
+Orchard Systems Corporation,CRM-3162,Customer,David Walker,Paul Lewis,Joshua Thompson,Enterprise,Americas,Central,NY,USA,New York,Mia Smith,mia.smith@orchardsystems.example.com,CFO
+Bright Tech Holdings,CRM-3163,Customer,David Walker,John Smith,Zoey Allen,Enterprise,Americas,Central,NC,USA,Raleigh,Isabella Clark,isabella.clark@brighttech.example.com,Director IT
+Crescent Tech Company,CRM-3164,Customer,David Walker,Richard Jackson,Mark Lewis,Mid-Market,Americas,Central,LA,USA,New Orleans,Ava Campbell,ava.campbell@crescenttech.example.com,Procurement Lead
+Trailhead Markets Corp,CRM-3165,Prospect,David Walker,Zoey Baker,David Anderson,Mid-Market,Americas,Central,AZ,USA,Phoenix,Zoey Johnson,zoey.johnson@trailheadmarkets.example.com,CFO
+Blue Farms Corp,CRM-3166,Customer,David Walker,Richard Lewis,James Baker,SMB,Americas,Central,AZ,USA,Phoenix,Isabella Miller,isabella.miller@bluefarms.example.com,Procurement Lead
+Skyline Outdoors Holdings,CRM-3167,Prospect,David Walker,Thomas Davis,John Thompson,Enterprise,Americas,Central,CA,USA,Los Angeles,Joshua Young,joshua.young@skylineoutdoors.example.com,VP Infrastructure
+Greenfield Systems Corp,CRM-3168,Prospect,David Walker,Matthew Rodriguez,Zoey Parker,SMB,Americas,Central,OH,USA,Cleveland,Thomas Wilson,thomas.wilson@greenfieldsystems.example.com,VP Finance
+Sterling Foods Corp,CRM-3169,Prospect,Emily Lee,Richard Thompson,Kevin Adams,Enterprise,Americas,East,CA,USA,San Francisco,James Jackson,james.jackson@sterlingfoods.example.com,VP Operations
+Greenfield Capital Inc,CRM-3170,Prospect,Emily Lee,Andrew Lewis,Mia Rodriguez,Mid-Market,Americas,East,MO,USA,St. Louis,Mia Roberts,mia.roberts@greenfieldcapital.example.com,VP Finance
+Northbridge Homes Holdings,CRM-3171,Prospect,Emily Lee,Lily Turner,Paul Young,Strategic,Americas,TOLA,IN,USA,Indianapolis,Lily Anderson,lily.anderson@northbridgehomes.example.com,Director of Procurement
+Riverstone Farms Corporation,CRM-3172,Prospect,Emily Lee,Paul Taylor,Abigail Young,Strategic,Americas,West,MA,USA,Boston,David Phillips,david.phillips@riverstonefarms.example.com,VP Finance
+Heritage Services Inc,CRM-3173,Prospect,Emily Lee,Brian White,Steven Roberts,SMB,Americas,East,CA,USA,San Diego,Evelyn Roberts,evelyn.roberts@heritageservices.example.com,VP Operations
+Falcon Grocers Corp,CRM-3174,Customer,Emily Lee,Joseph Lewis,Andrew Lee,Mid-Market,Americas,West,NY,USA,New York,Steven Scott,steven.scott@falcongrocers.example.com,VP Finance
+Sapphire Markets Corp,CRM-3175,Customer,Emily Mitchell,Steven Parker,Ava Taylor,Strategic,Americas,TOLA,PA,USA,Philadelphia,Sophia Scott,sophia.scott@sapphiremarkets.example.com,Procurement Lead
+Mariner Analytics Company,CRM-3176,Customer,Emily Mitchell,Joshua Rodriguez,Hannah Davis,SMB,Americas,TOLA,PA,USA,Pittsburgh,Victoria Harris,victoria.harris@marineranalytics.example.com,VP Infrastructure
+Lighthouse Manufacturing Holdings,CRM-3177,Prospect,Emily Mitchell,Anthony Carter,Thomas Martin,Enterprise,Americas,East,NY,USA,New York,Chloe Parker,chloe.parker@lighthousemanufacturing.example.com,Director IT
+Heritage Mining Company,CRM-3178,Prospect,Emily Mitchell,Olivia Harris,Scarlett Jackson,SMB,Americas,TOLA,GA,USA,Atlanta,Robert King,robert.king@heritagemining.example.com,Head of Sales
+Granite Consulting Corporation,CRM-3179,Prospect,Emily Mitchell,Harper Thompson,John Garcia,Strategic,Americas,Central,NC,USA,Charlotte,Thomas Walker,thomas.walker@graniteconsulting.example.com,Director of Procurement
+Pioneer Farms Corp,CRM-3180,Prospect,Emily Mitchell,Ella Smith,Harper Garcia,SMB,Americas,West,TX,USA,Houston,Thomas Parker,thomas.parker@pioneerfarms.example.com,Security Manager
+Palisade Motors Corporation,CRM-3181,Customer,Emily Mitchell,Lily Wright,Anthony Parker,Enterprise,Americas,TOLA,TN,USA,Nashville,Mark Martinez,mark.martinez@palisademotors.example.com,CFO
+Bright Grocers Group,CRM-3182,Customer,Emily Mitchell,Thomas Carter,Joseph Anderson,Mid-Market,Americas,TOLA,OR,USA,Portland,Scarlett Thompson,scarlett.thompson@brightgrocers.example.com,Security Manager
+Evergreen Construction Corp,CRM-3183,Prospect,Emma Carter,Mark Campbell,Steven Wright,Enterprise,Americas,West,FL,USA,Miami,Victoria Mitchell,victoria.mitchell@evergreenconstruction.example.com,VP Infrastructure
+Greenfield Software Holdings,CRM-3184,Prospect,Emma Carter,Thomas Anderson,William Baker,SMB,Americas,TOLA,AZ,USA,Phoenix,Victoria Young,victoria.young@greenfieldsoftware.example.com,CFO
+Sapphire Robotics Holdings,CRM-3185,Prospect,Emma Carter,Grace Lewis,Michael Lee,Enterprise,Americas,TOLA,AZ,USA,Phoenix,Amelia Clark,amelia.clark@sapphirerobotics.example.com,VP Finance
+Blue Logistics Holdings,CRM-3186,Prospect,Emma Carter,Ava Thompson,Steven Rodriguez,Strategic,Americas,Central,TX,USA,Houston,James Hall,james.hall@bluelogistics.example.com,Security Manager
+Hearthstone Foods Inc,CRM-3187,Prospect,Emma Carter,Scarlett Smith,Charles Perez,Enterprise,Americas,Central,NC,USA,Raleigh,Brian Anderson,brian.anderson@hearthstonefoods.example.com,VP Operations
+Vertex Education Group,CRM-3188,Customer,Emma Carter,David Thompson,Chloe Jackson,Mid-Market,Americas,West,TX,USA,Austin,Victoria Johnson,victoria.johnson@vertexeducation.example.com,VP Finance
+Evergreen Capital Group,CRM-3189,Prospect,Emma Carter,Daniel Thomas,Evelyn Roberts,Mid-Market,Americas,Central,OH,USA,Cleveland,Olivia Scott,olivia.scott@evergreencapital.example.com,CFO
+Keystone Manufacturing Group,CRM-3190,Prospect,Emma Carter,David Thomas,Joseph Phillips,Mid-Market,Americas,Central,PA,USA,Philadelphia,Brian Turner,brian.turner@keystonemanufacturing.example.com,VP Finance
+Canyon Communications Inc,CRM-3191,Prospect,Emma Smith,Chloe Hall,Isabella Rodriguez,SMB,Americas,TOLA,PA,USA,Pittsburgh,Lily Walker,lily.walker@canyoncommunications.example.com,IT Director
+Mariner Systems Group,CRM-3192,Customer,Emma Smith,Chloe Thompson,Richard Johnson,Enterprise,Americas,TOLA,AZ,USA,Phoenix,Kevin Garcia,kevin.garcia@marinersystems.example.com,Director of Procurement
+Clearwater Supply Corporation,CRM-3193,Customer,Emma Smith,Emily Rodriguez,James King,Strategic,Americas,TOLA,FL,USA,Miami,Ella Martin,ella.martin@clearwatersupply.example.com,Director IT
+Sterling Logistics Corp,CRM-3194,Prospect,Emma Smith,David Davis,Joseph Allen,SMB,Americas,West,IL,USA,Chicago,Lily Martinez,lily.martinez@sterlinglogistics.example.com,Procurement Lead
+Maple Networks Company,CRM-3195,Prospect,Emma Smith,Chloe King,Paul Taylor,SMB,Americas,West,NC,USA,Raleigh,Joshua Thompson,joshua.thompson@maplenetworks.example.com,Director of Procurement
+Cobalt Tech Company,CRM-3196,Customer,Emma Smith,Lily Miller,Emily Allen,Strategic,Americas,TOLA,NC,USA,Charlotte,Grace Perez,grace.perez@cobalttech.example.com,VP Finance
+Copperline Construction Group,CRM-3197,Prospect,Emma Smith,Isabella Smith,Ella Turner,SMB,Americas,TOLA,MO,USA,St. Louis,Isabella Smith,isabella.smith@copperlineconstruction.example.com,IT Director
+Cobalt Markets Corp,CRM-3198,Prospect,Emma Smith,Robert Turner,Abigail Thomas,Mid-Market,Americas,Central,TX,USA,Houston,Mia Anderson,mia.anderson@cobaltmarkets.example.com,IT Director
+Sapphire Insurance Corporation,CRM-3199,Customer,Emma Smith,Robert Roberts,Scarlett Anderson,Mid-Market,Americas,TOLA,TX,USA,Dallas,Evelyn Phillips,evelyn.phillips@sapphireinsurance.example.com,Security Manager
+Pioneer Manufacturing LLC,CRM-3200,Prospect,Emma Smith,Richard Green,Joshua Allen,Mid-Market,Americas,Central,TX,USA,Austin,Brian Davis,brian.davis@pioneermanufacturing.example.com,Security Manager
+Sterling Holdings Corp,CRM-3201,Prospect,Emma Wright,David Martinez,Andrew Brown,Mid-Market,Americas,Central,OH,USA,Cleveland,Scarlett Phillips,scarlett.phillips@sterlingholdings.example.com,Head of Sales
+Sterling Telecom Corp,CRM-3202,Prospect,Emma Wright,Victoria Miller,Lily Scott,SMB,Americas,Central,AZ,USA,Phoenix,Zoey Mitchell,zoey.mitchell@sterlingtelecom.example.com,IT Director
+Sapphire Energy LLC,CRM-3203,Prospect,Emma Wright,Matthew Anderson,Daniel Clark,Mid-Market,Americas,TOLA,WA,USA,Seattle,Scarlett Anderson,scarlett.anderson@sapphireenergy.example.com,CFO
+Westlake Pharma Holdings,CRM-3204,Customer,Emma Wright,Richard Perez,Thomas Wilson,Mid-Market,Americas,TOLA,CA,USA,San Diego,Hannah Davis,hannah.davis@westlakepharma.example.com,VP Infrastructure
+Silver Consulting Holdings,CRM-3205,Customer,Emma Wright,Richard Miller,Ella Davis,Enterprise,Americas,TOLA,TX,USA,Houston,Olivia Jackson,olivia.jackson@silverconsulting.example.com,Procurement Lead
+Orchard Motors Holdings,CRM-3206,Customer,Emma Wright,Robert Wilson,James Scott,Mid-Market,Americas,TOLA,TN,USA,Nashville,Sophia Adams,sophia.adams@orchardmotors.example.com,VP Infrastructure
+Hearthstone Software Corp,CRM-3207,Prospect,Emma Wright,Joseph Taylor,Hannah Thomas,Mid-Market,Americas,West,MA,USA,Boston,Lily Walker,lily.walker@hearthstonesoftware.example.com,Director IT
+Mariner Media Corp,CRM-3208,Customer,Emma Wright,Paul Garcia,Daniel Turner,Strategic,Americas,TOLA,CA,USA,San Diego,Emily Mitchell,emily.mitchell@marinermedia.example.com,VP Infrastructure
+Maple Diagnostics Company,CRM-3209,Customer,Emma Wright,Michael Garcia,Sophia Clark,Mid-Market,Americas,TOLA,LA,USA,New Orleans,Matthew Johnson,matthew.johnson@maplediagnostics.example.com,VP Finance
+Crescent Motors Holdings,CRM-3210,Prospect,Eric Moore,Lily Phillips,Mia Wilson,Strategic,Americas,West,OH,USA,Columbus,Kevin Moore,kevin.moore@crescentmotors.example.com,Director of Procurement
+Hearthstone Aviation Inc,CRM-3211,Prospect,Eric Moore,Ella Wilson,Charlotte Turner,SMB,Americas,East,MO,USA,Kansas City,James Taylor,james.taylor@hearthstoneaviation.example.com,Director IT
+Pioneer Utilities Corp,CRM-3212,Prospect,Eric Moore,Brian Walker,Joseph Lewis,SMB,Americas,Central,FL,USA,Orlando,Emily Martinez,emily.martinez@pioneerutilities.example.com,Head of Sales
+Rainier Grocers Corporation,CRM-3213,Prospect,Eric Moore,Daniel Brown,Chloe Thomas,Enterprise,Americas,Central,CA,USA,Los Angeles,Kevin Green,kevin.green@rainiergrocers.example.com,CFO
+Rainier Pharma Corporation,CRM-3214,Prospect,Eric Moore,Grace Baker,John White,SMB,Americas,TOLA,MA,USA,Boston,Emma Baker,emma.baker@rainierpharma.example.com,VP Operations
+Stonecroft Retail Inc,CRM-3215,Prospect,Eric Moore,Emily Nelson,James Lewis,Enterprise,Americas,TOLA,AZ,USA,Phoenix,Daniel Brown,daniel.brown@stonecroftretail.example.com,VP Finance
+Iron Chemicals LLC,CRM-3216,Prospect,Eric Moore,Mia Allen,Anthony Davis,Mid-Market,Americas,TOLA,IL,USA,Chicago,Mia Mitchell,mia.mitchell@ironchemicals.example.com,Director IT
+Eastgate Insurance Group,CRM-3217,Customer,Eric Moore,Sophia Miller,Michael Baker,Enterprise,Americas,TOLA,WA,USA,Seattle,Chloe King,chloe.king@eastgateinsurance.example.com,IT Director
+Lone Grocers Holdings,CRM-3218,Customer,Eric Moore,Daniel Campbell,Sophia White,Strategic,Americas,TOLA,CO,USA,Denver,Paul Miller,paul.miller@lonegrocers.example.com,Director IT
+Beacon Holdings Holdings,CRM-3219,Prospect,Eric Walker,Thomas Wilson,Robert Johnson,Mid-Market,Americas,West,NC,USA,Raleigh,Charlotte Mitchell,charlotte.mitchell@beaconholdings.example.com,CFO
+Beacon Pharma Inc,CRM-3220,Prospect,Eric Walker,Zoey Garcia,Chloe Hall,Strategic,Americas,West,MA,USA,Boston,Emily Adams,emily.adams@beaconpharma.example.com,IT Director
+Granite Analytics Group,CRM-3221,Prospect,Eric Walker,Victoria Brown,Thomas Taylor,SMB,Americas,Central,OR,USA,Portland,Joshua Miller,joshua.miller@graniteanalytics.example.com,Director of Procurement
+Bluebird Markets Corporation,CRM-3222,Customer,Eric Walker,Grace Wright,Daniel Lewis,Mid-Market,Americas,West,OH,USA,Cleveland,Zoey White,zoey.white@bluebirdmarkets.example.com,VP Finance
+Canyon Logistics Holdings,CRM-3223,Customer,Eric Walker,Abigail Martin,Anthony Allen,Strategic,Americas,West,LA,USA,New Orleans,Scarlett White,scarlett.white@canyonlogistics.example.com,VP Infrastructure
+Silver Communications Company,CRM-3224,Prospect,Eric Walker,Joshua Lewis,Michael Anderson,Mid-Market,Americas,East,FL,USA,Tampa,Mark Rodriguez,mark.rodriguez@silvercommunications.example.com,Director IT
+Riverstone Consulting Group,CRM-3225,Customer,Eric Walker,James Smith,Isabella Parker,SMB,Americas,West,FL,USA,Miami,Robert Davis,robert.davis@riverstoneconsulting.example.com,IT Director
+Redwood Medical Group,CRM-3226,Customer,Eric Walker,Paul Rodriguez,Zoey Harris,Mid-Market,Americas,West,CA,USA,San Diego,Chloe Brown,chloe.brown@redwoodmedical.example.com,Head of Sales
+Summit Construction LLC,CRM-3227,Prospect,Eric Walker,Chloe Hall,Emily Davis,Enterprise,Americas,West,AZ,USA,Phoenix,Scarlett Taylor,scarlett.taylor@summitconstruction.example.com,VP Infrastructure
+Stonecroft Foods Corporation,CRM-3228,Prospect,Grace Hall,Olivia Martinez,Charlotte Adams,Strategic,Americas,TOLA,LA,USA,New Orleans,Richard Nelson,richard.nelson@stonecroftfoods.example.com,Director of Procurement
+Pioneer Communications Group,CRM-3229,Prospect,Grace Hall,Scarlett Roberts,David Martin,SMB,Americas,Central,CA,USA,San Francisco,Amelia Thomas,amelia.thomas@pioneercommunications.example.com,VP Operations
+Bright Outdoors LLC,CRM-3230,Prospect,Grace Hall,Isabella Carter,Steven Parker,SMB,Americas,East,FL,USA,Miami,Mia Young,mia.young@brightoutdoors.example.com,VP Infrastructure
+Vertex Grocers Company,CRM-3231,Prospect,Grace Hall,Ella Campbell,Paul Martin,Mid-Market,Americas,Central,PA,USA,Philadelphia,Kevin Taylor,kevin.taylor@vertexgrocers.example.com,CFO
+Skyline Mining Holdings,CRM-3232,Customer,Grace Hall,Michael Anderson,Emma Smith,Mid-Market,Americas,East,MN,USA,Minneapolis,Scarlett Hall,scarlett.hall@skylinemining.example.com,IT Director
+Bluebird Capital Holdings,CRM-3233,Prospect,Grace Hall,Evelyn Nelson,Robert Smith,Mid-Market,Americas,TOLA,MO,USA,St. Louis,Charlotte Wright,charlotte.wright@bluebirdcapital.example.com,VP Finance
+Beacon Manufacturing Company,CRM-3234,Prospect,Grace Rodriguez,John King,Amelia Allen,Strategic,Americas,TOLA,MO,USA,St. Louis,Isabella Campbell,isabella.campbell@beaconmanufacturing.example.com,VP Operations
+Highland Mining Corporation,CRM-3235,Prospect,Grace Rodriguez,David Phillips,Charlotte Parker,Strategic,Americas,East,MO,USA,St. Louis,Joseph Phillips,joseph.phillips@highlandmining.example.com,Director of Procurement
+Greenfield Hotels Group,CRM-3236,Prospect,Grace Rodriguez,Isabella Miller,Mark Carter,SMB,Americas,Central,PA,USA,Philadelphia,Joseph Walker,joseph.walker@greenfieldhotels.example.com,Security Manager
+Bright Diagnostics Company,CRM-3237,Prospect,Grace Rodriguez,William Baker,James Clark,SMB,Americas,West,WA,USA,Seattle,Michael Harris,michael.harris@brightdiagnostics.example.com,Director of Procurement
+Lighthouse Manufacturing Corp,CRM-3238,Customer,Grace Rodriguez,Sophia Young,Zoey Davis,SMB,Americas,West,PA,USA,Pittsburgh,Charlotte Thomas,charlotte.thomas@lighthousemanufacturing.example.com,VP Operations
+Cedar Resorts Holdings,CRM-3239,Prospect,Grace Rodriguez,David Wright,William Parker,Mid-Market,Americas,Central,OH,USA,Cleveland,Andrew Smith,andrew.smith@cedarresorts.example.com,CFO
+Monarch Homes LLC,CRM-3240,Prospect,Hannah Thomas,Kevin Anderson,David Green,Strategic,Americas,West,IL,USA,Chicago,Victoria Anderson,victoria.anderson@monarchhomes.example.com,Director of Procurement
+Falcon Tech Holdings,CRM-3241,Prospect,Hannah Thomas,Robert Davis,Ava Thompson,SMB,Americas,East,WA,USA,Seattle,William Martinez,william.martinez@falcontech.example.com,Security Manager
+Bluebird Systems LLC,CRM-3242,Customer,Hannah Thomas,Joshua Martin,Mark Walker,Enterprise,Americas,Central,CO,USA,Denver,Grace Walker,grace.walker@bluebirdsystems.example.com,IT Director
+Mariner Holdings Corporation,CRM-3243,Prospect,Hannah Thomas,Evelyn Thompson,Lily Thompson,Strategic,Americas,West,CA,USA,San Francisco,Mark Rodriguez,mark.rodriguez@marinerholdings.example.com,Head of Sales
+Lighthouse Pharma Group,CRM-3244,Prospect,Hannah Thomas,Zoey Walker,Evelyn Adams,SMB,Americas,West,TX,USA,Austin,Chloe Anderson,chloe.anderson@lighthousepharma.example.com,VP Finance
+Palisade Solutions Company,CRM-3245,Prospect,Hannah Thomas,William Wilson,Michael Harris,Enterprise,Americas,West,PA,USA,Philadelphia,Chloe Lewis,chloe.lewis@palisadesolutions.example.com,VP Finance
+Silver Homes Corporation,CRM-3246,Prospect,Jamie Hall,James Perez,Charlotte Baker,Enterprise,Americas,West,TN,USA,Nashville,Isabella Martin,isabella.martin@silverhomes.example.com,Procurement Lead
+Canyon Media LLC,CRM-3247,Customer,Jamie Hall,Ava Carter,Ava Taylor,Enterprise,Americas,TOLA,WA,USA,Seattle,Isabella Roberts,isabella.roberts@canyonmedia.example.com,VP Finance
+Copperline Motors Inc,CRM-3248,Prospect,Jamie Hall,Lily King,Grace Smith,Mid-Market,Americas,TOLA,FL,USA,Tampa,Kevin Davis,kevin.davis@copperlinemotors.example.com,Director IT
+Bluebird Media LLC,CRM-3249,Prospect,Jamie Hall,Ava Brown,Daniel Perez,Enterprise,Americas,West,TX,USA,Dallas,Charlotte Walker,charlotte.walker@bluebirdmedia.example.com,VP Operations
+Windward Diagnostics Holdings,CRM-3250,Prospect,Jamie Hall,Mia King,Charlotte Mitchell,Enterprise,Americas,TOLA,FL,USA,Tampa,Matthew Baker,matthew.baker@windwarddiagnostics.example.com,VP Finance
+Aurora Software Corporation,CRM-3251,Prospect,Jamie Hall,Hannah Taylor,William Roberts,SMB,Americas,TOLA,NC,USA,Raleigh,Lily Moore,lily.moore@aurorasoftware.example.com,Security Manager
+Maple Farms Corporation,CRM-3252,Customer,Jamie Hall,Thomas Anderson,Scarlett Campbell,Mid-Market,Americas,TOLA,NY,USA,New York,Joshua Mitchell,joshua.mitchell@maplefarms.example.com,Director IT
+Northbridge Mining LLC,CRM-3253,Customer,Jamie Jackson,Steven White,Emily Garcia,Strategic,Americas,East,CA,USA,San Diego,Paul Harris,paul.harris@northbridgemining.example.com,VP Infrastructure
+Atlas Solutions Holdings,CRM-3254,Prospect,Jamie Jackson,Anthony Lewis,Andrew Martin,SMB,Americas,East,CA,USA,Los Angeles,John Johnson,john.johnson@atlassolutions.example.com,Procurement Lead
+Palisade Security Company,CRM-3255,Prospect,Jamie Jackson,Lily Carter,Chloe Young,Enterprise,Americas,East,TN,USA,Nashville,Daniel Mitchell,daniel.mitchell@palisadesecurity.example.com,Director IT
+Northbridge Security Corp,CRM-3256,Customer,Jamie Jackson,Harper Brown,James Walker,Strategic,Americas,East,FL,USA,Tampa,Emily King,emily.king@northbridgesecurity.example.com,CFO
+Summit Security Group,CRM-3257,Customer,Jamie Jackson,Charlotte Thomas,Zoey Phillips,Mid-Market,Americas,East,IL,USA,Chicago,David Turner,david.turner@summitsecurity.example.com,VP Finance
+Bright Networks LLC,CRM-3258,Prospect,Jamie Jackson,Abigail Roberts,Isabella Adams,Mid-Market,Americas,Central,WA,USA,Seattle,Charlotte King,charlotte.king@brightnetworks.example.com,IT Director
+Greenfield Diagnostics Company,CRM-3259,Prospect,Jamie Jackson,Ella Young,Richard Smith,Strategic,Americas,East,PA,USA,Pittsburgh,Isabella Johnson,isabella.johnson@greenfielddiagnostics.example.com,Security Manager
+Hearthstone Industries Corp,CRM-3260,Customer,Jamie Thomas,John Taylor,William Walker,Mid-Market,Americas,East,TX,USA,Austin,Victoria Adams,victoria.adams@hearthstoneindustries.example.com,Head of Sales
+Heritage Farms Company,CRM-3261,Prospect,Jamie Thomas,Paul Davis,Charlotte Carter,Enterprise,Americas,Central,CA,USA,Los Angeles,Mia Roberts,mia.roberts@heritagefarms.example.com,IT Director
+Maple Farms Holdings,CRM-3262,Customer,Jamie Thomas,Lily King,Charles Rodriguez,Strategic,Americas,East,LA,USA,New Orleans,Charlotte Clark,charlotte.clark@maplefarms.example.com,Director IT
+Greenfield Solutions Inc,CRM-3263,Customer,Jamie Thomas,Evelyn Nelson,Hannah Thompson,Strategic,Americas,East,CA,USA,Los Angeles,John Perez,john.perez@greenfieldsolutions.example.com,Procurement Lead
+Riverstone Apparel Corporation,CRM-3264,Prospect,Jamie Thomas,John Green,Isabella Campbell,Strategic,Americas,TOLA,TX,USA,Austin,Steven Mitchell,steven.mitchell@riverstoneapparel.example.com,Head of Sales
+Highland Consulting LLC,CRM-3265,Prospect,Jane Mitchell,Emily Perez,Harper Harris,Strategic,Americas,Central,TX,USA,Dallas,Ella Hall,ella.hall@highlandconsulting.example.com,VP Operations
+Skyline Outdoors Corp,CRM-3266,Prospect,Jane Mitchell,David Allen,Charlotte Martinez,Mid-Market,Americas,TOLA,MO,USA,St. Louis,Emily Johnson,emily.johnson@skylineoutdoors.example.com,IT Director
+Summit Software Corp,CRM-3267,Customer,Jane Mitchell,Andrew Mitchell,Joseph Carter,Enterprise,Americas,TOLA,CA,USA,San Francisco,Richard Baker,richard.baker@summitsoftware.example.com,Director IT
+Oakmont Motors Holdings,CRM-3268,Prospect,Jane Mitchell,Hannah Davis,Emma Perez,Strategic,Americas,West,NY,USA,New York,Scarlett Garcia,scarlett.garcia@oakmontmotors.example.com,Head of Sales
+Prairie Industries LLC,CRM-3269,Customer,Jane Mitchell,Sophia Carter,Ella Thompson,Strategic,Americas,TOLA,FL,USA,Tampa,William Parker,william.parker@prairieindustries.example.com,VP Finance
+Granite Supply Corp,CRM-3270,Prospect,Jane Mitchell,Andrew Phillips,Abigail Phillips,SMB,Americas,TOLA,FL,USA,Orlando,Andrew Garcia,andrew.garcia@granitesupply.example.com,Procurement Lead
+Summit Security Inc,CRM-3271,Customer,Jane Mitchell,Mia Wright,Harper King,Mid-Market,Americas,TOLA,PA,USA,Philadelphia,Ava Campbell,ava.campbell@summitsecurity.example.com,CFO
+Beacon Logistics Company,CRM-3272,Customer,Jane Mitchell,Brian Jackson,Thomas Green,Strategic,Americas,TOLA,PA,USA,Pittsburgh,Evelyn Allen,evelyn.allen@beaconlogistics.example.com,VP Infrastructure
+Bright Holdings LLC,CRM-3273,Prospect,Jane Mitchell,Grace Baker,Brian Clark,Enterprise,Americas,Central,MO,USA,Kansas City,Grace Martinez,grace.martinez@brightholdings.example.com,IT Director
+Evergreen Energy Holdings,CRM-3274,Customer,Jane Mitchell,Isabella Roberts,John Moore,Enterprise,Americas,TOLA,PA,USA,Pittsburgh,John Turner,john.turner@evergreenenergy.example.com,VP Infrastructure
+Atlas Energy LLC,CRM-3275,Customer,Jane Thompson,Hannah Clark,Emily Rodriguez,Enterprise,Americas,Central,MO,USA,St. Louis,Joseph Martinez,joseph.martinez@atlasenergy.example.com,Security Manager
+Mariner Supply LLC,CRM-3276,Prospect,Jane Thompson,Brian Walker,Sophia Carter,Mid-Market,Americas,Central,PA,USA,Pittsburgh,Ella Phillips,ella.phillips@marinersupply.example.com,Director of Procurement
+Trailhead Partners Inc,CRM-3277,Prospect,Jane Thompson,Joshua Harris,Abigail Anderson,Mid-Market,Americas,TOLA,NC,USA,Charlotte,Ella Phillips,ella.phillips@trailheadpartners.example.com,CFO
+Mariner Markets Company,CRM-3278,Customer,Jane Thompson,Zoey Wilson,Olivia Perez,Enterprise,Americas,Central,TX,USA,Dallas,Joshua Moore,joshua.moore@marinermarkets.example.com,VP Finance
+Rainier Security Corp,CRM-3279,Prospect,Jane Thompson,Isabella Young,Joshua Green,Strategic,Americas,West,NY,USA,New York,Emily Moore,emily.moore@rainiersecurity.example.com,Security Manager
+Greenfield Outdoors Holdings,CRM-3280,Customer,Jane Thompson,Steven Parker,William King,Enterprise,Americas,Central,NC,USA,Raleigh,Mia Johnson,mia.johnson@greenfieldoutdoors.example.com,Head of Sales
+Atlas Outdoors Company,CRM-3281,Prospect,Jane Thompson,Sophia Smith,James Young,SMB,Americas,East,WA,USA,Seattle,Andrew Wilson,andrew.wilson@atlasoutdoors.example.com,VP Infrastructure
+Cedar Farms Corp,CRM-3282,Customer,John Clark,James Johnson,Steven Wright,Enterprise,Americas,TOLA,OH,USA,Cleveland,Daniel Harris,daniel.harris@cedarfarms.example.com,VP Finance
+Seaside Manufacturing Company,CRM-3283,Prospect,John Clark,Anthony Harris,Emma Miller,SMB,Americas,Central,MN,USA,Minneapolis,Michael Young,michael.young@seasidemanufacturing.example.com,Director of Procurement
+Cobalt Tech Corporation,CRM-3284,Prospect,John Clark,Harper Phillips,Chloe Johnson,Mid-Market,Americas,TOLA,IN,USA,Indianapolis,Grace Martinez,grace.martinez@cobalttech.example.com,Procurement Lead
+Bright Insurance Inc,CRM-3285,Prospect,John Clark,Robert Baker,Charles Johnson,Mid-Market,Americas,Central,MA,USA,Boston,Emma Roberts,emma.roberts@brightinsurance.example.com,IT Director
+Goldcrest Security Holdings,CRM-3286,Prospect,John Clark,Sophia Robinson,James Martin,Mid-Market,Americas,East,MN,USA,Minneapolis,John Green,john.green@goldcrestsecurity.example.com,VP Finance
+Falcon Manufacturing Corp,CRM-3287,Prospect,John Johnson,Scarlett Martinez,Emily Parker,Strategic,Americas,East,CA,USA,Los Angeles,Grace White,grace.white@falconmanufacturing.example.com,Head of Sales
+Pioneer Utilities Inc,CRM-3288,Prospect,John Johnson,Evelyn Harris,Kevin King,Enterprise,Americas,TOLA,FL,USA,Tampa,Zoey Allen,zoey.allen@pioneerutilities.example.com,VP Finance
+Stonecroft Foods Holdings,CRM-3289,Prospect,John Johnson,Emma Phillips,Richard Moore,Mid-Market,Americas,TOLA,OH,USA,Columbus,Amelia Lee,amelia.lee@stonecroftfoods.example.com,Procurement Lead
+Blue Diagnostics Inc,CRM-3290,Customer,John Johnson,Joshua Adams,Anthony Robinson,Enterprise,Americas,Central,CA,USA,Los Angeles,Zoey Adams,zoey.adams@bluediagnostics.example.com,CFO
+Blue Insurance Holdings,CRM-3291,Customer,John Johnson,Abigail Parker,David Lee,Mid-Market,Americas,Central,CA,USA,San Diego,Lily Scott,lily.scott@blueinsurance.example.com,Director of Procurement
+Northbridge Homes Corp,CRM-3292,Prospect,John Johnson,Andrew Anderson,Emily Walker,Strategic,Americas,East,OH,USA,Columbus,Daniel Phillips,daniel.phillips@northbridgehomes.example.com,VP Operations
+Monarch Industries LLC,CRM-3293,Prospect,John Johnson,Matthew Mitchell,Victoria Young,Strategic,Americas,East,CA,USA,Los Angeles,Sophia Martinez,sophia.martinez@monarchindustries.example.com,VP Infrastructure
+Lighthouse Logistics Group,CRM-3294,Customer,John Johnson,Kevin Clark,Matthew Young,Mid-Market,Americas,Central,MN,USA,Minneapolis,Joseph Brown,joseph.brown@lighthouselogistics.example.com,VP Operations
+Metro Resorts Inc,CRM-3295,Prospect,John Johnson,John Wright,James Phillips,Enterprise,Americas,TOLA,MN,USA,Minneapolis,Hannah Miller,hannah.miller@metroresorts.example.com,Head of Sales
+Summit Energy Group,CRM-3296,Customer,John Johnson,Robert Smith,Ava Harris,SMB,Americas,Central,AZ,USA,Phoenix,Joseph Harris,joseph.harris@summitenergy.example.com,VP Finance
+Hearthstone Services Company,CRM-3297,Prospect,John Moore,Daniel Clark,Lily Martinez,Mid-Market,Americas,Central,MA,USA,Boston,Anthony Allen,anthony.allen@hearthstoneservices.example.com,CFO
+Vertex Resorts Inc,CRM-3298,Customer,John Moore,Amelia Clark,Ella Harris,Enterprise,Americas,West,CA,USA,San Diego,Chloe Baker,chloe.baker@vertexresorts.example.com,Security Manager
+Crescent Construction LLC,CRM-3299,Prospect,John Moore,Harper Jackson,Ella Anderson,Strategic,Americas,TOLA,GA,USA,Atlanta,Scarlett Clark,scarlett.clark@crescentconstruction.example.com,Director IT
+Bluebird Foods Inc,CRM-3300,Prospect,John Moore,Ella King,Anthony Rodriguez,Mid-Market,Americas,East,CA,USA,San Francisco,Chloe Taylor,chloe.taylor@bluebirdfoods.example.com,VP Finance
+Vertex Financial Company,CRM-3301,Prospect,John Moore,Isabella Allen,Robert Robinson,SMB,Americas,TOLA,OH,USA,Columbus,Paul Garcia,paul.garcia@vertexfinancial.example.com,Director IT
+Silver Mining Corporation,CRM-3302,Prospect,Jordan Mitchell,Daniel Brown,William Scott,Strategic,Americas,TOLA,MN,USA,Minneapolis,David Carter,david.carter@silvermining.example.com,VP Finance
+Atlas Farms Corp,CRM-3303,Prospect,Jordan Mitchell,Grace Wilson,Zoey Robinson,Enterprise,Americas,Central,CO,USA,Denver,Scarlett Johnson,scarlett.johnson@atlasfarms.example.com,VP Infrastructure
+Trailhead Networks Group,CRM-3304,Prospect,Jordan Mitchell,Charles Taylor,Emily Wright,Mid-Market,Americas,Central,NC,USA,Raleigh,Olivia Taylor,olivia.taylor@trailheadnetworks.example.com,Head of Sales
+Atlas Capital Corp,CRM-3305,Prospect,Jordan Mitchell,William Clark,Joseph Adams,Enterprise,Americas,Central,CA,USA,San Francisco,Brian Walker,brian.walker@atlascapital.example.com,Head of Sales
+Copperline Retail LLC,CRM-3306,Customer,Jordan Mitchell,Thomas Martinez,Mia Adams,Mid-Market,Americas,Central,PA,USA,Pittsburgh,Abigail Carter,abigail.carter@copperlineretail.example.com,IT Director
+Seaside Holdings Corp,CRM-3307,Customer,Jordan Mitchell,Charlotte Thompson,Robert Turner,Strategic,Americas,Central,AZ,USA,Phoenix,Victoria King,victoria.king@seasideholdings.example.com,Director IT
+Hearthstone Security Company,CRM-3308,Customer,Jordan Mitchell,Mia Garcia,Olivia Perez,Mid-Market,Americas,Central,TN,USA,Nashville,Anthony Green,anthony.green@hearthstonesecurity.example.com,Director of Procurement
+Westlake Partners Group,CRM-3309,Customer,Jordan Mitchell,Joseph Roberts,Emma Thomas,Mid-Market,Americas,Central,MI,USA,Detroit,Isabella Rodriguez,isabella.rodriguez@westlakepartners.example.com,Director IT
+Crescent Networks Inc,CRM-3310,Customer,Laura Perez,Emma Anderson,Emily Wright,Strategic,Americas,Central,NC,USA,Raleigh,Richard Davis,richard.davis@crescentnetworks.example.com,Head of Sales
+Brookside Robotics Corp,CRM-3311,Customer,Laura Perez,Sophia Adams,Grace Young,Strategic,Americas,Central,FL,USA,Miami,Grace Rodriguez,grace.rodriguez@brooksiderobotics.example.com,Director of Procurement
+Greenfield Utilities Company,CRM-3312,Prospect,Laura Perez,Charlotte Robinson,Ella King,Mid-Market,Americas,TOLA,FL,USA,Miami,Isabella Miller,isabella.miller@greenfieldutilities.example.com,VP Infrastructure
+Heritage Hotels Group,CRM-3313,Customer,Laura Perez,Charlotte White,Evelyn Taylor,Enterprise,Americas,Central,MI,USA,Detroit,Richard Thomas,richard.thomas@heritagehotels.example.com,VP Infrastructure
+Atlas Insurance Company,CRM-3314,Customer,Laura Perez,Joseph Mitchell,Scarlett Robinson,Strategic,Americas,Central,OH,USA,Columbus,Charles Thomas,charles.thomas@atlasinsurance.example.com,Security Manager
+Oakmont Health LLC,CRM-3315,Prospect,Laura Perez,Hannah Green,Thomas Davis,Strategic,Americas,Central,AZ,USA,Phoenix,Michael Wright,michael.wright@oakmonthealth.example.com,CFO
+Lone Health LLC,CRM-3316,Customer,Laura White,Isabella Rodriguez,Hannah Smith,SMB,Americas,TOLA,AZ,USA,Phoenix,Emma Turner,emma.turner@lonehealth.example.com,Head of Sales
+Redwood Markets Group,CRM-3317,Customer,Laura White,Charles Anderson,Sophia Thompson,Mid-Market,Americas,TOLA,MN,USA,Minneapolis,William Moore,william.moore@redwoodmarkets.example.com,VP Operations
+Falcon Construction LLC,CRM-3318,Customer,Laura White,Mia Green,Hannah Taylor,Enterprise,Americas,TOLA,LA,USA,New Orleans,Scarlett Adams,scarlett.adams@falconconstruction.example.com,Security Manager
+Heritage Logistics Holdings,CRM-3319,Prospect,Laura White,Brian Garcia,Scarlett Harris,Enterprise,Americas,Central,OR,USA,Portland,Grace Robinson,grace.robinson@heritagelogistics.example.com,VP Infrastructure
+Silver Aviation Group,CRM-3320,Customer,Laura White,John Allen,Joshua Thomas,SMB,Americas,TOLA,NY,USA,New York,Mark Campbell,mark.campbell@silveraviation.example.com,Security Manager
+Stonecroft Aviation Group,CRM-3321,Prospect,Laura White,Steven Parker,Andrew Moore,SMB,Americas,TOLA,WA,USA,Seattle,Lily Harris,lily.harris@stonecroftaviation.example.com,Security Manager
+Hearthstone Insurance Group,CRM-3322,Prospect,Laura White,James Martin,Mark King,Enterprise,Americas,Central,OH,USA,Columbus,Ava Perez,ava.perez@hearthstoneinsurance.example.com,Security Manager
+Hearthstone Motors Corp,CRM-3323,Prospect,Laura White,Zoey Harris,Joseph Davis,SMB,Americas,TOLA,IL,USA,Chicago,Daniel Mitchell,daniel.mitchell@hearthstonemotors.example.com,Security Manager
+Stonecroft Analytics Company,CRM-3324,Prospect,Liam Turner,Isabella Mitchell,Zoey Nelson,Strategic,Americas,East,CA,USA,Los Angeles,John Adams,john.adams@stonecroftanalytics.example.com,Procurement Lead
+Crescent Health LLC,CRM-3325,Prospect,Liam Turner,Hannah Clark,Emily Baker,SMB,Americas,Central,TX,USA,Austin,Anthony Wright,anthony.wright@crescenthealth.example.com,Security Manager
+Palisade Motors LLC,CRM-3326,Customer,Liam Turner,Andrew Moore,John Rodriguez,Strategic,Americas,TOLA,TX,USA,Dallas,Mark Perez,mark.perez@palisademotors.example.com,IT Director
+Sterling Mining Corp,CRM-3327,Prospect,Liam Turner,Isabella Adams,Emma Hall,Strategic,Americas,Central,MN,USA,Minneapolis,Charlotte Turner,charlotte.turner@sterlingmining.example.com,IT Director
+Atlas Foods Company,CRM-3328,Customer,Liam Turner,Daniel Johnson,Paul Green,Enterprise,Americas,TOLA,WA,USA,Seattle,Michael Baker,michael.baker@atlasfoods.example.com,Procurement Lead
+Pioneer Chemicals Holdings,CRM-3329,Prospect,Lisa Adams,Emma Thompson,David King,SMB,Americas,TOLA,MI,USA,Detroit,Victoria Jackson,victoria.jackson@pioneerchemicals.example.com,VP Operations
+Silver Markets Group,CRM-3330,Prospect,Lisa Adams,Harper Walker,Andrew Miller,SMB,Americas,TOLA,NY,USA,New York,Evelyn Wright,evelyn.wright@silvermarkets.example.com,IT Director
+Prairie Farms Company,CRM-3331,Prospect,Lisa Adams,Daniel Jackson,Lily Wilson,Strategic,Americas,East,WA,USA,Seattle,Ella Hall,ella.hall@prairiefarms.example.com,VP Infrastructure
+Redwood Analytics Company,CRM-3332,Prospect,Lisa Adams,Isabella Wright,James Rodriguez,Strategic,Americas,TOLA,AZ,USA,Phoenix,Charlotte Lee,charlotte.lee@redwoodanalytics.example.com,VP Infrastructure
+Atlas Homes Corp,CRM-3333,Prospect,Lisa Adams,Kevin Parker,Amelia Garcia,SMB,Americas,West,FL,USA,Miami,James Garcia,james.garcia@atlashomes.example.com,VP Operations
+Trailhead Insurance LLC,CRM-3334,Prospect,Lisa Adams,Daniel Roberts,Andrew Rodriguez,SMB,Americas,TOLA,CA,USA,San Francisco,Andrew Thompson,andrew.thompson@trailheadinsurance.example.com,IT Director
+Copperline Foods Holdings,CRM-3335,Customer,Lisa Adams,John Adams,Isabella Turner,Strategic,Americas,Central,FL,USA,Tampa,Matthew Wilson,matthew.wilson@copperlinefoods.example.com,Security Manager
+Highland Construction Corp,CRM-3336,Prospect,Lisa Adams,Emma Roberts,Harper Carter,Strategic,Americas,TOLA,IN,USA,Indianapolis,Olivia Lewis,olivia.lewis@highlandconstruction.example.com,Head of Sales
+Highland Grocers Inc,CRM-3337,Prospect,Lisa Adams,Sophia Smith,Evelyn Jackson,SMB,Americas,West,PA,USA,Philadelphia,Ella Mitchell,ella.mitchell@highlandgrocers.example.com,VP Operations
+Granite Grocers Corp,CRM-3338,Customer,Lisa Adams,Robert Wilson,Thomas Rodriguez,Mid-Market,Americas,Central,MI,USA,Detroit,Amelia Johnson,amelia.johnson@granitegrocers.example.com,Procurement Lead
+Greenfield Supply Inc,CRM-3339,Prospect,Lisa Moore,Scarlett Allen,Abigail Phillips,Strategic,Americas,East,NY,USA,New York,William Wilson,william.wilson@greenfieldsupply.example.com,CFO
+Hearthstone Medical Holdings,CRM-3340,Customer,Lisa Moore,Thomas Rodriguez,Joshua Roberts,SMB,Americas,Central,NC,USA,Charlotte,Robert Scott,robert.scott@hearthstonemedical.example.com,Director IT
+Monarch Apparel LLC,CRM-3341,Prospect,Lisa Moore,Richard White,Anthony Green,SMB,Americas,West,CO,USA,Denver,Mia Perez,mia.perez@monarchapparel.example.com,CFO
+Cobalt Grocers Group,CRM-3342,Prospect,Lisa Moore,Andrew Lee,Daniel Baker,Mid-Market,Americas,East,GA,USA,Atlanta,Joshua Walker,joshua.walker@cobaltgrocers.example.com,CFO
+Silver Markets Holdings,CRM-3343,Prospect,Lisa Moore,David Hall,Joshua Clark,Enterprise,Americas,TOLA,PA,USA,Pittsburgh,Matthew Miller,matthew.miller@silvermarkets.example.com,Security Manager
+Monarch Telecom Corporation,CRM-3344,Customer,Lisa Moore,Sophia Allen,Grace Thomas,Strategic,Americas,Central,CA,USA,San Diego,Joseph Turner,joseph.turner@monarchtelecom.example.com,IT Director
+Silver Analytics LLC,CRM-3345,Prospect,Lisa Robinson,Victoria Jackson,Zoey Perez,SMB,Americas,East,IL,USA,Chicago,Mark Campbell,mark.campbell@silveranalytics.example.com,Head of Sales
+Harbor Apparel Group,CRM-3346,Prospect,Lisa Robinson,Joshua Walker,Joshua Martinez,Mid-Market,Americas,TOLA,NC,USA,Charlotte,Grace Walker,grace.walker@harborapparel.example.com,Director of Procurement
+Skyline Solutions Inc,CRM-3347,Customer,Lisa Robinson,David Campbell,James Martin,Enterprise,Americas,West,TX,USA,Dallas,Emma Rodriguez,emma.rodriguez@skylinesolutions.example.com,Head of Sales
+Metro Resorts Group,CRM-3348,Prospect,Lisa Robinson,John Young,Paul Miller,SMB,Americas,Central,TX,USA,Dallas,Anthony Wright,anthony.wright@metroresorts.example.com,VP Operations
+Eastgate Markets Inc,CRM-3349,Prospect,Lisa Robinson,Charlotte King,John Rodriguez,SMB,Americas,Central,MN,USA,Minneapolis,Paul Roberts,paul.roberts@eastgatemarkets.example.com,Director IT
+Pioneer Manufacturing Corp,CRM-3350,Prospect,Lisa Robinson,Lily Anderson,Charlotte Young,Enterprise,Americas,East,GA,USA,Atlanta,Olivia Turner,olivia.turner@pioneermanufacturing.example.com,Director of Procurement
+Palisade Security Holdings,CRM-3351,Customer,Lisa Robinson,Kevin Martin,Ella Wilson,Mid-Market,Americas,West,TN,USA,Nashville,Emily Smith,emily.smith@palisadesecurity.example.com,Director of Procurement
+Brookside Financial Group,CRM-3352,Prospect,Mark Garcia,Richard Adams,Matthew Young,SMB,Americas,TOLA,GA,USA,Atlanta,Emily Thompson,emily.thompson@brooksidefinancial.example.com,Head of Sales
+Vertex Diagnostics Holdings,CRM-3353,Prospect,Mark Garcia,Victoria Campbell,Joshua Smith,Enterprise,Americas,Central,IN,USA,Indianapolis,Abigail Robinson,abigail.robinson@vertexdiagnostics.example.com,Head of Sales
+Lone Media Holdings,CRM-3354,Customer,Mark Garcia,Andrew Adams,Joseph Thompson,SMB,Americas,TOLA,CA,USA,Los Angeles,Harper Lee,harper.lee@lonemedia.example.com,VP Infrastructure
+Bluebird Medical Company,CRM-3355,Prospect,Mark Garcia,Grace Young,Chloe Johnson,Mid-Market,Americas,East,PA,USA,Philadelphia,Sophia Jackson,sophia.jackson@bluebirdmedical.example.com,VP Infrastructure
+Falcon Aviation Corp,CRM-3356,Prospect,Mark Garcia,Chloe Garcia,Michael Lee,SMB,Americas,West,MO,USA,St. Louis,Robert Perez,robert.perez@falconaviation.example.com,VP Infrastructure
+Palisade Partners Inc,CRM-3357,Prospect,Mark Garcia,William Allen,Kevin Clark,Strategic,Americas,Central,CA,USA,Los Angeles,Sophia Mitchell,sophia.mitchell@palisadepartners.example.com,Security Manager
+Harbor Grocers Corp,CRM-3358,Prospect,Mark Garcia,Scarlett Nelson,William Walker,SMB,Americas,East,TX,USA,Houston,Hannah Clark,hannah.clark@harborgrocers.example.com,IT Director
+Falcon Bank Holdings,CRM-3359,Customer,Mason Green,Emily Hall,Victoria Adams,Enterprise,Americas,West,CA,USA,San Francisco,Victoria Scott,victoria.scott@falconbank.example.com,IT Director
+Beacon Communications Corporation,CRM-3360,Prospect,Mason Green,Paul Roberts,Olivia Perez,Strategic,Americas,TOLA,TN,USA,Nashville,Joseph Allen,joseph.allen@beaconcommunications.example.com,Head of Sales
+Silver Education Corporation,CRM-3361,Customer,Mason Green,Amelia Clark,Amelia Robinson,Strategic,Americas,West,MO,USA,Kansas City,Abigail Lee,abigail.lee@silvereducation.example.com,VP Operations
+Vertex Robotics LLC,CRM-3362,Prospect,Mason Green,James Carter,Joseph White,SMB,Americas,West,AZ,USA,Phoenix,Emma Mitchell,emma.mitchell@vertexrobotics.example.com,IT Director
+Orchard Solutions Corporation,CRM-3363,Prospect,Mason Green,Olivia Parker,Joshua Wright,Mid-Market,Americas,West,CA,USA,Los Angeles,Evelyn Walker,evelyn.walker@orchardsolutions.example.com,IT Director
+Mariner Shipping Company,CRM-3364,Prospect,Mason Green,Kevin Carter,Grace Martinez,Enterprise,Americas,Central,WA,USA,Seattle,Scarlett Martin,scarlett.martin@marinershipping.example.com,VP Operations
+Cedar Holdings Company,CRM-3365,Prospect,Michael Brown,Paul Martin,Emma Smith,Mid-Market,Americas,West,PA,USA,Pittsburgh,Emma Green,emma.green@cedarholdings.example.com,CFO
+Cedar Capital LLC,CRM-3366,Prospect,Michael Brown,John Johnson,Hannah Carter,Strategic,Americas,Central,WA,USA,Seattle,Sophia Lee,sophia.lee@cedarcapital.example.com,VP Infrastructure
+Mariner Grocers LLC,CRM-3367,Customer,Michael Brown,Steven Davis,Zoey Lewis,Enterprise,Americas,East,NC,USA,Charlotte,Ella Lee,ella.lee@marinergrocers.example.com,Director of Procurement
+Skyline Supply Corp,CRM-3368,Prospect,Michael Brown,Joseph Carter,Thomas Roberts,SMB,Americas,West,NC,USA,Charlotte,Grace Rodriguez,grace.rodriguez@skylinesupply.example.com,Head of Sales
+Oakmont Communications Company,CRM-3369,Prospect,Michael Brown,Zoey Baker,Scarlett Campbell,Strategic,Americas,West,NC,USA,Charlotte,Abigail Perez,abigail.perez@oakmontcommunications.example.com,VP Finance
+Clearwater Insurance LLC,CRM-3370,Customer,Michael Brown,James Mitchell,Richard Miller,Strategic,Americas,East,NY,USA,New York,Brian Rodriguez,brian.rodriguez@clearwaterinsurance.example.com,Procurement Lead
+Cardinal Software LLC,CRM-3371,Prospect,Michael Brown,Amelia Taylor,Michael Roberts,Enterprise,Americas,West,WA,USA,Seattle,Paul Allen,paul.allen@cardinalsoftware.example.com,Director IT
+Monarch Aviation Corp,CRM-3372,Prospect,Michael Brown,Ella White,Mia Wilson,SMB,Americas,TOLA,FL,USA,Miami,Emily Carter,emily.carter@monarchaviation.example.com,VP Operations
+Cardinal Insurance Corp,CRM-3373,Prospect,Michael Brown,Joshua Perez,Ava Anderson,SMB,Americas,East,AZ,USA,Phoenix,Paul Johnson,paul.johnson@cardinalinsurance.example.com,VP Infrastructure
+Clearwater Mining Inc,CRM-3374,Prospect,Michael Brown,Sophia Thompson,Andrew Lewis,Enterprise,Americas,West,TN,USA,Nashville,Abigail Wilson,abigail.wilson@clearwatermining.example.com,Head of Sales
+Skyline Health Corp,CRM-3375,Prospect,Olivia Anderson,Zoey Nelson,Charlotte Martinez,SMB,Americas,West,FL,USA,Tampa,Paul Harris,paul.harris@skylinehealth.example.com,VP Infrastructure
+Heritage Solutions Corp,CRM-3376,Customer,Olivia Anderson,Emma Martin,Evelyn Johnson,SMB,Americas,East,TN,USA,Nashville,Chloe Martin,chloe.martin@heritagesolutions.example.com,VP Finance
+Vertex Energy Holdings,CRM-3377,Prospect,Olivia Anderson,Richard Parker,Evelyn Mitchell,Mid-Market,Americas,Central,LA,USA,New Orleans,Hannah Thompson,hannah.thompson@vertexenergy.example.com,Procurement Lead
+Bluebird Farms LLC,CRM-3378,Prospect,Olivia Anderson,Emily Turner,Anthony Hall,Strategic,Americas,Central,MN,USA,Minneapolis,William Jackson,william.jackson@bluebirdfarms.example.com,Procurement Lead
+Lone Tech Corp,CRM-3379,Prospect,Olivia Anderson,Steven Martin,John Nelson,Mid-Market,Americas,West,FL,USA,Orlando,Daniel Scott,daniel.scott@lonetech.example.com,Security Manager
+Lighthouse Aviation Corporation,CRM-3380,Prospect,Olivia Anderson,Emma Davis,Joshua Anderson,Mid-Market,Americas,East,GA,USA,Atlanta,Emily Anderson,emily.anderson@lighthouseaviation.example.com,Security Manager
+Pioneer Capital Corp,CRM-3381,Prospect,Olivia Anderson,Kevin Harris,Charles Harris,SMB,Americas,TOLA,MN,USA,Minneapolis,Emily Moore,emily.moore@pioneercapital.example.com,VP Finance
+Clearwater Health Company,CRM-3382,Customer,Olivia Anderson,Richard Jackson,Grace Baker,Mid-Market,Americas,East,PA,USA,Pittsburgh,Zoey King,zoey.king@clearwaterhealth.example.com,Security Manager
+Heritage Tech Corp,CRM-3383,Prospect,Olivia Perez,Olivia Nelson,Ava Lee,SMB,Americas,TOLA,LA,USA,New Orleans,James Jackson,james.jackson@heritagetech.example.com,Head of Sales
+Greenfield Financial Corp,CRM-3384,Customer,Olivia Perez,William Baker,Grace Wright,Strategic,Americas,East,LA,USA,New Orleans,Daniel Harris,daniel.harris@greenfieldfinancial.example.com,Director IT
+Aurora Grocers Corp,CRM-3385,Prospect,Olivia Perez,Richard Green,Ava Hall,Strategic,Americas,West,CO,USA,Denver,Chloe Baker,chloe.baker@auroragrocers.example.com,Director IT
+Mariner Manufacturing Holdings,CRM-3386,Prospect,Olivia Perez,Brian Harris,Harper Campbell,Mid-Market,Americas,East,MI,USA,Detroit,Chloe Davis,chloe.davis@marinermanufacturing.example.com,Procurement Lead
+Liberty Shipping Corp,CRM-3387,Prospect,Olivia Perez,Grace Harris,Ava Walker,SMB,Americas,East,PA,USA,Philadelphia,David Scott,david.scott@libertyshipping.example.com,VP Finance
+Oakmont Hotels LLC,CRM-3388,Customer,Olivia Perez,Richard Robinson,Hannah Mitchell,SMB,Americas,East,TX,USA,Dallas,Sophia Martinez,sophia.martinez@oakmonthotels.example.com,Director IT
+Eastgate Insurance Company,CRM-3389,Prospect,Olivia Wright,Hannah Walker,Anthony Adams,Strategic,Americas,TOLA,GA,USA,Atlanta,Matthew Campbell,matthew.campbell@eastgateinsurance.example.com,Director of Procurement
+Stonecroft Resorts Group,CRM-3390,Prospect,Olivia Wright,Isabella Wilson,Paul Hall,Enterprise,Americas,Central,LA,USA,New Orleans,Abigail Campbell,abigail.campbell@stonecroftresorts.example.com,CFO
+Skyline Solutions Group,CRM-3391,Prospect,Olivia Wright,Mark Phillips,Olivia Wilson,Enterprise,Americas,East,IL,USA,Chicago,David Rodriguez,david.rodriguez@skylinesolutions.example.com,Head of Sales
+Seaside Insurance Holdings,CRM-3392,Customer,Olivia Wright,Zoey Campbell,Lily Davis,Strategic,Americas,Central,CA,USA,Los Angeles,Thomas Adams,thomas.adams@seasideinsurance.example.com,Security Manager
+Summit Capital Corp,CRM-3393,Prospect,Olivia Wright,Emily Scott,Zoey Parker,Mid-Market,Americas,Central,AZ,USA,Phoenix,Robert Mitchell,robert.mitchell@summitcapital.example.com,VP Operations
+Granite Mining Corp,CRM-3394,Prospect,Olivia Wright,Mia Green,Grace Roberts,SMB,Americas,East,MO,USA,Kansas City,Scarlett Anderson,scarlett.anderson@granitemining.example.com,VP Infrastructure
+Stonecroft Shipping Inc,CRM-3395,Customer,Olivia Wright,Kevin Robinson,James King,Mid-Market,Americas,Central,MO,USA,Kansas City,Mia Davis,mia.davis@stonecroftshipping.example.com,VP Operations
+Rainier Health Corporation,CRM-3396,Prospect,Parker Johnson,Emma Clark,Scarlett Robinson,Enterprise,Americas,Central,MI,USA,Detroit,Steven Martinez,steven.martinez@rainierhealth.example.com,IT Director
+Frontier Financial Holdings,CRM-3397,Prospect,Parker Johnson,William Taylor,James Phillips,Mid-Market,Americas,Central,NC,USA,Raleigh,Victoria Perez,victoria.perez@frontierfinancial.example.com,Director IT
+Hearthstone Aviation Company,CRM-3398,Prospect,Parker Johnson,Olivia Harris,Isabella Scott,Enterprise,Americas,West,NY,USA,New York,Charlotte Anderson,charlotte.anderson@hearthstoneaviation.example.com,VP Infrastructure
+Redwood Energy LLC,CRM-3399,Prospect,Parker Johnson,William Scott,Joseph Smith,SMB,Americas,Central,AZ,USA,Phoenix,Amelia Wright,amelia.wright@redwoodenergy.example.com,Director of Procurement
+Crescent Insurance Company,CRM-3400,Customer,Parker Johnson,Thomas Young,Daniel Thompson,SMB,Americas,Central,PA,USA,Pittsburgh,Ava Lee,ava.lee@crescentinsurance.example.com,IT Director
+Greenfield Analytics Holdings,CRM-3401,Prospect,Parker Johnson,Daniel Roberts,Scarlett Young,Strategic,Americas,TOLA,IN,USA,Indianapolis,Michael Martinez,michael.martinez@greenfieldanalytics.example.com,Director of Procurement
+Vertex Telecom Corp,CRM-3402,Customer,Parker Wilson,Joseph Thompson,Isabella Green,Mid-Market,Americas,West,MA,USA,Boston,Daniel Young,daniel.young@vertextelecom.example.com,Director of Procurement
+Skyline Logistics Holdings,CRM-3403,Prospect,Parker Wilson,Richard Clark,Evelyn Nelson,Strategic,Americas,West,FL,USA,Tampa,Michael Carter,michael.carter@skylinelogistics.example.com,Director IT
+Sterling Resorts LLC,CRM-3404,Prospect,Parker Wilson,Olivia Jackson,Abigail Nelson,Mid-Market,Americas,Central,NY,USA,New York,Zoey Harris,zoey.harris@sterlingresorts.example.com,VP Infrastructure
+Monarch Tech Group,CRM-3405,Prospect,Parker Wilson,William Lewis,Olivia Turner,Enterprise,Americas,West,MN,USA,Minneapolis,James Robinson,james.robinson@monarchtech.example.com,Director IT
+Mariner Holdings Company,CRM-3406,Prospect,Parker Wilson,Kevin Taylor,Sophia Davis,SMB,Americas,TOLA,MI,USA,Detroit,Richard Scott,richard.scott@marinerholdings.example.com,VP Infrastructure
+Highland Aviation Company,CRM-3407,Prospect,Parker Wilson,Emma Miller,Richard White,Enterprise,Americas,East,CA,USA,San Diego,Anthony Davis,anthony.davis@highlandaviation.example.com,Director of Procurement
+Oakmont Solutions Corp,CRM-3408,Prospect,Paul Adams,Scarlett Baker,Evelyn Brown,Mid-Market,Americas,West,NC,USA,Raleigh,Emily Clark,emily.clark@oakmontsolutions.example.com,VP Infrastructure
+Highland Manufacturing Corp,CRM-3409,Prospect,Paul Adams,Emma Turner,Ella Lewis,Mid-Market,Americas,Central,TX,USA,Dallas,Hannah Turner,hannah.turner@highlandmanufacturing.example.com,Security Manager
+Frontier Robotics Holdings,CRM-3410,Prospect,Paul Adams,William Robinson,Abigail Turner,Mid-Market,Americas,Central,FL,USA,Tampa,Victoria Baker,victoria.baker@frontierrobotics.example.com,Head of Sales
+Iron Tech LLC,CRM-3411,Prospect,Paul Adams,Daniel Anderson,Andrew Lewis,Enterprise,Americas,East,AZ,USA,Phoenix,Zoey Parker,zoey.parker@irontech.example.com,Head of Sales
+Seaside Chemicals Corp,CRM-3412,Prospect,Paul Adams,Thomas Baker,Chloe Perez,SMB,Americas,Central,TN,USA,Nashville,Scarlett King,scarlett.king@seasidechemicals.example.com,VP Finance
+Silver Hotels LLC,CRM-3413,Customer,Paul Adams,Joseph Walker,Thomas Thomas,Enterprise,Americas,TOLA,OR,USA,Portland,Michael Mitchell,michael.mitchell@silverhotels.example.com,VP Operations
+Mariner Security Company,CRM-3414,Prospect,Paul Adams,Grace Turner,John Green,Mid-Market,Americas,East,NC,USA,Raleigh,Richard Davis,richard.davis@marinersecurity.example.com,Director of Procurement
+Keystone Diagnostics Corporation,CRM-3415,Customer,Paul Adams,William Walker,Kevin Moore,SMB,Americas,TOLA,PA,USA,Philadelphia,Evelyn Phillips,evelyn.phillips@keystonediagnostics.example.com,Director of Procurement
+Prairie Tech LLC,CRM-3416,Customer,Paul Adams,Robert Roberts,Thomas Lee,Enterprise,Americas,TOLA,CO,USA,Denver,Ava Hall,ava.hall@prairietech.example.com,Head of Sales
+Windward Telecom Corporation,CRM-3417,Prospect,Paul Adams,David Thomas,William Green,Mid-Market,Americas,West,CA,USA,Los Angeles,Chloe Brown,chloe.brown@windwardtelecom.example.com,Director IT
+Bluebird Tech Group,CRM-3418,Prospect,Paul Green,Thomas White,Thomas Hall,Enterprise,Americas,West,AZ,USA,Phoenix,Joshua Brown,joshua.brown@bluebirdtech.example.com,Director of Procurement
+Stonecroft Financial Corp,CRM-3419,Prospect,Paul Green,Kevin Taylor,Michael Wilson,Enterprise,Americas,West,GA,USA,Atlanta,Abigail Mitchell,abigail.mitchell@stonecroftfinancial.example.com,Security Manager
+Bright Holdings Corp,CRM-3420,Prospect,Paul Green,David Roberts,Kevin Moore,Enterprise,Americas,East,CA,USA,San Francisco,Robert Hall,robert.hall@brightholdings.example.com,Procurement Lead
+Atlas Insurance Inc,CRM-3421,Customer,Paul Green,Anthony Martinez,John Clark,SMB,Americas,TOLA,MO,USA,St. Louis,Joseph Smith,joseph.smith@atlasinsurance.example.com,VP Finance
+Beacon Consulting Corp,CRM-3422,Prospect,Paul Green,Zoey Garcia,Sophia Rodriguez,Strategic,Americas,East,OR,USA,Portland,Paul Johnson,paul.johnson@beaconconsulting.example.com,VP Operations
+Harbor Supply Company,CRM-3423,Customer,Paul Green,Mark Scott,Kevin Taylor,Strategic,Americas,TOLA,PA,USA,Philadelphia,Isabella Clark,isabella.clark@harborsupply.example.com,Director IT
+Bright Networks Holdings,CRM-3424,Prospect,Paul Green,Steven Lee,Daniel Robinson,Mid-Market,Americas,East,TX,USA,Dallas,Charlotte Garcia,charlotte.garcia@brightnetworks.example.com,IT Director
+Northbridge Utilities Inc,CRM-3425,Prospect,Quinn Carter,Joshua Roberts,Sophia Turner,Mid-Market,Americas,East,CO,USA,Denver,Evelyn Scott,evelyn.scott@northbridgeutilities.example.com,Director IT
+Hearthstone Homes Corp,CRM-3426,Prospect,Quinn Carter,Daniel Phillips,Richard Thompson,Mid-Market,Americas,East,FL,USA,Tampa,Ella King,ella.king@hearthstonehomes.example.com,Director of Procurement
+Palisade Financial LLC,CRM-3427,Prospect,Quinn Carter,Victoria Johnson,Mark Moore,Enterprise,Americas,Central,GA,USA,Atlanta,Amelia Scott,amelia.scott@palisadefinancial.example.com,Procurement Lead
+Clearwater Telecom Holdings,CRM-3428,Prospect,Quinn Carter,Charles Thompson,Thomas Nelson,Strategic,Americas,West,TX,USA,Dallas,Kevin Baker,kevin.baker@clearwatertelecom.example.com,VP Finance
+Bright Education Corporation,CRM-3429,Customer,Quinn Carter,Lily Martin,James Harris,Strategic,Americas,Central,TX,USA,Austin,Victoria Davis,victoria.davis@brighteducation.example.com,Director of Procurement
+Maple Homes Corporation,CRM-3430,Prospect,Quinn Carter,Paul Baker,Ava Lewis,Mid-Market,Americas,East,NC,USA,Raleigh,Amelia Mitchell,amelia.mitchell@maplehomes.example.com,VP Operations
+Iron Resorts Group,CRM-3431,Customer,Quinn Carter,Kevin White,Steven Miller,Strategic,Americas,Central,TX,USA,Dallas,Richard Lee,richard.lee@ironresorts.example.com,IT Director
+Bright Bank Corporation,CRM-3432,Prospect,Quinn Carter,Scarlett Lee,Victoria Taylor,Strategic,Americas,TOLA,MA,USA,Boston,Joseph Brown,joseph.brown@brightbank.example.com,Procurement Lead
+Copperline Partners LLC,CRM-3433,Prospect,Quinn Taylor,Matthew Hall,Harper Wright,Strategic,Americas,Central,CO,USA,Denver,Evelyn Wright,evelyn.wright@copperlinepartners.example.com,Security Manager
+Cardinal Financial Inc,CRM-3434,Customer,Quinn Taylor,Sophia Mitchell,Emma Jackson,Mid-Market,Americas,Central,WA,USA,Seattle,Emily Thompson,emily.thompson@cardinalfinancial.example.com,CFO
+Clearwater Education Group,CRM-3435,Customer,Quinn Taylor,Joshua Wilson,Abigail Johnson,Mid-Market,Americas,Central,MO,USA,St. Louis,Charles Adams,charles.adams@clearwatereducation.example.com,Procurement Lead
+Summit Communications Company,CRM-3436,Prospect,Quinn Taylor,Abigail Lee,Lily Anderson,Enterprise,Americas,East,MN,USA,Minneapolis,Scarlett Garcia,scarlett.garcia@summitcommunications.example.com,IT Director
+Greenfield Media Group,CRM-3437,Prospect,Quinn Taylor,Hannah King,Kevin Davis,Mid-Market,Americas,Central,MN,USA,Minneapolis,John Martin,john.martin@greenfieldmedia.example.com,IT Director
+Blue Capital LLC,CRM-3438,Prospect,Rachel Carter,Joseph Young,Anthony Phillips,Strategic,Americas,West,OH,USA,Columbus,Harper Wilson,harper.wilson@bluecapital.example.com,IT Director
+Harbor Robotics Inc,CRM-3439,Prospect,Rachel Carter,Mark Davis,Joseph Anderson,SMB,Americas,West,TX,USA,Dallas,Thomas King,thomas.king@harborrobotics.example.com,CFO
+Clearwater Medical LLC,CRM-3440,Prospect,Rachel Carter,Harper Lewis,Steven Clark,Enterprise,Americas,TOLA,FL,USA,Orlando,Amelia Adams,amelia.adams@clearwatermedical.example.com,Director of Procurement
+Keystone Diagnostics Holdings,CRM-3441,Prospect,Rachel Carter,Harper Baker,Robert Scott,Mid-Market,Americas,East,NC,USA,Charlotte,Ava Miller,ava.miller@keystonediagnostics.example.com,Security Manager
+Falcon Outdoors Corp,CRM-3442,Prospect,Rachel Carter,Grace Rodriguez,James Adams,Mid-Market,Americas,East,OH,USA,Columbus,Joshua Brown,joshua.brown@falconoutdoors.example.com,VP Finance
+Sterling Capital Holdings,CRM-3443,Prospect,Rowan Adams,Lily Walker,Daniel Phillips,SMB,Americas,Central,MO,USA,St. Louis,Olivia Allen,olivia.allen@sterlingcapital.example.com,Head of Sales
+Westlake Communications Group,CRM-3444,Customer,Rowan Adams,David Brown,Brian Mitchell,SMB,Americas,Central,CO,USA,Denver,Victoria White,victoria.white@westlakecommunications.example.com,Director of Procurement
+Liberty Grocers Group,CRM-3445,Prospect,Rowan Adams,Emily Garcia,Joshua Miller,SMB,Americas,West,MN,USA,Minneapolis,Andrew Jackson,andrew.jackson@libertygrocers.example.com,VP Infrastructure
+Bluebird Foods Corp,CRM-3446,Prospect,Rowan Adams,Isabella Campbell,Grace Mitchell,Enterprise,Americas,West,GA,USA,Atlanta,Mia Turner,mia.turner@bluebirdfoods.example.com,Security Manager
+Rainier Motors Group,CRM-3447,Customer,Rowan Adams,Abigail Roberts,Lily Phillips,Enterprise,Americas,Central,CA,USA,San Francisco,Scarlett Anderson,scarlett.anderson@rainiermotors.example.com,VP Infrastructure
+Granite Tech LLC,CRM-3448,Customer,Rowan Adams,Kevin Parker,Richard Brown,Mid-Market,Americas,Central,WA,USA,Seattle,Joshua Allen,joshua.allen@granitetech.example.com,Security Manager
+Palisade Systems Holdings,CRM-3449,Prospect,Rowan Martinez,John Turner,Chloe Young,Strategic,Americas,West,FL,USA,Miami,Kevin Jackson,kevin.jackson@palisadesystems.example.com,Director IT
+Orchard Retail Company,CRM-3450,Prospect,Rowan Martinez,Sophia Lewis,Richard Parker,Enterprise,Americas,Central,CO,USA,Denver,Ava Wright,ava.wright@orchardretail.example.com,CFO
+Orchard Pharma Corp,CRM-3451,Customer,Rowan Martinez,Joseph Green,Victoria Rodriguez,Enterprise,Americas,TOLA,LA,USA,New Orleans,Chloe Anderson,chloe.anderson@orchardpharma.example.com,CFO
+Goldcrest Communications Company,CRM-3452,Prospect,Rowan Martinez,Isabella Rodriguez,Scarlett Wilson,Strategic,Americas,Central,IL,USA,Chicago,Chloe King,chloe.king@goldcrestcommunications.example.com,Director of Procurement
+Lighthouse Services Holdings,CRM-3453,Prospect,Rowan Martinez,Mark Scott,Isabella Jackson,Strategic,Americas,East,CA,USA,San Francisco,Isabella Perez,isabella.perez@lighthouseservices.example.com,VP Operations
+Cardinal Resorts Corporation,CRM-3454,Prospect,Rowan Martinez,Kevin Perez,Grace Jackson,Strategic,Americas,East,TX,USA,Austin,Steven Martin,steven.martin@cardinalresorts.example.com,Director IT
+Oakmont Health Corp,CRM-3455,Customer,Rowan Martinez,Charles Thompson,Sophia Martinez,Enterprise,Americas,TOLA,MI,USA,Detroit,Isabella Parker,isabella.parker@oakmonthealth.example.com,VP Infrastructure
+Clearwater Apparel Inc,CRM-3456,Customer,Rowan Martinez,Hannah Adams,Emma Wright,Strategic,Americas,TOLA,TX,USA,Austin,Lily Parker,lily.parker@clearwaterapparel.example.com,Director IT
+Bluebird Construction Holdings,CRM-3457,Prospect,Rowan Martinez,Sophia Wilson,John Robinson,Enterprise,Americas,Central,TX,USA,Austin,James Clark,james.clark@bluebirdconstruction.example.com,VP Finance
+Rainier Capital Inc,CRM-3458,Prospect,Rowan Martinez,Amelia Young,Evelyn Carter,Mid-Market,Americas,Central,PA,USA,Philadelphia,James Roberts,james.roberts@rainiercapital.example.com,Director IT
+Mariner Analytics LLC,CRM-3459,Prospect,Ryan Robinson,Mark Adams,Joseph Young,Strategic,Americas,TOLA,IL,USA,Chicago,Ava Robinson,ava.robinson@marineranalytics.example.com,CFO
+Monarch Partners Corp,CRM-3460,Prospect,Ryan Robinson,Ella Robinson,Lily King,SMB,Americas,Central,CA,USA,San Diego,Matthew Harris,matthew.harris@monarchpartners.example.com,Head of Sales
+Clearwater Partners Corp,CRM-3461,Prospect,Ryan Robinson,Hannah Martinez,Andrew Miller,Mid-Market,Americas,East,CA,USA,San Francisco,Harper Parker,harper.parker@clearwaterpartners.example.com,Director IT
+Seaside Farms Holdings,CRM-3462,Prospect,Ryan Robinson,Mia Thomas,Emily Scott,Enterprise,Americas,East,IN,USA,Indianapolis,Brian Taylor,brian.taylor@seasidefarms.example.com,Head of Sales
+Trailhead Financial LLC,CRM-3463,Prospect,Ryan Robinson,David Turner,Brian Thomas,Mid-Market,Americas,Central,OH,USA,Columbus,Steven Adams,steven.adams@trailheadfinancial.example.com,Security Manager
+Oakmont Diagnostics Inc,CRM-3464,Prospect,Ryan Robinson,Daniel Wilson,Charles Wright,SMB,Americas,Central,CA,USA,Los Angeles,Hannah Wright,hannah.wright@oakmontdiagnostics.example.com,Director IT
+Cedar Construction Group,CRM-3465,Prospect,Ryan Turner,Ava Garcia,Joseph Perez,Strategic,Americas,West,CA,USA,San Francisco,Evelyn Perez,evelyn.perez@cedarconstruction.example.com,Procurement Lead
+Pioneer Motors Inc,CRM-3466,Customer,Ryan Turner,Mia Scott,Steven Taylor,SMB,Americas,East,MO,USA,Kansas City,Hannah Hall,hannah.hall@pioneermotors.example.com,VP Infrastructure
+Stonecroft Markets LLC,CRM-3467,Prospect,Ryan Turner,Hannah Adams,Thomas Anderson,Mid-Market,Americas,West,WA,USA,Seattle,Zoey Carter,zoey.carter@stonecroftmarkets.example.com,Head of Sales
+Cobalt Communications Holdings,CRM-3468,Prospect,Ryan Turner,Isabella Parker,Olivia Clark,SMB,Americas,West,MO,USA,Kansas City,Victoria White,victoria.white@cobaltcommunications.example.com,Procurement Lead
+Cardinal Partners LLC,CRM-3469,Customer,Ryan Turner,Brian Mitchell,Olivia Carter,Enterprise,Americas,East,FL,USA,Miami,Lily White,lily.white@cardinalpartners.example.com,CFO
+Northbridge Resorts Corp,CRM-3470,Prospect,Sarah Turner,Charles Turner,Emily Scott,Mid-Market,Americas,West,CA,USA,San Diego,David Anderson,david.anderson@northbridgeresorts.example.com,VP Infrastructure
+Seaside Security Company,CRM-3471,Prospect,Sarah Turner,Mark Wilson,Steven Lee,Strategic,Americas,West,AZ,USA,Phoenix,Hannah Jackson,hannah.jackson@seasidesecurity.example.com,Head of Sales
+Vertex Construction Group,CRM-3472,Customer,Sarah Turner,William Thomas,Sophia Rodriguez,Strategic,Americas,West,CA,USA,San Diego,Olivia King,olivia.king@vertexconstruction.example.com,VP Infrastructure
+Lighthouse Telecom LLC,CRM-3473,Prospect,Sarah Turner,Thomas Hall,Brian Davis,SMB,Americas,East,NC,USA,Raleigh,Hannah White,hannah.white@lighthousetelecom.example.com,Director IT
+Lighthouse Systems Corp,CRM-3474,Prospect,Sarah Turner,Anthony Brown,John Scott,SMB,Americas,TOLA,TX,USA,Austin,Grace Martinez,grace.martinez@lighthousesystems.example.com,Head of Sales
+Prairie Financial LLC,CRM-3475,Prospect,Sophia Miller,Abigail Robinson,Brian Wright,Enterprise,Americas,East,MO,USA,Kansas City,Emily Perez,emily.perez@prairiefinancial.example.com,Security Manager
+Bright Logistics Company,CRM-3476,Prospect,Sophia Miller,Daniel Martin,Harper Garcia,Enterprise,Americas,TOLA,CA,USA,San Francisco,Ella Jackson,ella.jackson@brightlogistics.example.com,Head of Sales
+Maple Homes Company,CRM-3477,Prospect,Sophia Miller,David Wright,Matthew Scott,Enterprise,Americas,Central,FL,USA,Miami,Chloe King,chloe.king@maplehomes.example.com,Director IT
+Orchard Medical Group,CRM-3478,Customer,Sophia Miller,Sophia Johnson,Zoey Roberts,SMB,Americas,East,CA,USA,San Diego,Evelyn Moore,evelyn.moore@orchardmedical.example.com,Director IT
+Sterling Chemicals Inc,CRM-3479,Prospect,Sophia Miller,Robert Adams,Isabella Harris,SMB,Americas,TOLA,OH,USA,Columbus,Grace Parker,grace.parker@sterlingchemicals.example.com,IT Director
+Granite Logistics Company,CRM-3480,Prospect,Sophia Miller,Matthew Hall,Charlotte Wright,Enterprise,Americas,West,TX,USA,Houston,Matthew Hall,matthew.hall@granitelogistics.example.com,Procurement Lead
+Riverstone Motors Corporation,CRM-3481,Prospect,Sophia Miller,Harper Miller,Sophia Garcia,Strategic,Americas,Central,OH,USA,Cleveland,Amelia Jackson,amelia.jackson@riverstonemotors.example.com,VP Infrastructure
+Harbor Tech LLC,CRM-3482,Prospect,Sophia Smith,James Johnson,Robert King,Strategic,Americas,East,FL,USA,Orlando,Richard Baker,richard.baker@harbortech.example.com,VP Operations
+Highland Medical Corp,CRM-3483,Customer,Sophia Smith,Mark Turner,Brian Brown,Enterprise,Americas,West,TX,USA,Dallas,Charles Rodriguez,charles.rodriguez@highlandmedical.example.com,Procurement Lead
+Rainier Consulting Group,CRM-3484,Prospect,Sophia Smith,Robert Harris,David Parker,Mid-Market,Americas,West,TX,USA,Dallas,Zoey King,zoey.king@rainierconsulting.example.com,Head of Sales
+Blue Homes Corp,CRM-3485,Prospect,Sophia Smith,Kevin Smith,Emily Nelson,SMB,Americas,West,CA,USA,San Francisco,Ava Johnson,ava.johnson@bluehomes.example.com,Head of Sales
+Bright Mining Company,CRM-3486,Prospect,Sophia Smith,Brian Carter,Evelyn Perez,SMB,Americas,East,MO,USA,St. Louis,Steven Miller,steven.miller@brightmining.example.com,CFO
+Windward Financial LLC,CRM-3487,Prospect,Sophia Smith,Victoria Moore,Scarlett Carter,SMB,Americas,TOLA,IL,USA,Chicago,John Walker,john.walker@windwardfinancial.example.com,VP Operations
+Oakmont Motors Corp,CRM-3488,Prospect,Taylor Lee,Ava Parker,Ava Jackson,Strategic,Americas,TOLA,CA,USA,San Francisco,Victoria Phillips,victoria.phillips@oakmontmotors.example.com,VP Finance
+Trailhead Diagnostics Inc,CRM-3489,Prospect,Taylor Lee,Scarlett Moore,Brian White,Strategic,Americas,Central,MI,USA,Detroit,Thomas King,thomas.king@trailheaddiagnostics.example.com,IT Director
+Copperline Shipping Company,CRM-3490,Customer,Taylor Lee,Isabella Robinson,James Clark,Enterprise,Americas,Central,MI,USA,Detroit,Robert Brown,robert.brown@copperlineshipping.example.com,Head of Sales
+Windward Education Corp,CRM-3491,Prospect,Taylor Lee,Richard Nelson,Mia Smith,Enterprise,Americas,West,MA,USA,Boston,Olivia Thompson,olivia.thompson@windwardeducation.example.com,Head of Sales
+Liberty Consulting Holdings,CRM-3492,Prospect,Taylor Lee,Chloe Martinez,Anthony Johnson,Enterprise,Americas,TOLA,OH,USA,Cleveland,Matthew Miller,matthew.miller@libertyconsulting.example.com,Director IT
+Hearthstone Mining Corp,CRM-3493,Prospect,Taylor Lee,Charlotte Wilson,Kevin Davis,Enterprise,Americas,Central,AZ,USA,Phoenix,David Adams,david.adams@hearthstonemining.example.com,IT Director
+Seaside Construction LLC,CRM-3494,Customer,Taylor Lee,Emma Young,John White,Strategic,Americas,Central,CA,USA,Los Angeles,Victoria Parker,victoria.parker@seasideconstruction.example.com,VP Finance
+Palisade Bank LLC,CRM-3495,Prospect,Taylor Lee,Thomas Davis,Scarlett Roberts,Strategic,Americas,TOLA,MI,USA,Detroit,Paul Mitchell,paul.mitchell@palisadebank.example.com,Security Manager
+Prairie Telecom Group,CRM-3496,Customer,Taylor Lee,Chloe Perez,Paul Garcia,Mid-Market,Americas,Central,CA,USA,Los Angeles,Brian Harris,brian.harris@prairietelecom.example.com,Security Manager
+Cedar Supply Group,CRM-3497,Prospect,Taylor Rodriguez,Daniel Martinez,Joshua Anderson,SMB,Americas,West,PA,USA,Pittsburgh,Zoey Roberts,zoey.roberts@cedarsupply.example.com,VP Infrastructure
+Rainier Mining LLC,CRM-3498,Prospect,Taylor Rodriguez,Grace Martin,Scarlett Lee,SMB,Americas,Central,TX,USA,Austin,Abigail Roberts,abigail.roberts@rainiermining.example.com,Head of Sales
+Harbor Capital Group,CRM-3499,Customer,Taylor Rodriguez,Chloe Smith,Richard Allen,Mid-Market,Americas,West,OH,USA,Columbus,Abigail Carter,abigail.carter@harborcapital.example.com,Head of Sales
+Beacon Diagnostics Corp,CRM-3500,Prospect,Taylor Rodriguez,Chloe Harris,Victoria Thomas,SMB,Americas,Central,MN,USA,Minneapolis,Steven Nelson,steven.nelson@beacondiagnostics.example.com,Head of Sales
+Copperline Security Corp,CRM-3501,Customer,Taylor Rodriguez,Olivia Nelson,Zoey Lewis,Strategic,Americas,West,MI,USA,Detroit,Lily Scott,lily.scott@copperlinesecurity.example.com,IT Director
+Lone Security LLC,CRM-3502,Customer,Taylor Rodriguez,Mia Phillips,Amelia Green,Enterprise,Americas,West,PA,USA,Pittsburgh,Matthew Hall,matthew.hall@lonesecurity.example.com,VP Infrastructure
+Seaside Hotels Corp,CRM-3503,Prospect,Taylor Rodriguez,Isabella Clark,Joshua Hall,Enterprise,Americas,East,MA,USA,Boston,Lily King,lily.king@seasidehotels.example.com,Security Manager
+Greenfield Systems Company,CRM-3504,Customer,Taylor Rodriguez,Charlotte Turner,Scarlett Wilson,Mid-Market,Americas,West,MO,USA,Kansas City,Michael Green,michael.green@greenfieldsystems.example.com,VP Finance
+Cedar Partners Company,CRM-3505,Customer,Taylor Rodriguez,Mia Nelson,Ava Rodriguez,Mid-Market,Americas,West,OH,USA,Cleveland,William Allen,william.allen@cedarpartners.example.com,Security Manager
