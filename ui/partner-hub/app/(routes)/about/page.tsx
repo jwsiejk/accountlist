@@ -17,13 +17,27 @@ export default function AboutPage() {
         </p>
         <div className="mt-4 space-y-2">
           <p>
-            <span className="font-semibold text-foreground">Contact:</span> portfolio@example.com
+            <span className="font-semibold text-foreground">Contact:</span>{" "}
+            <Link href="mailto:jwsiejk@gmail.com" className="text-primary hover:underline">
+              jwsiejk@gmail.com
+            </Link>
           </p>
           <p>
-            <span className="font-semibold text-foreground">Location:</span> Remote / West Coast
+            <span className="font-semibold text-foreground">Location:</span> Boyertown, PA
+          </p>
+          <p>
+            <span className="font-semibold text-foreground">LinkedIn:</span>{" "}
+            <Link
+              href="https://www.linkedin.com/in/james-siejk-b93a2481/"
+              target="_blank"
+              rel="noreferrer"
+              className="text-primary hover:underline"
+            >
+              View profile
+            </Link>
           </p>
           <Link
-            href="#"
+            href="/resume/James_Siejk_Resume.pdf"
             className="inline-flex items-center text-xs font-semibold uppercase tracking-wide text-primary hover:underline"
           >
             Download resume
