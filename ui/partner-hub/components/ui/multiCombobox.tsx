@@ -10,7 +10,7 @@ import {
 } from "./comboboxUtils";
 
 const INPUT_BASE_CLASSES =
-  "rounded-md border border-foreground/20 bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
+  "h-10 rounded-lg border border-border/70 bg-background px-3 text-sm text-foreground shadow-sm transition placeholder:text-foreground/40 focus-visible:outline-none focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 const DEFAULT_MAX_VISIBLE_OPTIONS = 300;
 
 type MultiComboboxProps = {

@@ -82,7 +82,7 @@ const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 const DEMO_VENDOR_URL = `${basePath}/samples/account-mapping/vendor.csv`;
 const DEMO_PARTNER_URL = `${basePath}/samples/account-mapping/partner.csv`;
 const INPUT_BASE_CLASSES =
-  "rounded-md border border-foreground/20 bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
+  "h-10 rounded-lg border border-border/70 bg-background px-3 text-sm text-foreground shadow-sm transition placeholder:text-foreground/40 focus-visible:outline-none focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 const SIMPLE_SEARCH_COLUMNS = [
   "vendor_account_name",
   "partner_account_name",
@@ -2307,12 +2307,12 @@ export default function AccountMappingTool() {
   }, [handlePartnerFile, handleVendorFile, resetRunTracking]);
 
   return (
-    <section className="space-y-8">
+    <section className="space-y-8 md:space-y-10">
       <header className="space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
-            <h1 className="text-2xl font-semibold">Account Mapping</h1>
-            <p className="text-sm text-foreground/70">
+            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Account Mapping</h1>
+            <p className="max-w-2xl text-base text-foreground/70">
               Match partner + vendor accounts, reduce review queues, and generate target lists in minutes.
             </p>
           </div>
@@ -2344,9 +2344,9 @@ export default function AccountMappingTool() {
           {["Upload", "Map", "Match", "Review", "Export"].map((step, index) => (
             <div
               key={step}
-              className={`rounded-full px-3 py-1 ${
+              className={`rounded-full px-3 py-1 shadow-sm ${
                 index <= currentStep
-                  ? "bg-primary text-primary-foreground"
+                  ? "bg-primary text-foreground"
                   : "bg-muted text-foreground/60"
               }`}
             >

@@ -2,18 +2,18 @@ import * as React from "react";
 import { clsx } from "clsx";
 
 const baseStyles =
-  "inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50";
+  "inline-flex items-center justify-center gap-2 rounded-md font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50";
 
 const variants: Record<string, string> = {
-  primary: "bg-primary text-foreground shadow hover:bg-primary/90",
-  secondary: "bg-muted text-foreground hover:bg-muted/80",
-  ghost: "bg-transparent text-foreground hover:bg-muted",
+  primary: "bg-primary text-foreground shadow-sm hover:bg-primary/90",
+  secondary: "border border-border bg-muted/80 text-foreground hover:bg-muted",
+  ghost: "bg-transparent text-foreground/80 hover:bg-muted/60",
 };
 
 const sizes: Record<string, string> = {
-  sm: "px-3 py-1.5 text-xs",
-  md: "px-4 py-2 text-sm",
-  lg: "px-5 py-2.5 text-base",
+  sm: "h-8 px-3 text-xs",
+  md: "h-10 px-4 text-sm",
+  lg: "h-12 px-5 text-base",
 };
 
 type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
