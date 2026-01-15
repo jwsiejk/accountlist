@@ -97,19 +97,21 @@ export default function HomePage() {
   return (
     <div className="space-y-10 md:space-y-14">
       <section className="relative overflow-hidden rounded-3xl border border-border/70 bg-gradient-to-br from-primary/10 via-white to-secondary/10 p-10 shadow-sm dark:via-slate-900 md:p-12">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.12)_1px,_transparent_1px)] [background-size:20px_20px] opacity-40" />
-        <div className="relative grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-          <div className="space-y-6">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.06)_1px,_transparent_1px)] [background-size:20px_20px] opacity-25" />
+        <div className="relative grid gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:gap-16">
+          <div className="space-y-6 lg:max-w-2xl">
             <p className="text-sm font-medium text-primary">
-              Senior Solutions Architect / Presales Engineer
+              Boyertown, PA • Enterprise Infrastructure • Partner GTM
             </p>
-            <h1 className="text-4xl font-semibold tracking-tight leading-tight sm:text-5xl lg:text-6xl">
-              James Siejk — Senior Solutions Architect / Presales Engineer
+            <h1 className="text-4xl font-semibold leading-[0.95] tracking-tight sm:text-5xl lg:text-6xl">
+              James Siejk
             </h1>
-            <p className="max-w-2xl text-base leading-relaxed text-foreground/70">
-              30+ years in enterprise infrastructure. I own the technical side of sales campaigns:
-              discovery, architecture, validation, demos, and technical decision support across data
-              center and cloud.
+            <h2 className="text-xl font-semibold text-foreground/80 sm:text-2xl">
+              Senior Solutions Architect / Presales Engineer
+            </h2>
+            <p className="max-w-xl text-base leading-relaxed text-foreground/70">
+              I lead discovery, architecture, validation, and demos—helping sales teams and
+              partners de-risk decisions and move deals forward.
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <Link
@@ -129,7 +131,7 @@ export default function HomePage() {
                 View LinkedIn
               </Link>
               <Link
-                href="/about"
+                href="mailto:jwsiejk@gmail.com"
                 className="inline-flex h-10 items-center gap-2 rounded-md border border-border/70 bg-background/80 px-4 text-sm font-semibold text-foreground transition hover:bg-muted"
               >
                 <Mail className="h-4 w-4" aria-hidden />
@@ -147,13 +149,9 @@ export default function HomePage() {
               ))}
             </div>
           </div>
-          <Card className="border-border/70 bg-background/90 shadow-md backdrop-blur">
+          <Card className="border-border/70 bg-background/90 shadow-md backdrop-blur lg:mt-10">
             <CardHeader className="space-y-2">
               <CardTitle className="text-base font-semibold text-foreground">At a glance</CardTitle>
-              <p className="text-sm text-foreground/70">
-                Senior Solutions Architect / Presales Engineer — infrastructure, partners, GTM
-                execution.
-              </p>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-2">
@@ -165,9 +163,9 @@ export default function HomePage() {
                 </div>
                 <div className="rounded-xl border border-border/60 bg-muted/40 p-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-foreground/50">
-                    Partner enablement
+                    Partner GTM
                   </p>
-                  <p className="text-sm font-semibold text-foreground">National partners</p>
+                  <p className="text-sm font-semibold text-foreground">Enablement at scale</p>
                 </div>
                 <div className="rounded-xl border border-border/60 bg-muted/40 p-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-foreground/50">
@@ -177,9 +175,9 @@ export default function HomePage() {
                 </div>
                 <div className="rounded-xl border border-border/60 bg-muted/40 p-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-foreground/50">
-                    BOM & solution reviews
+                    BOM reviews
                   </p>
-                  <p className="text-sm font-semibold text-foreground">De-risk decisions</p>
+                  <p className="text-sm font-semibold text-foreground">Solution confidence</p>
                 </div>
               </div>
             </CardContent>
