@@ -9,6 +9,7 @@ import { CalloutCard } from "@/components/case-studies/CalloutCard";
 import { ArchitectureDiagramSvg } from "@/components/case-studies/ArchitectureDiagramSvg";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CaseStudy } from "@/data/case-studies";
+import { getSourceDomain } from "@/lib/case-study-sources";
 import {
   getAdjacentCaseStudies,
   getCaseStudyBySlug,
@@ -186,6 +187,15 @@ export default function CaseStudyPage({ params }: CaseStudyPageProps) {
   }
 
   const { prev, next } = getAdjacentCaseStudies(caseStudy.slug);
+  const sources = caseStudy.sources.map((source, index) => ({
+    ...source,
+    index: index + 1,
+    domain: getSourceDomain(source.url),
+  }));
+  const vendorSources = sources.filter((source) => source.category === "vendor");
+  const thirdPartySources = sources.filter(
+    (source) => source.category === "third-party"
+  );
 
   return (
     <div className="space-y-10">
@@ -333,22 +343,146 @@ export default function CaseStudyPage({ params }: CaseStudyPageProps) {
           ))}
 
           <CaseStudySection title="Sources / Evidence" eyebrow="Citations">
-            <Card className="border-border/70 p-4 motion-safe:transition motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-sm motion-reduce:transition-none">
-              <ul className="space-y-2 text-sm">
-                {caseStudy.citations.map((citation) => (
-                  <li key={citation.href}>
-                    <a
-                      href={citation.href}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="font-semibold text-primary transition hover:underline motion-safe:hover:translate-x-0.5 motion-reduce:transition-none"
-                    >
-                      {citation.label}
-                    </a>
-                  </li>
-                ))}
-              </ul>
+            <Card className="space-y-4 border-border/70 p-4 motion-safe:transition motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-sm motion-reduce:transition-none">
+              <p className="text-xs text-foreground/50">
+                Compact references are shown here. The full appendix is listed
+                below in numbered order.{" "}
+                <a
+                  href="#citations-appendix"
+                  className="font-semibold text-primary hover:underline"
+                >
+                  Jump to appendix
+                </a>
+                .
+              </p>
+              <div className="space-y-4 text-xs text-foreground/70">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50">
+                    Vendor references
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {vendorSources.length ? (
+                      vendorSources.map((source) => (
+                        <a
+                          key={source.id}
+                          href={source.url}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-muted/40 px-2 py-1 text-[11px] font-semibold text-foreground/80 transition hover:underline"
+                        >
+                          <span className="text-foreground/50">
+                            [{source.index}]
+                          </span>
+                          <span>{source.title}</span>
+                          <span className="text-foreground/50">
+                            ({source.domain})
+                          </span>
+                        </a>
+                      ))
+                    ) : (
+                      <span className="text-foreground/50">
+                        No vendor references listed.
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50">
+                    Third-party references
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {thirdPartySources.length ? (
+                      thirdPartySources.map((source) => (
+                        <a
+                          key={source.id}
+                          href={source.url}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-muted/40 px-2 py-1 text-[11px] font-semibold text-foreground/80 transition hover:underline"
+                        >
+                          <span className="text-foreground/50">
+                            [{source.index}]
+                          </span>
+                          <span>{source.title}</span>
+                          <span className="text-foreground/50">
+                            ({source.domain})
+                          </span>
+                        </a>
+                      ))
+                    ) : (
+                      <span className="text-foreground/50">
+                        No third-party references listed.
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
             </Card>
+          </CaseStudySection>
+
+          <CaseStudySection
+            id="citations-appendix"
+            title="Citations appendix"
+            eyebrow="Appendix"
+          >
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-foreground/50">
+                  Vendor references
+                </p>
+                {vendorSources.length ? (
+                  <ol className="space-y-2 text-sm text-foreground/70">
+                    {vendorSources.map((source) => (
+                      <li key={source.id} value={source.index}>
+                        <a
+                          href={source.url}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="font-semibold text-primary hover:underline"
+                        >
+                          {source.title}
+                        </a>{" "}
+                        <span className="text-foreground/50">
+                          ({source.domain})
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="text-sm text-foreground/50">
+                    No vendor references listed.
+                  </p>
+                )}
+              </div>
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-foreground/50">
+                  Third-party references
+                </p>
+                {thirdPartySources.length ? (
+                  <ol className="space-y-2 text-sm text-foreground/70">
+                    {thirdPartySources.map((source) => (
+                      <li key={source.id} value={source.index}>
+                        <a
+                          href={source.url}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="font-semibold text-primary hover:underline"
+                        >
+                          {source.title}
+                        </a>{" "}
+                        <span className="text-foreground/50">
+                          ({source.domain})
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="text-sm text-foreground/50">
+                    No third-party references listed.
+                  </p>
+                )}
+              </div>
+            </div>
           </CaseStudySection>
 
           {prev || next ? (
