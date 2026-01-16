@@ -34,12 +34,12 @@ export function CaseStudyCard({ caseStudy }: CaseStudyCardProps) {
         <p>{caseStudy.heroSummary}</p>
         <ul className="space-y-2">
           {caseStudy.outcomes.slice(0, outcomeLimit).map((outcome) => (
-            <li key={outcome} className="flex items-start gap-3">
+            <li key={outcome.text} className="flex items-start gap-3">
               <span
                 className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary/70"
                 aria-hidden
               />
-              <span>{outcome}</span>
+              <span>{outcome.text}</span>
             </li>
           ))}
         </ul>

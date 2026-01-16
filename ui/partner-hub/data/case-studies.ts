@@ -6,6 +6,20 @@ export type CaseStudySection = {
   callouts?: string[];
 };
 
+export type OutcomeLabelType = "target" | "referenced" | "observed";
+
+export type CaseStudyOutcome = {
+  text: string;
+  labelType: OutcomeLabelType;
+  citationIds?: string[];
+};
+
+export type CaseStudyCitation = {
+  id: string;
+  label: string;
+  href: string;
+};
+
 export type CaseStudy = {
   slug: string;
   order?: number;
@@ -20,16 +34,13 @@ export type CaseStudy = {
     before: string;
     after: string;
   };
-  outcomes: string[];
+  outcomes: CaseStudyOutcome[];
   sections: CaseStudySection[];
   assets?: {
     heroTile?: string;
     architecture?: string;
   };
-  citations: {
-    label: string;
-    href: string;
-  }[];
+  citations: CaseStudyCitation[];
 };
 
 export const caseStudies: CaseStudy[] = [
@@ -60,11 +71,26 @@ export const caseStudies: CaseStudy[] = [
       after: "FlashArray + FlashBlade//S + FlashBlade//E + Rubrik",
     },
     outcomes: [
-      "Immutable backups and rapid cyber recovery for Epic and imaging workflows.",
-      "Lower RPO/RTO for clinical systems with policy-based snapshots.",
-      "Tiered archive strategy for long-term imaging retention.",
-      "High-throughput storage for AI imaging pipelines and PACS growth.",
-      "Simplified operations with unified monitoring and automation.",
+      {
+        text: "Immutable backups and rapid cyber recovery for Epic and imaging workflows.",
+        labelType: "referenced",
+      },
+      {
+        text: "Lower RPO/RTO for clinical systems with policy-based snapshots.",
+        labelType: "referenced",
+      },
+      {
+        text: "Tiered archive strategy for long-term imaging retention.",
+        labelType: "referenced",
+      },
+      {
+        text: "High-throughput storage for AI imaging pipelines and PACS growth.",
+        labelType: "referenced",
+      },
+      {
+        text: "Simplified operations with unified monitoring and automation.",
+        labelType: "referenced",
+      },
     ],
     sections: [
       {
@@ -113,10 +139,18 @@ export const caseStudies: CaseStudy[] = [
         "/images/case-studies/healthcare-data-center-refresh-architecture.png",
     },
     citations: [
-      { label: "Epic Systems", href: "https://www.epic.com/" },
-      { label: "Rubrik", href: "https://www.rubrik.com/" },
-      { label: "Pure Storage FlashArray", href: "https://www.purestorage.com/products/flasharray.html" },
-      { label: "Pure Storage FlashBlade", href: "https://www.purestorage.com/products/flashblade.html" },
+      { id: "epic", label: "Epic Systems", href: "https://www.epic.com/" },
+      { id: "rubrik", label: "Rubrik", href: "https://www.rubrik.com/" },
+      {
+        id: "pure-flasharray",
+        label: "Pure Storage FlashArray",
+        href: "https://www.purestorage.com/products/flasharray.html",
+      },
+      {
+        id: "pure-flashblade",
+        label: "Pure Storage FlashBlade",
+        href: "https://www.purestorage.com/products/flashblade.html",
+      },
     ],
   },
 ];

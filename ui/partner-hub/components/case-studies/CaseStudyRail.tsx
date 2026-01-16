@@ -6,6 +6,18 @@ import { Button } from "@/components/ui/button";
 const sectionTitleStyles =
   "text-xs font-semibold uppercase tracking-wide text-foreground/60";
 
+const outcomeBadgeStyles = {
+  target: "border-amber-500/30 bg-amber-500/10 text-amber-600",
+  referenced: "border-sky-500/30 bg-sky-500/10 text-sky-600",
+  observed: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600",
+} as const;
+
+const outcomeLabelText = {
+  target: "Target",
+  referenced: "Referenced",
+  observed: "Observed",
+} as const;
+
 type CaseStudyRailProps = {
   caseStudy: CaseStudy;
 };
@@ -61,15 +73,26 @@ export function CaseStudyRail({ caseStudy }: CaseStudyRailProps) {
         <h2 className={sectionTitleStyles}>Outcomes</h2>
         <ul className="space-y-2 text-sm text-foreground/70">
           {caseStudy.outcomes.map((outcome) => (
-            <li key={outcome} className="flex items-start gap-3">
+            <li key={outcome.text} className="flex items-start gap-3">
               <span
                 className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary/70"
                 aria-hidden
               />
-              <span>{outcome}</span>
+              <div className="space-y-1">
+                <span
+                  className={`inline-flex w-fit items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${outcomeBadgeStyles[outcome.labelType]}`}
+                >
+                  {outcomeLabelText[outcome.labelType]}
+                </span>
+                <p>{outcome.text}</p>
+              </div>
             </li>
           ))}
         </ul>
+        <p className="text-xs text-foreground/50">
+          Legend: Target = planned goal, Referenced = vendor/third-party claim,
+          Observed = measured deployment result.
+        </p>
       </Card>
 
       <Card className="space-y-3 border-border/70 p-4 motion-safe:transition motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-sm motion-reduce:transition-none">
