@@ -1,20 +1,10 @@
 import { Card } from "@/components/ui/card";
 import type { CaseStudy } from "@/data/case-studies";
 import { CopyLinkButton } from "@/components/case-studies/CopyLinkButton";
+import { Button } from "@/components/ui/button";
 
 const sectionTitleStyles =
   "text-xs font-semibold uppercase tracking-wide text-foreground/60";
-
-const downloadLinks = [
-  {
-    label: "Download executive summary (PDF)",
-    href: "#/downloads/executive-summary",
-  },
-  {
-    label: "Download architecture brief (PDF)",
-    href: "#/downloads/architecture-brief",
-  },
-];
 
 type CaseStudyRailProps = {
   caseStudy: CaseStudy;
@@ -102,18 +92,19 @@ export function CaseStudyRail({ caseStudy }: CaseStudyRailProps) {
 
       <Card className="space-y-3 border-border/70 p-4 motion-safe:transition motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-sm motion-reduce:transition-none">
         <h2 className={sectionTitleStyles}>Downloads</h2>
-        <ul className="space-y-2 text-sm">
-          {downloadLinks.map((link) => (
-            <li key={link.label}>
-              <a
-                href={link.href}
-                className="font-semibold text-primary transition hover:underline motion-safe:hover:translate-x-0.5 motion-reduce:transition-none"
-              >
-                {link.label}
-              </a>
-            </li>
-          ))}
-        </ul>
+        <div className="space-y-2">
+          <Button
+            type="button"
+            size="sm"
+            className="w-full"
+            disabled
+            aria-disabled="true"
+            title="Coming soon"
+          >
+            Download PDF
+          </Button>
+          <p className="text-xs text-foreground/50">Coming soon</p>
+        </div>
       </Card>
 
       <Card className="space-y-3 border-border/70 p-4 motion-safe:transition motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-sm motion-reduce:transition-none">
