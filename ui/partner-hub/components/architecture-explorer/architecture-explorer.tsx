@@ -641,7 +641,7 @@ export function ArchitectureExplorer() {
           />
 
           {leftPack ? (
-            <Card className="min-h-[420px]">
+            <Card className="diagram-card min-h-[420px]">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">
                   {leftPack.vendor} {leftPack.product} {leftPack.model}
@@ -724,7 +724,7 @@ export function ArchitectureExplorer() {
             />
 
             {rightPack ? (
-              <Card className="min-h-[420px]">
+              <Card className="diagram-card min-h-[420px]">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base">
                     {rightPack.vendor} {rightPack.product} {rightPack.model}
