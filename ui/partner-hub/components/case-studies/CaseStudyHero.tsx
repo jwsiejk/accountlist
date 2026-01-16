@@ -37,12 +37,12 @@ export function CaseStudyHero({ caseStudy }: CaseStudyHeroProps) {
             <p className="text-base text-foreground/70">
               {caseStudy.heroSummary}
             </p>
-            <p className="rounded-md border border-border/70 bg-muted/30 px-4 py-3 text-sm font-semibold text-foreground/80">
-              <span className="text-foreground/50">Transformation:</span>{" "}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-border/70 bg-muted/30 px-4 py-3 text-sm font-semibold text-foreground/80">
+              <span className="text-foreground/50">Transformation:</span>
               <span>{caseStudy.stack.before}</span>
-              <span className="mx-2 text-foreground/40">→</span>
+              <span className="text-foreground/40">→</span>
               <span>{caseStudy.stack.after}</span>
-            </p>
+            </div>
           </div>
         </div>
         <div className="relative overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-br from-primary/20 via-background to-muted/60 p-4">

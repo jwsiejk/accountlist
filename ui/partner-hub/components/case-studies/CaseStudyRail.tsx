@@ -35,7 +35,7 @@ export function CaseStudyRail({ caseStudy }: CaseStudyRailProps) {
   );
 
   return (
-    <aside className="space-y-4 lg:sticky lg:top-24">
+    <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
       <Card className="space-y-3 border-border/70 p-4 motion-safe:transition motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-sm motion-reduce:transition-none">
         <h2 className={sectionTitleStyles}>Share</h2>
         <CopyLinkButton />
@@ -167,10 +167,10 @@ export function CaseStudyRail({ caseStudy }: CaseStudyRailProps) {
                       href={source.url}
                       target="_blank"
                       rel="noreferrer noopener"
-                      className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-muted/40 px-2 py-1 text-[11px] font-semibold text-foreground/80 transition hover:underline"
+                      className="flex max-w-full flex-wrap items-center gap-2 rounded-full border border-border/70 bg-muted/40 px-2 py-1 text-[11px] font-semibold text-foreground/80 transition hover:underline"
                     >
                       <span className="text-foreground/50">[{source.index}]</span>
-                      <span>{source.title}</span>
+                      <span className="break-words">{source.title}</span>
                       <span className="text-foreground/50">({source.domain})</span>
                     </a>
                   ))
@@ -191,10 +191,10 @@ export function CaseStudyRail({ caseStudy }: CaseStudyRailProps) {
                       href={source.url}
                       target="_blank"
                       rel="noreferrer noopener"
-                      className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-muted/40 px-2 py-1 text-[11px] font-semibold text-foreground/80 transition hover:underline"
+                      className="flex max-w-full flex-wrap items-center gap-2 rounded-full border border-border/70 bg-muted/40 px-2 py-1 text-[11px] font-semibold text-foreground/80 transition hover:underline"
                     >
                       <span className="text-foreground/50">[{source.index}]</span>
-                      <span>{source.title}</span>
+                      <span className="break-words">{source.title}</span>
                       <span className="text-foreground/50">({source.domain})</span>
                     </a>
                   ))
