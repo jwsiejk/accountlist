@@ -32,6 +32,26 @@ body {
   color: var(--foreground);
 }
 
+.diagram-card .react-flow__node {
+  transition: box-shadow 200ms ease, filter 200ms ease;
+}
+
+.diagram-card .react-flow__edge-path,
+.diagram-card .react-flow__edge-marker path {
+  transition: filter 200ms ease, opacity 200ms ease;
+}
+
+.diagram-card:hover .react-flow__node {
+  box-shadow: 0 0 0 1px color-mix(in srgb, hsl(var(--foreground)) 35%, transparent);
+  filter: brightness(1.04);
+}
+
+.diagram-card:hover .react-flow__edge-path,
+.diagram-card:hover .react-flow__edge-marker path {
+  filter: brightness(1.2);
+  opacity: 1;
+}
+
 a {
   @apply text-accent underline-offset-4 hover:underline;
 }
