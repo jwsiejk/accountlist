@@ -66,7 +66,7 @@ export default function CaseStudiesPage() {
               key={filter.value}
               type="button"
               onClick={() => setActiveFilter(filter.value)}
-              className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+              className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-sm motion-reduce:transition-none ${
                 isActive
                   ? "border-primary/40 bg-primary/10 text-primary"
                   : "border-border/70 text-foreground/60 hover:border-primary/40 hover:text-primary"

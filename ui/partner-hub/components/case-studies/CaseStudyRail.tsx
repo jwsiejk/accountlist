@@ -23,12 +23,12 @@ type CaseStudyRailProps = {
 export function CaseStudyRail({ caseStudy }: CaseStudyRailProps) {
   return (
     <aside className="space-y-4 lg:sticky lg:top-24">
-      <Card className="space-y-3 border-border/70 p-4">
+      <Card className="space-y-3 border-border/70 p-4 motion-safe:transition motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-sm motion-reduce:transition-none">
         <h2 className={sectionTitleStyles}>Share</h2>
         <CopyLinkButton />
       </Card>
 
-      <Card className="space-y-3 border-border/70 p-4">
+      <Card className="space-y-3 border-border/70 p-4 motion-safe:transition motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-sm motion-reduce:transition-none">
         <h2 className={sectionTitleStyles}>Quick Facts</h2>
         <dl className="space-y-3 text-sm text-foreground/70">
           <div>
@@ -67,7 +67,7 @@ export function CaseStudyRail({ caseStudy }: CaseStudyRailProps) {
         </dl>
       </Card>
 
-      <Card className="space-y-3 border-border/70 p-4">
+      <Card className="space-y-3 border-border/70 p-4 motion-safe:transition motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-sm motion-reduce:transition-none">
         <h2 className={sectionTitleStyles}>Outcomes</h2>
         <ul className="space-y-2 text-sm text-foreground/70">
           {caseStudy.outcomes.map((outcome) => (
@@ -82,7 +82,7 @@ export function CaseStudyRail({ caseStudy }: CaseStudyRailProps) {
         </ul>
       </Card>
 
-      <Card className="space-y-3 border-border/70 p-4">
+      <Card className="space-y-3 border-border/70 p-4 motion-safe:transition motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-sm motion-reduce:transition-none">
         <h2 className={sectionTitleStyles}>Stack</h2>
         <div className="space-y-3 text-sm text-foreground/70">
           <div>
@@ -100,14 +100,14 @@ export function CaseStudyRail({ caseStudy }: CaseStudyRailProps) {
         </div>
       </Card>
 
-      <Card className="space-y-3 border-border/70 p-4">
+      <Card className="space-y-3 border-border/70 p-4 motion-safe:transition motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-sm motion-reduce:transition-none">
         <h2 className={sectionTitleStyles}>Downloads</h2>
         <ul className="space-y-2 text-sm">
           {downloadLinks.map((link) => (
             <li key={link.label}>
               <a
                 href={link.href}
-                className="font-semibold text-primary hover:underline"
+                className="font-semibold text-primary transition hover:underline motion-safe:hover:translate-x-0.5 motion-reduce:transition-none"
               >
                 {link.label}
               </a>
@@ -116,7 +116,7 @@ export function CaseStudyRail({ caseStudy }: CaseStudyRailProps) {
         </ul>
       </Card>
 
-      <Card className="space-y-3 border-border/70 p-4">
+      <Card className="space-y-3 border-border/70 p-4 motion-safe:transition motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-sm motion-reduce:transition-none">
         <h2 className={sectionTitleStyles}>Sources</h2>
         <ul className="space-y-2 text-sm">
           {caseStudy.citations.map((citation) => (
@@ -125,7 +125,7 @@ export function CaseStudyRail({ caseStudy }: CaseStudyRailProps) {
                 href={citation.href}
                 target="_blank"
                 rel="noreferrer"
-                className="font-semibold text-primary hover:underline"
+                className="font-semibold text-primary transition hover:underline motion-safe:hover:translate-x-0.5 motion-reduce:transition-none"
               >
                 {citation.label}
               </a>

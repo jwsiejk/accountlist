@@ -13,7 +13,7 @@ export function CaseStudyCard({ caseStudy }: CaseStudyCardProps) {
   const href = `/case-studies/${caseStudy.slug}`;
 
   return (
-    <Card className="border-border/70 transition hover:-translate-y-0.5 hover:shadow-md">
+    <Card className="border-border/70 motion-safe:transition motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-md motion-reduce:transition-none">
       <CardHeader className="space-y-3">
         <div className="flex flex-wrap gap-2">
           <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
@@ -55,7 +55,7 @@ export function CaseStudyCard({ caseStudy }: CaseStudyCardProps) {
         </div>
         <Link
           href={href}
-          className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary transition hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary transition hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-sm motion-reduce:transition-none"
         >
           Read case study
           <ArrowUpRight className="h-4 w-4" aria-hidden />

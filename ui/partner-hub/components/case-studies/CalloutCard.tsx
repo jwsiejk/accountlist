@@ -12,7 +12,7 @@ export function CalloutCard({
   accent = "from-primary/15 via-primary/5 to-transparent",
 }: CalloutCardProps) {
   return (
-    <Card className="relative overflow-hidden border-border/70 bg-background/80 p-4">
+    <Card className="relative overflow-hidden border-border/70 bg-background/80 p-4 motion-safe:transition motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-sm motion-reduce:transition-none">
       <div
         className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${accent}`}
         aria-hidden

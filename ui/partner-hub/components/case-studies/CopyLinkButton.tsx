@@ -47,7 +47,7 @@ export function CopyLinkButton() {
       variant="secondary"
       size="sm"
       onClick={handleCopy}
-      className="w-full justify-center"
+      className="w-full justify-center motion-safe:transition motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-sm motion-reduce:transition-none"
       aria-label={copied ? "Link copied" : "Copy link"}
     >
       {copied ? "Copied" : "Copy link"}

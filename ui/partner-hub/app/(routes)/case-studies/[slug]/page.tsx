@@ -114,7 +114,7 @@ const AdjacentCaseStudyCard = ({
       aria-label={`${direction} case study: ${caseStudy.title}`}
       className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
-      <Card className="flex h-full flex-col border-border/70 bg-muted/40 transition group-hover:-translate-y-0.5 group-hover:shadow-md">
+      <Card className="flex h-full flex-col border-border/70 bg-muted/40 motion-safe:transition motion-safe:group-hover:-translate-y-0.5 motion-safe:group-hover:shadow-md motion-reduce:transition-none">
         <CardHeader className="space-y-3">
           <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-foreground/60">
             <span>{direction} case study</span>
@@ -128,7 +128,7 @@ const AdjacentCaseStudyCard = ({
           <p className="text-sm text-foreground/70">{caseStudy.heroSummary}</p>
         </CardHeader>
         <CardContent className="mt-auto">
-          <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
+          <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary motion-safe:transition motion-safe:group-hover:translate-x-0.5 motion-reduce:transition-none">
             View case study
             <span aria-hidden>→</span>
           </span>
@@ -205,7 +205,7 @@ export default function CaseStudyPage({ params }: CaseStudyPageProps) {
               workloads while isolating recovery lanes for cyber resilience.
             </p>
             {params.slug === "healthcare-data-center-refresh" ? (
-              <Card className="border-border/70 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
+              <Card className="border-border/70 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 motion-safe:transition motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-md motion-reduce:transition-none">
                 <CardHeader>
                   <CardTitle className="text-white">Reference Architecture</CardTitle>
                   <p className="text-sm text-white/70">
@@ -333,7 +333,7 @@ export default function CaseStudyPage({ params }: CaseStudyPageProps) {
           ))}
 
           <CaseStudySection title="Sources / Evidence" eyebrow="Citations">
-            <Card className="border-border/70 p-4">
+            <Card className="border-border/70 p-4 motion-safe:transition motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-sm motion-reduce:transition-none">
               <ul className="space-y-2 text-sm">
                 {caseStudy.citations.map((citation) => (
                   <li key={citation.href}>
@@ -341,7 +341,7 @@ export default function CaseStudyPage({ params }: CaseStudyPageProps) {
                       href={citation.href}
                       target="_blank"
                       rel="noreferrer"
-                      className="font-semibold text-primary hover:underline"
+                      className="font-semibold text-primary transition hover:underline motion-safe:hover:translate-x-0.5 motion-reduce:transition-none"
                     >
                       {citation.label}
                     </a>
