@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/card";
 import type { CaseStudy } from "@/data/case-studies";
+import { CopyLinkButton } from "@/components/case-studies/CopyLinkButton";
 
 const sectionTitleStyles =
   "text-xs font-semibold uppercase tracking-wide text-foreground/60";
@@ -22,6 +23,11 @@ type CaseStudyRailProps = {
 export function CaseStudyRail({ caseStudy }: CaseStudyRailProps) {
   return (
     <aside className="space-y-4 lg:sticky lg:top-24">
+      <Card className="space-y-3 border-border/70 p-4">
+        <h2 className={sectionTitleStyles}>Share</h2>
+        <CopyLinkButton />
+      </Card>
+
       <Card className="space-y-3 border-border/70 p-4">
         <h2 className={sectionTitleStyles}>Quick Facts</h2>
         <dl className="space-y-3 text-sm text-foreground/70">
