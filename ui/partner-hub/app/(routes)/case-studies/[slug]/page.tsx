@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { CaseStudyHero } from "@/components/case-studies/CaseStudyHero";
 import { CaseStudyRail } from "@/components/case-studies/CaseStudyRail";
 import { CaseStudySection } from "@/components/case-studies/CaseStudySection";
 import { CalloutCard } from "@/components/case-studies/CalloutCard";
 import { ArchitectureDiagramSvg } from "@/components/case-studies/ArchitectureDiagramSvg";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { CaseStudy } from "@/data/case-studies";
 import {
+  getAdjacentCaseStudies,
   getCaseStudyBySlug,
   getCaseStudyOgImage,
   getCaseStudySlugs,
@@ -92,6 +96,48 @@ const migrationPlan = [
   },
 ];
 
+type AdjacentCaseStudyCardProps = {
+  caseStudy: CaseStudy;
+  direction: "Previous" | "Next";
+};
+
+const AdjacentCaseStudyCard = ({
+  caseStudy,
+  direction,
+}: AdjacentCaseStudyCardProps) => {
+  const href = `/case-studies/${caseStudy.slug}`;
+  const isPrevious = direction === "Previous";
+
+  return (
+    <Link
+      href={href}
+      aria-label={`${direction} case study: ${caseStudy.title}`}
+      className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+    >
+      <Card className="flex h-full flex-col border-border/70 bg-muted/40 transition group-hover:-translate-y-0.5 group-hover:shadow-md">
+        <CardHeader className="space-y-3">
+          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-foreground/60">
+            <span>{direction} case study</span>
+            {isPrevious ? (
+              <ArrowLeft className="h-4 w-4" aria-hidden />
+            ) : (
+              <ArrowRight className="h-4 w-4" aria-hidden />
+            )}
+          </div>
+          <CardTitle className="text-base">{caseStudy.title}</CardTitle>
+          <p className="text-sm text-foreground/70">{caseStudy.heroSummary}</p>
+        </CardHeader>
+        <CardContent className="mt-auto">
+          <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
+            View case study
+            <span aria-hidden>→</span>
+          </span>
+        </CardContent>
+      </Card>
+    </Link>
+  );
+};
+
 export function generateMetadata({ params }: CaseStudyPageProps): Metadata {
   const caseStudy = getCaseStudyBySlug(params.slug);
 
@@ -138,6 +184,8 @@ export default function CaseStudyPage({ params }: CaseStudyPageProps) {
   if (!caseStudy) {
     notFound();
   }
+
+  const { prev, next } = getAdjacentCaseStudies(caseStudy.slug);
 
   return (
     <div className="space-y-10">
@@ -302,6 +350,19 @@ export default function CaseStudyPage({ params }: CaseStudyPageProps) {
               </ul>
             </Card>
           </CaseStudySection>
+
+          {prev || next ? (
+            <CaseStudySection title="Continue the story" eyebrow="More case studies">
+              <div className="grid gap-4 md:grid-cols-2">
+                {prev ? (
+                  <AdjacentCaseStudyCard caseStudy={prev} direction="Previous" />
+                ) : null}
+                {next ? (
+                  <AdjacentCaseStudyCard caseStudy={next} direction="Next" />
+                ) : null}
+              </div>
+            </CaseStudySection>
+          ) : null}
         </div>
 
         <CaseStudyRail caseStudy={caseStudy} />

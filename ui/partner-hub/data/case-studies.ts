@@ -8,6 +8,8 @@ export type CaseStudySection = {
 
 export type CaseStudy = {
   slug: string;
+  order?: number;
+  sortOrder?: number;
   title: string;
   heroSummary: string;
   industry: string;
