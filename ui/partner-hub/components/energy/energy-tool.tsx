@@ -25,6 +25,7 @@ import {
   type NetAppDriveCompat,
 } from "@/lib/energy/netapp-drive-compat";
 import { presalesExportSchema, type PresalesExportPayload } from "@/lib/exports/presalesExportSchema";
+import { BASE_PATH, withBasePath } from "@/lib/basePath";
 
 const fmt0 = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
 const fmt1 = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
@@ -157,7 +158,6 @@ const defaults: Omit<Inputs, "dfmTb" | "capacityPb"> = {
 };
 
 export function EnergyTool() {
-  const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
   const [pureRows, setPureRows] = useState<PureRow[]>([]);
   const [netappRows, setNetappRows] = useState<NetAppRow[]>([]);
   const [netappCompat, setNetappCompat] = useState<NetAppDriveCompat | null>(null);
@@ -214,8 +214,8 @@ export function EnergyTool() {
         setLoading(true);
         setLoadError(null);
         const [pureCsv, netappCsv] = await Promise.all([
-          loadCsv(`${basePath}/data/energy/pure_flashblade_e.csv`),
-          loadCsv(`${basePath}/data/energy/netapp_e_series.csv`),
+          loadCsv(withBasePath("/data/energy/pure_flashblade_e.csv")),
+          loadCsv(withBasePath("/data/energy/netapp_e_series.csv")),
         ]);
         if (cancelled) return;
         const pure = loadPure(pureCsv);
@@ -241,14 +241,14 @@ export function EnergyTool() {
     return () => {
       cancelled = true;
     };
-  }, [basePath]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         setCompatError(null);
-        const compat = await loadNetAppDriveCompat(basePath);
+        const compat = await loadNetAppDriveCompat(BASE_PATH);
         if (!cancelled) {
           setNetappCompat(compat);
         }
@@ -263,14 +263,14 @@ export function EnergyTool() {
     return () => {
       cancelled = true;
     };
-  }, [basePath]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         setVendorReportError(null);
-        const res = await fetch(`${basePath}/data/energy/vendor_update_report.json`);
+        const res = await fetch(withBasePath("/data/energy/vendor_update_report.json"));
         if (res.status === 404) {
           if (!cancelled) setVendorReport(null);
           return;
@@ -292,14 +292,14 @@ export function EnergyTool() {
     return () => {
       cancelled = true;
     };
-  }, [basePath]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         setMetaError(null);
-        const res = await fetch(`${basePath}/data/energy/energy_data_meta.json`);
+        const res = await fetch(withBasePath("/data/energy/energy_data_meta.json"));
         if (!res.ok) {
           throw new Error(`Failed to load energy metadata (${res.status})`);
         }
@@ -317,7 +317,7 @@ export function EnergyTool() {
     return () => {
       cancelled = true;
     };
-  }, [basePath]);
+  }, []);
 
   const tracks = useMemo(() => getTracks(pureRows), [pureRows]);
   const capacities = useMemo(() => validCaps(pureRows, inputs.dfmTb, 20), [pureRows, inputs.dfmTb]);
@@ -872,7 +872,7 @@ export function EnergyTool() {
   const requestExportFile = async (type: "pdf" | "pptx", payload: PresalesExportPayload) => {
     setExportLoading(type);
     try {
-      const res = await fetch(`${basePath}/api/exports/presales/${type}`, {
+      const res = await fetch(withBasePath(`/api/exports/presales/${type}`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

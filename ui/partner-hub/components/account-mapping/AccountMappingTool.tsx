@@ -72,15 +72,15 @@ import {
 } from "@/lib/account-mapping/runHistory";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { MultiCombobox } from "@/components/ui/multiCombobox";
+import { withBasePath } from "@/lib/basePath";
 
 const DEFAULT_PROGRESS_STEP = 2000;
 const MAX_PREVIEW_ROWS = 20;
 const SEARCH_PREVIEW_ROWS = 2000;
 const REVIEW_ROW_HEIGHT = 168;
 const REVIEW_LIST_HEIGHT = 560;
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
-const DEMO_VENDOR_URL = `${basePath}/samples/account-mapping/vendor.csv`;
-const DEMO_PARTNER_URL = `${basePath}/samples/account-mapping/partner.csv`;
+const DEMO_VENDOR_URL = withBasePath("/samples/account-mapping/vendor.csv");
+const DEMO_PARTNER_URL = withBasePath("/samples/account-mapping/partner.csv");
 const INPUT_BASE_CLASSES =
   "h-10 rounded-lg border border-border/70 bg-background px-3 text-sm text-foreground shadow-sm transition placeholder:text-foreground/40 focus-visible:outline-none focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 const SIMPLE_SEARCH_COLUMNS = [
