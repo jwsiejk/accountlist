@@ -53,7 +53,7 @@ export const caseStudies: CaseStudy[] = [
     ],
     stack: {
       before: "PowerMax + Commvault",
-      after: "FlashArray/FlashBlade + Rubrik",
+      after: "FlashArray + FlashBlade//S + FlashBlade//E + Rubrik",
     },
     outcomes: [
       "Immutable backups and rapid cyber recovery for Epic and imaging workflows.",
