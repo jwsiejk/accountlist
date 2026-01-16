@@ -16,7 +16,7 @@ export function CaseStudyHero({ caseStudy }: CaseStudyHeroProps) {
     <section className="space-y-6">
       <Link
         href="/case-studies"
-        className="text-xs font-semibold uppercase tracking-wide text-primary transition hover:text-primary/80"
+        className="text-xs font-semibold uppercase tracking-wide text-primary transition hover:text-primary/80 motion-safe:hover:-translate-y-0.5 motion-reduce:transition-none"
       >
         ← Back to case studies
       </Link>
