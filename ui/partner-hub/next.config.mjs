@@ -5,7 +5,6 @@ const nextConfig = {
   reactStrictMode: true,
   output: "export",
   basePath,
-  assetPrefix: basePath,
   images: { unoptimized: true },
   trailingSlash: true,
   env: {
