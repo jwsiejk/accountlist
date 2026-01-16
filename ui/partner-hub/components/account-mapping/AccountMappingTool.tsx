@@ -1620,17 +1620,14 @@ export default function AccountMappingTool() {
     [partnerMapping],
   );
 
-  const vendorRows = vendorState.result?.rows ?? [];
-  const partnerRows = partnerState.result?.rows ?? [];
-
-  const vendorRecords = useMemo(
-    () => buildAccountRecords(vendorRows, normalizedVendorMapping, "vendor"),
-    [buildAccountRecords, vendorRows, normalizedVendorMapping],
-  );
-  const partnerRecords = useMemo(
-    () => buildAccountRecords(partnerRows, normalizedPartnerMapping, "partner"),
-    [buildAccountRecords, partnerRows, normalizedPartnerMapping],
-  );
+  const vendorRecords = useMemo(() => {
+    const vendorRows = vendorState.result?.rows ?? [];
+    return buildAccountRecords(vendorRows, normalizedVendorMapping, "vendor");
+  }, [buildAccountRecords, normalizedVendorMapping, vendorState.result?.rows]);
+  const partnerRecords = useMemo(() => {
+    const partnerRows = partnerState.result?.rows ?? [];
+    return buildAccountRecords(partnerRows, normalizedPartnerMapping, "partner");
+  }, [buildAccountRecords, normalizedPartnerMapping, partnerState.result?.rows]);
 
   const vendorById = useMemo(
     () => new Map(vendorRecords.map((record) => [record.id, record])),

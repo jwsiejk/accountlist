@@ -62,6 +62,17 @@ type Inputs = {
 type NetAppMode = "auto" | "manual";
 type ViewMode = "energy" | "sustainability" | "both";
 
+type RowKey =
+  | "effectiveTb"
+  | "weightedW"
+  | "kwhPerYear"
+  | "annualCost"
+  | "costPct"
+  | "btuPerHour"
+  | "rackUnits"
+  | "co2eYear"
+  | "co2ePerTbYear";
+
 type ManualInputs = {
   controllerModel: string;
   expansionModel: string;
@@ -92,6 +103,43 @@ type VendorUpdateReport = {
   changed: VendorReportEntry[];
   missing: VendorReportEntry[];
   error: VendorReportEntry[];
+};
+
+const energyRowKeys = [
+  "effectiveTb",
+  "weightedW",
+  "kwhPerYear",
+  "annualCost",
+  "costPct",
+  "rackUnits",
+] as const satisfies readonly RowKey[];
+const energyTotalsRowKeys = [
+  "effectiveTb",
+  "weightedW",
+  "kwhPerYear",
+  "annualCost",
+  "costPct",
+  "btuPerHour",
+  "rackUnits",
+] as const satisfies readonly RowKey[];
+const sustainabilityRowKeys = ["effectiveTb", "co2eYear", "co2ePerTbYear"] as const satisfies readonly RowKey[];
+const energyRowKeySet = new Set<RowKey>(energyRowKeys);
+const combinedRowKeys = (primary: readonly RowKey[], secondary: readonly RowKey[]) => {
+  const seen = new Set<RowKey>();
+  const list: RowKey[] = [];
+  for (const key of primary) {
+    if (!seen.has(key)) {
+      seen.add(key);
+      list.push(key);
+    }
+  }
+  for (const key of secondary) {
+    if (!seen.has(key)) {
+      seen.add(key);
+      list.push(key);
+    }
+  }
+  return list;
 };
 
 const defaults: Omit<Inputs, "dfmTb" | "capacityPb"> = {
@@ -559,54 +607,6 @@ export function EnergyTool() {
   const formatCo2eYear = (kg: number | null) => (kg == null ? "—" : `${fmt2.format(kg / 1000)} tCO₂e/year`);
   const formatCo2ePerTbYear = (kg: number | null) =>
     kg == null ? "—" : `${fmt1.format(kg)} kgCO₂e / TB-year`;
-
-  type RowKey =
-    | "effectiveTb"
-    | "weightedW"
-    | "kwhPerYear"
-    | "annualCost"
-    | "costPct"
-    | "btuPerHour"
-    | "rackUnits"
-    | "co2eYear"
-    | "co2ePerTbYear";
-
-  const energyRowKeys = [
-    "effectiveTb",
-    "weightedW",
-    "kwhPerYear",
-    "annualCost",
-    "costPct",
-    "rackUnits",
-  ] as const satisfies readonly RowKey[];
-  const energyTotalsRowKeys = [
-    "effectiveTb",
-    "weightedW",
-    "kwhPerYear",
-    "annualCost",
-    "costPct",
-    "btuPerHour",
-    "rackUnits",
-  ] as const satisfies readonly RowKey[];
-  const sustainabilityRowKeys = ["effectiveTb", "co2eYear", "co2ePerTbYear"] as const satisfies readonly RowKey[];
-  const energyRowKeySet = new Set<RowKey>(energyRowKeys);
-  const combinedRowKeys = (primary: readonly RowKey[], secondary: readonly RowKey[]) => {
-    const seen = new Set<RowKey>();
-    const list: RowKey[] = [];
-    for (const key of primary) {
-      if (!seen.has(key)) {
-        seen.add(key);
-        list.push(key);
-      }
-    }
-    for (const key of secondary) {
-      if (!seen.has(key)) {
-        seen.add(key);
-        list.push(key);
-      }
-    }
-    return list;
-  };
 
   const totalsRowKeys = useMemo<RowKey[]>(() => {
     if (view === "energy") return [...energyTotalsRowKeys];
@@ -1369,7 +1369,7 @@ export function EnergyTool() {
                                     }
                                   }}
                                   role="button"
-                                  aria-selected={isSelected}
+                                  aria-pressed={isSelected}
                                   tabIndex={0}
                                 >
                                   <td className="py-2 pr-3 font-medium">
