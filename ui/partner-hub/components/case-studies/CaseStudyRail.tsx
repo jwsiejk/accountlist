@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/card";
 import type { CaseStudy } from "@/data/case-studies";
 import { CopyLinkButton } from "@/components/case-studies/CopyLinkButton";
 import { Button } from "@/components/ui/button";
+import { getSourceDomain } from "@/lib/case-study-sources";
 
 const sectionTitleStyles =
   "text-xs font-semibold uppercase tracking-wide text-foreground/60";
@@ -23,6 +24,16 @@ type CaseStudyRailProps = {
 };
 
 export function CaseStudyRail({ caseStudy }: CaseStudyRailProps) {
+  const sources = caseStudy.sources.map((source, index) => ({
+    ...source,
+    index: index + 1,
+    domain: getSourceDomain(source.url),
+  }));
+  const vendorSources = sources.filter((source) => source.category === "vendor");
+  const thirdPartySources = sources.filter(
+    (source) => source.category === "third-party"
+  );
+
   return (
     <aside className="space-y-4 lg:sticky lg:top-24">
       <Card className="space-y-3 border-border/70 p-4 motion-safe:transition motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-sm motion-reduce:transition-none">
@@ -132,20 +143,68 @@ export function CaseStudyRail({ caseStudy }: CaseStudyRailProps) {
 
       <Card className="space-y-3 border-border/70 p-4 motion-safe:transition motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-sm motion-reduce:transition-none">
         <h2 className={sectionTitleStyles}>Sources</h2>
-        <ul className="space-y-2 text-sm">
-          {caseStudy.citations.map((citation) => (
-            <li key={citation.href}>
-              <a
-                href={citation.href}
-                target="_blank"
-                rel="noreferrer"
-                className="font-semibold text-primary transition hover:underline motion-safe:hover:translate-x-0.5 motion-reduce:transition-none"
-              >
-                {citation.label}
-              </a>
-            </li>
-          ))}
-        </ul>
+        <div className="space-y-3 text-xs text-foreground/70">
+          <p>
+            Inline references are numbered.{" "}
+            <a
+              href="#citations-appendix"
+              className="font-semibold text-primary hover:underline"
+            >
+              View appendix
+            </a>
+            .
+          </p>
+          <div className="space-y-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50">
+                Vendor references
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {vendorSources.length ? (
+                  vendorSources.map((source) => (
+                    <a
+                      key={source.id}
+                      href={source.url}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-muted/40 px-2 py-1 text-[11px] font-semibold text-foreground/80 transition hover:underline"
+                    >
+                      <span className="text-foreground/50">[{source.index}]</span>
+                      <span>{source.title}</span>
+                      <span className="text-foreground/50">({source.domain})</span>
+                    </a>
+                  ))
+                ) : (
+                  <span className="text-foreground/50">None listed.</span>
+                )}
+              </div>
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50">
+                Third-party references
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {thirdPartySources.length ? (
+                  thirdPartySources.map((source) => (
+                    <a
+                      key={source.id}
+                      href={source.url}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-muted/40 px-2 py-1 text-[11px] font-semibold text-foreground/80 transition hover:underline"
+                    >
+                      <span className="text-foreground/50">[{source.index}]</span>
+                      <span>{source.title}</span>
+                      <span className="text-foreground/50">({source.domain})</span>
+                    </a>
+                  ))
+                ) : (
+                  <span className="text-foreground/50">None listed.</span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       </Card>
     </aside>
   );

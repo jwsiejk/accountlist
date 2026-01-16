@@ -4,11 +4,17 @@ type CaseStudySectionProps = {
   title: string;
   eyebrow?: string;
   children: ReactNode;
+  id?: string;
 };
 
-export function CaseStudySection({ title, eyebrow, children }: CaseStudySectionProps) {
+export function CaseStudySection({
+  title,
+  eyebrow,
+  children,
+  id,
+}: CaseStudySectionProps) {
   return (
-    <section className="space-y-4">
+    <section id={id} className="space-y-4">
       <div className="space-y-2">
         {eyebrow ? (
           <p className="text-xs font-semibold uppercase tracking-wide text-foreground/50">

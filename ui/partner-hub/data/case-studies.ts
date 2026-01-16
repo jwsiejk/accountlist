@@ -14,10 +14,13 @@ export type CaseStudyOutcome = {
   citationIds?: string[];
 };
 
-export type CaseStudyCitation = {
+export type CaseStudySourceCategory = "vendor" | "third-party";
+
+export type CaseStudySource = {
   id: string;
-  label: string;
-  href: string;
+  title: string;
+  url: string;
+  category: CaseStudySourceCategory;
 };
 
 export type CaseStudy = {
@@ -40,7 +43,7 @@ export type CaseStudy = {
     heroTile?: string;
     architecture?: string;
   };
-  citations: CaseStudyCitation[];
+  sources: CaseStudySource[];
 };
 
 export const caseStudies: CaseStudy[] = [
@@ -138,18 +141,36 @@ export const caseStudies: CaseStudy[] = [
       architecture:
         "/images/case-studies/healthcare-data-center-refresh-architecture.png",
     },
-    citations: [
-      { id: "epic", label: "Epic Systems", href: "https://www.epic.com/" },
-      { id: "rubrik", label: "Rubrik", href: "https://www.rubrik.com/" },
+    sources: [
+      {
+        id: "epic",
+        title: "Epic Systems",
+        url: "https://www.epic.com/",
+        category: "vendor",
+      },
+      {
+        id: "rubrik",
+        title: "Rubrik",
+        url: "https://www.rubrik.com/",
+        category: "vendor",
+      },
       {
         id: "pure-flasharray",
-        label: "Pure Storage FlashArray",
-        href: "https://www.purestorage.com/products/flasharray.html",
+        title: "Pure Storage FlashArray",
+        url: "https://www.purestorage.com/products/flasharray.html",
+        category: "vendor",
       },
       {
         id: "pure-flashblade",
-        label: "Pure Storage FlashBlade",
-        href: "https://www.purestorage.com/products/flashblade.html",
+        title: "Pure Storage FlashBlade",
+        url: "https://www.purestorage.com/products/flashblade.html",
+        category: "vendor",
+      },
+      {
+        id: "hipaa-security-rule",
+        title: "HIPAA Security Rule (HHS)",
+        url: "https://www.hhs.gov/hipaa/for-professionals/security/index.html",
+        category: "third-party",
       },
     ],
   },
