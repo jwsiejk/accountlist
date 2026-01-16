@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { Moon, Sun, Search, ArrowUpRight } from "lucide-react";
 import { Button } from "./ui/button";
+import { withBasePath } from "@/lib/basePath";
 import { useOmniSearch, type OmniLink } from "@/lib/use-omni-search";
 
 export function AppHeader() {
@@ -37,20 +38,22 @@ export function AppHeader() {
           className="flex items-center gap-2 rounded-md px-2 py-1 text-primary transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           <Image
-            src="/brand/pure.svg"
+            src={withBasePath("/brand/pure.svg")}
             alt="Pure Storage"
             width={76}
             height={24}
+            className="h-auto w-auto"
             priority
           />
           <span aria-hidden className="text-sm font-semibold text-accent">
             ×
           </span>
           <Image
-            src="/brand/trace3.svg"
+            src={withBasePath("/brand/trace3.svg")}
             alt="Trace3"
             width={76}
             height={24}
+            className="h-auto w-auto"
             priority
           />
         </Link>
