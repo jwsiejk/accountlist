@@ -13,6 +13,7 @@ export type CaseStudy = {
   industry: string;
   workloads: string[];
   tags: string[];
+  ogImage?: string;
   stack: {
     before: string;
     after: string;
@@ -51,6 +52,7 @@ export const caseStudies: CaseStudy[] = [
       "data center refresh",
       "resilience",
     ],
+    ogImage: "/images/case-studies/healthcare-data-center-refresh-hero.png",
     stack: {
       before: "PowerMax + Commvault",
       after: "FlashArray + FlashBlade//S + FlashBlade//E + Rubrik",
