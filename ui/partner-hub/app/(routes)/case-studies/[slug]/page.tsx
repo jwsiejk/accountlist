@@ -6,6 +6,7 @@ import { CaseStudyHero } from "@/components/case-studies/CaseStudyHero";
 import { CaseStudyRail } from "@/components/case-studies/CaseStudyRail";
 import { CaseStudySection } from "@/components/case-studies/CaseStudySection";
 import { CalloutCard } from "@/components/case-studies/CalloutCard";
+import { DisclaimerCallout } from "@/components/case-studies/DisclaimerCallout";
 import { ArchitectureDiagramSvg } from "@/components/case-studies/ArchitectureDiagramSvg";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CaseStudy } from "@/data/case-studies";
@@ -341,6 +342,8 @@ export default function CaseStudyPage({ params }: CaseStudyPageProps) {
               ) : null}
             </CaseStudySection>
           ))}
+
+          <DisclaimerCallout />
 
           <CaseStudySection title="Sources / Evidence" eyebrow="Citations">
             <Card className="space-y-4 border-border/70 p-4 motion-safe:transition motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-sm motion-reduce:transition-none">
