@@ -3,7 +3,8 @@ import { CaseStudyHero } from "@/components/case-studies/CaseStudyHero";
 import { CaseStudyRail } from "@/components/case-studies/CaseStudyRail";
 import { CaseStudySection } from "@/components/case-studies/CaseStudySection";
 import { CalloutCard } from "@/components/case-studies/CalloutCard";
-import { Card } from "@/components/ui/card";
+import { ArchitectureDiagramSvg } from "@/components/case-studies/ArchitectureDiagramSvg";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { caseStudies } from "@/data/case-studies";
 
 type CaseStudyPageProps = {
@@ -105,37 +106,51 @@ export default function CaseStudyPage({ params }: CaseStudyPageProps) {
             ))}
           </CaseStudySection>
 
-          <CaseStudySection title="Architecture at a glance" eyebrow="Storage blueprint">
+          <CaseStudySection title="Architecture" eyebrow="Reference design">
             <p>
               A tiered storage and backup architecture anchors Epic and PACS
               workloads while isolating recovery lanes for cyber resilience.
             </p>
-            <div className="rounded-2xl border border-border/70 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-6">
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-white/70">
-                  Epic + Clinical Apps
+            {params.slug === "healthcare-data-center-refresh" ? (
+              <Card className="border-border/70 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
+                <CardHeader>
+                  <CardTitle className="text-white">Reference Architecture</CardTitle>
+                  <p className="text-sm text-white/70">
+                    Tier-0 Epic on FlashArray; PACS + AI on FlashBlade//S; archive on
+                    FlashBlade//E; Rubrik for policy-based NAS protection and cyber
+                    recovery.
+                  </p>
+                </CardHeader>
+                <ArchitectureDiagramSvg />
+              </Card>
+            ) : (
+              <div className="rounded-2xl border border-border/70 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-6">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-white/70">
+                    Epic + Clinical Apps
+                  </div>
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-white/70">
+                    FlashArray (Tier-0)
+                  </div>
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-white/70">
+                    Rubrik Cyber Vault
+                  </div>
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-white/70">
+                    PACS + Imaging AI
+                  </div>
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-white/70">
+                    FlashBlade//S
+                  </div>
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-white/70">
+                    FlashBlade//E Archive
+                  </div>
                 </div>
-                <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-white/70">
-                  FlashArray (Tier-0)
-                </div>
-                <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-white/70">
-                  Rubrik Cyber Vault
-                </div>
-                <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-white/70">
-                  PACS + Imaging AI
-                </div>
-                <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-white/70">
-                  FlashBlade//S
-                </div>
-                <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-white/70">
-                  FlashBlade//E Archive
-                </div>
+                <p className="mt-4 text-xs text-white/50">
+                  Secure lanes separate clinical operations from immutable recovery
+                  stores.
+                </p>
               </div>
-              <p className="mt-4 text-xs text-white/50">
-                Secure lanes separate clinical operations from immutable recovery
-                stores.
-              </p>
-            </div>
+            )}
           </CaseStudySection>
 
           <CaseStudySection title="Before → After" eyebrow="Transformation">
