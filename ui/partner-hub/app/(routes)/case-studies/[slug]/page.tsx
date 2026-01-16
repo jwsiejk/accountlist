@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CaseStudyHero } from "@/components/case-studies/CaseStudyHero";
 import { CaseStudyRail } from "@/components/case-studies/CaseStudyRail";
@@ -5,7 +6,11 @@ import { CaseStudySection } from "@/components/case-studies/CaseStudySection";
 import { CalloutCard } from "@/components/case-studies/CalloutCard";
 import { ArchitectureDiagramSvg } from "@/components/case-studies/ArchitectureDiagramSvg";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { caseStudies } from "@/data/case-studies";
+import {
+  getCaseStudyBySlug,
+  getCaseStudyOgImage,
+  getCaseStudySlugs,
+} from "@/lib/case-studies";
 
 type CaseStudyPageProps = {
   params: {
@@ -87,8 +92,48 @@ const migrationPlan = [
   },
 ];
 
+export function generateMetadata({ params }: CaseStudyPageProps): Metadata {
+  const caseStudy = getCaseStudyBySlug(params.slug);
+
+  if (!caseStudy) {
+    notFound();
+  }
+
+  const title = `${caseStudy.title} Case Study`;
+  const description = caseStudy.heroSummary;
+  const ogImage = getCaseStudyOgImage(caseStudy);
+  const url = `/partner-hub/case-studies/${caseStudy.slug}`;
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: url,
+    },
+    keywords: [caseStudy.industry, ...caseStudy.tags],
+    openGraph: {
+      title,
+      description,
+      type: "article",
+      url,
+      images: [
+        {
+          url: ogImage,
+          alt: `${caseStudy.title} preview`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImage],
+    },
+  };
+}
+
 export default function CaseStudyPage({ params }: CaseStudyPageProps) {
-  const caseStudy = caseStudies.find((study) => study.slug === params.slug);
+  const caseStudy = getCaseStudyBySlug(params.slug);
 
   if (!caseStudy) {
     notFound();
@@ -266,5 +311,5 @@ export default function CaseStudyPage({ params }: CaseStudyPageProps) {
 }
 
 export function generateStaticParams() {
-  return caseStudies.map((study) => ({ slug: study.slug }));
+  return getCaseStudySlugs();
 }
