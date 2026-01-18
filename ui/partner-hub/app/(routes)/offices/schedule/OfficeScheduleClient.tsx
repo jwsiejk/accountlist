@@ -821,7 +821,7 @@ export function OfficeScheduleClient({
                 </div>
 
                 {/* Times */}
-                <aside className="rounded-xl border border-border/70 bg-muted/20 p-4">
+                <aside className="flex flex-col">
                   <div className="text-sm font-semibold">{formatDayLabel(baseDate)}</div>
                   <div className="mt-1 text-xs text-foreground/60">
                     {selectedDayAvailableCount === 0
