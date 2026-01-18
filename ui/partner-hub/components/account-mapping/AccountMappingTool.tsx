@@ -14,19 +14,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { inferMappingFromHeaders } from "@/lib/account-mapping/inference";
-import { matchAccounts, type MatchResult, type MatchType } from "@/lib/account-mapping/match";
-import { normalizeName } from "@/lib/account-mapping/normalize";
 import {
   canonicalFields,
   createEmptyRawMapping,
-  normalizeMapping,
   validateMapping,
   type RawAccountMapping,
 } from "@/lib/account-mapping/schema";
-import {
-  applyDecisionsToRows,
-  type ReviewRowStatus,
-} from "@/lib/account-mapping/decisionStore";
+import { type ReviewRowStatus } from "@/lib/account-mapping/decisionStore";
 import { buildCsv, downloadCsv, type CsvValue } from "@/lib/account-mapping/csv";
 import { TEMPLATE_STORAGE_KEY } from "@/lib/account-mapping/templateStorage";
 import {
@@ -79,12 +73,12 @@ import { MergedDatasetSearchPanelSimple } from "./MergedDatasetSearchPanelSimple
 import { PreviewTable } from "./PreviewTable";
 import { VirtualizedList } from "./VirtualizedList";
 import { useCsvParseWorkers, type RunStats } from "./hooks/useCsvParseWorkers";
+import { useAccountMappingModel } from "./hooks/useAccountMappingModel";
 import { useDebouncedValue } from "./hooks/useDebouncedValue";
 import { useMappingDecisions } from "./hooks/useMappingDecisions";
 import { useMappingTemplates } from "./hooks/useMappingTemplates";
 import { useRunHistory } from "./hooks/useRunHistory";
 import type {
-  AccountRecord,
   AiResult,
   AiReviewItem,
   AiReviewMode,
@@ -279,43 +273,6 @@ export default function AccountMappingTool() {
     [applyTemplate, setPartnerMapping, setVendorMapping],
   );
 
-  const buildAccountRecords = useCallback(
-    (
-      rows: Record<string, string>[],
-      mapping: ReturnType<typeof normalizeMapping>,
-      prefix: string,
-    ): AccountRecord[] => {
-      const nameKey = mapping.account_name;
-      if (!nameKey) {
-        return [];
-      }
-
-      return rows.map((row, index) => {
-        const rawName = row[nameKey] ?? "";
-        const normalized = normalizeName(rawName);
-        const crmAccountId = mapping.crm_account_id ? row[mapping.crm_account_id] ?? "" : "";
-        const accountKey = crmAccountId || rawName || `${prefix}-${index}`;
-
-        return {
-          id: `${prefix}-${index}`,
-          accountKey,
-          rawName,
-          normalizedName: normalized,
-          ownerName: mapping.owner_name ? row[mapping.owner_name] ?? "" : "",
-          managerName: mapping.manager_name ? row[mapping.manager_name] ?? "" : "",
-          pamName: mapping.pam_name ? row[mapping.pam_name] ?? "" : "",
-          status: mapping.status ? row[mapping.status] ?? "" : "",
-          segmentType: mapping.segment_type ? row[mapping.segment_type] ?? "" : "",
-          region: mapping.region ? row[mapping.region] ?? "" : "",
-          organization: mapping.organization ? row[mapping.organization] ?? "" : "",
-          crmAccountId: crmAccountId || undefined,
-        };
-      });
-    },
-    [],
-  );
-
-
   const renderMappingTable = (
     title: string,
     headers: string[],
@@ -379,105 +336,34 @@ export default function AccountMappingTool() {
     </Card>
   );
 
-  const normalizedVendorMapping = useMemo(
-    () => normalizeMapping(vendorMapping),
-    [vendorMapping],
-  );
-  const normalizedPartnerMapping = useMemo(
-    () => normalizeMapping(partnerMapping),
-    [partnerMapping],
-  );
-
-  const vendorRecords = useMemo(() => {
-    const vendorRows = vendorState.result?.rows ?? [];
-    return buildAccountRecords(vendorRows, normalizedVendorMapping, "vendor");
-  }, [buildAccountRecords, normalizedVendorMapping, vendorState.result?.rows]);
-  const partnerRecords = useMemo(() => {
-    const partnerRows = partnerState.result?.rows ?? [];
-    return buildAccountRecords(partnerRows, normalizedPartnerMapping, "partner");
-  }, [buildAccountRecords, normalizedPartnerMapping, partnerState.result?.rows]);
-
-  const vendorById = useMemo(
-    () => new Map(vendorRecords.map((record) => [record.id, record])),
-    [vendorRecords],
-  );
-  const partnerById = useMemo(
-    () => new Map(partnerRecords.map((record) => [record.id, record])),
-    [partnerRecords],
-  );
-  const partnerByAccountKey = useMemo(
-    () => new Map(partnerRecords.map((record) => [record.accountKey, record])),
-    [partnerRecords],
-  );
-
-  const matchComputation = useMemo(() => {
-    if (vendorRecords.length === 0 || partnerRecords.length === 0) {
-      return { results: [], durationMs: 0 };
-    }
-    const startTime = performance.now();
-    const results = matchAccounts(
-      vendorRecords.map((record) => ({ id: record.id, name: record.rawName })),
-      partnerRecords.map((record) => ({ id: record.id, name: record.rawName })),
-    );
-    const durationMs = performance.now() - startTime;
-    return { results, durationMs };
-  }, [vendorRecords, partnerRecords]);
-
-  const matchResults = useMemo(() => matchComputation.results, [matchComputation.results]);
+  const {
+    vendorRecords,
+    partnerRecords,
+    matchResults,
+    reviewRows,
+    reviewRowById,
+    modelStats,
+    timings,
+  } = useAccountMappingModel({
+    vendorParseResult: vendorState.result,
+    partnerParseResult: partnerState.result,
+    vendorMapping,
+    partnerMapping,
+    decisions,
+  });
 
   useEffect(() => {
     const runStart = runStartRef;
-    if (!matchComputation.durationMs && matchResults.length === 0) {
+    if (!timings.matchMs && matchResults.length === 0) {
       return;
     }
     const endTime = performance.now();
     setRunStats((prev) => ({
       ...prev,
-      matchMs: matchComputation.durationMs,
+      matchMs: timings.matchMs,
       totalMs: runStart.current ? endTime - runStart.current : prev.totalMs,
     }));
-  }, [matchComputation.durationMs, matchResults.length, runStartRef]);
-
-  const baseReviewRows = useMemo(() => {
-    return matchResults
-      .map<ReviewRow | null>((result) => {
-        const vendor = vendorById.get(result.source.id);
-        if (!vendor) {
-          return null;
-        }
-        const partner = result.best ? partnerById.get(result.best.id) ?? null : null;
-        return {
-          id: vendor.id,
-          vendor,
-          partner,
-          vendorAccountKey: vendor.accountKey,
-          partnerAccountKey: partner?.accountKey ?? null,
-          normalizedName: result.normalizedName,
-          matchScore: result.best?.score ?? null,
-          matchType: result.best?.matchType ?? null,
-          status: result.status,
-          baseStatus: result.status,
-          reasons: result.best?.reasons ?? [],
-        } as ReviewRow;
-      })
-      .filter((row): row is ReviewRow => row !== null);
-  }, [matchResults, partnerById, vendorById]);
-
-  const reviewRows = useMemo(() => {
-    const withDecisions = applyDecisionsToRows(baseReviewRows, decisions);
-    return withDecisions.map((row) => {
-      if (!row.partnerAccountKey) {
-        return row;
-      }
-      const partner = partnerByAccountKey.get(row.partnerAccountKey) ?? row.partner;
-      return {
-        ...row,
-        partner,
-      };
-    });
-  }, [baseReviewRows, decisions, partnerByAccountKey]);
-
-  const reviewRowById = useMemo(() => new Map(reviewRows.map((row) => [row.id, row])), [reviewRows]);
+  }, [matchResults.length, runStartRef, setRunStats, timings.matchMs]);
 
   const aiReviewRows = useMemo(
     () =>
@@ -665,13 +551,7 @@ export default function AccountMappingTool() {
     });
   }, [activeTab, debouncedSearch, decisionFilter, reviewRows]);
 
-  const summary = useMemo(() => {
-    const total = reviewRows.length;
-    const matched = reviewRows.filter((row) => row.baseStatus === "autoMatch").length;
-    const needsReview = reviewRows.filter((row) => row.baseStatus === "review").length;
-    const unmatched = reviewRows.filter((row) => row.baseStatus === "unmatched").length;
-    return { total, matched, needsReview, unmatched };
-  }, [reviewRows]);
+  const summary = modelStats;
 
   const autoMatchPercent = summary.total
     ? Math.round((summary.matched / summary.total) * 100)
