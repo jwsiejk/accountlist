@@ -65,3 +65,27 @@ export type AiReviewItem = {
   key: string;
   rowId: string;
 };
+
+export type TargetRuleMode = "both" | "either";
+
+export type TargetRuleState = {
+  mode: TargetRuleMode;
+  vendorStatus: string;
+  partnerStatus: string;
+  eitherStatus: string;
+};
+
+export type DiffSummary = {
+  newMatches: number;
+  removedMatches: number;
+  newlyUnmatched: number;
+};
+
+export type TourStep = {
+  id: string;
+  title: string;
+  body: string;
+  highlight?: string;
+  autoAdvance?: boolean;
+  canAdvance?: boolean;
+};
