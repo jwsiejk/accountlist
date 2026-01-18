@@ -8,6 +8,7 @@ import {
   type MergedAccountExportRow,
   type TargetExportRow,
 } from "@/lib/account-mapping/exportSchema";
+import type { CsvRows } from "@/lib/account-mapping/csv";
 import type { MergedSearchRow } from "@/lib/account-mapping/mergedSearch";
 import {
   resolveMergedSearchDataset,
@@ -36,17 +37,17 @@ export type AccountMappingViewModel = {
   statusOptions: string[];
   matchPairs: MatchPairSnapshot[];
   mergedExportRows: MergedAccountExportRow[];
-  mergedExportCsvRows: string[][];
+  mergedExportCsvRows: CsvRows;
   targetRows: TargetExportRow[];
   targetPreview: TargetExportRow[];
-  targetExportCsvRows: string[][];
+  targetExportCsvRows: CsvRows;
   activeMergedSearchDataset: MergedSearchDatasetSelection;
   mergedSearchRows: MergedSearchRow[];
   mergedSearchHeaders: string[];
   mergedSearchLabel: string;
   latestComparableRun?: AccountMappingRun;
   diffSummary: DiffSummary | null;
-  buildMergedSearchCsvRows: (rows: MergedSearchRow[], headers: string[]) => string[][];
+  buildMergedSearchCsvRows: (rows: MergedSearchRow[], headers: string[]) => CsvRows;
 };
 
 type AccountMappingViewModelArgs = {
