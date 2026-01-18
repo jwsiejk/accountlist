@@ -513,17 +513,17 @@ export default function AccountMappingTool() {
   const matchResults = useMemo(() => matchComputation.results, [matchComputation.results]);
 
   useEffect(() => {
+    const runStart = runStartRef;
     if (!matchComputation.durationMs && matchResults.length === 0) {
       return;
     }
     const endTime = performance.now();
-    // runStartRef is a stable ref; exhaustive-deps warning is a false positive for refs.
     setRunStats((prev) => ({
       ...prev,
       matchMs: matchComputation.durationMs,
-      totalMs: runStartRef.current ? endTime - runStartRef.current : prev.totalMs,
+      totalMs: runStart.current ? endTime - runStart.current : prev.totalMs,
     }));
-  }, [matchComputation.durationMs, matchResults.length]);
+  }, [matchComputation.durationMs, matchResults.length, runStartRef]);
 
   const baseReviewRows = useMemo(() => {
     return matchResults
