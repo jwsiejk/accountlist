@@ -1072,6 +1072,8 @@ export default function AccountMappingTool() {
     selectedTemplateId,
     targetRows.length,
     templates,
+    setRunHistoryError,
+    setRunHistoryStatus,
     vendorFileName,
     vendorMapping,
     vendorRecords.length,
@@ -1140,7 +1142,14 @@ export default function AccountMappingTool() {
       setDecisions(run.decisions);
       setSelectedTemplateId(run.templateId ?? "");
     },
-    [],
+    [
+      setDecisions,
+      setPartnerMapping,
+      setPartnerState,
+      setSelectedTemplateId,
+      setVendorMapping,
+      setVendorState,
+    ],
   );
 
   const loadDemoDataset = useCallback(async () => {
@@ -1193,7 +1202,14 @@ export default function AccountMappingTool() {
     } finally {
       setIsDemoLoading(false);
     }
-  }, [handlePartnerFile, handleVendorFile, resetRunTracking]);
+  }, [
+    handlePartnerFile,
+    handleVendorFile,
+    resetRunTracking,
+    setDecisions,
+    setSelectedTemplateId,
+    setTemplateName,
+  ]);
 
   return (
     <section className="space-y-8 md:space-y-10">
