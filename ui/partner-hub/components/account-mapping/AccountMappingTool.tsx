@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,48 +12,18 @@ import {
 } from "@/lib/account-mapping/schema";
 import { buildCsv, downloadCsv } from "@/lib/account-mapping/csv";
 import { TEMPLATE_STORAGE_KEY } from "@/lib/account-mapping/templateStorage";
-import {
-  mergedAccountExportHeaders,
-  targetExportHeaders,
-  type MergedAccountExportRow,
-  type TargetExportRow,
-} from "@/lib/account-mapping/exportSchema";
+import { mergedAccountExportHeaders, targetExportHeaders } from "@/lib/account-mapping/exportSchema";
 import { type MergedSearchRow } from "@/lib/account-mapping/mergedSearch";
-import {
-  buildBaseRows,
-  buildOptionsFor,
-  buildOptionsWithCounts,
-  clearInvalidFilters,
-  createEmptyFilterState,
-  getEligibleRows,
-  isFilterStateEmpty,
-  type FilterKey,
-  type MergedSearchFilterState,
-} from "@/lib/account-mapping/mergedSearchFilters";
-import {
-  resolveMergedSearchDataset,
-  type MergedSearchDatasetSelection,
-} from "@/lib/account-mapping/mergedSearchDataset";
-import {
-  findLatestRunByFiles,
-  saveRun,
-  type AccountMappingRun,
-  type MatchPairSnapshot,
-  type StoredCsvSnapshot,
-} from "@/lib/account-mapping/runHistory";
-import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
-import { MultiCombobox } from "@/components/ui/multiCombobox";
+import { type MergedSearchDatasetSelection } from "@/lib/account-mapping/mergedSearchDataset";
+import { saveRun, type AccountMappingRun, type StoredCsvSnapshot } from "@/lib/account-mapping/runHistory";
 import { withBasePath } from "@/lib/basePath";
 
 import { AiReviewModal } from "./AiReviewModal";
 import {
-  AI_VERDICT_STYLES,
   INPUT_BASE_CLASSES,
   MAX_PREVIEW_ROWS,
   REVIEW_LIST_HEIGHT,
   REVIEW_ROW_HEIGHT,
-  SEARCH_PREVIEW_ROWS,
-  SIMPLE_SEARCH_HEADERS,
   STATUS_STYLES,
 } from "./constants";
 import { FileDropzone } from "./FileDropzone";
@@ -71,12 +35,16 @@ import { VirtualizedList } from "./VirtualizedList";
 import { useCsvParseWorkers, type RunStats } from "./hooks/useCsvParseWorkers";
 import { useAccountMappingModel } from "./hooks/useAccountMappingModel";
 import { useAiReview } from "./hooks/useAiReview";
-import { useDebouncedValue } from "./hooks/useDebouncedValue";
+import { useAccountMappingViewModel } from "./hooks/useAccountMappingViewModel";
 import { useMappingDecisions } from "./hooks/useMappingDecisions";
 import { useMappingTemplates } from "./hooks/useMappingTemplates";
 import { useRunHistory } from "./hooks/useRunHistory";
-import type { CsvParseState, DiffSummary, TargetRuleMode, TargetRuleState, TourStep } from "./types";
-import { buildCsvRows, buildCsvSnapshot, buildRunId, formatMs, isMappingEmpty } from "./utils";
+import type { CsvParseState, TargetRuleState, TourStep } from "./types";
+import { buildCsvSnapshot, buildRunId, formatMs, isMappingEmpty } from "./utils";
+import { AccountMappingExportsPanel } from "./ui/AccountMappingExportsPanel";
+import { AccountMappingFiltersBar } from "./ui/AccountMappingFiltersBar";
+import { AccountMappingHeader } from "./ui/AccountMappingHeader";
+import { AccountMappingStatsBar } from "./ui/AccountMappingStatsBar";
 const DEMO_VENDOR_URL = withBasePath("/samples/account-mapping/vendor.csv");
 const DEMO_PARTNER_URL = withBasePath("/samples/account-mapping/partner.csv");
 
@@ -258,196 +226,47 @@ export default function AccountMappingTool() {
     }));
   }, [matchResults.length, runStartRef, setRunStats, timings.matchMs]);
 
-  const statusOptions = useMemo(() => {
-    const statusSet = new Set<string>();
-    vendorRecords.forEach((record) => {
-      const value = record.status?.trim();
-      if (value) {
-        statusSet.add(value);
-      }
-    });
-    partnerRecords.forEach((record) => {
-      const value = record.status?.trim();
-      if (value) {
-        statusSet.add(value);
-      }
-    });
-    return Array.from(statusSet).sort((a, b) => a.localeCompare(b));
-  }, [partnerRecords, vendorRecords]);
+  const vendorFileName = vendorState.file?.name ?? "";
+  const partnerFileName = partnerState.file?.name ?? "";
 
-  const matchPairs = useMemo<MatchPairSnapshot[]>(
-    () =>
-      reviewRows
-        .filter((row) => row.partnerAccountKey && row.status !== "rejected")
-        .map((row) => ({
-          vendorAccountKey: row.vendorAccountKey,
-          partnerAccountKey: row.partnerAccountKey as string,
-        })),
-    [reviewRows],
-  );
-
-  const debouncedSearch = useDebouncedValue(searchTerm, 200);
-
-  const filteredRows = useMemo(() => {
-    const normalizedSearch = debouncedSearch.trim().toLowerCase();
-    return reviewRows.filter((row) => {
-      if (activeTab === "auto" && row.baseStatus !== "autoMatch") {
-        return false;
-      }
-      if (activeTab === "review" && row.baseStatus !== "review") {
-        return false;
-      }
-      if (activeTab === "unmatched" && row.baseStatus !== "unmatched") {
-        return false;
-      }
-      if (decisionFilter === "pending" && ["confirmed", "rejected", "manual"].includes(row.status)) {
-        return false;
-      }
-      if (
-        decisionFilter === "decided" &&
-        !["confirmed", "rejected", "manual"].includes(row.status)
-      ) {
-        return false;
-      }
-      if (!normalizedSearch) {
-        return true;
-      }
-
-      const partnerName = row.partner?.rawName ?? "";
-      return (
-        row.vendor.rawName.toLowerCase().includes(normalizedSearch) ||
-        row.vendor.normalizedName.toLowerCase().includes(normalizedSearch) ||
-        partnerName.toLowerCase().includes(normalizedSearch)
-      );
-    });
-  }, [activeTab, debouncedSearch, decisionFilter, reviewRows]);
+  const {
+    filteredRows,
+    statusOptions,
+    matchPairs,
+    mergedExportRows,
+    mergedExportCsvRows,
+    targetRows,
+    targetPreview,
+    targetExportCsvRows,
+    activeMergedSearchDataset,
+    mergedSearchRows,
+    mergedSearchHeaders,
+    mergedSearchLabel,
+    latestComparableRun,
+    diffSummary,
+    buildMergedSearchCsvRows,
+  } = useAccountMappingViewModel({
+    reviewRows,
+    reviewRowById,
+    runHistory,
+    vendorFileName,
+    partnerFileName,
+    activeTab,
+    decisionFilter,
+    searchTerm,
+    targetRule,
+    mergedSearchDatasetSelection,
+    setMergedSearchDatasetSelection,
+    mergedSearchState,
+    vendorRecords,
+    partnerRecords,
+  });
 
   const summary = modelStats;
 
   const autoMatchPercent = summary.total
     ? Math.round((summary.matched / summary.total) * 100)
     : 0;
-
-  const mergedExportRows = useMemo<MergedAccountExportRow[]>(
-    () =>
-      reviewRows.map((row) => ({
-        vendor_account_name: row.vendor.rawName ?? "",
-        partner_account_name: row.partner?.rawName ?? "",
-        vendor_owner: row.vendor.ownerName ?? "",
-        vendor_manager: row.vendor.managerName ?? "",
-        vendor_pam: row.vendor.pamName ?? "",
-        partner_owner: row.partner?.ownerName ?? "",
-        partner_manager: row.partner?.managerName ?? "",
-        partner_pam: row.partner?.pamName ?? "",
-        vendor_status: row.vendor.status ?? "",
-        partner_status: row.partner?.status ?? "",
-        match_score: row.matchScore !== null ? String(row.matchScore) : "",
-        match_type: row.matchType ?? "",
-        match_reasons: row.reasons.join("; "),
-      })),
-    [reviewRows],
-  );
-
-  const runSearchDataset = useMemo<MergedSearchRow[]>(
-    () =>
-      reviewRows.map((row) => ({
-        vendor_account_name: row.vendor.rawName ?? "",
-        partner_account_name: row.partner?.rawName ?? "",
-        vendor_owner: row.vendor.ownerName ?? "",
-        partner_owner: row.partner?.ownerName ?? "",
-        vendor_status: row.vendor.status ?? "",
-        partner_status: row.partner?.status ?? "",
-        vendor_crm_account_id: row.vendor.crmAccountId ?? "",
-        partner_crm_account_id: row.partner?.crmAccountId ?? "",
-        vendor_region: row.vendor.region ?? "",
-        partner_region: row.partner?.region ?? "",
-        vendor_organization: row.vendor.organization ?? "",
-        partner_organization: row.partner?.organization ?? "",
-      })),
-    [reviewRows],
-  );
-  const uploadedSearchRows = useMemo<MergedSearchRow[]>(
-    () => (mergedSearchState.result?.rows ?? []) as MergedSearchRow[],
-    [mergedSearchState.result],
-  );
-  const uploadedSearchHeaders = mergedSearchState.result?.headers ?? [];
-
-  const hasRunDataset = runSearchDataset.length > 0;
-  const hasUploadedDataset = uploadedSearchRows.length > 0;
-
-  const activeMergedSearchDataset = useMemo(
-    () =>
-      resolveMergedSearchDataset(mergedSearchDatasetSelection, {
-        hasRunDataset,
-        hasUploadedDataset,
-      }),
-    [hasRunDataset, hasUploadedDataset, mergedSearchDatasetSelection],
-  );
-
-  useEffect(() => {
-    if (
-      activeMergedSearchDataset !== mergedSearchDatasetSelection &&
-      !hasRunDataset &&
-      hasUploadedDataset
-    ) {
-      setMergedSearchDatasetSelection(activeMergedSearchDataset);
-    }
-  }, [
-    activeMergedSearchDataset,
-    hasRunDataset,
-    hasUploadedDataset,
-    mergedSearchDatasetSelection,
-  ]);
-
-  const mergedSearchRows =
-    activeMergedSearchDataset === "run" ? runSearchDataset : uploadedSearchRows;
-  const mergedSearchHeaders =
-    activeMergedSearchDataset === "run" ? SIMPLE_SEARCH_HEADERS : uploadedSearchHeaders;
-  const mergedSearchLabel =
-    activeMergedSearchDataset === "run" ? "Current run" : "Uploaded merged CSV";
-
-  const targetRows = useMemo<TargetExportRow[]>(() => {
-    if (!targetRule.mode) {
-      return [];
-    }
-
-    return reviewRows
-      .filter((row) => row.partnerAccountKey && row.status !== "rejected")
-      .filter((row) => {
-        const vendorStatus = row.vendor.status?.trim() ?? "";
-        const partnerStatus = row.partner?.status?.trim() ?? "";
-
-        if (targetRule.mode === "both") {
-          if (!targetRule.vendorStatus || !targetRule.partnerStatus) {
-            return false;
-          }
-          return (
-            vendorStatus === targetRule.vendorStatus &&
-            partnerStatus === targetRule.partnerStatus
-          );
-        }
-
-        if (!targetRule.eitherStatus) {
-          return false;
-        }
-
-        return (
-          vendorStatus === targetRule.eitherStatus ||
-          partnerStatus === targetRule.eitherStatus
-        );
-      })
-      .map((row) => ({
-        vendor_account_name: row.vendor.rawName ?? "",
-        partner_account_name: row.partner?.rawName ?? "",
-        vendor_status: row.vendor.status ?? "",
-        partner_status: row.partner?.status ?? "",
-        match_score: row.matchScore !== null ? String(row.matchScore) : "",
-        match_type: row.matchType ?? "",
-        match_reasons: row.reasons.join("; "),
-      }));
-  }, [reviewRows, targetRule]);
-
-  const targetPreview = useMemo(() => targetRows.slice(0, 6), [targetRows]);
 
   const selectedRow = useMemo(
     () => reviewRows.find((row) => row.id === selectedRowId) ?? null,
@@ -458,64 +277,6 @@ export default function AccountMappingTool() {
     () => reviewRows.find((row) => row.id === manualLinkRowId) ?? null,
     [manualLinkRowId, reviewRows],
   );
-
-  const vendorFileName = vendorState.file?.name ?? "";
-  const partnerFileName = partnerState.file?.name ?? "";
-
-  const latestComparableRun = useMemo(() => {
-    if (!vendorFileName || !partnerFileName) {
-      return undefined;
-    }
-    return findLatestRunByFiles(runHistory, vendorFileName, partnerFileName);
-  }, [partnerFileName, runHistory, vendorFileName]);
-
-  const diffSummary = useMemo<DiffSummary | null>(() => {
-    if (!latestComparableRun) {
-      return null;
-    }
-
-    const currentMatchKeys = new Set(
-      matchPairs.map((pair) => `${pair.vendorAccountKey}::${pair.partnerAccountKey}`),
-    );
-    const previousMatchKeys = new Set(
-      latestComparableRun.matchPairs.map(
-        (pair) => `${pair.vendorAccountKey}::${pair.partnerAccountKey}`,
-      ),
-    );
-
-    let newMatches = 0;
-    let removedMatches = 0;
-
-    currentMatchKeys.forEach((key) => {
-      if (!previousMatchKeys.has(key)) {
-        newMatches += 1;
-      }
-    });
-
-    previousMatchKeys.forEach((key) => {
-      if (!currentMatchKeys.has(key)) {
-        removedMatches += 1;
-      }
-    });
-
-    const previousMatchedVendorKeys = new Set(
-      latestComparableRun.matchPairs.map((pair) => pair.vendorAccountKey),
-    );
-    const currentUnmatchedVendorKeys = new Set(
-      reviewRows
-        .filter((row) => !row.partnerAccountKey || row.status === "rejected")
-        .map((row) => row.vendorAccountKey),
-    );
-
-    let newlyUnmatched = 0;
-    currentUnmatchedVendorKeys.forEach((key) => {
-      if (previousMatchedVendorKeys.has(key)) {
-        newlyUnmatched += 1;
-      }
-    });
-
-    return { newMatches, removedMatches, newlyUnmatched };
-  }, [latestComparableRun, matchPairs, reviewRows]);
 
   const hasUploads = Boolean(vendorState.result && partnerState.result);
   const hasMappings = vendorValidation.success && partnerValidation.success;
@@ -716,30 +477,30 @@ export default function AccountMappingTool() {
   const handleDownloadMerged = useCallback(async () => {
     const csv = buildCsv(
       [...mergedAccountExportHeaders],
-      buildCsvRows(mergedAccountExportHeaders, mergedExportRows),
+      mergedExportCsvRows,
     );
     downloadCsv("merged_accounts.csv", csv);
     await saveRunSnapshot();
-  }, [mergedExportRows, saveRunSnapshot]);
+  }, [mergedExportCsvRows, saveRunSnapshot]);
 
   const handleDownloadTargets = useCallback(async () => {
     const csv = buildCsv(
       [...targetExportHeaders],
-      buildCsvRows(targetExportHeaders, targetRows),
+      targetExportCsvRows,
     );
     downloadCsv("targets.csv", csv);
     await saveRunSnapshot();
-  }, [saveRunSnapshot, targetRows]);
+  }, [saveRunSnapshot, targetExportCsvRows]);
 
   const handleDownloadMergedSearch = useCallback(
     (rows: MergedSearchRow[], headers: string[]) => {
       const csv = buildCsv(
         [...headers],
-        buildCsvRows(headers, rows),
+        buildMergedSearchCsvRows(rows, headers),
       );
       downloadCsv("merged_search.csv", csv);
     },
-    [],
+    [buildMergedSearchCsvRows],
   );
 
   const handleOpenRun = useCallback(
@@ -846,98 +607,20 @@ export default function AccountMappingTool() {
 
   return (
     <section className="space-y-8 md:space-y-10">
-      <header className="space-y-4">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-2">
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Account Mapping</h1>
-            <p className="max-w-2xl text-base text-foreground/70">
-              Match partner + vendor accounts, reduce review queues, and generate target lists in minutes.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              onClick={loadDemoDataset}
-              disabled={isDemoLoading}
-              aria-label="Load demo dataset"
-              aria-busy={isDemoLoading}
-            >
-              {isDemoLoading ? "Loading demo…" : "Load demo dataset"}
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => setTourStepIndex(0)}
-              aria-label="Start guided tour"
-              disabled={tourStepIndex !== null}
-            >
-              Start guided tour
-            </Button>
-          </div>
-        </div>
-        {demoError && (
-          <p className="text-sm text-destructive" role="alert">
-            {demoError}
-          </p>
-        )}
-        <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
-          {["Upload", "Map", "Match", "Review", "Export"].map((step, index) => (
-            <div
-              key={step}
-              className={`rounded-full px-3 py-1 shadow-sm ${
-                index <= currentStep
-                  ? "bg-primary text-foreground"
-                  : "bg-muted text-foreground/60"
-              }`}
-            >
-              {step}
-            </div>
-          ))}
-        </div>
-      </header>
+      <AccountMappingHeader
+        isDemoLoading={isDemoLoading}
+        demoError={demoError}
+        currentStep={currentStep}
+        isTourActive={tourStepIndex !== null}
+        onLoadDemo={loadDemoDataset}
+        onStartTour={() => setTourStepIndex(0)}
+      />
 
-      <Card className="space-y-6">
-        <CardHeader className="gap-2">
-          <CardTitle className="text-lg">Run stats</CardTitle>
-          <p className="text-sm text-foreground/60">
-            Client-side performance for parsing + matching. Share these metrics in your demo recap.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-            <div>
-              <p className="text-sm font-medium">Last run timings</p>
-              <p className="text-xs text-foreground/60">
-                Tracks the current session only — no network calls or server logging.
-              </p>
-            </div>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => setStatsOpen((prev) => !prev)}
-              aria-expanded={statsOpen}
-              aria-controls="run-stats-drawer"
-            >
-              {statsOpen ? "Hide stats" : "View stats"}
-            </Button>
-          </div>
-          {statsOpen && (
-            <div
-              id="run-stats-drawer"
-              className="grid gap-3 rounded-lg border border-foreground/10 bg-muted/40 px-4 py-4 text-xs text-foreground/70 md:grid-cols-2"
-            >
-              <div className="space-y-1">
-                <p className="font-semibold text-foreground">Parse time</p>
-                <p>Vendor CSV: {formatMs(runStats.vendorParseMs)}</p>
-                <p>Partner CSV: {formatMs(runStats.partnerParseMs)}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="font-semibold text-foreground">Match time</p>
-                <p>Matching engine: {formatMs(runStats.matchMs)}</p>
-                <p>Total run time: {formatMs(runStats.totalMs)}</p>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <AccountMappingStatsBar
+        runStats={runStats}
+        statsOpen={statsOpen}
+        onToggleStats={() => setStatsOpen((prev) => !prev)}
+      />
 
       <Card className="space-y-6">
         <CardHeader className="gap-2">
@@ -1121,77 +804,20 @@ export default function AccountMappingTool() {
                 </Card>
               </div>
 
-              <div className="flex flex-wrap items-start gap-4">
-                <div className="min-w-[240px] flex-1">
-                  <label className="text-sm font-medium" htmlFor="account-search">
-                    Search accounts
-                  </label>
-                  <input
-                    ref={searchInputRef}
-                    id="account-search"
-                    className={`mt-2 w-full ${INPUT_BASE_CLASSES}`}
-                    placeholder="Search by account name or normalized name…"
-                    value={searchTerm}
-                    onChange={(event) => setSearchTerm(event.target.value)}
-                  />
-                  <p className="mt-1 text-xs text-foreground/60">
-                    Shortcut: <span className="font-semibold">/</span> focuses search.
-                  </p>
-                </div>
-                <div className="self-start">
-                  <label className="text-sm font-medium" htmlFor="decision-filter">
-                    Decision filter
-                  </label>
-                  <select
-                    id="decision-filter"
-                    className={`mt-2 w-full ${INPUT_BASE_CLASSES}`}
-                    value={decisionFilter}
-                    onChange={(event) =>
-                      setDecisionFilter(event.target.value as "all" | "pending" | "decided")
-                    }
-                  >
-                    <option value="pending">Pending decisions</option>
-                    <option value="decided">Decided</option>
-                    <option value="all">All</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    variant={activeTab === "auto" ? "default" : "secondary"}
-                    onClick={() => setActiveTab("auto")}
-                  >
-                    Auto ({summary.matched.toLocaleString()})
-                  </Button>
-                  <Button
-                    variant={activeTab === "review" ? "default" : "secondary"}
-                    onClick={() => setActiveTab("review")}
-                  >
-                    Review ({summary.needsReview.toLocaleString()})
-                  </Button>
-                  <Button
-                    variant={activeTab === "unmatched" ? "default" : "secondary"}
-                    onClick={() => setActiveTab("unmatched")}
-                  >
-                    Unmatched ({summary.unmatched.toLocaleString()})
-                  </Button>
-                </div>
-                <div className="ml-auto flex flex-wrap items-center gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => aiReview.setAiReviewOpen(true)}
-                    disabled={reviewRows.length === 0}
-                  >
-                    AI Review
-                  </Button>
-                  <span className="text-xs text-foreground/60">
-                    Showing {filteredRows.length.toLocaleString()} of{" "}
-                    {reviewRows.length.toLocaleString()}
-                  </span>
-                </div>
-              </div>
+              <AccountMappingFiltersBar
+                searchInputRef={searchInputRef}
+                searchTerm={searchTerm}
+                onSearchTermChange={setSearchTerm}
+                decisionFilter={decisionFilter}
+                onDecisionFilterChange={setDecisionFilter}
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+                summary={summary}
+                filteredRowsCount={filteredRows.length}
+                totalRowsCount={reviewRows.length}
+                onOpenAiReview={() => aiReview.setAiReviewOpen(true)}
+                aiReviewDisabled={reviewRows.length === 0}
+              />
 
               <VirtualizedList
                 items={filteredRows}
@@ -1337,254 +963,26 @@ export default function AccountMappingTool() {
             Download merged exports, build target lists, and save run snapshots for audit-ready demos.
           </p>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="space-y-3 rounded-lg border border-foreground/10 bg-muted/40 px-4 py-4">
-              <div>
-                <p className="text-sm font-semibold">Merged accounts export</p>
-                <p className="text-xs text-foreground/60">
-                  Includes owner/manager/PAM fields, statuses, and match diagnostics.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-3 text-xs text-foreground/60">
-                <span>Rows: {mergedExportRows.length.toLocaleString()}</span>
-                <span>Matches: {matchPairs.length.toLocaleString()}</span>
-              </div>
-              <Button onClick={handleDownloadMerged} disabled={!hasMatches}>
-                Download merged_accounts.csv
-              </Button>
-            </div>
-
-            <div className="space-y-4 rounded-lg border border-foreground/10 bg-muted/40 px-4 py-4">
-              <div className="space-y-1">
-                <p className="text-sm font-semibold">Target list builder</p>
-                <p className="text-xs text-foreground/60">
-                  Build rules like “vendor=Customer AND partner=Prospect” or “either side = Customer”.
-                </p>
-              </div>
-              <div className="space-y-3">
-                <label className="text-sm font-medium" htmlFor="target-rule-mode">
-                  Rule mode
-                </label>
-                <select
-                  id="target-rule-mode"
-                  className={`w-full ${INPUT_BASE_CLASSES}`}
-                  value={targetRule.mode}
-                  onChange={(event) =>
-                    setTargetRule((prev) => ({
-                      ...prev,
-                      mode: event.target.value as TargetRuleMode,
-                    }))
-                  }
-                >
-                  <option value="both">Vendor AND Partner status</option>
-                  <option value="either">Either side status</option>
-                </select>
-              </div>
-              {targetRule.mode === "both" ? (
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium" htmlFor="target-vendor-status">
-                      Vendor status
-                    </label>
-                    <select
-                      id="target-vendor-status"
-                      className={`w-full ${INPUT_BASE_CLASSES}`}
-                      value={targetRule.vendorStatus}
-                      onChange={(event) =>
-                        setTargetRule((prev) => ({
-                          ...prev,
-                          vendorStatus: event.target.value,
-                        }))
-                      }
-                    >
-                      <option value="">Select vendor status</option>
-                      {statusOptions.map((status) => (
-                        <option key={status} value={status}>
-                          {status}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium" htmlFor="target-partner-status">
-                      Partner status
-                    </label>
-                    <select
-                      id="target-partner-status"
-                      className={`w-full ${INPUT_BASE_CLASSES}`}
-                      value={targetRule.partnerStatus}
-                      onChange={(event) =>
-                        setTargetRule((prev) => ({
-                          ...prev,
-                          partnerStatus: event.target.value,
-                        }))
-                      }
-                    >
-                      <option value="">Select partner status</option>
-                      {statusOptions.map((status) => (
-                        <option key={status} value={status}>
-                          {status}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium" htmlFor="target-either-status">
-                    Either side status
-                  </label>
-                  <select
-                    id="target-either-status"
-                    className={`w-full ${INPUT_BASE_CLASSES}`}
-                    value={targetRule.eitherStatus}
-                    onChange={(event) =>
-                      setTargetRule((prev) => ({
-                        ...prev,
-                        eitherStatus: event.target.value,
-                      }))
-                    }
-                  >
-                    <option value="">Select status</option>
-                    {statusOptions.map((status) => (
-                      <option key={status} value={status}>
-                        {status}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-foreground/60">
-                <span>Live count: {targetRows.length.toLocaleString()}</span>
-                <Button
-                  size="sm"
-                  onClick={handleDownloadTargets}
-                  disabled={!hasMatches || targetRows.length === 0}
-                >
-                  Download targets.csv
-                </Button>
-              </div>
-              {targetRows.length === 0 ? (
-                <p className="text-xs text-foreground/60">
-                  Choose statuses to see a live preview of target matches.
-                </p>
-              ) : (
-                <div className="max-h-56 overflow-auto rounded-lg border border-foreground/10 bg-background">
-                  <table className="min-w-full divide-y divide-foreground/10 text-xs">
-                    <thead className="sticky top-0 bg-background">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-semibold text-foreground/70">
-                          Vendor
-                        </th>
-                        <th className="px-3 py-2 text-left font-semibold text-foreground/70">
-                          Partner
-                        </th>
-                        <th className="px-3 py-2 text-left font-semibold text-foreground/70">
-                          Vendor status
-                        </th>
-                        <th className="px-3 py-2 text-left font-semibold text-foreground/70">
-                          Partner status
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-foreground/10">
-                      {targetPreview.map((row) => (
-                        <tr key={`${row.vendor_account_name}-${row.partner_account_name}`}>
-                          <td className="px-3 py-2 text-foreground/70">
-                            {row.vendor_account_name}
-                          </td>
-                          <td className="px-3 py-2 text-foreground/70">
-                            {row.partner_account_name}
-                          </td>
-                          <td className="px-3 py-2 text-foreground/70">
-                            {row.vendor_status}
-                          </td>
-                          <td className="px-3 py-2 text-foreground/70">
-                            {row.partner_status}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="space-y-3 rounded-lg border border-foreground/10 bg-muted/40 px-4 py-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold">Run history</p>
-                  <p className="text-xs text-foreground/60">
-                    Save a snapshot to reopen the exact mapping results later.
-                  </p>
-                </div>
-                <Button size="sm" variant="secondary" onClick={saveRunSnapshot} disabled={!hasMatches}>
-                  Save run snapshot
-                </Button>
-              </div>
-              {runHistoryStatus === "loading" && (
-                <p className="text-xs text-foreground/60">Loading run history…</p>
-              )}
-              {runHistoryStatus === "error" && runHistoryError && (
-                <p className="text-xs text-destructive">{runHistoryError}</p>
-              )}
-              {runHistoryStatus !== "loading" && runHistory.length === 0 && (
-                <p className="text-xs text-foreground/60">No saved runs yet.</p>
-              )}
-              {runHistory.length > 0 && (
-                <ul className="space-y-3">
-                  {runHistory.slice(0, 5).map((run) => (
-                    <li key={run.runId} className="rounded-lg border border-foreground/10 bg-background px-3 py-3">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="space-y-1 text-xs text-foreground/60">
-                          <p className="text-sm font-semibold text-foreground">
-                            {run.vendorFileName} + {run.partnerFileName}
-                          </p>
-                          <p>{new Date(run.timestamp).toLocaleString()}</p>
-                          <p>
-                            Rows: {run.rowCounts.vendor.toLocaleString()} vendor /{" "}
-                            {run.rowCounts.partner.toLocaleString()} partner • Matches:{" "}
-                            {run.rowCounts.matches.toLocaleString()} • Targets:{" "}
-                            {run.rowCounts.targets.toLocaleString()}
-                          </p>
-                          {run.templateName ? <p>Template: {run.templateName}</p> : null}
-                        </div>
-                        <Button size="sm" onClick={() => handleOpenRun(run)}>
-                          Reopen
-                        </Button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div className="space-y-3 rounded-lg border border-foreground/10 bg-muted/40 px-4 py-4">
-              <p className="text-sm font-semibold">Diff since last run</p>
-              {latestComparableRun ? (
-                <div className="space-y-2 text-xs text-foreground/60">
-                  <p>
-                    Comparing against {new Date(latestComparableRun.timestamp).toLocaleString()} for{" "}
-                    {latestComparableRun.vendorFileName} + {latestComparableRun.partnerFileName}.
-                  </p>
-                  {diffSummary ? (
-                    <ul className="space-y-1">
-                      <li>New matches: {diffSummary.newMatches.toLocaleString()}</li>
-                      <li>Removed matches: {diffSummary.removedMatches.toLocaleString()}</li>
-                      <li>Newly unmatched: {diffSummary.newlyUnmatched.toLocaleString()}</li>
-                    </ul>
-                  ) : null}
-                </div>
-              ) : (
-                <p className="text-xs text-foreground/60">
-                  Save at least one run with these filenames to see diff stats.
-                </p>
-              )}
-            </div>
-          </div>
+        <CardContent>
+          <AccountMappingExportsPanel
+            hasMatches={hasMatches}
+            mergedExportRowsLength={mergedExportRows.length}
+            matchPairsLength={matchPairs.length}
+            onDownloadMerged={handleDownloadMerged}
+            targetRule={targetRule}
+            setTargetRule={setTargetRule}
+            statusOptions={statusOptions}
+            targetRows={targetRows}
+            targetPreview={targetPreview}
+            onDownloadTargets={handleDownloadTargets}
+            runHistory={runHistory}
+            runHistoryStatus={runHistoryStatus}
+            runHistoryError={runHistoryError}
+            onSaveRunSnapshot={saveRunSnapshot}
+            onOpenRun={handleOpenRun}
+            latestComparableRun={latestComparableRun}
+            diffSummary={diffSummary}
+          />
         </CardContent>
       </Card>
 
