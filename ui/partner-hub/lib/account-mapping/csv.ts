@@ -1,4 +1,7 @@
 export type CsvValue = string | number | boolean | null | undefined;
+export type CsvCell = CsvValue;
+export type CsvRow = CsvCell[];
+export type CsvRows = CsvRow[];
 
 export const escapeCsvValue = (value: CsvValue): string => {
   if (value === null || value === undefined) {
