@@ -91,6 +91,11 @@ const toolCards = [
     description: "Model power and cooling impact for data center refreshes.",
     href: "/tools/energy",
   },
+  {
+    title: "Office Schedule",
+    description: "Browse offices and book time slots.",
+    href: "/offices/schedule",
+  },
 ];
 
 export default function HomePage() {

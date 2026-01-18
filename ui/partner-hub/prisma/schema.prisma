@@ -1,0 +1,35 @@
+// Office Booking MVP schema (SQLite)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Office {
+  id          Int       @id @default(autoincrement())
+  name        String
+  address     String?
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  bookings    Booking[]
+}
+
+model Booking {
+  id        Int      @id @default(autoincrement())
+  officeId  Int
+  name      String
+  email     String
+  start     DateTime
+  end       DateTime
+  createdAt DateTime @default(now())
+
+  office    Office   @relation(fields: [officeId], references: [id], onDelete: Cascade)
+
+  @@index([officeId, start, end])
+}

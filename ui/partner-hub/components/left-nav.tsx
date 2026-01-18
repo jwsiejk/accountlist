@@ -12,6 +12,7 @@ const links = [
   { name: "Presales Studio", href: "/tools/architecture-explorer" },
   { name: "Account Mapping", href: "/estimator" },
   { name: "Energy Tool", href: "/tools/energy" },
+  { name: "Office Schedule", href: "/offices/schedule" },
   { name: "About / Contact", href: "/about" },
 ];
 

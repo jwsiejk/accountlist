@@ -1,13 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { Moon, Sun, Search, ArrowUpRight } from "lucide-react";
 import { Button } from "./ui/button";
-import { withBasePath } from "@/lib/basePath";
 import { useOmniSearch, type OmniLink } from "@/lib/use-omni-search";
 
 export function AppHeader() {
@@ -35,27 +33,9 @@ export function AppHeader() {
         <Link
           href="/"
           aria-label="Portfolio Hub Home"
-          className="flex items-center gap-2 rounded-md px-2 py-1 text-primary transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="flex items-center rounded-md px-2 py-1 transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
-          <Image
-            src={withBasePath("/brand/pure.svg")}
-            alt="Pure Storage"
-            width={76}
-            height={24}
-            className="h-auto w-auto"
-            priority
-          />
-          <span aria-hidden className="text-sm font-semibold text-accent">
-            ×
-          </span>
-          <Image
-            src={withBasePath("/brand/trace3.svg")}
-            alt="Trace3"
-            width={76}
-            height={24}
-            className="h-auto w-auto"
-            priority
-          />
+          <span className="text-sm font-semibold text-foreground">Portfolio Hub</span>
         </Link>
         <div className="relative mx-auto flex w-full max-w-xl items-center">
           <Search className="absolute left-3 h-4 w-4 text-foreground/40" aria-hidden />

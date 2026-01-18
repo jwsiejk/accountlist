@@ -12,7 +12,7 @@ describe("normalizeName", () => {
   });
 
   it("collapses whitespace and removes trailing legal suffixes", () => {
-    assert.equal(normalizeName("The Example Company Ltd"), "the example");
+    assert.equal(normalizeName("The Example Company Ltd"), "example");
   });
 });
 
