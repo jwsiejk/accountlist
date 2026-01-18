@@ -234,10 +234,14 @@ export const useCsvParseWorkers = ({ setRunStats }: CsvWorkerOptions) => {
   );
 
   useEffect(() => {
+    const vendorWorker = vendorWorkerRef.current;
+    const partnerWorker = partnerWorkerRef.current;
+    const mergedSearchWorker = mergedSearchWorkerRef.current;
+
     return () => {
-      vendorWorkerRef.current?.terminate();
-      partnerWorkerRef.current?.terminate();
-      mergedSearchWorkerRef.current?.terminate();
+      vendorWorker?.terminate();
+      partnerWorker?.terminate();
+      mergedSearchWorker?.terminate();
     };
   }, []);
 
