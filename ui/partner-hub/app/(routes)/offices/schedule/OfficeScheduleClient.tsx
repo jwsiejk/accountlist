@@ -9,8 +9,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  Globe,
-  MapPin,
   UserRound,
   X,
 } from "lucide-react";
@@ -108,14 +106,6 @@ function formatTime(d: Date) {
   return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(d);
 }
 
-function getLocalTimeZoneLabel() {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || "Local";
-  } catch {
-    return "Local";
-  }
-}
-
 // MVP working hours.
 const WORK_START_MIN = 8 * 60;
 const WORK_END_MIN = 18 * 60;
@@ -174,18 +164,6 @@ function computeDaySlots({
     out.push({ start: s, end: e, status });
   }
   return out;
-}
-
-function OfficeAvatar({ name }: { name: string }) {
-  const initial = (name || "O").trim().slice(0, 1).toUpperCase();
-  return (
-    <div
-      className="flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-muted/40 text-sm font-semibold"
-      aria-hidden
-    >
-      {initial}
-    </div>
-  );
 }
 
 function DurationChips({ value, onChange }: { value: number; onChange: (v: number) => void }) {
@@ -433,7 +411,6 @@ export function OfficeScheduleClient({
     return selectedDaySlots.filter((s) => s.status === "available").length;
   }, [selectedDaySlots]);
 
-  const tzLabel = useMemo(() => getLocalTimeZoneLabel(), []);
   const todayKey = useMemo(() => toDateKey(now), [now]);
 
   function pushState(next: { officeId?: number; dateKey?: string; durationMin?: number }) {
@@ -614,22 +591,8 @@ export function OfficeScheduleClient({
   return (
     <main className="mx-auto max-w-6xl p-6">
       {/* Top bar */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-sm font-semibold text-foreground/80">
-          <CalendarDays className="h-4 w-4 text-foreground/60" />
-          Office Schedule
-        </div>
-
+      <div className="mb-4 flex flex-wrap items-center justify-end gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          {user ? (
-            <div className="hidden items-center gap-2 rounded-xl border border-border/70 bg-muted/20 px-3 py-2 text-xs text-foreground/70 md:flex">
-              <UserRound className="h-4 w-4" />
-              <span className="font-semibold text-foreground/80">{user.name}</span>
-              <span className="text-foreground/50">•</span>
-              <span className="truncate max-w-[220px]">{user.email}</span>
-            </div>
-          ) : null}
-
           <button
             type="button"
             className="inline-flex h-10 items-center gap-2 rounded-xl border border-border/70 bg-background px-4 text-sm font-semibold transition hover:bg-muted"
@@ -679,13 +642,7 @@ export function OfficeScheduleClient({
           <div className="grid grid-cols-1 md:grid-cols-[360px_1fr]">
             {/* Left panel */}
             <section className="p-6">
-              <div className="flex items-start gap-3">
-                <OfficeAvatar name={selectedOffice?.name ?? "Office"} />
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold text-foreground/60">{selectedOffice?.name}</div>
-                  <h1 className="mt-1 text-2xl font-semibold tracking-tight">Schedule a time</h1>
-                </div>
-              </div>
+              <h1 className="text-2xl font-semibold tracking-tight">Schedule a time</h1>
 
               {selectedOffice?.description ? (
                 <p className="mt-3 text-sm text-foreground/70 line-clamp-4">{selectedOffice.description}</p>
@@ -736,34 +693,16 @@ export function OfficeScheduleClient({
                   ))}
                 </select>
               </div>
-
-              <div className="mt-6 grid gap-3">
-                <div className="flex items-center gap-2 text-sm text-foreground/80">
-                  <MapPin className="h-4 w-4 text-foreground/60" />
-                  <div className="min-w-0">
-                    <div className="font-semibold">Location</div>
-                    <div className="text-xs text-foreground/60">{selectedOffice?.address ?? "In person"}</div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 text-sm text-foreground/80">
-                  <Globe className="h-4 w-4 text-foreground/60" />
-                  <div className="min-w-0">
-                    <div className="font-semibold">Time zone</div>
-                    <div className="text-xs text-foreground/60">{tzLabel}</div>
-                  </div>
-                </div>
-              </div>
             </section>
 
             {/* Right panel */}
             <section className="border-t border-border/70 p-6 md:border-l md:border-t-0">
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
                 <div className="text-lg font-semibold">{formatMonthLabel(monthFirst)}</div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
                   <button
                     type="button"
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border/70 bg-background/80 transition hover:bg-muted"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/70 bg-background/80 transition hover:bg-muted"
                     onClick={() => {
                       const prev = new Date(monthFirst);
                       prev.setMonth(prev.getMonth() - 1);
@@ -774,11 +713,11 @@ export function OfficeScheduleClient({
                     }}
                     aria-label="Previous month"
                   >
-                    <ChevronLeft className="h-4 w-4" />
+                    <ChevronLeft className="h-3 w-3" />
                   </button>
                   <button
                     type="button"
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border/70 bg-background/80 transition hover:bg-muted"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/70 bg-background/80 transition hover:bg-muted"
                     onClick={() => {
                       const next = new Date(monthFirst);
                       next.setMonth(next.getMonth() + 1);
@@ -789,7 +728,7 @@ export function OfficeScheduleClient({
                     }}
                     aria-label="Next month"
                   >
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-3 w-3" />
                   </button>
                 </div>
               </div>
