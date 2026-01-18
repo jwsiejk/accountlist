@@ -7,7 +7,6 @@ import {
   useRef,
   useState,
   type Dispatch,
-  type MutableRefObject,
   type ReactNode,
   type SetStateAction,
 } from "react";
@@ -77,7 +76,6 @@ import { withBasePath } from "@/lib/basePath";
 import { AiReviewModal } from "./AiReviewModal";
 import {
   AI_VERDICT_STYLES,
-  DEFAULT_PROGRESS_STEP,
   INPUT_BASE_CLASSES,
   MAX_PREVIEW_ROWS,
   REVIEW_LIST_HEIGHT,
@@ -91,6 +89,7 @@ import { ManualLinkModal } from "./ManualLinkModal";
 import { MergedDatasetSearchPanelSimple } from "./MergedDatasetSearchPanelSimple";
 import { PreviewTable } from "./PreviewTable";
 import { VirtualizedList } from "./VirtualizedList";
+import { useCsvParseWorkers, type RunStats } from "./hooks/useCsvParseWorkers";
 import { useDebouncedValue } from "./hooks/useDebouncedValue";
 import type {
   AccountRecord,
@@ -98,23 +97,12 @@ import type {
   AiReviewItem,
   AiReviewMode,
   AiVerdict,
-  CsvParseResult,
   CsvParseState,
   ReviewRow,
 } from "./types";
 import { formatMs } from "./utils";
 const DEMO_VENDOR_URL = withBasePath("/samples/account-mapping/vendor.csv");
 const DEMO_PARTNER_URL = withBasePath("/samples/account-mapping/partner.csv");
-
-type WorkerMessage =
-  | { type: "progress"; rowCount: number; cursor: number }
-  | CsvParseResult & { type: "complete" }
-  | { type: "error"; message: string };
-
-const buildWorker = () =>
-  new Worker(new URL("../../lib/account-mapping/workers/csvParse.worker.ts", import.meta.url), {
-    type: "module",
-  });
 
 const isMappingEmpty = (mapping: RawAccountMapping) =>
   Object.values(mapping).every((value) => !value);
@@ -139,12 +127,6 @@ type DiffSummary = {
   newlyUnmatched: number;
 };
 
-type RunStats = {
-  vendorParseMs: number;
-  partnerParseMs: number;
-  matchMs: number;
-  totalMs: number;
-};
 
 type TourStep = {
   id: string;
@@ -229,26 +211,10 @@ export default function AccountMappingTool() {
     totalMs: 0,
   });
 
-  const vendorWorkerRef = useRef<Worker | null>(null);
-  const partnerWorkerRef = useRef<Worker | null>(null);
-  const mergedSearchWorkerRef = useRef<Worker | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const decisionsLoadedRef = useRef(false);
-  const vendorParseStartRef = useRef<number | null>(null);
-  const partnerParseStartRef = useRef<number | null>(null);
-  const runStartRef = useRef<number | null>(null);
-
-  const resetRunTracking = useCallback(() => {
-    runStartRef.current = null;
-    vendorParseStartRef.current = null;
-    partnerParseStartRef.current = null;
-    setRunStats({
-      vendorParseMs: 0,
-      partnerParseMs: 0,
-      matchMs: 0,
-      totalMs: 0,
-    });
-  }, []);
+  const { parseVendorCsv, parsePartnerCsv, parseMergedSearchCsv, resetRunTracking, runStartRef } =
+    useCsvParseWorkers({ setRunStats });
 
   useEffect(() => {
     setTemplates(loadTemplates());
@@ -298,183 +264,6 @@ export default function AccountMappingTool() {
     refreshRunHistory();
   }, [refreshRunHistory]);
 
-  const parseCsvFile = useCallback(
-    (
-      file: File,
-      setState: Dispatch<SetStateAction<CsvParseState>>,
-      workerRef: MutableRefObject<Worker | null>,
-      kind: "vendor" | "partner",
-    ) => {
-      if (workerRef.current) {
-        workerRef.current.terminate();
-      }
-
-      const worker = buildWorker();
-      workerRef.current = worker;
-
-      const startTime = performance.now();
-      if (!runStartRef.current) {
-        runStartRef.current = startTime;
-      }
-      if (kind === "vendor") {
-        vendorParseStartRef.current = startTime;
-      } else {
-        partnerParseStartRef.current = startTime;
-      }
-
-      setState({
-        file,
-        status: "parsing",
-        progressRows: 0,
-        progressBytes: 0,
-        result: null,
-      });
-
-      worker.onmessage = (event: MessageEvent<WorkerMessage>) => {
-        const data = event.data;
-        if (data.type === "progress") {
-          setState((prev) => ({
-            ...prev,
-            progressRows: data.rowCount,
-            progressBytes: data.cursor,
-          }));
-          return;
-        }
-
-        if (data.type === "complete") {
-          const endTime = performance.now();
-          const duration =
-            kind === "vendor"
-              ? vendorParseStartRef.current
-                ? endTime - vendorParseStartRef.current
-                : 0
-              : partnerParseStartRef.current
-                ? endTime - partnerParseStartRef.current
-                : 0;
-          setRunStats((prev) => ({
-            ...prev,
-            vendorParseMs: kind === "vendor" ? duration : prev.vendorParseMs,
-            partnerParseMs: kind === "partner" ? duration : prev.partnerParseMs,
-            totalMs: runStartRef.current ? endTime - runStartRef.current : prev.totalMs,
-          }));
-          setState({
-            file,
-            status: "ready",
-            progressRows: data.rowCount,
-            progressBytes: file.size,
-            result: {
-              headers: data.headers,
-              sampleRows: data.sampleRows,
-              rows: data.rows,
-              rowCount: data.rowCount,
-              inferredDelimiter: data.inferredDelimiter,
-              parseWarnings: data.parseWarnings,
-            },
-          });
-          worker.terminate();
-          workerRef.current = null;
-        }
-
-        if (data.type === "error") {
-          setState((prev) => ({
-            ...prev,
-            status: "error",
-            error: data.message,
-          }));
-          worker.terminate();
-          workerRef.current = null;
-        }
-      };
-
-      worker.postMessage({
-        file,
-        options: {
-          previewRows: 50,
-          progressStep: DEFAULT_PROGRESS_STEP,
-        },
-      });
-    },
-    [],
-  );
-
-  const parseSearchCsvFile = useCallback((file: File) => {
-    if (mergedSearchWorkerRef.current) {
-      mergedSearchWorkerRef.current.terminate();
-    }
-
-    const worker = buildWorker();
-    mergedSearchWorkerRef.current = worker;
-
-    setMergedSearchState({
-      file,
-      status: "parsing",
-      progressRows: 0,
-      progressBytes: 0,
-      result: null,
-    });
-
-    const handleWorkerError = (message: string) => {
-      setMergedSearchState((prev) => ({
-        ...prev,
-        status: "error",
-        error: message,
-      }));
-      worker.terminate();
-      mergedSearchWorkerRef.current = null;
-    };
-
-    worker.onerror = (event) => {
-      handleWorkerError(event.message || "CSV parser crashed while processing the upload.");
-    };
-
-    worker.onmessageerror = () => {
-      handleWorkerError("CSV parser encountered an unexpected message error.");
-    };
-
-    worker.onmessage = (event: MessageEvent<WorkerMessage>) => {
-      const data = event.data;
-      if (data.type === "progress") {
-        setMergedSearchState((prev) => ({
-          ...prev,
-          progressRows: data.rowCount,
-          progressBytes: data.cursor,
-        }));
-        return;
-      }
-
-      if (data.type === "complete") {
-        setMergedSearchState({
-          file,
-          status: "ready",
-          progressRows: data.rowCount,
-          progressBytes: file.size,
-          result: {
-            headers: data.headers,
-            sampleRows: data.sampleRows,
-            rows: data.rows,
-            rowCount: data.rowCount,
-            inferredDelimiter: data.inferredDelimiter,
-            parseWarnings: data.parseWarnings,
-          },
-        });
-        worker.terminate();
-        mergedSearchWorkerRef.current = null;
-      }
-
-      if (data.type === "error") {
-        handleWorkerError(data.message);
-      }
-    };
-
-    worker.postMessage({
-      file,
-      options: {
-        previewRows: 50,
-        progressStep: DEFAULT_PROGRESS_STEP,
-      },
-    });
-  }, []);
-
   const handleVendorFile = useCallback(
     (file: File) => {
       if (
@@ -483,9 +272,9 @@ export default function AccountMappingTool() {
       ) {
         resetRunTracking();
       }
-      parseCsvFile(file, setVendorState, vendorWorkerRef, "vendor");
+      parseVendorCsv(file, setVendorState);
     },
-    [parseCsvFile, partnerState.file, resetRunTracking, vendorState.file],
+    [parseVendorCsv, partnerState.file, resetRunTracking, vendorState.file],
   );
 
   const handlePartnerFile = useCallback(
@@ -496,9 +285,16 @@ export default function AccountMappingTool() {
       ) {
         resetRunTracking();
       }
-      parseCsvFile(file, setPartnerState, partnerWorkerRef, "partner");
+      parsePartnerCsv(file, setPartnerState);
     },
-    [parseCsvFile, partnerState.file, resetRunTracking, vendorState.file],
+    [parsePartnerCsv, partnerState.file, resetRunTracking, vendorState.file],
+  );
+
+  const handleMergedSearchFile = useCallback(
+    (file: File) => {
+      parseMergedSearchCsv(file, setMergedSearchState);
+    },
+    [parseMergedSearchCsv],
   );
 
   useEffect(() => {
@@ -512,15 +308,6 @@ export default function AccountMappingTool() {
       setPartnerMapping(inferMappingFromHeaders(partnerState.result.headers));
     }
   }, [partnerState.result, partnerMapping]);
-
-  useEffect(
-    () => () => {
-      vendorWorkerRef.current?.terminate();
-      partnerWorkerRef.current?.terminate();
-      mergedSearchWorkerRef.current?.terminate();
-    },
-    [],
-  );
 
   const vendorValidation = validateMapping(vendorMapping);
   const partnerValidation = validateMapping(partnerMapping);
@@ -2246,7 +2033,7 @@ export default function AccountMappingTool() {
         onDownload={handleDownloadMergedSearch}
         onDatasetChange={setMergedSearchDatasetSelection}
         uploadState={mergedSearchState}
-        onUploadFile={parseSearchCsvFile}
+        onUploadFile={handleMergedSearchFile}
       />
 
       <AiReviewModal
