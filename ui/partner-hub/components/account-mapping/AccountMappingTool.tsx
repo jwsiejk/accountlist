@@ -6,23 +6,17 @@ import {
   useMemo,
   useRef,
   useState,
-  type Dispatch,
-  type ReactNode,
-  type SetStateAction,
 } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { inferMappingFromHeaders } from "@/lib/account-mapping/inference";
 import {
-  canonicalFields,
   createEmptyRawMapping,
-  normalizeMapping,
   validateMapping,
   type RawAccountMapping,
 } from "@/lib/account-mapping/schema";
-import { type ReviewRowStatus } from "@/lib/account-mapping/decisionStore";
-import { buildCsv, downloadCsv, type CsvValue } from "@/lib/account-mapping/csv";
+import { buildCsv, downloadCsv } from "@/lib/account-mapping/csv";
 import { TEMPLATE_STORAGE_KEY } from "@/lib/account-mapping/templateStorage";
 import {
   mergedAccountExportHeaders,
@@ -70,6 +64,7 @@ import {
 } from "./constants";
 import { FileDropzone } from "./FileDropzone";
 import { ManualLinkModal } from "./ManualLinkModal";
+import { MappingTableCard } from "./MappingTableCard";
 import { MergedDatasetSearchPanelSimple } from "./MergedDatasetSearchPanelSimple";
 import { PreviewTable } from "./PreviewTable";
 import { VirtualizedList } from "./VirtualizedList";
@@ -80,38 +75,10 @@ import { useDebouncedValue } from "./hooks/useDebouncedValue";
 import { useMappingDecisions } from "./hooks/useMappingDecisions";
 import { useMappingTemplates } from "./hooks/useMappingTemplates";
 import { useRunHistory } from "./hooks/useRunHistory";
-import type { CsvParseState } from "./types";
-import { formatMs } from "./utils";
+import type { CsvParseState, DiffSummary, TargetRuleMode, TargetRuleState, TourStep } from "./types";
+import { buildCsvRows, buildCsvSnapshot, buildRunId, formatMs, isMappingEmpty } from "./utils";
 const DEMO_VENDOR_URL = withBasePath("/samples/account-mapping/vendor.csv");
 const DEMO_PARTNER_URL = withBasePath("/samples/account-mapping/partner.csv");
-
-const isMappingEmpty = (mapping: RawAccountMapping) =>
-  Object.values(mapping).every((value) => !value);
-
-type TargetRuleMode = "both" | "either";
-
-type TargetRuleState = {
-  mode: TargetRuleMode;
-  vendorStatus: string;
-  partnerStatus: string;
-  eitherStatus: string;
-};
-
-type DiffSummary = {
-  newMatches: number;
-  removedMatches: number;
-  newlyUnmatched: number;
-};
-
-
-type TourStep = {
-  id: string;
-  title: string;
-  body: string;
-  highlight?: string;
-  autoAdvance?: boolean;
-  canAdvance?: boolean;
-};
 
 export default function AccountMappingTool() {
   const [vendorState, setVendorState] = useState<CsvParseState>({
@@ -255,69 +222,6 @@ export default function AccountMappingTool() {
       setPartnerMapping(template.partnerMapping);
     },
     [applyTemplate, setPartnerMapping, setVendorMapping],
-  );
-
-  const renderMappingTable = (
-    title: string,
-    headers: string[],
-    mapping: RawAccountMapping,
-    setMapping: Dispatch<SetStateAction<RawAccountMapping>>,
-    validation: ReturnType<typeof validateMapping>,
-  ) => (
-    <Card className="space-y-4">
-      <CardHeader className="gap-2">
-        <CardTitle className="text-base">{title}</CardTitle>
-        <p className="text-sm text-foreground/60">
-          Map uploaded columns to canonical account fields. Unmapped fields are allowed.
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="grid gap-3">
-          {canonicalFields.map((field) => {
-            const fieldId = `${title.replace(/\s+/g, "-").toLowerCase()}-${field.key}`;
-            return (
-              <label key={field.key} className="grid gap-1 text-sm" htmlFor={fieldId}>
-                <span className="font-medium">
-                  {field.label}
-                  {field.required ? <span className="text-destructive"> *</span> : null}
-                </span>
-                <select
-                  id={fieldId}
-                  className={`${INPUT_BASE_CLASSES} w-full`}
-                  value={mapping[field.key]}
-                  onChange={(event) =>
-                    setMapping((prev) => ({
-                      ...prev,
-                      [field.key]: event.target.value,
-                    }))
-                  }
-                >
-                  <option value="">Not mapped</option>
-                  {headers.map((header) => (
-                    <option key={header} value={header}>
-                      {header}
-                    </option>
-                  ))}
-                </select>
-                <span className="text-xs text-foreground/50">{field.description}</span>
-              </label>
-            );
-          })}
-        </div>
-        {!validation.success && (
-          <div
-            className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
-            role="alert"
-          >
-            {validation.error.issues.map((issue) => issue.message).join(" ")} Map required fields
-            to continue.
-          </div>
-        )}
-        <div className="text-xs text-foreground/60">
-          Selected fields: {Object.values(normalizeMapping(mapping)).filter(Boolean).length}
-        </div>
-      </CardContent>
-    </Card>
   );
 
   const {
@@ -752,24 +656,6 @@ export default function AccountMappingTool() {
   const vendorHeaders = vendorState.result?.headers ?? [];
   const partnerHeaders = partnerState.result?.headers ?? [];
 
-  const buildCsvRows = useCallback(
-    <T extends Record<string, CsvValue>>(headers: readonly string[], rows: T[]) =>
-      rows.map((row) => headers.map((header) => row[header] ?? "")),
-    [],
-  );
-
-  const buildSnapshot = (state: CsvParseState): StoredCsvSnapshot => ({
-    headers: state.result?.headers ?? [],
-    rows: state.result?.rows ?? [],
-    rowCount: state.result?.rowCount ?? 0,
-    inferredDelimiter: state.result?.inferredDelimiter ?? ",",
-  });
-
-  const buildRunId = () =>
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `run-${Date.now()}`;
-
   const saveRunSnapshot = useCallback(async () => {
     if (!vendorState.result || !partnerState.result) {
       return;
@@ -793,8 +679,8 @@ export default function AccountMappingTool() {
       templateId: selectedTemplate?.id,
       vendorMapping,
       partnerMapping,
-      vendorSnapshot: buildSnapshot(vendorState),
-      partnerSnapshot: buildSnapshot(partnerState),
+      vendorSnapshot: buildCsvSnapshot(vendorState),
+      partnerSnapshot: buildCsvSnapshot(partnerState),
       decisions,
       matchPairs,
     };
@@ -1122,20 +1008,20 @@ export default function AccountMappingTool() {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid gap-6 lg:grid-cols-2">
-            {renderMappingTable(
-              "Vendor mapping",
-              vendorHeaders,
-              vendorMapping,
-              setVendorMapping,
-              vendorValidation,
-            )}
-            {renderMappingTable(
-              "Partner mapping",
-              partnerHeaders,
-              partnerMapping,
-              setPartnerMapping,
-              partnerValidation,
-            )}
+            <MappingTableCard
+              title="Vendor mapping"
+              headers={vendorHeaders}
+              mapping={vendorMapping}
+              setMapping={setVendorMapping}
+              validation={vendorValidation}
+            />
+            <MappingTableCard
+              title="Partner mapping"
+              headers={partnerHeaders}
+              mapping={partnerMapping}
+              setMapping={setPartnerMapping}
+              validation={partnerValidation}
+            />
           </div>
 
           <div className="rounded-lg border border-foreground/10 bg-muted/40 px-4 py-4">
