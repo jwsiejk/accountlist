@@ -1,0 +1,11 @@
+export const bytesToLabel = (value: number) => {
+  if (value < 1024) {
+    return `${value} B`;
+  }
+  if (value < 1024 * 1024) {
+    return `${(value / 1024).toFixed(1)} KB`;
+  }
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+export const formatMs = (value: number) => (value > 0 ? `${Math.round(value)} ms` : "—");
