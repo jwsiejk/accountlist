@@ -75,18 +75,12 @@ import { PreviewTable } from "./PreviewTable";
 import { VirtualizedList } from "./VirtualizedList";
 import { useCsvParseWorkers, type RunStats } from "./hooks/useCsvParseWorkers";
 import { useAccountMappingModel } from "./hooks/useAccountMappingModel";
+import { useAiReview } from "./hooks/useAiReview";
 import { useDebouncedValue } from "./hooks/useDebouncedValue";
 import { useMappingDecisions } from "./hooks/useMappingDecisions";
 import { useMappingTemplates } from "./hooks/useMappingTemplates";
 import { useRunHistory } from "./hooks/useRunHistory";
-import type {
-  AiResult,
-  AiReviewItem,
-  AiReviewMode,
-  AiVerdict,
-  CsvParseState,
-  ReviewRow,
-} from "./types";
+import type { CsvParseState } from "./types";
 import { formatMs } from "./utils";
 const DEMO_VENDOR_URL = withBasePath("/samples/account-mapping/vendor.csv");
 const DEMO_PARTNER_URL = withBasePath("/samples/account-mapping/partner.csv");
@@ -154,17 +148,6 @@ export default function AccountMappingTool() {
   );
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [manualLinkRowId, setManualLinkRowId] = useState<string | null>(null);
-  const [aiReviewOpen, setAiReviewOpen] = useState(false);
-  const [aiReviewMode, setAiReviewMode] = useState<AiReviewMode>("review");
-  const [aiReviewLimit, setAiReviewLimit] = useState(50);
-  const [aiReviewRunning, setAiReviewRunning] = useState(false);
-  const [aiReviewProgress, setAiReviewProgress] = useState<{ done: number; total: number }>({
-    done: 0,
-    total: 0,
-  });
-  const [aiReviewRunItems, setAiReviewRunItems] = useState<AiReviewItem[]>([]);
-  const [aiReviewResults, setAiReviewResults] = useState<Record<string, AiResult>>({});
-  const aiReviewCancelRef = useRef(false);
   const [mergedSearchDatasetSelection, setMergedSearchDatasetSelection] =
     useState<MergedSearchDatasetSelection>("run");
   const [targetRule, setTargetRule] = useState<TargetRuleState>({
@@ -353,6 +336,11 @@ export default function AccountMappingTool() {
     decisions,
   });
 
+  const aiReview = useAiReview({
+    reviewRows,
+    buildDecisionKey,
+  });
+
   useEffect(() => {
     const runStart = runStartRef;
     if (!timings.matchMs && matchResults.length === 0) {
@@ -365,128 +353,6 @@ export default function AccountMappingTool() {
       totalMs: runStart.current ? endTime - runStart.current : prev.totalMs,
     }));
   }, [matchResults.length, runStartRef, setRunStats, timings.matchMs]);
-
-  const aiReviewRows = useMemo(
-    () =>
-      reviewRows
-        .filter((row) => row.baseStatus === "review")
-        .filter((row) => row.status === "review")
-        .filter((row) => row.partner !== null),
-    [reviewRows],
-  );
-
-  const aiValidateMatchedRows = useMemo(
-    () =>
-      reviewRows
-        .filter((row) => row.partner !== null)
-        .filter((row) => Boolean(row.partnerAccountKey))
-        .filter((row) => ["autoMatch", "confirmed", "manual"].includes(row.status)),
-    [reviewRows],
-  );
-
-  const aiTargetRows = aiReviewMode === "review" ? aiReviewRows : aiValidateMatchedRows;
-  const aiTargetCount = aiTargetRows.length;
-
-  const buildAiKey = useCallback((row: ReviewRow) => {
-    const partnerKey = row.partnerAccountKey ?? row.partner?.accountKey ?? "";
-    return buildDecisionKey(row.vendorAccountKey, partnerKey, row.normalizedName);
-  }, [buildDecisionKey]);
-
-  const handleStopAiReview = useCallback(() => {
-    aiReviewCancelRef.current = true;
-  }, []);
-
-  const handleRunAiReview = useCallback(async () => {
-    const target = aiTargetRows.slice(0, Math.max(1, Math.min(500, aiReviewLimit)));
-    const runItems = target.map((row) => ({ key: buildAiKey(row), rowId: row.id }));
-    setAiReviewRunItems(runItems);
-    setAiReviewProgress({ done: 0, total: runItems.length });
-    aiReviewCancelRef.current = false;
-    setAiReviewRunning(true);
-
-    for (const row of target) {
-      if (aiReviewCancelRef.current) {
-        break;
-      }
-
-      const key = buildAiKey(row);
-      const existing = aiReviewResults[key];
-      if (existing && !existing.error) {
-        setAiReviewProgress((prev) => ({ ...prev, done: prev.done + 1 }));
-        continue;
-      }
-
-      const partner = row.partner;
-      if (!partner) {
-        setAiReviewResults((prev) => ({
-          ...prev,
-          [key]: {
-            verdict: "unsure",
-            confidence: 0,
-            error: "No partner selected for this row.",
-          },
-        }));
-        setAiReviewProgress((prev) => ({ ...prev, done: prev.done + 1 }));
-        continue;
-      }
-
-      try {
-        const resp = await fetch("/api/account-mapping/ai-match", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            vendorName: row.vendor.rawName,
-            partnerName: partner.rawName,
-            vendorNormalized: row.vendor.normalizedName,
-            partnerNormalized: partner.normalizedName,
-          }),
-        });
-
-        const data = (await resp.json().catch(() => ({}))) as Partial<AiResult> & {
-          error?: string;
-          detail?: string;
-        };
-
-        if (!resp.ok) {
-          const message = data.error || `Request failed (${resp.status})`;
-          setAiReviewResults((prev) => ({
-            ...prev,
-            [key]: {
-              verdict: "unsure",
-              confidence: 0,
-              error: message,
-              reason: typeof data.detail === "string" ? data.detail : undefined,
-            },
-          }));
-        } else {
-          setAiReviewResults((prev) => ({
-            ...prev,
-            [key]: {
-              verdict: (data.verdict as AiVerdict) || "unsure",
-              confidence: typeof data.confidence === "number" ? data.confidence : Number(data.confidence) || 0,
-              reason: typeof data.reason === "string" ? data.reason : undefined,
-              model: typeof data.model === "string" ? data.model : undefined,
-              latencyMs: typeof data.latencyMs === "number" ? data.latencyMs : undefined,
-            },
-          }));
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        setAiReviewResults((prev) => ({
-          ...prev,
-          [key]: {
-            verdict: "unsure",
-            confidence: 0,
-            error: message,
-          },
-        }));
-      }
-
-      setAiReviewProgress((prev) => ({ ...prev, done: prev.done + 1 }));
-    }
-
-    setAiReviewRunning(false);
-  }, [aiReviewLimit, aiReviewResults, aiTargetRows, buildAiKey]);
 
   const statusOptions = useMemo(() => {
     const statusSet = new Set<string>();
@@ -1429,7 +1295,7 @@ export default function AccountMappingTool() {
                 <div className="ml-auto flex flex-wrap items-center gap-2">
                   <Button
                     variant="outline"
-                    onClick={() => setAiReviewOpen(true)}
+                    onClick={() => aiReview.setAiReviewOpen(true)}
                     disabled={reviewRows.length === 0}
                   >
                     AI Review
@@ -1848,22 +1714,22 @@ export default function AccountMappingTool() {
       />
 
       <AiReviewModal
-        open={aiReviewOpen}
-        mode={aiReviewMode}
-        setMode={setAiReviewMode}
-        limit={aiReviewLimit}
-        setLimit={setAiReviewLimit}
-        isRunning={aiReviewRunning}
-        progress={aiReviewProgress}
-        targetCount={aiTargetCount}
-        runItems={aiReviewRunItems}
-        results={aiReviewResults}
+        open={aiReview.aiReviewOpen}
+        mode={aiReview.aiReviewMode}
+        setMode={aiReview.setAiReviewMode}
+        limit={aiReview.aiReviewLimit}
+        setLimit={aiReview.setAiReviewLimit}
+        isRunning={aiReview.aiReviewRunning}
+        progress={aiReview.aiReviewProgress}
+        targetCount={aiReview.aiTargetCount}
+        runItems={aiReview.aiReviewRunItems}
+        results={aiReview.aiReviewResults}
         rowById={reviewRowById}
-        onRun={handleRunAiReview}
-        onStop={handleStopAiReview}
+        onRun={aiReview.runAiReview}
+        onStop={aiReview.stopAiReview}
         onClose={() => {
-          handleStopAiReview();
-          setAiReviewOpen(false);
+          aiReview.stopAiReview();
+          aiReview.setAiReviewOpen(false);
         }}
         onConfirm={(row) => {
           setSelectedRowId(row.id);
