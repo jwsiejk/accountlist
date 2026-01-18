@@ -17,6 +17,7 @@ import { inferMappingFromHeaders } from "@/lib/account-mapping/inference";
 import {
   canonicalFields,
   createEmptyRawMapping,
+  normalizeMapping,
   validateMapping,
   type RawAccountMapping,
 } from "@/lib/account-mapping/schema";
