@@ -517,6 +517,7 @@ export default function AccountMappingTool() {
       return;
     }
     const endTime = performance.now();
+    // runStartRef is a stable ref; exhaustive-deps warning is a false positive for refs.
     setRunStats((prev) => ({
       ...prev,
       matchMs: matchComputation.durationMs,
