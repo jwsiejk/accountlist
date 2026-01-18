@@ -25,20 +25,10 @@ import {
 } from "@/lib/account-mapping/schema";
 import {
   applyDecisionsToRows,
-  buildDecisionKey,
-  loadDecisions,
-  saveDecisions,
-  type MappingDecision,
-  type MappingDecisionStatus,
   type ReviewRowStatus,
 } from "@/lib/account-mapping/decisionStore";
 import { buildCsv, downloadCsv, type CsvValue } from "@/lib/account-mapping/csv";
-import {
-  loadTemplates,
-  saveTemplates,
-  type MappingTemplate,
-  TEMPLATE_STORAGE_KEY,
-} from "@/lib/account-mapping/templateStorage";
+import { TEMPLATE_STORAGE_KEY } from "@/lib/account-mapping/templateStorage";
 import {
   mergedAccountExportHeaders,
   targetExportHeaders,
@@ -63,7 +53,6 @@ import {
 } from "@/lib/account-mapping/mergedSearchDataset";
 import {
   findLatestRunByFiles,
-  loadRuns,
   saveRun,
   type AccountMappingRun,
   type MatchPairSnapshot,
@@ -91,6 +80,9 @@ import { PreviewTable } from "./PreviewTable";
 import { VirtualizedList } from "./VirtualizedList";
 import { useCsvParseWorkers, type RunStats } from "./hooks/useCsvParseWorkers";
 import { useDebouncedValue } from "./hooks/useDebouncedValue";
+import { useMappingDecisions } from "./hooks/useMappingDecisions";
+import { useMappingTemplates } from "./hooks/useMappingTemplates";
+import { useRunHistory } from "./hooks/useRunHistory";
 import type {
   AccountRecord,
   AiResult,
@@ -106,11 +98,6 @@ const DEMO_PARTNER_URL = withBasePath("/samples/account-mapping/partner.csv");
 
 const isMappingEmpty = (mapping: RawAccountMapping) =>
   Object.values(mapping).every((value) => !value);
-
-const buildTemplateId = () =>
-  typeof crypto !== "undefined" && "randomUUID" in crypto
-    ? crypto.randomUUID()
-    : `template-${Date.now()}`;
 
 type TargetRuleMode = "both" | "either";
 
@@ -165,10 +152,6 @@ export default function AccountMappingTool() {
     createEmptyRawMapping(),
   );
 
-  const [templates, setTemplates] = useState<MappingTemplate[]>([]);
-  const [templateName, setTemplateName] = useState("");
-  const [selectedTemplateId, setSelectedTemplateId] = useState("");
-  const [decisions, setDecisions] = useState<MappingDecision[]>([]);
   const [activeTab, setActiveTab] = useState<"auto" | "review" | "unmatched">("review");
   const [searchTerm, setSearchTerm] = useState("");
   const [decisionFilter, setDecisionFilter] = useState<"all" | "pending" | "decided">(
@@ -195,11 +178,6 @@ export default function AccountMappingTool() {
     partnerStatus: "",
     eitherStatus: "",
   });
-  const [runHistory, setRunHistory] = useState<AccountMappingRun[]>([]);
-  const [runHistoryStatus, setRunHistoryStatus] = useState<
-    "idle" | "loading" | "ready" | "error"
-  >("idle");
-  const [runHistoryError, setRunHistoryError] = useState<string | null>(null);
   const [isDemoLoading, setIsDemoLoading] = useState(false);
   const [demoError, setDemoError] = useState<string | null>(null);
   const [tourStepIndex, setTourStepIndex] = useState<number | null>(null);
@@ -212,57 +190,30 @@ export default function AccountMappingTool() {
   });
 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
-  const decisionsLoadedRef = useRef(false);
   const { parseVendorCsv, parsePartnerCsv, parseMergedSearchCsv, resetRunTracking, runStartRef } =
     useCsvParseWorkers({ setRunStats });
+  const templatesApi = useMappingTemplates();
+  const decisionsApi = useMappingDecisions();
+  const runHistoryApi = useRunHistory();
 
-  useEffect(() => {
-    setTemplates(loadTemplates());
-  }, []);
-
-  useEffect(() => {
-    let isMounted = true;
-    loadDecisions().then((stored) => {
-      if (!isMounted) {
-        return;
-      }
-      setDecisions(stored);
-      decisionsLoadedRef.current = true;
-    });
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!decisionsLoadedRef.current) {
-      return;
-    }
-    void saveDecisions(decisions);
-  }, [decisions]);
-
-  const persistTemplates = useCallback((next: MappingTemplate[]) => {
-    setTemplates(next);
-    saveTemplates(next);
-  }, []);
-
-  const refreshRunHistory = useCallback(() => {
-    setRunHistoryStatus("loading");
-    setRunHistoryError(null);
-    loadRuns()
-      .then((runs) => {
-        setRunHistory(runs);
-        setRunHistoryStatus("ready");
-      })
-      .catch((error: Error) => {
-        setRunHistoryStatus("error");
-        setRunHistoryError(error.message);
-      });
-  }, []);
-
-  useEffect(() => {
-    refreshRunHistory();
-  }, [refreshRunHistory]);
+  const {
+    templates,
+    selectedTemplateId,
+    setSelectedTemplateId,
+    templateName,
+    setTemplateName,
+    saveCurrentTemplate,
+    applyTemplate,
+  } = templatesApi;
+  const { decisions, setDecisions, handleDecision, buildDecisionKey } = decisionsApi;
+  const {
+    runHistory,
+    runHistoryStatus,
+    runHistoryError,
+    refreshRunHistory,
+    setRunHistoryStatus,
+    setRunHistoryError,
+  } = runHistoryApi;
 
   const handleVendorFile = useCallback(
     (file: File) => {
@@ -312,34 +263,21 @@ export default function AccountMappingTool() {
   const vendorValidation = validateMapping(vendorMapping);
   const partnerValidation = validateMapping(partnerMapping);
 
-  const saveTemplate = () => {
-    if (!templateName.trim()) {
-      return;
-    }
+  const saveTemplate = useCallback(() => {
+    saveCurrentTemplate({ vendorMapping, partnerMapping });
+  }, [partnerMapping, saveCurrentTemplate, vendorMapping]);
 
-    const nextTemplate: MappingTemplate = {
-      id: buildTemplateId(),
-      name: templateName.trim(),
-      createdAt: new Date().toISOString(),
-      vendorMapping,
-      partnerMapping,
-    };
-
-    const nextTemplates = [nextTemplate, ...templates].slice(0, 10);
-    persistTemplates(nextTemplates);
-    setTemplateName("");
-    setSelectedTemplateId(nextTemplate.id);
-  };
-
-  const applyTemplate = (templateId: string) => {
-    const template = templates.find((item) => item.id === templateId);
-    if (!template) {
-      return;
-    }
-
-    setVendorMapping(template.vendorMapping);
-    setPartnerMapping(template.partnerMapping);
-  };
+  const handleApplyTemplate = useCallback(
+    (templateId: string) => {
+      const template = applyTemplate(templateId);
+      if (!template) {
+        return;
+      }
+      setVendorMapping(template.vendorMapping);
+      setPartnerMapping(template.partnerMapping);
+    },
+    [applyTemplate, setPartnerMapping, setVendorMapping],
+  );
 
   const buildAccountRecords = useCallback(
     (
@@ -377,31 +315,6 @@ export default function AccountMappingTool() {
     [],
   );
 
-  const handleDecision = useCallback(
-    (row: ReviewRow, decision: MappingDecisionStatus, partnerOverride?: AccountRecord | null) => {
-      const partnerKey =
-        partnerOverride?.accountKey ?? row.partner?.accountKey ?? row.partnerAccountKey ?? "";
-      const decisionEntry: MappingDecision = {
-        key: buildDecisionKey(row.vendorAccountKey, partnerKey, row.normalizedName),
-        vendorAccountKey: row.vendorAccountKey,
-        partnerAccountKey: partnerKey,
-        normalizedName: row.normalizedName,
-        decision,
-        updatedAt: new Date().toISOString(),
-      };
-
-      setDecisions((prev) => {
-        const existingIndex = prev.findIndex((item) => item.key === decisionEntry.key);
-        if (existingIndex === -1) {
-          return [decisionEntry, ...prev];
-        }
-        const next = [...prev];
-        next[existingIndex] = decisionEntry;
-        return next;
-      });
-    },
-    [],
-  );
 
   const renderMappingTable = (
     title: string,
@@ -590,7 +503,7 @@ export default function AccountMappingTool() {
   const buildAiKey = useCallback((row: ReviewRow) => {
     const partnerKey = row.partnerAccountKey ?? row.partner?.accountKey ?? "";
     return buildDecisionKey(row.vendorAccountKey, partnerKey, row.normalizedName);
-  }, []);
+  }, [buildDecisionKey]);
 
   const handleStopAiReview = useCallback(() => {
     aiReviewCancelRef.current = true;
@@ -1497,7 +1410,7 @@ export default function AccountMappingTool() {
                 value={selectedTemplateId}
                 onChange={(event) => {
                   setSelectedTemplateId(event.target.value);
-                  applyTemplate(event.target.value);
+                  handleApplyTemplate(event.target.value);
                 }}
               >
                 <option value="">Select saved template</option>
