@@ -720,7 +720,7 @@ export default function AccountMappingTool() {
     );
     downloadCsv("merged_accounts.csv", csv);
     await saveRunSnapshot();
-  }, [buildCsvRows, mergedExportRows, saveRunSnapshot]);
+  }, [mergedExportRows, saveRunSnapshot]);
 
   const handleDownloadTargets = useCallback(async () => {
     const csv = buildCsv(
@@ -729,7 +729,7 @@ export default function AccountMappingTool() {
     );
     downloadCsv("targets.csv", csv);
     await saveRunSnapshot();
-  }, [buildCsvRows, saveRunSnapshot, targetRows]);
+  }, [saveRunSnapshot, targetRows]);
 
   const handleDownloadMergedSearch = useCallback(
     (rows: MergedSearchRow[], headers: string[]) => {
@@ -739,7 +739,7 @@ export default function AccountMappingTool() {
       );
       downloadCsv("merged_search.csv", csv);
     },
-    [buildCsvRows],
+    [],
   );
 
   const handleOpenRun = useCallback(
