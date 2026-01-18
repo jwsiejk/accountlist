@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Sparkles,
   UserRound,
   X,
 } from "lucide-react";
@@ -50,6 +51,26 @@ type Slot = {
   start: Date;
   end: Date;
   status: SlotStatus;
+};
+
+type AiChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+type AiExtracted = {
+  dateISO?: string;
+  timePreference?: string;
+  durationMinutes?: number;
+  officePreferenceId?: number;
+  selectionIndex?: number;
+};
+
+type AiOption = {
+  label: string;
+  officeId: string;
+  startISO: string;
+  durationMinutes: number;
 };
 
 function pad2(n: number) {
@@ -104,6 +125,42 @@ function formatDayLabel(d: Date) {
 
 function formatTime(d: Date) {
   return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(d);
+}
+
+function formatDurationLabel(minutes: number) {
+  if (minutes === 60) return "1h";
+  return `${minutes}m`;
+}
+
+function minutesIntoDay(d: Date) {
+  return d.getHours() * 60 + d.getMinutes();
+}
+
+function parseTimePreference(value: string) {
+  const raw = value.trim().toLowerCase();
+  if (!raw) return null;
+
+  if (raw.includes("morning")) return { startMin: 8 * 60, endMin: 12 * 60 };
+  if (raw.includes("afternoon")) return { startMin: 12 * 60, endMin: 17 * 60 };
+  if (raw.includes("evening")) return { startMin: 17 * 60, endMin: 19 * 60 };
+  if (raw.includes("noon")) return { startMin: 12 * 60, endMin: 13 * 60 };
+
+  const match = raw.match(/(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)?/);
+  if (!match) return null;
+  const hoursRaw = Number(match[1]);
+  const minutesRaw = match[2] ? Number(match[2]) : 0;
+  if (!Number.isFinite(hoursRaw) || hoursRaw < 0 || hoursRaw > 23) return null;
+  if (!Number.isFinite(minutesRaw) || minutesRaw < 0 || minutesRaw >= 60) return null;
+  let hours = hoursRaw;
+  const meridiem = match[3];
+  if (meridiem) {
+    if (meridiem === "pm" && hours < 12) hours += 12;
+    if (meridiem === "am" && hours === 12) hours = 0;
+  } else if (hours > 23) {
+    return null;
+  }
+  const minutes = hours * 60 + minutesRaw;
+  return { startMin: minutes, endMin: minutes + 120 };
 }
 
 // MVP working hours.
@@ -272,6 +329,16 @@ export function OfficeScheduleClient({
   const [myBookingsLoading, setMyBookingsLoading] = useState(false);
   const [myBookingsError, setMyBookingsError] = useState<string>("");
 
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiMessages, setAiMessages] = useState<AiChatMessage[]>([]);
+  const [aiInput, setAiInput] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
+  const [aiOptions, setAiOptions] = useState<AiOption[]>([]);
+  const [aiSelectedOption, setAiSelectedOption] = useState<AiOption | null>(null);
+  const [aiBookingSubmitting, setAiBookingSubmitting] = useState(false);
+  const [aiBookingSuccess, setAiBookingSuccess] = useState("");
+
   const unlocked = Boolean(user);
 
   // Tick "now" so today slots become past without a reload.
@@ -293,6 +360,21 @@ export function OfficeScheduleClient({
       // ignore
     }
   }, []);
+
+  useEffect(() => {
+    if (!aiOpen) return;
+    setAiMessages([
+      {
+        role: "assistant",
+        content: "Tell me the date, time, and office you want, and I’ll find availability.",
+      },
+    ]);
+    setAiInput("");
+    setAiError("");
+    setAiOptions([]);
+    setAiSelectedOption(null);
+    setAiBookingSuccess("");
+  }, [aiOpen]);
 
   // Keep UI state in sync with URL navigation (back/forward).
   useEffect(() => {
@@ -349,6 +431,19 @@ export function OfficeScheduleClient({
       .filter((b) => !Number.isNaN(b.start.getTime()) && !Number.isNaN(b.end.getTime()));
   }, [bookings, selectedOffice]);
 
+  const bookingsByOffice = useMemo(() => {
+    const map = new Map<number, { start: Date; end: Date }[]>();
+    for (const booking of bookings) {
+      const start = new Date(booking.start);
+      const end = new Date(booking.end);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue;
+      const list = map.get(booking.officeId) ?? [];
+      list.push({ start, end });
+      map.set(booking.officeId, list);
+    }
+    return map;
+  }, [bookings]);
+
   const bookedDayKeys = useMemo(() => {
     const set = new Set<string>();
     for (const b of officeBusy) {
@@ -380,6 +475,47 @@ export function OfficeScheduleClient({
     }
     return out;
   }, [durationMin, monthFirst, officeBusy, now]);
+
+  const availabilityIndex = useMemo(() => {
+    const out = new Map<number, Map<number, Date[]>>();
+    const startDay = startOfDay(now);
+    const maxDays = 14;
+    const slotLimit = 24;
+
+    for (const office of offices) {
+      const busy = bookingsByOffice.get(office.id) ?? [];
+      const byDuration = new Map<number, Date[]>();
+      for (const duration of DURATIONS_MIN) {
+        const slots: Date[] = [];
+        for (let day = 0; day < maxDays && slots.length < slotLimit; day += 1) {
+          const date = addDays(startDay, day);
+          const daySlots = computeDaySlots({ date, durationMin: duration, busy, now });
+          for (const slot of daySlots) {
+            if (slot.status !== "available") continue;
+            slots.push(slot.start);
+            if (slots.length >= slotLimit) break;
+          }
+        }
+        byDuration.set(duration, slots);
+      }
+      out.set(office.id, byDuration);
+    }
+
+    return out;
+  }, [bookingsByOffice, now, offices]);
+
+  const aiAvailabilityContext = useMemo(() => {
+    return offices.map((office) => ({
+      officeId: office.id,
+      name: office.name,
+      slotsByDuration: DURATIONS_MIN.map((duration) => ({
+        durationMinutes: duration,
+        slots: (availabilityIndex.get(office.id)?.get(duration) ?? [])
+          .slice(0, 6)
+          .map((d) => d.toISOString()),
+      })),
+    }));
+  }, [availabilityIndex, offices]);
 
   // If the selected day has no availability (or is in the past), snap to the
   // next available day in the displayed month (Cal.com-style default behavior).
@@ -486,6 +622,169 @@ export function OfficeScheduleClient({
 
     return { ok: true as const, start, end, label };
   }, [baseDate, bookAllDay, canAllDay.ok, canAllDay.reason, durationMin, selectedSlotStarts]);
+
+  function buildAiOptions(extracted: AiExtracted) {
+    const requestedDuration = extracted.durationMinutes;
+    const duration = DURATIONS_MIN.includes(requestedDuration as (typeof DURATIONS_MIN)[number])
+      ? (requestedDuration as number)
+      : durationMin;
+    const preferredOfficeId = extracted.officePreferenceId;
+    const knownOfficeIds = offices.map((o) => o.id);
+    const officeIds = preferredOfficeId && knownOfficeIds.includes(preferredOfficeId)
+      ? [preferredOfficeId, ...knownOfficeIds.filter((id) => id !== preferredOfficeId)]
+      : knownOfficeIds;
+    const dateFilter = extracted.dateISO && /^\d{4}-\d{2}-\d{2}$/.test(extracted.dateISO)
+      ? extracted.dateISO
+      : null;
+    const timeRange = extracted.timePreference ? parseTimePreference(extracted.timePreference) : null;
+
+    const candidates: { officeId: number; start: Date }[] = [];
+    for (const id of officeIds) {
+      const slots = availabilityIndex.get(id)?.get(duration) ?? [];
+      for (const start of slots) {
+        if (dateFilter && toDateKey(start) !== dateFilter) continue;
+        if (timeRange) {
+          const minutes = minutesIntoDay(start);
+          if (minutes < timeRange.startMin || minutes > timeRange.endMin) continue;
+        }
+        candidates.push({ officeId: id, start });
+      }
+    }
+
+    candidates.sort((a, b) => a.start.getTime() - b.start.getTime());
+    return candidates.slice(0, 3).map((slot) => {
+      const officeName = officeNameById.get(slot.officeId) ?? `Office #${slot.officeId}`;
+      const label = `${officeName} · ${formatDayLabel(slot.start)} at ${formatTime(slot.start)} (${formatDurationLabel(duration)})`;
+      return {
+        label,
+        officeId: String(slot.officeId),
+        startISO: slot.start.toISOString(),
+        durationMinutes: duration,
+      };
+    });
+  }
+
+  async function handleAiSend() {
+    const message = aiInput.trim();
+    if (!message || aiLoading) return;
+
+    setAiLoading(true);
+    setAiError("");
+    setAiBookingSuccess("");
+    setAiSelectedOption(null);
+    setAiMessages((prev) => [...prev, { role: "user", content: message }]);
+    setAiInput("");
+
+    try {
+      const res = await fetch(withBasePath("/api/office-booking/ai"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message,
+          context: {
+            offices: offices.map((o) => ({ id: o.id, name: o.name })),
+            availabilityContext: aiAvailabilityContext,
+            uiState: { officeId, dateKey, durationMin },
+          },
+        }),
+      });
+
+      const data = (await res.json().catch(() => ({}))) as {
+        intent?: string;
+        reply?: string;
+        extracted?: AiExtracted;
+        options?: AiOption[];
+        error?: string;
+      };
+      if (!res.ok) {
+        throw new Error(data?.error || `AI request failed (${res.status})`);
+      }
+
+      const reply = data?.reply?.trim() || "Got it. Let me check availability.";
+      const extracted = data?.extracted ?? {};
+      const options = Array.isArray(data?.options) ? data.options : buildAiOptions(extracted);
+
+      setAiMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+      setAiOptions(options);
+      if (extracted?.selectionIndex && options[extracted.selectionIndex - 1]) {
+        setAiSelectedOption(options[extracted.selectionIndex - 1]);
+      }
+    } catch (error: any) {
+      setAiError("AI isn’t available right now. You can still book manually.");
+      const detail = error instanceof Error ? error.message : String(error);
+      setAiMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: detail || "I couldn’t reach the AI right now.",
+        },
+      ]);
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  async function submitAiBooking(option: AiOption) {
+    setAiError("");
+    setAiBookingSuccess("");
+
+    if (!user) {
+      setAiError("Please add your user information first.");
+      setUserModalOpen(true);
+      return;
+    }
+
+    const officeIdNum = Number(option.officeId);
+    const start = new Date(option.startISO);
+    if (!Number.isFinite(officeIdNum) || Number.isNaN(start.getTime())) {
+      setAiError("Selected option is invalid.");
+      return;
+    }
+
+    const end = addMinutes(start, option.durationMinutes);
+
+    setAiBookingSubmitting(true);
+    try {
+      const res = await fetch(withBasePath("/api/office-booking/create"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          officeId: officeIdNum,
+          name: user.name,
+          email: user.email,
+          start: start.toISOString(),
+          end: end.toISOString(),
+        }),
+      });
+
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) {
+        throw new Error(data?.error || `Failed to create booking (${res.status})`);
+      }
+
+      setAiBookingSuccess("Booked! Your reservation has been created.");
+      setBookingSuccess("Booked! Your reservation has been created.");
+      setSelectedSlotStarts([start.toISOString()]);
+      setBookAllDay(false);
+
+      if (officeIdNum !== officeId) {
+        setOfficeId(officeIdNum);
+      }
+      const nextDateKey = toDateKey(start);
+      if (nextDateKey !== dateKey) {
+        setDateKey(nextDateKey);
+      }
+      if (option.durationMinutes !== durationMin) {
+        setDurationMin(option.durationMinutes);
+      }
+      pushState({ officeId: officeIdNum, dateKey: nextDateKey, durationMin: option.durationMinutes });
+      router.refresh();
+    } catch (error: any) {
+      setAiError(error?.message || "Failed to create booking.");
+    } finally {
+      setAiBookingSubmitting(false);
+    }
+  }
 
   async function submitBooking() {
     setBookingError("");
@@ -642,7 +941,17 @@ export function OfficeScheduleClient({
           <div className="grid grid-cols-1 md:grid-cols-[360px_1fr]">
             {/* Left panel */}
             <section className="p-6">
-              <h1 className="text-2xl font-semibold tracking-tight">Schedule a time</h1>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h1 className="text-2xl font-semibold tracking-tight">Schedule a time</h1>
+                <button
+                  type="button"
+                  className="inline-flex h-9 items-center gap-2 rounded-xl border border-border/70 bg-background px-3 text-xs font-semibold transition hover:bg-muted"
+                  onClick={() => setAiOpen(true)}
+                >
+                  <Sparkles className="h-4 w-4 text-foreground/60" />
+                  Use AI
+                </button>
+              </div>
 
               {selectedOffice?.description ? (
                 <p className="mt-3 text-sm text-foreground/70 line-clamp-4">{selectedOffice.description}</p>
@@ -1008,6 +1317,110 @@ export function OfficeScheduleClient({
               })}
           </div>
         )}
+      </Modal>
+
+      <Modal open={aiOpen} title="Use AI to schedule" onClose={() => setAiOpen(false)}>
+        <div className="grid gap-4">
+          <div className="grid max-h-[45vh] gap-2 overflow-y-auto pr-1">
+            {aiMessages.map((msg, idx) => (
+              <div
+                key={`${msg.role}-${idx}`}
+                className={
+                  "rounded-lg px-3 py-2 text-sm " +
+                  (msg.role === "assistant"
+                    ? "bg-muted/40 text-foreground"
+                    : "bg-foreground text-background")
+                }
+              >
+                {msg.content}
+              </div>
+            ))}
+            {aiLoading ? <div className="text-xs text-foreground/60">Thinking…</div> : null}
+          </div>
+
+          {aiError ? <div className="text-xs font-semibold text-red-600">{aiError}</div> : null}
+
+          {aiOptions.length > 0 ? (
+            <div className="grid gap-2">
+              <div className="text-xs font-semibold text-foreground/70">Suggested options</div>
+              {aiOptions.map((option, idx) => {
+                const selected = aiSelectedOption?.startISO === option.startISO;
+                return (
+                  <button
+                    key={`${option.startISO}-${option.officeId}`}
+                    type="button"
+                    onClick={() => setAiSelectedOption(option)}
+                    className={
+                      "flex w-full items-center gap-2 rounded-lg border border-border/70 px-3 py-2 text-left text-sm transition " +
+                      (selected
+                        ? "bg-foreground text-background"
+                        : "bg-background text-foreground hover:bg-muted/30")
+                    }
+                    aria-pressed={selected}
+                  >
+                    <span className="font-semibold">{idx + 1}.</span>
+                    <span>{option.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+
+          {aiSelectedOption ? (
+            <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
+              <div className="text-xs text-foreground/70">Selected option</div>
+              <div className="mt-1 text-sm font-semibold">{aiSelectedOption.label}</div>
+              {aiBookingSuccess ? (
+                <div className="mt-2 text-xs font-semibold text-emerald-700">{aiBookingSuccess}</div>
+              ) : null}
+              <button
+                type="button"
+                className={
+                  "mt-3 h-10 w-full rounded-md border border-border/70 px-3 text-sm font-semibold transition " +
+                  (aiBookingSubmitting
+                    ? "bg-muted/30 text-foreground/50"
+                    : "bg-foreground text-background hover:opacity-90")
+                }
+                onClick={() => submitAiBooking(aiSelectedOption)}
+                disabled={aiBookingSubmitting}
+              >
+                {aiBookingSubmitting ? "Booking..." : "Confirm booking"}
+              </button>
+            </div>
+          ) : null}
+
+          <div className="flex items-center gap-2">
+            <input
+              className="h-10 flex-1 rounded-md border border-border/70 bg-background px-3 text-sm"
+              value={aiInput}
+              onChange={(e) => setAiInput(e.target.value)}
+              placeholder="e.g. Thursday afternoon for 30 minutes at Midtown"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAiSend();
+                }
+              }}
+            />
+            <button
+              type="button"
+              className={
+                "h-10 rounded-md border border-border/70 px-4 text-sm font-semibold transition " +
+                (!aiInput.trim() || aiLoading
+                  ? "bg-muted/30 text-foreground/50"
+                  : "bg-foreground text-background hover:opacity-90")
+              }
+              onClick={handleAiSend}
+              disabled={!aiInput.trim() || aiLoading}
+            >
+              Send
+            </button>
+          </div>
+
+          <div className="text-xs text-foreground/60">
+            AI suggestions use your local Ollama model. If it’s unavailable, you can still book manually.
+          </div>
+        </div>
       </Modal>
     </main>
   );
