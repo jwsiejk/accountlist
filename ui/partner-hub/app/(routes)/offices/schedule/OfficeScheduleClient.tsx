@@ -864,6 +864,15 @@ export function OfficeScheduleClient({
     }
   }
 
+  function appendAssistantOnce(content: string) {
+    if (!content) return;
+    setAiMessages((prev) => {
+      const lastAssistant = [...prev].reverse().find((msg) => msg.role === "assistant");
+      if (lastAssistant?.content === content) return prev;
+      return [...prev, { role: "assistant", content }];
+    });
+  }
+
   function checkAiAvailability(state: AiExtracted) {
     if (aiStep === "checking_availability" && aiChecking) return;
 
@@ -877,9 +886,7 @@ export function OfficeScheduleClient({
       setAiStep(nextStep);
       setAiNeedsDuration(nextStep === "collect_duration");
       const message = promptForStep(nextStep);
-      if (message) {
-        setAiMessages((prev) => [...prev, { role: "assistant", content: message }]);
-      }
+      appendAssistantOnce(message);
       return;
     }
 
@@ -950,9 +957,7 @@ export function OfficeScheduleClient({
 
     setAiNeedsDuration(nextStep === "collect_duration");
     const message = promptForStep(nextStep);
-    if (message) {
-      setAiMessages((prev) => [...prev, { role: "assistant", content: message }]);
-    }
+    appendAssistantOnce(message);
   }
 
   async function handleAiSend() {
@@ -1038,9 +1043,7 @@ export function OfficeScheduleClient({
       setAiMessages((prev) => [...prev, { role: "user", content: message }]);
       setAiInput("");
       const prompt = promptForStep(aiStep);
-      if (prompt) {
-        setAiMessages((prev) => [...prev, { role: "assistant", content: prompt }]);
-      }
+      appendAssistantOnce(prompt);
       return;
     }
 
