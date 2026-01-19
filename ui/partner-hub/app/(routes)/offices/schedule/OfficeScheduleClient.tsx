@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { withBasePath } from "@/lib/basePath";
+import { resolveDateFromNaturalLanguage } from "@/lib/office-booking/resolveDateFromNaturalLanguage";
 
 export type OfficeRow = {
   id: number;
@@ -60,7 +61,8 @@ type AiChatMessage = {
 
 type AiExtracted = {
   dateISO?: string;
-  timePreference?: string;
+  timeExact?: string;
+  timeWindow?: string;
   durationMinutes?: number;
   officePreferenceId?: number;
   selectionIndex?: number;
@@ -136,15 +138,13 @@ function minutesIntoDay(d: Date) {
   return d.getHours() * 60 + d.getMinutes();
 }
 
-function parseTimePreference(value: string) {
+function isValidDateISO(value?: string) {
+  return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
+}
+
+function parseTimeString(value: string) {
   const raw = value.trim().toLowerCase();
   if (!raw) return null;
-
-  if (raw.includes("morning")) return { startMin: 8 * 60, endMin: 12 * 60 };
-  if (raw.includes("afternoon")) return { startMin: 12 * 60, endMin: 17 * 60 };
-  if (raw.includes("evening")) return { startMin: 17 * 60, endMin: 19 * 60 };
-  if (raw.includes("noon")) return { startMin: 12 * 60, endMin: 13 * 60 };
-
   const match = raw.match(/(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)?/);
   if (!match) return null;
   const hoursRaw = Number(match[1]);
@@ -156,11 +156,46 @@ function parseTimePreference(value: string) {
   if (meridiem) {
     if (meridiem === "pm" && hours < 12) hours += 12;
     if (meridiem === "am" && hours === 12) hours = 0;
-  } else if (hours > 23) {
-    return null;
   }
-  const minutes = hours * 60 + minutesRaw;
-  return { startMin: minutes, endMin: minutes + 120 };
+  return hours * 60 + minutesRaw;
+}
+
+function parseTimeExact(value: string) {
+  const minutes = parseTimeString(value);
+  return minutes ?? null;
+}
+
+function parseTimeWindow(value: string) {
+  const raw = value.trim().toLowerCase();
+  if (!raw) return null;
+
+  if (raw.includes("morning")) return { startMin: 8 * 60, endMin: 12 * 60 };
+  if (raw.includes("afternoon")) return { startMin: 12 * 60, endMin: 17 * 60 };
+  if (raw.includes("evening")) return { startMin: 17 * 60, endMin: 19 * 60 };
+  if (raw.includes("noon")) return { startMin: 12 * 60, endMin: 13 * 60 };
+
+  const betweenMatch = raw.match(/between\\s+(.+)\\s+and\\s+(.+)/);
+  if (betweenMatch) {
+    const start = parseTimeString(betweenMatch[1]);
+    const end = parseTimeString(betweenMatch[2]);
+    if (start !== null && end !== null && start < end) {
+      return { startMin: start, endMin: end };
+    }
+  }
+
+  const afterMatch = raw.match(/after\\s+(.+)/);
+  if (afterMatch) {
+    const start = parseTimeString(afterMatch[1]);
+    if (start !== null) return { startMin: start, endMin: WORK_END_MIN };
+  }
+
+  const beforeMatch = raw.match(/before\\s+(.+)/);
+  if (beforeMatch) {
+    const end = parseTimeString(beforeMatch[1]);
+    if (end !== null) return { startMin: WORK_START_MIN, endMin: end };
+  }
+
+  return null;
 }
 
 // MVP working hours.
@@ -338,6 +373,9 @@ export function OfficeScheduleClient({
   const [aiSelectedOption, setAiSelectedOption] = useState<AiOption | null>(null);
   const [aiBookingSubmitting, setAiBookingSubmitting] = useState(false);
   const [aiBookingSuccess, setAiBookingSuccess] = useState("");
+  const [aiDraft, setAiDraft] = useState<AiExtracted>({});
+  const [aiNeedsDuration, setAiNeedsDuration] = useState(false);
+  const [aiDateOptions, setAiDateOptions] = useState<{ label: string; dateISO: string }[]>([]);
 
   const unlocked = Boolean(user);
 
@@ -366,7 +404,7 @@ export function OfficeScheduleClient({
     setAiMessages([
       {
         role: "assistant",
-        content: "Tell me the date, time, and office you want, and I’ll find availability.",
+        content: "Tell me the date and time you want, and I’ll find availability.",
       },
     ]);
     setAiInput("");
@@ -374,6 +412,9 @@ export function OfficeScheduleClient({
     setAiOptions([]);
     setAiSelectedOption(null);
     setAiBookingSuccess("");
+    setAiDraft({});
+    setAiNeedsDuration(false);
+    setAiDateOptions([]);
   }, [aiOpen]);
 
   // Keep UI state in sync with URL navigation (back/forward).
@@ -504,19 +545,6 @@ export function OfficeScheduleClient({
     return out;
   }, [bookingsByOffice, now, offices]);
 
-  const aiAvailabilityContext = useMemo(() => {
-    return offices.map((office) => ({
-      officeId: office.id,
-      name: office.name,
-      slotsByDuration: DURATIONS_MIN.map((duration) => ({
-        durationMinutes: duration,
-        slots: (availabilityIndex.get(office.id)?.get(duration) ?? [])
-          .slice(0, 6)
-          .map((d) => d.toISOString()),
-      })),
-    }));
-  }, [availabilityIndex, offices]);
-
   // If the selected day has no availability (or is in the past), snap to the
   // next available day in the displayed month (Cal.com-style default behavior).
   useEffect(() => {
@@ -623,45 +651,215 @@ export function OfficeScheduleClient({
     return { ok: true as const, start, end, label };
   }, [baseDate, bookAllDay, canAllDay.ok, canAllDay.reason, durationMin, selectedSlotStarts]);
 
-  function buildAiOptions(extracted: AiExtracted) {
-    const requestedDuration = extracted.durationMinutes;
-    const duration = DURATIONS_MIN.includes(requestedDuration as (typeof DURATIONS_MIN)[number])
-      ? (requestedDuration as number)
-      : durationMin;
-    const preferredOfficeId = extracted.officePreferenceId;
+  function buildAiOptions({
+    dateISO,
+    durationMinutes,
+    timeExactMin,
+    timeWindow,
+    officePreferenceId,
+  }: {
+    dateISO: string;
+    durationMinutes: number;
+    timeExactMin?: number;
+    timeWindow?: { startMin: number; endMin: number };
+    officePreferenceId?: number;
+  }) {
+    const preferredOfficeId = officePreferenceId;
     const knownOfficeIds = offices.map((o) => o.id);
     const officeIds = preferredOfficeId && knownOfficeIds.includes(preferredOfficeId)
       ? [preferredOfficeId, ...knownOfficeIds.filter((id) => id !== preferredOfficeId)]
       : knownOfficeIds;
-    const dateFilter = extracted.dateISO && /^\d{4}-\d{2}-\d{2}$/.test(extracted.dateISO)
-      ? extracted.dateISO
-      : null;
-    const timeRange = extracted.timePreference ? parseTimePreference(extracted.timePreference) : null;
+    const officeOrder = new Map<number, number>(officeIds.map((id, idx) => [id, idx]));
 
-    const candidates: { officeId: number; start: Date }[] = [];
-    for (const id of officeIds) {
-      const slots = availabilityIndex.get(id)?.get(duration) ?? [];
-      for (const start of slots) {
-        if (dateFilter && toDateKey(start) !== dateFilter) continue;
-        if (timeRange) {
-          const minutes = minutesIntoDay(start);
-          if (minutes < timeRange.startMin || minutes > timeRange.endMin) continue;
-        }
-        candidates.push({ officeId: id, start });
+    const labelFor = (officeId: number, start: Date) => {
+      const officeName = officeNameById.get(officeId) ?? `Office #${officeId}`;
+      return `${officeName} · ${formatDayLabel(start)} at ${formatTime(start)} (${formatDurationLabel(
+        durationMinutes,
+      )})`;
+    };
+
+    const collectSlots = (officeId: number) => availabilityIndex.get(officeId)?.get(durationMinutes) ?? [];
+    const isSameDate = (start: Date) => toDateKey(start) === dateISO;
+
+    if (typeof timeExactMin === "number") {
+      const exactMatches: { officeId: number; start: Date }[] = [];
+      for (const officeId of officeIds) {
+        const match = collectSlots(officeId).find(
+          (start) => isSameDate(start) && minutesIntoDay(start) === timeExactMin,
+        );
+        if (match) exactMatches.push({ officeId, start: match });
       }
+      if (exactMatches.length > 0) {
+        return {
+          options: exactMatches.slice(0, 3).map((slot) => ({
+            label: labelFor(slot.officeId, slot.start),
+            officeId: String(slot.officeId),
+            startISO: slot.start.toISOString(),
+            durationMinutes,
+          })),
+        };
+      }
+
+      const sameDayCandidates: { officeId: number; start: Date }[] = [];
+      for (const officeId of officeIds) {
+        for (const start of collectSlots(officeId)) {
+          if (!isSameDate(start)) continue;
+          sameDayCandidates.push({ officeId, start });
+        }
+      }
+
+      const sortedCandidates =
+        sameDayCandidates.length > 0
+          ? sameDayCandidates.sort((a, b) => {
+              const diffA = Math.abs(minutesIntoDay(a.start) - timeExactMin);
+              const diffB = Math.abs(minutesIntoDay(b.start) - timeExactMin);
+              if (diffA !== diffB) return diffA - diffB;
+              if (a.start.getTime() !== b.start.getTime()) return a.start.getTime() - b.start.getTime();
+              return (officeOrder.get(a.officeId) ?? 0) - (officeOrder.get(b.officeId) ?? 0);
+            })
+          : [];
+
+      const fallbackCandidates =
+        sortedCandidates.length > 0
+          ? sortedCandidates
+          : officeIds
+              .flatMap((officeId) =>
+                collectSlots(officeId)
+                  .filter((start) => start >= new Date(`${dateISO}T00:00:00`))
+                  .map((start) => ({ officeId, start })),
+              )
+              .sort((a, b) => {
+                if (a.start.getTime() !== b.start.getTime()) return a.start.getTime() - b.start.getTime();
+                return (officeOrder.get(a.officeId) ?? 0) - (officeOrder.get(b.officeId) ?? 0);
+              });
+
+      return {
+        options: fallbackCandidates.slice(0, 3).map((slot) => ({
+          label: labelFor(slot.officeId, slot.start),
+          officeId: String(slot.officeId),
+          startISO: slot.start.toISOString(),
+          durationMinutes,
+        })),
+        exactTimeUnavailable: true,
+      };
     }
 
-    candidates.sort((a, b) => a.start.getTime() - b.start.getTime());
-    return candidates.slice(0, 3).map((slot) => {
-      const officeName = officeNameById.get(slot.officeId) ?? `Office #${slot.officeId}`;
-      const label = `${officeName} · ${formatDayLabel(slot.start)} at ${formatTime(slot.start)} (${formatDurationLabel(duration)})`;
+    if (timeWindow) {
+      const candidates: { officeId: number; start: Date }[] = [];
+      for (const officeId of officeIds) {
+        for (const start of collectSlots(officeId)) {
+          if (!isSameDate(start)) continue;
+          const minutes = minutesIntoDay(start);
+          if (minutes < timeWindow.startMin || minutes > timeWindow.endMin) continue;
+          candidates.push({ officeId, start });
+        }
+      }
+      candidates.sort((a, b) => {
+        if (a.start.getTime() !== b.start.getTime()) return a.start.getTime() - b.start.getTime();
+        return (officeOrder.get(a.officeId) ?? 0) - (officeOrder.get(b.officeId) ?? 0);
+      });
       return {
-        label,
-        officeId: String(slot.officeId),
-        startISO: slot.start.toISOString(),
-        durationMinutes: duration,
+        options: candidates.slice(0, 3).map((slot) => ({
+          label: labelFor(slot.officeId, slot.start),
+          officeId: String(slot.officeId),
+          startISO: slot.start.toISOString(),
+          durationMinutes,
+        })),
       };
+    }
+
+    return { options: [] };
+  }
+
+  function normalizeDuration(value?: number) {
+    if (!Number.isFinite(value)) return null;
+    const rounded = Math.round(value ?? 0);
+    return DURATIONS_MIN.includes(rounded as (typeof DURATIONS_MIN)[number]) ? rounded : null;
+  }
+
+  function buildNextWeekOptions(base: Date) {
+    const labels = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    const day = base.getDay();
+    const daysUntilMonday = ((8 - day) % 7) || 7;
+    const monday = addDays(startOfDay(base), daysUntilMonday);
+    return labels.map((label, idx) => {
+      const date = addDays(monday, idx);
+      return { label: `${label} (${toDateKey(date)})`, dateISO: toDateKey(date) };
     });
+  }
+
+  function buildClarifyMessage(options: { label: string }[]) {
+    return `Which date did you mean?\n${options
+      .map((option, idx) => `${idx + 1}) ${option.label}`)
+      .join("\n")}`;
+  }
+
+  function runAiStateMachine(state: AiExtracted, selectionIndex?: number) {
+    const dateISO = isValidDateISO(state.dateISO) ? state.dateISO : undefined;
+    const duration = normalizeDuration(state.durationMinutes);
+    const timeExactMin = state.timeExact ? parseTimeExact(state.timeExact) : null;
+    const timeWindow = !timeExactMin && state.timeWindow ? parseTimeWindow(state.timeWindow) : null;
+
+    if (!dateISO) {
+      setAiNeedsDuration(false);
+      setAiMessages((prev) => [...prev, { role: "assistant", content: "What date should I look for?" }]);
+      return;
+    }
+
+    if (timeExactMin === null && !timeWindow) {
+      setAiNeedsDuration(false);
+      setAiMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "What time should I target?" },
+      ]);
+      return;
+    }
+
+    if (!duration) {
+      setAiNeedsDuration(true);
+      setAiMessages((prev) => [...prev, { role: "assistant", content: "How long do you need?" }]);
+      return;
+    }
+
+    setAiNeedsDuration(false);
+    setAiOptions([]);
+    setAiSelectedOption(null);
+    setAiMessages((prev) => [...prev, { role: "assistant", content: "Let me check availability…" }]);
+
+    const result = buildAiOptions({
+      dateISO,
+      durationMinutes: duration,
+      timeExactMin: timeExactMin ?? undefined,
+      timeWindow: timeWindow ?? undefined,
+      officePreferenceId: state.officePreferenceId,
+    });
+
+    if (result.exactTimeUnavailable) {
+      const timeLabel =
+        timeExactMin !== null ? formatTime(addMinutes(new Date(`${dateISO}T00:00:00`), timeExactMin)) : "";
+      setAiMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: timeLabel
+            ? `${timeLabel} is booked everywhere. Here are the next best options.`
+            : "That time is booked everywhere. Here are the next best options.",
+        },
+      ]);
+    }
+
+    if (result.options.length === 0) {
+      setAiMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "I couldn’t find availability for that request." },
+      ]);
+      return;
+    }
+
+    setAiOptions(result.options);
+    if (selectionIndex && result.options[selectionIndex - 1]) {
+      setAiSelectedOption(result.options[selectionIndex - 1]);
+    }
   }
 
   async function handleAiSend() {
@@ -683,32 +881,68 @@ export function OfficeScheduleClient({
           message,
           context: {
             offices: offices.map((o) => ({ id: o.id, name: o.name })),
-            availabilityContext: aiAvailabilityContext,
             uiState: { officeId, dateKey, durationMin },
           },
         }),
       });
 
       const data = (await res.json().catch(() => ({}))) as {
-        intent?: string;
-        reply?: string;
         extracted?: AiExtracted;
-        options?: AiOption[];
         error?: string;
       };
       if (!res.ok) {
         throw new Error(data?.error || `AI request failed (${res.status})`);
       }
 
-      const reply = data?.reply?.trim() || "Got it. Let me check availability.";
       const extracted = data?.extracted ?? {};
-      const options = Array.isArray(data?.options) ? data.options : buildAiOptions(extracted);
+      const base = fromDateKey(dateKey) ?? new Date();
+      const resolution = resolveDateFromNaturalLanguage(message, base);
 
-      setAiMessages((prev) => [...prev, { role: "assistant", content: reply }]);
-      setAiOptions(options);
-      if (extracted?.selectionIndex && options[extracted.selectionIndex - 1]) {
-        setAiSelectedOption(options[extracted.selectionIndex - 1]);
+      let merged: AiExtracted = { ...aiDraft, ...extracted };
+
+      if (aiDateOptions.length > 0 && extracted.selectionIndex) {
+        const selectedDate = aiDateOptions[extracted.selectionIndex - 1];
+        if (selectedDate) {
+          merged = { ...merged, dateISO: selectedDate.dateISO };
+          setAiDateOptions([]);
+        }
       }
+
+      if (resolution.confidence === "high" && resolution.dateISO) {
+        merged = { ...merged, dateISO: resolution.dateISO };
+      }
+
+      if (resolution.confidence === "ambiguous") {
+        const options = resolution.options ?? buildNextWeekOptions(base);
+        setAiDateOptions(options);
+        setAiOptions([]);
+        setAiNeedsDuration(false);
+        setAiMessages((prev) => [...prev, { role: "assistant", content: buildClarifyMessage(options) }]);
+        return;
+      }
+
+      if (aiDateOptions.length > 0) {
+        setAiDateOptions([]);
+      }
+
+      if (
+        extracted.selectionIndex &&
+        aiOptions.length > 0 &&
+        !extracted.dateISO &&
+        !extracted.timeExact &&
+        !extracted.timeWindow &&
+        !extracted.durationMinutes &&
+        !extracted.officePreferenceId
+      ) {
+        const picked = aiOptions[extracted.selectionIndex - 1];
+        if (picked) {
+          setAiSelectedOption(picked);
+          return;
+        }
+      }
+
+      setAiDraft(merged);
+      runAiStateMachine(merged, extracted.selectionIndex);
     } catch (error: any) {
       setAiError("AI isn’t available right now. You can still book manually.");
       const detail = error instanceof Error ? error.message : String(error);
@@ -722,6 +956,14 @@ export function OfficeScheduleClient({
     } finally {
       setAiLoading(false);
     }
+  }
+
+  function handleAiDurationSelect(duration: number) {
+    const next = { ...aiDraft, durationMinutes: duration };
+    setAiDraft(next);
+    setAiNeedsDuration(false);
+    setAiMessages((prev) => [...prev, { role: "user", content: `${duration} minutes.` }]);
+    runAiStateMachine(next, next.selectionIndex);
   }
 
   async function submitAiBooking(option: AiOption) {
@@ -1386,6 +1628,13 @@ export function OfficeScheduleClient({
               >
                 {aiBookingSubmitting ? "Booking..." : "Confirm booking"}
               </button>
+            </div>
+          ) : null}
+
+          {aiNeedsDuration ? (
+            <div className="grid gap-2">
+              <div className="text-xs font-semibold text-foreground/70">How long do you need?</div>
+              <DurationChips value={aiDraft.durationMinutes ?? 0} onChange={handleAiDurationSelect} />
             </div>
           ) : null}
 
