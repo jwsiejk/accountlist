@@ -9,7 +9,7 @@ export const REVIEW_ROW_HEIGHT = 168;
 export const REVIEW_LIST_HEIGHT = 560;
 
 export const INPUT_BASE_CLASSES =
-  "h-10 rounded-lg border border-border/70 bg-background px-3 text-sm text-foreground shadow-sm transition placeholder:text-foreground/40 focus-visible:outline-none focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+  "h-10 rounded-lg border border-border/70 bg-card px-3 text-sm text-foreground shadow-sm transition placeholder:text-foreground/40 focus-visible:outline-none focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 export const SIMPLE_SEARCH_COLUMNS = [
   "vendor_account_name",

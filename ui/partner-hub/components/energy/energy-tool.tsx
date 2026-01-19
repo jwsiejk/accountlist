@@ -33,7 +33,7 @@ const fmt2 = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
 const formatRackUnits = (value: number | null | undefined) => (value == null ? "—" : fmt0.format(value));
 const DEFAULT_GRID_KGCO2E_PER_KWH = 0.4;
 const INPUT_BASE_CLASSES =
-  "h-10 w-full rounded-lg border border-border/70 bg-background px-3 text-sm text-foreground shadow-sm transition placeholder:text-foreground/40 focus-visible:outline-none focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+  "h-10 w-full rounded-lg border border-border/70 bg-card px-3 text-sm text-foreground shadow-sm transition placeholder:text-foreground/40 focus-visible:outline-none focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 const LABEL_CLASSES = "text-xs font-semibold uppercase tracking-wide text-foreground/60";
 
 type EnergyMeta = {
