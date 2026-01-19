@@ -121,7 +121,7 @@ export default function HomePage() {
             <div className="flex flex-wrap items-center gap-3">
               <Link
                 href="/resume/James_Siejk_Resume.pdf"
-                className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-foreground shadow-sm transition hover:bg-primary/90"
+                className="inline-flex h-10 items-center gap-2 rounded-md bg-button-primary px-4 text-sm font-semibold text-button-primary-foreground shadow-sm transition hover:bg-button-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 <Download className="h-4 w-4" aria-hidden />
                 Download Resume
