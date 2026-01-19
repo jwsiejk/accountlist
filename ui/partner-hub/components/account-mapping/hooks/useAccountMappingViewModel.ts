@@ -174,20 +174,29 @@ export const useAccountMappingViewModel = ({
 
   const runSearchDataset = useMemo<MergedSearchRow[]>(
     () =>
-      reviewRows.map((row) => ({
-        vendor_account_name: row.vendor.rawName ?? "",
-        partner_account_name: row.partner?.rawName ?? "",
-        vendor_owner: row.vendor.ownerName ?? "",
-        partner_owner: row.partner?.ownerName ?? "",
-        vendor_status: row.vendor.status ?? "",
-        partner_status: row.partner?.status ?? "",
-        vendor_crm_account_id: row.vendor.crmAccountId ?? "",
-        partner_crm_account_id: row.partner?.crmAccountId ?? "",
-        vendor_region: row.vendor.region ?? "",
-        partner_region: row.partner?.region ?? "",
-        vendor_organization: row.vendor.organization ?? "",
-        partner_organization: row.partner?.organization ?? "",
-      })),
+      reviewRows
+        .filter(
+          (row) =>
+            row.partnerAccountKey &&
+            row.status !== "rejected" &&
+            (row.baseStatus === "autoMatch" ||
+              row.status === "confirmed" ||
+              row.status === "manual"),
+        )
+        .map((row) => ({
+          vendor_account_name: row.vendor.rawName ?? "",
+          partner_account_name: row.partner?.rawName ?? "",
+          vendor_owner: row.vendor.ownerName ?? "",
+          partner_owner: row.partner?.ownerName ?? "",
+          vendor_status: row.vendor.status ?? "",
+          partner_status: row.partner?.status ?? "",
+          vendor_crm_account_id: row.vendor.crmAccountId ?? "",
+          partner_crm_account_id: row.partner?.crmAccountId ?? "",
+          vendor_region: row.vendor.region ?? "",
+          partner_region: row.partner?.region ?? "",
+          vendor_organization: row.vendor.organization ?? "",
+          partner_organization: row.partner?.organization ?? "",
+        })),
     [reviewRows],
   );
 
