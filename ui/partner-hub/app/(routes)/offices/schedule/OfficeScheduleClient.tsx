@@ -75,6 +75,16 @@ type AiOption = {
   durationMinutes: number;
 };
 
+type AiStep =
+  | "collect_date"
+  | "collect_time"
+  | "collect_duration"
+  | "checking_availability"
+  | "choose_option"
+  | "confirm"
+  | "booking"
+  | "done";
+
 function pad2(n: number) {
   return String(n).padStart(2, "0");
 }
@@ -383,6 +393,8 @@ export function OfficeScheduleClient({
   const [aiDraft, setAiDraft] = useState<AiExtracted>({});
   const [aiNeedsDuration, setAiNeedsDuration] = useState(false);
   const [aiDateOptions, setAiDateOptions] = useState<{ label: string; dateISO: string }[]>([]);
+  const [aiStep, setAiStep] = useState<AiStep>("collect_date");
+  const [aiChecking, setAiChecking] = useState(false);
   const aiSendingRef = useRef(false);
 
   const unlocked = Boolean(user);
@@ -425,6 +437,8 @@ export function OfficeScheduleClient({
     setAiDraft({});
     setAiNeedsDuration(false);
     setAiDateOptions([]);
+    setAiStep("collect_date");
+    setAiChecking(false);
   }, [aiOpen]);
 
   // Keep UI state in sync with URL navigation (back/forward).
@@ -680,6 +694,7 @@ export function OfficeScheduleClient({
       ? [preferredOfficeId, ...knownOfficeIds.filter((id) => id !== preferredOfficeId)]
       : knownOfficeIds;
     const officeOrder = new Map<number, number>(officeIds.map((id, idx) => [id, idx]));
+    const dateFloor = new Date(`${dateISO}T00:00:00`);
 
     const labelFor = (officeId: number, start: Date) => {
       const officeName = officeNameById.get(officeId) ?? `Office #${officeId}`;
@@ -690,6 +705,17 @@ export function OfficeScheduleClient({
 
     const collectSlots = (officeId: number) => availabilityIndex.get(officeId)?.get(durationMinutes) ?? [];
     const isSameDate = (start: Date) => toDateKey(start) === dateISO;
+    const collectFallbackCandidates = () =>
+      officeIds
+        .flatMap((officeId) =>
+          collectSlots(officeId)
+            .filter((start) => start >= dateFloor)
+            .map((start) => ({ officeId, start })),
+        )
+        .sort((a, b) => {
+          if (a.start.getTime() !== b.start.getTime()) return a.start.getTime() - b.start.getTime();
+          return (officeOrder.get(a.officeId) ?? 0) - (officeOrder.get(b.officeId) ?? 0);
+        });
 
     if (typeof timeExactMin === "number") {
       const exactMatches: { officeId: number; start: Date }[] = [];
@@ -729,19 +755,7 @@ export function OfficeScheduleClient({
             })
           : [];
 
-      const fallbackCandidates =
-        sortedCandidates.length > 0
-          ? sortedCandidates
-          : officeIds
-              .flatMap((officeId) =>
-                collectSlots(officeId)
-                  .filter((start) => start >= new Date(`${dateISO}T00:00:00`))
-                  .map((start) => ({ officeId, start })),
-              )
-              .sort((a, b) => {
-                if (a.start.getTime() !== b.start.getTime()) return a.start.getTime() - b.start.getTime();
-                return (officeOrder.get(a.officeId) ?? 0) - (officeOrder.get(b.officeId) ?? 0);
-              });
+      const fallbackCandidates = sortedCandidates.length > 0 ? sortedCandidates : collectFallbackCandidates();
 
       return {
         options: fallbackCandidates.slice(0, 3).map((slot) => ({
@@ -768,13 +782,25 @@ export function OfficeScheduleClient({
         if (a.start.getTime() !== b.start.getTime()) return a.start.getTime() - b.start.getTime();
         return (officeOrder.get(a.officeId) ?? 0) - (officeOrder.get(b.officeId) ?? 0);
       });
+      if (candidates.length > 0) {
+        return {
+          options: candidates.slice(0, 3).map((slot) => ({
+            label: labelFor(slot.officeId, slot.start),
+            officeId: String(slot.officeId),
+            startISO: slot.start.toISOString(),
+            durationMinutes,
+          })),
+        };
+      }
+      const fallbackCandidates = collectFallbackCandidates();
       return {
-        options: candidates.slice(0, 3).map((slot) => ({
+        options: fallbackCandidates.slice(0, 3).map((slot) => ({
           label: labelFor(slot.officeId, slot.start),
           officeId: String(slot.officeId),
           startISO: slot.start.toISOString(),
           durationMinutes,
         })),
+        timeWindowUnavailable: true,
       };
     }
 
@@ -804,33 +830,51 @@ export function OfficeScheduleClient({
       .join("\n")}`;
   }
 
-  function runAiStateMachine(state: AiExtracted, selectionIndex?: number) {
+  function deriveAiStep(state: AiExtracted): AiStep {
+    const dateISO = isValidDateISO(state.dateISO) ? state.dateISO : undefined;
+    const timeExactMin = state.timeExact ? parseTimeExact(state.timeExact) : null;
+    const timeWindow = !timeExactMin && state.timeWindow ? parseTimeWindow(state.timeWindow) : null;
+    const duration = normalizeDuration(state.durationMinutes);
+
+    if (!dateISO) {
+      return "collect_date";
+    }
+
+    if (timeExactMin === null && !timeWindow) {
+      return "collect_time";
+    }
+
+    if (!duration) {
+      return "collect_duration";
+    }
+
+    return "checking_availability";
+  }
+
+  function promptForStep(step: AiStep) {
+    switch (step) {
+      case "collect_date":
+        return "What date should I look for?";
+      case "collect_time":
+        return "What time should I target?";
+      case "collect_duration":
+        return "How long do you need?";
+      default:
+        return "";
+    }
+  }
+
+  function checkAiAvailability(state: AiExtracted) {
+    if (aiStep === "checking_availability" && aiChecking) return;
+
     const dateISO = isValidDateISO(state.dateISO) ? state.dateISO : undefined;
     const duration = normalizeDuration(state.durationMinutes);
     const timeExactMin = state.timeExact ? parseTimeExact(state.timeExact) : null;
     const timeWindow = !timeExactMin && state.timeWindow ? parseTimeWindow(state.timeWindow) : null;
 
-    if (!dateISO) {
-      setAiNeedsDuration(false);
-      setAiMessages((prev) => [...prev, { role: "assistant", content: "What date should I look for?" }]);
-      return;
-    }
+    if (!dateISO || !duration || (timeExactMin === null && !timeWindow)) return;
 
-    if (timeExactMin === null && !timeWindow) {
-      setAiNeedsDuration(false);
-      setAiMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "What time should I target?" },
-      ]);
-      return;
-    }
-
-    if (!duration) {
-      setAiNeedsDuration(true);
-      setAiMessages((prev) => [...prev, { role: "assistant", content: "How long do you need?" }]);
-      return;
-    }
-
+    setAiChecking(true);
     setAiNeedsDuration(false);
     setAiOptions([]);
     setAiSelectedOption(null);
@@ -844,16 +888,19 @@ export function OfficeScheduleClient({
       officePreferenceId: state.officePreferenceId,
     });
 
-    if (result.exactTimeUnavailable) {
+    if (result.exactTimeUnavailable || result.timeWindowUnavailable) {
       const timeLabel =
         timeExactMin !== null ? formatTime(addMinutes(new Date(`${dateISO}T00:00:00`), timeExactMin)) : "";
+      const fallbackMessage = result.timeWindowUnavailable
+        ? "That time window is booked everywhere. Here are the next best options."
+        : "That time is booked everywhere. Here are the next best options.";
       setAiMessages((prev) => [
         ...prev,
         {
           role: "assistant",
           content: timeLabel
             ? `${timeLabel} is booked everywhere. Here are the next best options.`
-            : "That time is booked everywhere. Here are the next best options.",
+            : fallbackMessage,
         },
       ]);
     }
@@ -861,20 +908,126 @@ export function OfficeScheduleClient({
     if (result.options.length === 0) {
       setAiMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "I couldn’t find availability for that request." },
+        {
+          role: "assistant",
+          content: "I couldn’t find availability for that request. Let me know another time to try.",
+        },
       ]);
+      setAiOptions([]);
+      setAiStep("choose_option");
+      setAiChecking(false);
       return;
     }
 
     setAiOptions(result.options);
-    if (selectionIndex && result.options[selectionIndex - 1]) {
-      setAiSelectedOption(result.options[selectionIndex - 1]);
+    setAiStep("choose_option");
+    setAiChecking(false);
+  }
+
+  function advanceAiStep(state: AiExtracted) {
+    const nextStep = deriveAiStep(state);
+    setAiStep(nextStep);
+
+    if (nextStep === "checking_availability") {
+      checkAiAvailability(state);
+      return;
+    }
+
+    setAiNeedsDuration(nextStep === "collect_duration");
+    const message = promptForStep(nextStep);
+    if (message) {
+      setAiMessages((prev) => [...prev, { role: "assistant", content: message }]);
     }
   }
 
   async function handleAiSend() {
     const message = aiInput.trim();
     if (!message || aiSendingRef.current) return;
+
+    if (aiStep === "checking_availability" && aiChecking) return;
+
+    if (aiStep === "choose_option") {
+      setAiMessages((prev) => [...prev, { role: "user", content: message }]);
+      setAiInput("");
+      const trimmed = message.trim();
+      if (!["1", "2", "3"].includes(trimmed)) {
+        setAiMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: "Please choose 1, 2, or 3." },
+        ]);
+        return;
+      }
+      const picked = aiOptions[Number(trimmed) - 1];
+      if (!picked) {
+        setAiMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: "That option isn’t available. Please choose 1, 2, or 3." },
+        ]);
+        return;
+      }
+      setAiSelectedOption(picked);
+      setAiStep("confirm");
+      setAiMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Great choice. Ready to book when you are." },
+      ]);
+      return;
+    }
+
+    const isNumericOnly = /^\d+$/.test(message);
+
+    if (aiStep === "collect_date" && aiDateOptions.length > 0) {
+      setAiMessages((prev) => [...prev, { role: "user", content: message }]);
+      setAiInput("");
+      if (!["1", "2", "3"].includes(message.trim())) {
+        setAiMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: "Please pick 1, 2, or 3." },
+        ]);
+        return;
+      }
+      const selectedDate = aiDateOptions[Number(message.trim()) - 1];
+      if (!selectedDate) {
+        setAiMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: "Please pick 1, 2, or 3." },
+        ]);
+        return;
+      }
+      const merged = { ...aiDraft, dateISO: selectedDate.dateISO };
+      setAiDateOptions([]);
+      setAiDraft(merged);
+      advanceAiStep(merged);
+      return;
+    }
+
+    if (aiStep === "collect_duration" && isNumericOnly) {
+      setAiMessages((prev) => [...prev, { role: "user", content: message }]);
+      setAiInput("");
+      const durationValue = normalizeDuration(Number(message));
+      if (!durationValue) {
+        setAiMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: "Please choose 15, 30, 45, or 60 minutes." },
+        ]);
+        return;
+      }
+      const merged = { ...aiDraft, durationMinutes: durationValue };
+      setAiDraft(merged);
+      setAiNeedsDuration(false);
+      advanceAiStep(merged);
+      return;
+    }
+
+    if (isNumericOnly && (aiStep === "collect_date" || aiStep === "collect_time")) {
+      setAiMessages((prev) => [...prev, { role: "user", content: message }]);
+      setAiInput("");
+      const prompt = promptForStep(aiStep);
+      if (prompt) {
+        setAiMessages((prev) => [...prev, { role: "assistant", content: prompt }]);
+      }
+      return;
+    }
 
     aiSendingRef.current = true;
     setAiSending(true);
@@ -911,6 +1064,12 @@ export function OfficeScheduleClient({
       const resolution = resolveDateFromNaturalLanguage(message, base);
 
       let merged: AiExtracted = { ...aiDraft, ...extracted };
+      const requestChanged =
+        merged.dateISO !== aiDraft.dateISO ||
+        merged.timeExact !== aiDraft.timeExact ||
+        merged.timeWindow !== aiDraft.timeWindow ||
+        merged.durationMinutes !== aiDraft.durationMinutes ||
+        merged.officePreferenceId !== aiDraft.officePreferenceId;
       const fallbackWindow = !extracted.timeWindow ? parseTimeWindow(message) : null;
       const fallbackExactMin =
         !extracted.timeExact && !fallbackWindow ? parseTimeString(message) : null;
@@ -919,20 +1078,6 @@ export function OfficeScheduleClient({
       }
       if (!extracted.timeExact && fallbackExactMin !== null) {
         merged = { ...merged, timeExact: formatTimeExact(fallbackExactMin) };
-      }
-
-      if (aiDateOptions.length > 0 && extracted.selectionIndex) {
-        const selectedDate = aiDateOptions[extracted.selectionIndex - 1];
-        if (!selectedDate) {
-          setAiDraft(merged);
-          setAiMessages((prev) => [
-            ...prev,
-            { role: "assistant", content: "Please pick 1, 2, or 3." },
-          ]);
-          return;
-        }
-        merged = { ...merged, dateISO: selectedDate.dateISO };
-        setAiDateOptions([]);
       }
 
       if (resolution.confidence === "high" && resolution.dateISO) {
@@ -946,6 +1091,7 @@ export function OfficeScheduleClient({
         setAiNeedsDuration(false);
         setAiDraft(merged);
         setAiMessages((prev) => [...prev, { role: "assistant", content: buildClarifyMessage(options) }]);
+        setAiStep("collect_date");
         return;
       }
 
@@ -953,30 +1099,15 @@ export function OfficeScheduleClient({
         setAiDateOptions([]);
       }
 
-      if (
-        extracted.selectionIndex &&
-        aiOptions.length > 0 &&
-        !extracted.dateISO &&
-        !extracted.timeExact &&
-        !extracted.timeWindow &&
-        !extracted.durationMinutes &&
-        !extracted.officePreferenceId
-      ) {
-        const picked = aiOptions[extracted.selectionIndex - 1];
-        if (!picked) {
-          setAiDraft(merged);
-          setAiMessages((prev) => [
-            ...prev,
-            { role: "assistant", content: "Please pick 1, 2, or 3." },
-          ]);
-          return;
-        }
-        setAiSelectedOption(picked);
-        return;
-      }
-
       setAiDraft(merged);
-      runAiStateMachine(merged, extracted.selectionIndex);
+      if (requestChanged) {
+        setAiOptions([]);
+        setAiSelectedOption(null);
+        if (aiStep === "choose_option" || aiStep === "confirm" || aiStep === "done") {
+          setAiStep("collect_date");
+        }
+      }
+      advanceAiStep(merged);
     } catch (error: any) {
       setAiError("AI isn’t available right now. You can still book manually.");
       const detail = error instanceof Error ? error.message : String(error);
@@ -999,7 +1130,7 @@ export function OfficeScheduleClient({
     setAiDraft(next);
     setAiNeedsDuration(false);
     setAiMessages((prev) => [...prev, { role: "user", content: `${duration} minutes.` }]);
-    runAiStateMachine(next, next.selectionIndex);
+    advanceAiStep(next);
   }
 
   async function submitAiBooking(option: AiOption) {
@@ -1022,6 +1153,7 @@ export function OfficeScheduleClient({
     const end = addMinutes(start, option.durationMinutes);
 
     setAiBookingSubmitting(true);
+    setAiStep("booking");
     try {
       const res = await fetch(withBasePath("/api/office-booking/create"), {
         method: "POST",
@@ -1044,6 +1176,7 @@ export function OfficeScheduleClient({
       setBookingSuccess("Booked! Your reservation has been created.");
       setSelectedSlotStarts([start.toISOString()]);
       setBookAllDay(false);
+      setAiStep("done");
 
       if (officeIdNum !== officeId) {
         setOfficeId(officeIdNum);
@@ -1059,6 +1192,7 @@ export function OfficeScheduleClient({
       router.refresh();
     } catch (error: any) {
       setAiError(error?.message || "Failed to create booking.");
+      setAiStep("confirm");
     } finally {
       setAiBookingSubmitting(false);
     }
@@ -1627,7 +1761,10 @@ export function OfficeScheduleClient({
                   <button
                     key={`${option.startISO}-${option.officeId}`}
                     type="button"
-                    onClick={() => setAiSelectedOption(option)}
+                    onClick={() => {
+                      setAiSelectedOption(option);
+                      setAiStep("confirm");
+                    }}
                     className={
                       "flex w-full items-center gap-2 rounded-lg border border-border/70 px-3 py-2 text-left text-sm transition " +
                       (selected
