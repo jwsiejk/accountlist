@@ -214,6 +214,43 @@ function parseTimeWindow(value: string) {
   return null;
 }
 
+function extractLocalAiFields(input: string): Partial<AiExtracted> {
+  const trimmed = input.trim();
+  if (!trimmed) return {};
+
+  const raw = trimmed.toLowerCase();
+  const result: Partial<AiExtracted> = {};
+
+  const hasDurationWord = /\b(hour|hours|hr|hrs|minute|minutes|min|mins)\b/.test(raw);
+  const hourMatch = raw.match(/\b(\d{1,2})\s*(h|hr|hrs|hour|hours)\b/);
+  const minuteMatch = raw.match(/\b(\d{1,3})\s*(m|min|mins|minute|minutes)\b/);
+  const numericOnly = /^\d{1,3}$/.test(raw) ? Number(raw) : null;
+  const durationCandidate = hourMatch
+    ? Number(hourMatch[1]) * 60
+    : minuteMatch
+      ? Number(minuteMatch[1])
+      : numericOnly;
+  const normalizedDuration = normalizeDuration(durationCandidate ?? undefined);
+  if (normalizedDuration) {
+    result.durationMinutes = normalizedDuration;
+  }
+
+  const timeWindow = parseTimeWindow(trimmed);
+  if (timeWindow) {
+    result.timeWindow = trimmed;
+    return result;
+  }
+
+  if (!hasDurationWord) {
+    const exactMin = parseTimeExact(trimmed);
+    if (exactMin !== null) {
+      result.timeExact = formatTimeExact(exactMin);
+    }
+  }
+
+  return result;
+}
+
 // MVP working hours.
 const WORK_START_MIN = 8 * 60;
 const WORK_END_MIN = 18 * 60;
@@ -1014,7 +1051,8 @@ export function OfficeScheduleClient({
         ]);
         return;
       }
-      const merged = { ...aiDraft, dateISO: selectedDate.dateISO };
+      const local = extractLocalAiFields(message);
+      const merged = { ...aiDraft, dateISO: selectedDate.dateISO, ...local };
       setAiDateOptions([]);
       setAiDraft(merged);
       advanceAiStep(merged);
@@ -1032,7 +1070,8 @@ export function OfficeScheduleClient({
         ]);
         return;
       }
-      const merged = { ...aiDraft, durationMinutes: durationValue };
+      const local = extractLocalAiFields(message);
+      const merged = { ...aiDraft, durationMinutes: durationValue, ...local };
       setAiDraft(merged);
       setAiNeedsDuration(false);
       advanceAiStep(merged);
@@ -1082,12 +1121,6 @@ export function OfficeScheduleClient({
       const resolution = resolveDateFromNaturalLanguage(message, base);
 
       let merged: AiExtracted = { ...aiDraft, ...extracted };
-      const requestChanged =
-        merged.dateISO !== aiDraft.dateISO ||
-        merged.timeExact !== aiDraft.timeExact ||
-        merged.timeWindow !== aiDraft.timeWindow ||
-        merged.durationMinutes !== aiDraft.durationMinutes ||
-        merged.officePreferenceId !== aiDraft.officePreferenceId;
       const fallbackWindow = !extracted.timeWindow ? parseTimeWindow(message) : null;
       const fallbackExactMin =
         !extracted.timeExact && !fallbackWindow ? parseTimeString(message) : null;
@@ -1101,6 +1134,9 @@ export function OfficeScheduleClient({
       if (resolution.confidence === "high" && resolution.dateISO) {
         merged = { ...merged, dateISO: resolution.dateISO };
       }
+
+      const local = extractLocalAiFields(message);
+      merged = { ...merged, ...local };
 
       if (resolution.confidence === "ambiguous") {
         const options = resolution.options ?? buildNextWeekOptions(base);
@@ -1118,6 +1154,12 @@ export function OfficeScheduleClient({
       }
 
       setAiDraft(merged);
+      const requestChanged =
+        merged.dateISO !== aiDraft.dateISO ||
+        merged.timeExact !== aiDraft.timeExact ||
+        merged.timeWindow !== aiDraft.timeWindow ||
+        merged.durationMinutes !== aiDraft.durationMinutes ||
+        merged.officePreferenceId !== aiDraft.officePreferenceId;
       if (requestChanged) {
         setAiOptions([]);
         setAiSelectedOption(null);
