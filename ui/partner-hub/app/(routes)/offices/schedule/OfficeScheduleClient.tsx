@@ -145,7 +145,7 @@ function isValidDateISO(value?: string) {
 function parseTimeString(value: string) {
   const raw = value.trim().toLowerCase();
   if (!raw) return null;
-  const match = raw.match(/(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)?/);
+  const match = raw.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/);
   if (!match) return null;
   const hoursRaw = Number(match[1]);
   const minutesRaw = match[2] ? Number(match[2]) : 0;
@@ -180,7 +180,7 @@ function parseTimeWindow(value: string) {
   if (raw.includes("evening")) return { startMin: 17 * 60, endMin: 19 * 60 };
   if (raw.includes("noon")) return { startMin: 12 * 60, endMin: 13 * 60 };
 
-  const betweenMatch = raw.match(/between\\s+(.+)\\s+and\\s+(.+)/);
+  const betweenMatch = raw.match(/between\s+(.+)\s+and\s+(.+)/);
   if (betweenMatch) {
     const start = parseTimeString(betweenMatch[1]);
     const end = parseTimeString(betweenMatch[2]);
@@ -189,13 +189,13 @@ function parseTimeWindow(value: string) {
     }
   }
 
-  const afterMatch = raw.match(/after\\s+(.+)/);
+  const afterMatch = raw.match(/after\s+(.+)/);
   if (afterMatch) {
     const start = parseTimeString(afterMatch[1]);
     if (start !== null) return { startMin: start, endMin: WORK_END_MIN };
   }
 
-  const beforeMatch = raw.match(/before\\s+(.+)/);
+  const beforeMatch = raw.match(/before\s+(.+)/);
   if (beforeMatch) {
     const end = parseTimeString(beforeMatch[1]);
     if (end !== null) return { startMin: WORK_START_MIN, endMin: end };
