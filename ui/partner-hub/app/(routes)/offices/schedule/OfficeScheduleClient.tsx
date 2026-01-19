@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -163,6 +163,12 @@ function parseTimeString(value: string) {
 function parseTimeExact(value: string) {
   const minutes = parseTimeString(value);
   return minutes ?? null;
+}
+
+function formatTimeExact(minutes: number) {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hours}:${pad2(mins)}`;
 }
 
 function parseTimeWindow(value: string) {
@@ -368,6 +374,7 @@ export function OfficeScheduleClient({
   const [aiMessages, setAiMessages] = useState<AiChatMessage[]>([]);
   const [aiInput, setAiInput] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiSending, setAiSending] = useState(false);
   const [aiError, setAiError] = useState("");
   const [aiOptions, setAiOptions] = useState<AiOption[]>([]);
   const [aiSelectedOption, setAiSelectedOption] = useState<AiOption | null>(null);
@@ -376,6 +383,7 @@ export function OfficeScheduleClient({
   const [aiDraft, setAiDraft] = useState<AiExtracted>({});
   const [aiNeedsDuration, setAiNeedsDuration] = useState(false);
   const [aiDateOptions, setAiDateOptions] = useState<{ label: string; dateISO: string }[]>([]);
+  const aiSendingRef = useRef(false);
 
   const unlocked = Boolean(user);
 
@@ -404,11 +412,13 @@ export function OfficeScheduleClient({
     setAiMessages([
       {
         role: "assistant",
-        content: "Tell me the date and time you want, and I’ll find availability.",
+        content: "Let’s get you an office scheduled — what day are you looking for?",
       },
     ]);
     setAiInput("");
     setAiError("");
+    setAiSending(false);
+    aiSendingRef.current = false;
     setAiOptions([]);
     setAiSelectedOption(null);
     setAiBookingSuccess("");
@@ -864,8 +874,10 @@ export function OfficeScheduleClient({
 
   async function handleAiSend() {
     const message = aiInput.trim();
-    if (!message || aiLoading) return;
+    if (!message || aiSendingRef.current) return;
 
+    aiSendingRef.current = true;
+    setAiSending(true);
     setAiLoading(true);
     setAiError("");
     setAiBookingSuccess("");
@@ -899,13 +911,28 @@ export function OfficeScheduleClient({
       const resolution = resolveDateFromNaturalLanguage(message, base);
 
       let merged: AiExtracted = { ...aiDraft, ...extracted };
+      const fallbackWindow = !extracted.timeWindow ? parseTimeWindow(message) : null;
+      const fallbackExactMin =
+        !extracted.timeExact && !fallbackWindow ? parseTimeString(message) : null;
+      if (!extracted.timeWindow && fallbackWindow) {
+        merged = { ...merged, timeWindow: message.trim() };
+      }
+      if (!extracted.timeExact && fallbackExactMin !== null) {
+        merged = { ...merged, timeExact: formatTimeExact(fallbackExactMin) };
+      }
 
       if (aiDateOptions.length > 0 && extracted.selectionIndex) {
         const selectedDate = aiDateOptions[extracted.selectionIndex - 1];
-        if (selectedDate) {
-          merged = { ...merged, dateISO: selectedDate.dateISO };
-          setAiDateOptions([]);
+        if (!selectedDate) {
+          setAiDraft(merged);
+          setAiMessages((prev) => [
+            ...prev,
+            { role: "assistant", content: "Please pick 1, 2, or 3." },
+          ]);
+          return;
         }
+        merged = { ...merged, dateISO: selectedDate.dateISO };
+        setAiDateOptions([]);
       }
 
       if (resolution.confidence === "high" && resolution.dateISO) {
@@ -917,6 +944,7 @@ export function OfficeScheduleClient({
         setAiDateOptions(options);
         setAiOptions([]);
         setAiNeedsDuration(false);
+        setAiDraft(merged);
         setAiMessages((prev) => [...prev, { role: "assistant", content: buildClarifyMessage(options) }]);
         return;
       }
@@ -935,10 +963,16 @@ export function OfficeScheduleClient({
         !extracted.officePreferenceId
       ) {
         const picked = aiOptions[extracted.selectionIndex - 1];
-        if (picked) {
-          setAiSelectedOption(picked);
+        if (!picked) {
+          setAiDraft(merged);
+          setAiMessages((prev) => [
+            ...prev,
+            { role: "assistant", content: "Please pick 1, 2, or 3." },
+          ]);
           return;
         }
+        setAiSelectedOption(picked);
+        return;
       }
 
       setAiDraft(merged);
@@ -955,6 +989,8 @@ export function OfficeScheduleClient({
       ]);
     } finally {
       setAiLoading(false);
+      setAiSending(false);
+      aiSendingRef.current = false;
     }
   }
 
@@ -1655,14 +1691,14 @@ export function OfficeScheduleClient({
               type="button"
               className={
                 "h-10 rounded-md border border-border/70 px-4 text-sm font-semibold transition " +
-                (!aiInput.trim() || aiLoading
+                (!aiInput.trim() || aiSending
                   ? "bg-muted/30 text-foreground/50"
                   : "bg-foreground text-background hover:opacity-90")
               }
               onClick={handleAiSend}
-              disabled={!aiInput.trim() || aiLoading}
+              disabled={!aiInput.trim() || aiSending}
             >
-              Send
+              {aiSending ? "Sending..." : "Send"}
             </button>
           </div>
 
