@@ -1,6 +1,6 @@
 "use client";
 
-import type { Dispatch, SetStateAction } from "react";
+import { useMemo, type Dispatch, type SetStateAction } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -18,6 +18,9 @@ type MappingTableCardProps = {
   mapping: RawAccountMapping;
   setMapping: Dispatch<SetStateAction<RawAccountMapping>>;
   validation: ReturnType<typeof validateMapping>;
+  visibleFields: Array<(typeof canonicalFields)[number]["key"]>;
+  removableFields: Array<(typeof canonicalFields)[number]["key"]>;
+  onRemoveField: (fieldKey: (typeof canonicalFields)[number]["key"]) => void;
 };
 
 export function MappingTableCard({
@@ -26,7 +29,24 @@ export function MappingTableCard({
   mapping,
   setMapping,
   validation,
+  visibleFields,
+  removableFields,
+  onRemoveField,
 }: MappingTableCardProps) {
+  const fieldMap = useMemo(
+    () => new Map(canonicalFields.map((field) => [field.key, field])),
+    [],
+  );
+  const removableSet = useMemo(() => new Set(removableFields), [removableFields]);
+
+  const visibleFieldConfigs = useMemo(
+    () =>
+      visibleFields
+        .map((fieldKey) => fieldMap.get(fieldKey))
+        .filter((field): field is (typeof canonicalFields)[number] => Boolean(field)),
+    [fieldMap, visibleFields],
+  );
+
   return (
     <Card className="space-y-4">
       <CardHeader className="gap-2">
@@ -37,13 +57,25 @@ export function MappingTableCard({
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid gap-3">
-          {canonicalFields.map((field) => {
+          {visibleFieldConfigs.map((field) => {
             const fieldId = `${title.replace(/\s+/g, "-").toLowerCase()}-${field.key}`;
             return (
               <label key={field.key} className="grid gap-1 text-sm" htmlFor={fieldId}>
-                <span className="font-medium">
-                  {field.label}
-                  {field.required ? <span className="text-destructive"> *</span> : null}
+                <span className="flex items-center justify-between gap-2">
+                  <span className="font-medium">
+                    {field.label}
+                    {field.required ? <span className="text-destructive"> *</span> : null}
+                  </span>
+                  {removableSet.has(field.key) ? (
+                    <button
+                      type="button"
+                      className="rounded-full px-1 text-xs text-foreground/50 hover:text-destructive"
+                      aria-label={`Remove ${field.label}`}
+                      onClick={() => onRemoveField(field.key)}
+                    >
+                      ✕
+                    </button>
+                  ) : null}
                 </span>
                 <select
                   id={fieldId}
