@@ -756,11 +756,13 @@ export default function AccountMappingTool() {
                         <button
                           key={field.key}
                           type="button"
-                          className="flex w-full items-center justify-between px-4 py-2 text-left hover:bg-muted/60"
+                          className="group flex w-full items-center justify-between px-4 py-2 text-left transition hover:bg-muted/60 focus-visible:bg-muted/60"
                           onClick={() => handleAddColumn(field.key)}
                         >
                           <span>{field.label}</span>
-                          <span className="text-xs text-foreground/40">Add</span>
+                          <span className="text-base text-foreground/40 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                            +
+                          </span>
                         </button>
                       ))
                     )}

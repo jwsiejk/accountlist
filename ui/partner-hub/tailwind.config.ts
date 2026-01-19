@@ -6,6 +6,7 @@ const config: Config = {
     extend: {
       colors: {
         background: "var(--background)",
+        card: "var(--surface-card)",
         foreground: "var(--foreground)",
         primary: "var(--brand-primary)",
         secondary: "var(--brand-secondary)",

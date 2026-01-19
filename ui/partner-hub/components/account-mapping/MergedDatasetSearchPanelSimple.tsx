@@ -349,21 +349,28 @@ const MergedDatasetSearchPanelSimple = ({
     options: ComboboxOption[],
     placeholder: string,
     disabled = false,
-  ) => (
-    <div className="min-w-[180px] flex-1 space-y-2">
-      <label className="text-xs font-semibold uppercase tracking-wide text-foreground/50">
-        {label}
-      </label>
-      <Combobox
-        value={value}
-        onChange={onChange}
-        options={options}
-        placeholder={placeholder}
-        disabled={disabled}
-        emptyLabel="No matches"
-      />
-    </div>
-  );
+  ) => {
+    const optionsWithSelectAll: ComboboxOption[] = [
+      { value: "", label: "Select All" },
+      ...options,
+    ];
+
+    return (
+      <div className="min-w-[180px] flex-1 space-y-2">
+        <label className="text-xs font-semibold uppercase tracking-wide text-foreground/50">
+          {label}
+        </label>
+        <Combobox
+          value={value}
+          onChange={onChange}
+          options={optionsWithSelectAll}
+          placeholder={placeholder}
+          disabled={disabled}
+          emptyLabel="No matches"
+        />
+      </div>
+    );
+  };
 
   return (
     <Card className="space-y-6">
