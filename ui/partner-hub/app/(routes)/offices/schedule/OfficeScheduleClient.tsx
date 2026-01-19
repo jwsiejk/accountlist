@@ -1502,43 +1502,62 @@ export function OfficeScheduleClient({
 
             {/* Right panel */}
             <section className="border-t border-border/70 p-6 md:border-l md:border-t-0">
-              <div className="flex items-center gap-2">
-                <div className="text-lg font-semibold">{formatMonthLabel(monthFirst)}</div>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/70 bg-background/80 transition hover:bg-muted"
-                    onClick={() => {
-                      const prev = new Date(monthFirst);
-                      prev.setMonth(prev.getMonth() - 1);
-                      prev.setDate(1);
-                      const k = toDateKey(prev);
-                      setDateKey(k);
-                      pushState({ dateKey: k });
-                    }}
-                    aria-label="Previous month"
-                  >
-                    <ChevronLeft className="h-3 w-3" />
-                  </button>
-                  <button
-                    type="button"
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/70 bg-background/80 transition hover:bg-muted"
-                    onClick={() => {
-                      const next = new Date(monthFirst);
-                      next.setMonth(next.getMonth() + 1);
-                      next.setDate(1);
-                      const k = toDateKey(next);
-                      setDateKey(k);
-                      pushState({ dateKey: k });
-                    }}
-                    aria-label="Next month"
-                  >
-                    <ChevronRight className="h-3 w-3" />
-                  </button>
+              {/*
+                Layout note:
+                On large screens, the selected-day header (e.g. "Mon, Jan 19" + availability counts)
+                should align horizontally with the month header row instead of starting below it.
+                We render the day header in a second column on lg+ and keep a mobile-only copy inside
+                the times pane so small screens remain unchanged.
+              */}
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_260px] lg:items-start">
+                <div className="flex items-center gap-2">
+                  <div className="text-lg font-semibold">{formatMonthLabel(monthFirst)}</div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/70 bg-background/80 transition hover:bg-muted"
+                      onClick={() => {
+                        const prev = new Date(monthFirst);
+                        prev.setMonth(prev.getMonth() - 1);
+                        prev.setDate(1);
+                        const k = toDateKey(prev);
+                        setDateKey(k);
+                        pushState({ dateKey: k });
+                      }}
+                      aria-label="Previous month"
+                    >
+                      <ChevronLeft className="h-3 w-3" />
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/70 bg-background/80 transition hover:bg-muted"
+                      onClick={() => {
+                        const next = new Date(monthFirst);
+                        next.setMonth(next.getMonth() + 1);
+                        next.setDate(1);
+                        const k = toDateKey(next);
+                        setDateKey(k);
+                        pushState({ dateKey: k });
+                      }}
+                      aria-label="Next month"
+                    >
+                      <ChevronRight className="h-3 w-3" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Desktop-aligned selected-day header */}
+                <div className="hidden lg:block">
+                  <div className="text-sm font-semibold">{formatDayLabel(baseDate)}</div>
+                  <div className="mt-1 text-xs text-foreground/60">
+                    {selectedDayAvailableCount === 0
+                      ? "No available times. Try another day."
+                      : `${selectedDayAvailableCount} available • ${selectedDaySlots.length - selectedDayAvailableCount} unavailable`}
+                  </div>
                 </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_260px]">
+              <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_260px] lg:items-start">
                 <div>
                   <div className="grid grid-cols-7 gap-2 text-[11px] font-semibold uppercase tracking-wide text-foreground/60">
                     {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map((d) => (
@@ -1627,14 +1646,17 @@ export function OfficeScheduleClient({
 
                 {/* Times */}
                 <aside className="flex flex-col">
-                  <div className="text-sm font-semibold">{formatDayLabel(baseDate)}</div>
-                  <div className="mt-1 text-xs text-foreground/60">
-                    {selectedDayAvailableCount === 0
-                      ? "No available times. Try another day."
-                      : `${selectedDayAvailableCount} available • ${selectedDaySlots.length - selectedDayAvailableCount} unavailable`}
+                  {/* Mobile-only selected-day header (desktop version is aligned with the month header above). */}
+                  <div className="lg:hidden">
+                    <div className="text-sm font-semibold">{formatDayLabel(baseDate)}</div>
+                    <div className="mt-1 text-xs text-foreground/60">
+                      {selectedDayAvailableCount === 0
+                        ? "No available times. Try another day."
+                        : `${selectedDayAvailableCount} available • ${selectedDaySlots.length - selectedDayAvailableCount} unavailable`}
+                    </div>
                   </div>
 
-                  <div className="mt-4 flex items-center justify-between gap-2">
+                  <div className="mt-4 flex items-center justify-between gap-2 lg:mt-0">
                     <button
                       type="button"
                       className={
