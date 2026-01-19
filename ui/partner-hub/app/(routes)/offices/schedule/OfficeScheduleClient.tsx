@@ -214,6 +214,27 @@ function parseTimeWindow(value: string) {
   return null;
 }
 
+const ALLOWED_DURATIONS = new Set([15, 30, 45, 60]);
+
+function normalizeDuration(input?: string | number): 15 | 30 | 45 | 60 | null {
+  if (input == null) return null;
+
+  const n =
+    typeof input === "number"
+      ? input
+      : Number(String(input).trim().replace(/[^\d]/g, ""));
+
+  if (!Number.isFinite(n)) return null;
+
+  if (ALLOWED_DURATIONS.has(n)) return n as 15 | 30 | 45 | 60;
+
+  if (n === 1) return 60;
+  if (n === 90) return null;
+  if (n === 120) return null;
+
+  return null;
+}
+
 function extractLocalAiFields(input: string): Partial<AiExtracted> {
   const trimmed = input.trim();
   if (!trimmed) return {};
