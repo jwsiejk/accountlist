@@ -872,7 +872,16 @@ export function OfficeScheduleClient({
     const timeExactMin = state.timeExact ? parseTimeExact(state.timeExact) : null;
     const timeWindow = !timeExactMin && state.timeWindow ? parseTimeWindow(state.timeWindow) : null;
 
-    if (!dateISO || !duration || (timeExactMin === null && !timeWindow)) return;
+    if (!dateISO || !duration || (timeExactMin === null && !timeWindow)) {
+      const nextStep = deriveAiStep(state);
+      setAiStep(nextStep);
+      setAiNeedsDuration(nextStep === "collect_duration");
+      const message = promptForStep(nextStep);
+      if (message) {
+        setAiMessages((prev) => [...prev, { role: "assistant", content: message }]);
+      }
+      return;
+    }
 
     setAiChecking(true);
     setAiNeedsDuration(false);
@@ -910,17 +919,23 @@ export function OfficeScheduleClient({
         ...prev,
         {
           role: "assistant",
-          content: "I couldn’t find availability for that request. Let me know another time to try.",
+          content: "I couldn’t find an opening at that time. What time should I try instead?",
         },
       ]);
       setAiOptions([]);
-      setAiStep("choose_option");
+      setAiSelectedOption(null);
+      setAiStep("collect_time");
+      setAiNeedsDuration(false);
       setAiChecking(false);
       return;
     }
 
     setAiOptions(result.options);
     setAiStep("choose_option");
+    setAiMessages((prev) => [
+      ...prev,
+      { role: "assistant", content: "Reply with 1, 2, or 3." },
+    ]);
     setAiChecking(false);
   }
 
@@ -1103,21 +1118,24 @@ export function OfficeScheduleClient({
       if (requestChanged) {
         setAiOptions([]);
         setAiSelectedOption(null);
-        if (aiStep === "choose_option" || aiStep === "confirm" || aiStep === "done") {
-          setAiStep("collect_date");
-        }
+        setAiStep(deriveAiStep(merged));
       }
       advanceAiStep(merged);
     } catch (error: any) {
       setAiError("AI isn’t available right now. You can still book manually.");
       const detail = error instanceof Error ? error.message : String(error);
-      setAiMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: detail || "I couldn’t reach the AI right now.",
-        },
-      ]);
+      const detailMessage = detail || "I couldn’t reach the AI right now.";
+      setAiChecking(false);
+      setAiMessages((prev) => {
+        const lastAssistant = [...prev].reverse().find((msg) => msg.role === "assistant");
+        if (lastAssistant?.content === detailMessage) {
+          return prev;
+        }
+        return [...prev, { role: "assistant", content: detailMessage }];
+      });
+      if (aiStep === "checking_availability") {
+        setAiStep(deriveAiStep(aiDraft));
+      }
     } finally {
       setAiLoading(false);
       setAiSending(false);
