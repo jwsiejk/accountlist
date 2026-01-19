@@ -16,6 +16,8 @@ export const SIMPLE_SEARCH_COLUMNS = [
   "partner_account_name",
   "vendor_owner",
   "partner_owner",
+  "vendor_owner_email",
+  "partner_owner_email",
   "vendor_status",
   "partner_status",
   "vendor_region",

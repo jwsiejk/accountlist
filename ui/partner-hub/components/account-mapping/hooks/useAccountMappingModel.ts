@@ -62,6 +62,7 @@ const buildAccountRecords = (
       rawName,
       normalizedName: normalized,
       ownerName: mapping.owner_name ? row[mapping.owner_name] ?? "" : "",
+      ownerEmail: mapping.owner_email ? row[mapping.owner_email] ?? "" : "",
       managerName: mapping.manager_name ? row[mapping.manager_name] ?? "" : "",
       pamName: mapping.pam_name ? row[mapping.pam_name] ?? "" : "",
       status: mapping.status ? row[mapping.status] ?? "" : "",
