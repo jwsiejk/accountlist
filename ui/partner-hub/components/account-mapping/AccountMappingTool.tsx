@@ -995,13 +995,14 @@ export default function AccountMappingTool() {
                             <Button
                               size="sm"
                               className="w-fit min-w-[112px] whitespace-nowrap"
+                              variant="confirm"
                               onClick={(event) => {
                                 event.stopPropagation();
                                 setSelectedRowId(row.id);
                                 handleDecision(row, "confirmed");
                               }}
                             >
-                              Confirm match
+                              Confirm Match
                             </Button>
                             <Button
                               size="sm"

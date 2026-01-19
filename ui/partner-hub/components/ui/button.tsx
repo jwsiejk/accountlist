@@ -9,6 +9,8 @@ const variants: Record<string, string> = {
     "bg-button-primary text-button-primary-foreground shadow-sm hover:bg-button-primary/90",
   secondary: "border border-border bg-muted/80 text-foreground hover:bg-muted",
   ghost: "bg-transparent text-foreground/80 hover:bg-muted/60",
+  confirm:
+    "bg-orange-200 text-orange-950 shadow-sm hover:bg-orange-300 focus-visible:ring-orange-300 disabled:bg-orange-200/60 disabled:text-orange-950/60",
 };
 
 const sizes: Record<string, string> = {
