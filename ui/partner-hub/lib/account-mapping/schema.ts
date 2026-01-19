@@ -3,25 +3,31 @@ import { z } from "zod";
 export const canonicalFields = [
   {
     key: "account_name",
-    label: "Account name",
+    label: "Account Name",
     required: true,
     description: "Primary account or company name.",
   },
   {
     key: "owner_name",
-    label: "Owner name",
+    label: "Account Owner",
     required: false,
     description: "Account owner or salesperson assigned.",
   },
   {
+    key: "owner_email",
+    label: "Account Owner Email Address",
+    required: false,
+    description: "Email address for the account owner.",
+  },
+  {
     key: "manager_name",
-    label: "Manager name",
+    label: "Manager Name",
     required: false,
     description: "Manager or team lead for the account.",
   },
   {
     key: "pam_name",
-    label: "PAM name",
+    label: "PAM Name",
     required: false,
     description: "Partner account manager name.",
   },
@@ -33,7 +39,7 @@ export const canonicalFields = [
   },
   {
     key: "segment_type",
-    label: "Segment / Type",
+    label: "Segment",
     required: false,
     description: "Segment or account type.",
   },
@@ -86,9 +92,22 @@ export type CanonicalFieldKey = (typeof canonicalFields)[number]["key"];
 export type RawAccountMapping = Record<CanonicalFieldKey, string>;
 export type AccountMapping = Record<CanonicalFieldKey, string | null>;
 
+export const DEFAULT_VISIBLE_FIELD_KEYS: CanonicalFieldKey[] = [
+  "account_name",
+  "owner_name",
+  "owner_email",
+  "manager_name",
+  "pam_name",
+  "status",
+  "segment_type",
+  "organization",
+  "region",
+];
+
 export const accountMappingSchema = z.object({
   account_name: z.string().min(1, "Account name is required."),
   owner_name: z.string().nullable().optional(),
+  owner_email: z.string().nullable().optional(),
   manager_name: z.string().nullable().optional(),
   pam_name: z.string().nullable().optional(),
   status: z.string().nullable().optional(),

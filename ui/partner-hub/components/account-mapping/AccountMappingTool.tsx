@@ -6,8 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { inferMappingFromHeaders } from "@/lib/account-mapping/inference";
 import {
+  canonicalFields,
   createEmptyRawMapping,
+  DEFAULT_VISIBLE_FIELD_KEYS,
   validateMapping,
+  type CanonicalFieldKey,
   type RawAccountMapping,
 } from "@/lib/account-mapping/schema";
 import { buildCsv, downloadCsv } from "@/lib/account-mapping/csv";
@@ -75,6 +78,11 @@ export default function AccountMappingTool() {
   const [partnerMapping, setPartnerMapping] = useState<RawAccountMapping>(
     createEmptyRawMapping(),
   );
+  const [visibleColumns, setVisibleColumns] = useState<CanonicalFieldKey[]>(
+    DEFAULT_VISIBLE_FIELD_KEYS,
+  );
+  const [isAddColumnOpen, setIsAddColumnOpen] = useState(false);
+  const addColumnRef = useRef<HTMLDivElement | null>(null);
 
   const [activeTab, setActiveTab] = useState<"auto" | "review" | "unmatched">("review");
   const [searchTerm, setSearchTerm] = useState("");
@@ -414,8 +422,44 @@ export default function AccountMappingTool() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleDecision, selectedRow]);
 
+  useEffect(() => {
+    if (!isAddColumnOpen) {
+      return;
+    }
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!addColumnRef.current?.contains(event.target as Node)) {
+        setIsAddColumnOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [isAddColumnOpen]);
+
   const vendorHeaders = vendorState.result?.headers ?? [];
   const partnerHeaders = partnerState.result?.headers ?? [];
+
+  const hiddenColumns = useMemo(
+    () => canonicalFields.filter((field) => !visibleColumns.includes(field.key)),
+    [visibleColumns],
+  );
+  const removableColumns = useMemo(
+    () => visibleColumns.filter((fieldKey) => !DEFAULT_VISIBLE_FIELD_KEYS.includes(fieldKey)),
+    [visibleColumns],
+  );
+
+  const handleAddColumn = useCallback((fieldKey: CanonicalFieldKey) => {
+    setVisibleColumns((prev) => (prev.includes(fieldKey) ? prev : [...prev, fieldKey]));
+    setIsAddColumnOpen(false);
+  }, []);
+
+  const handleRemoveColumn = useCallback((fieldKey: CanonicalFieldKey) => {
+    if (DEFAULT_VISIBLE_FIELD_KEYS.includes(fieldKey)) {
+      return;
+    }
+    setVisibleColumns((prev) => prev.filter((key) => key !== fieldKey));
+    setVendorMapping((prev) => ({ ...prev, [fieldKey]: "" }));
+    setPartnerMapping((prev) => ({ ...prev, [fieldKey]: "" }));
+  }, []);
 
   const saveRunSnapshot = useCallback(async () => {
     if (!vendorState.result || !partnerState.result) {
@@ -684,10 +728,47 @@ export default function AccountMappingTool() {
 
       <Card className="space-y-6">
         <CardHeader className="gap-2">
-          <CardTitle className="text-lg">Step 3: Map columns</CardTitle>
-          <p className="text-sm text-foreground/60">
-            Required fields must be mapped before saving templates. Auto-mapping uses header inference.
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="space-y-2">
+              <CardTitle className="text-lg">Step 3: Map columns</CardTitle>
+              <p className="text-sm text-foreground/60">
+                Required fields must be mapped before saving templates. Auto-mapping uses header inference.
+              </p>
+            </div>
+            <div className="relative" ref={addColumnRef}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setIsAddColumnOpen((prev) => !prev)}
+                disabled={hiddenColumns.length === 0}
+              >
+                Add Column
+              </Button>
+              {isAddColumnOpen ? (
+                <div className="absolute right-0 z-20 mt-2 w-64 rounded-md border border-foreground/10 bg-background shadow-lg">
+                  <div className="max-h-64 overflow-auto py-2 text-sm">
+                    {hiddenColumns.length === 0 ? (
+                      <div className="px-4 py-2 text-xs text-foreground/50">
+                        All columns are already visible.
+                      </div>
+                    ) : (
+                      hiddenColumns.map((field) => (
+                        <button
+                          key={field.key}
+                          type="button"
+                          className="flex w-full items-center justify-between px-4 py-2 text-left hover:bg-muted/60"
+                          onClick={() => handleAddColumn(field.key)}
+                        >
+                          <span>{field.label}</span>
+                          <span className="text-xs text-foreground/40">Add</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid gap-6 lg:grid-cols-2">
@@ -697,6 +778,9 @@ export default function AccountMappingTool() {
               mapping={vendorMapping}
               setMapping={setVendorMapping}
               validation={vendorValidation}
+              visibleFields={visibleColumns}
+              removableFields={removableColumns}
+              onRemoveField={handleRemoveColumn}
             />
             <MappingTableCard
               title="Partner mapping"
@@ -704,6 +788,9 @@ export default function AccountMappingTool() {
               mapping={partnerMapping}
               setMapping={setPartnerMapping}
               validation={partnerValidation}
+              visibleFields={visibleColumns}
+              removableFields={removableColumns}
+              onRemoveField={handleRemoveColumn}
             />
           </div>
 

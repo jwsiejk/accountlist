@@ -9,6 +9,7 @@ const normalizeHeader = (header: string) =>
 const aliasMap: Record<string, string[]> = {
   account_name: ["account", "accountname", "company", "companyname", "customer", "customername"],
   owner_name: ["owner", "ownername", "accountowner", "accountrep", "salesrep", "ae"],
+  owner_email: ["owneremail", "owneremailaddress", "accountowneremail", "owner email"],
   manager_name: ["manager", "managername", "accountmanager", "teamlead"],
   pam_name: ["pam", "partneraccountmanager", "partner manager", "partnerowner"],
   status: ["status", "accountstatus", "lifecycle", "stage"],
