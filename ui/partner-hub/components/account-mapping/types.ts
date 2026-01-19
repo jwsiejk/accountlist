@@ -25,6 +25,7 @@ export type AccountRecord = {
   rawName: string;
   normalizedName: string;
   ownerName?: string;
+  ownerEmail?: string;
   managerName?: string;
   pamName?: string;
   status?: string;

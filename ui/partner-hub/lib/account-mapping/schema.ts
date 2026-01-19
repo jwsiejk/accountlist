@@ -15,7 +15,7 @@ export const canonicalFields = [
   },
   {
     key: "owner_email",
-    label: "Account Owner Email Address",
+    label: "Account Owner Email",
     required: false,
     description: "Email address for the account owner.",
   },

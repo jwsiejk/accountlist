@@ -188,6 +188,8 @@ export const useAccountMappingViewModel = ({
           partner_account_name: row.partner?.rawName ?? "",
           vendor_owner: row.vendor.ownerName ?? "",
           partner_owner: row.partner?.ownerName ?? "",
+          vendor_owner_email: row.vendor.ownerEmail ?? "",
+          partner_owner_email: row.partner?.ownerEmail ?? "",
           vendor_status: row.vendor.status ?? "",
           partner_status: row.partner?.status ?? "",
           vendor_crm_account_id: row.vendor.crmAccountId ?? "",
