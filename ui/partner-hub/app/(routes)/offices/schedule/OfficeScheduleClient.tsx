@@ -1382,8 +1382,6 @@ export function OfficeScheduleClient({
   }
 
   const locked = !unlocked;
-  const contentTopOffset = "pt-6";
-
   return (
     <main className="mx-auto max-w-6xl p-6">
       {/* Top bar */}
@@ -1437,7 +1435,7 @@ export function OfficeScheduleClient({
         <div className={locked ? "pointer-events-none select-none opacity-40 grayscale" : ""}>
           <div className="grid grid-cols-1 md:grid-cols-[360px_1fr]">
             {/* Left panel */}
-            <section className={`p-6 ${contentTopOffset}`}>
+            <section className="p-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h1 className="text-2xl font-semibold tracking-tight">Schedule a time</h1>
                 <button
@@ -1559,7 +1557,7 @@ export function OfficeScheduleClient({
               </div>
 
               <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_260px] lg:items-start">
-                <div className={contentTopOffset}>
+                <div>
                   <div className="grid grid-cols-7 gap-2 text-[11px] font-semibold uppercase tracking-wide text-foreground/60">
                     {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map((d) => (
                       <div key={d} className="text-center">
