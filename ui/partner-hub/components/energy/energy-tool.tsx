@@ -959,9 +959,9 @@ export function EnergyTool() {
   const exportDisabled = loading || exportLoading != null || !fb || !selectedCandidate;
   const toggleButtonClass = (isActive: boolean) =>
     [
-      "inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-colors",
+      "inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
       isActive
-        ? "border-primary bg-primary text-foreground hover:bg-primary/90 ring-1 ring-primary/30"
+        ? "border-button-primary bg-button-primary text-button-primary-foreground hover:bg-button-primary/90 ring-1 ring-button-primary/30"
         : "border-border bg-background text-foreground hover:bg-muted/50",
     ].join(" ");
 
@@ -1193,7 +1193,7 @@ export function EnergyTool() {
               {mode === "auto" ? (
                 <button
                   type="button"
-                  className="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-foreground transition hover:opacity-90 disabled:opacity-50"
+                  className="inline-flex h-10 items-center justify-center rounded-lg bg-button-primary px-4 text-sm font-semibold text-button-primary-foreground transition hover:bg-button-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:bg-muted disabled:text-foreground/50"
                   onClick={runModel}
                   disabled={loading || pureRows.length === 0 || netappRows.length === 0}
                 >
@@ -1202,7 +1202,7 @@ export function EnergyTool() {
               ) : (
                 <button
                   type="button"
-                  className="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-foreground transition hover:opacity-90 disabled:opacity-50"
+                  className="inline-flex h-10 items-center justify-center rounded-lg bg-button-primary px-4 text-sm font-semibold text-button-primary-foreground transition hover:bg-button-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:bg-muted disabled:text-foreground/50"
                   onClick={runManual}
                   disabled={manualApplyDisabled}
                 >
