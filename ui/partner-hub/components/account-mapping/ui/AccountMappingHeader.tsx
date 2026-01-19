@@ -57,8 +57,8 @@ export const AccountMappingHeader = ({
           key={step}
           className={`rounded-full px-3 py-1 shadow-sm ${
             index <= currentStep
-              ? "bg-primary text-foreground"
-              : "bg-muted text-foreground/60"
+              ? "bg-confirm text-confirm-foreground border border-confirm-strong"
+              : "bg-confirm-soft text-confirm-foreground/70 border border-confirm"
           }`}
         >
           {step}
