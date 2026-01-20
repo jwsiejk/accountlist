@@ -7,6 +7,8 @@ import {
   type SetStateAction,
 } from "react";
 
+import CsvParseWorker from "@/lib/account-mapping/workers/csvParse.worker.ts";
+
 import { DEFAULT_PROGRESS_STEP } from "../constants";
 import type { CsvParseResult, CsvParseState } from "../types";
 
@@ -28,10 +30,7 @@ type CsvWorkerOptions = {
   setRunStats: Dispatch<SetStateAction<RunStats>>;
 };
 
-const buildWorker = () =>
-  new Worker(new URL("../../../lib/account-mapping/workers/csvParse.worker.ts", import.meta.url), {
-    type: "module",
-  });
+const buildWorker = () => new CsvParseWorker();
 
 export const useCsvParseWorkers = ({ setRunStats }: CsvWorkerOptions) => {
   const vendorWorkerRef = useRef<Worker | null>(null);
