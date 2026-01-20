@@ -3,6 +3,7 @@ const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "/partner-hub";
 
 const nextConfig = {
   reactStrictMode: true,
+  allowedDevOrigins: ["https://jann-noneastern-adolph.ngrok-free.dev"],
   basePath,
   images: { unoptimized: true },
   trailingSlash: false,
