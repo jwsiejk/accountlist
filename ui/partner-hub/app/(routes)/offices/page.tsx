@@ -3,10 +3,17 @@ import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
+type OfficeRow = {
+  id: string | number;
+  name: string;
+  address?: string | null;
+  description?: string | null;
+};
+
 export default async function OfficesPage() {
-  const offices = await prisma.office.findMany({
+  const offices = (await prisma.office.findMany({
     orderBy: { name: "asc" },
-  });
+  })) as OfficeRow[];
 
   return (
     <main className="mx-auto max-w-5xl p-6">
@@ -17,11 +24,7 @@ export default async function OfficesPage() {
             Select an office to view details and book a time.
           </p>
         </div>
-        <Link
-          className="text-sm underline"
-          href="/bookings"
-          prefetch={false}
-        >
+        <Link className="text-sm underline" href="/bookings" prefetch={false}>
           View bookings
         </Link>
       </div>

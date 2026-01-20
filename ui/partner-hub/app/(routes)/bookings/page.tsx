@@ -4,16 +4,28 @@ import { CancelBookingForm } from "./CancelBookingForm";
 
 export const dynamic = "force-dynamic";
 
+type BookingWithOffice = {
+  id: string | number;
+  officeId: string;
+  name: string;
+  email: string;
+  start: string | Date;
+  end: string | Date;
+  office: {
+    name: string;
+  };
+};
+
 export default async function BookingsPage({
   searchParams,
 }: {
   searchParams?: { created?: string };
 }) {
-  const bookings = await prisma.booking.findMany({
+  const bookings = (await prisma.booking.findMany({
     orderBy: { start: "desc" },
     take: 200,
     include: { office: true },
-  });
+  })) as BookingWithOffice[];
 
   return (
     <main className="mx-auto max-w-5xl p-6">
@@ -51,8 +63,8 @@ export default async function BookingsPage({
               </tr>
             </thead>
             <tbody>
-              {bookings.map((b: (typeof bookings)[number]) => (
-                <tr key={b.id} className="border-b last:border-b-0">
+              {bookings.map((b) => (
+                <tr key={String(b.id)} className="border-b last:border-b-0">
                   <td className="p-3">
                     <Link
                       href={`/offices/${b.officeId}`}
@@ -67,7 +79,7 @@ export default async function BookingsPage({
                   <td className="p-3">{new Date(b.start).toLocaleString()}</td>
                   <td className="p-3">{new Date(b.end).toLocaleString()}</td>
                   <td className="p-3">
-                    <CancelBookingForm bookingId={b.id} />
+                    <CancelBookingForm bookingId={Number(b.id)} />
                   </td>
                 </tr>
               ))}

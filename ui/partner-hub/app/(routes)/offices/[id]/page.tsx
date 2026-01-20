@@ -5,6 +5,14 @@ import { BookingForm } from "./BookingForm";
 
 export const dynamic = "force-dynamic";
 
+type UpcomingBookingRow = {
+  id: string | number;
+  name: string;
+  email: string;
+  start: string | Date;
+  end: string | Date;
+};
+
 export default async function OfficeDetailPage({
   params,
   searchParams,
@@ -21,11 +29,11 @@ export default async function OfficeDetailPage({
 
   if (!office) notFound();
 
-  const upcoming = await prisma.booking.findMany({
+  const upcoming = (await prisma.booking.findMany({
     where: { officeId: id, end: { gt: new Date() } },
     orderBy: { start: "asc" },
     take: 10,
-  });
+  })) as UpcomingBookingRow[];
 
   // Availability for the booking form is loaded client-side via
   // /api/offices/[id]/availability to keep this page fast and simple.
@@ -42,7 +50,11 @@ export default async function OfficeDetailPage({
     <main className="mx-auto max-w-3xl p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <Link href="/offices/schedule" className="text-sm underline" prefetch={false}>
+          <Link
+            href="/offices/schedule"
+            className="text-sm underline"
+            prefetch={false}
+          >
             Back to main
           </Link>
           <h1 className="mt-3 text-2xl font-semibold">{office.name}</h1>
@@ -96,7 +108,7 @@ export default async function OfficeDetailPage({
         ) : (
           <ul className="mt-3 space-y-2">
             {upcoming.map((b) => (
-              <li key={b.id} className="rounded-lg border p-3 text-sm">
+              <li key={String(b.id)} className="rounded-lg border p-3 text-sm">
                 <div className="font-medium">{b.name}</div>
                 <div className="opacity-80">{b.email}</div>
                 <div className="mt-1 opacity-80">

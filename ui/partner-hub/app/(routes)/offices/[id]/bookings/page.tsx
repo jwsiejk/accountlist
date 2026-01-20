@@ -4,6 +4,15 @@ import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
+type OfficeBookingRow = {
+  id: string | number;
+  officeId: number;
+  name: string;
+  email: string;
+  start: string | Date;
+  end: string | Date;
+};
+
 export default async function OfficeSchedulePage({
   params,
 }: {
@@ -18,11 +27,11 @@ export default async function OfficeSchedulePage({
 
   if (!office) notFound();
 
-  const bookings = await prisma.booking.findMany({
+  const bookings = (await prisma.booking.findMany({
     where: { officeId: id },
     orderBy: { start: "asc" },
     take: 500,
-  });
+  })) as OfficeBookingRow[];
 
   const fmt = new Intl.DateTimeFormat(undefined, {
     year: "numeric",
@@ -69,7 +78,7 @@ export default async function OfficeSchedulePage({
             </thead>
             <tbody>
               {bookings.map((b) => (
-                <tr key={b.id} className="border-b last:border-b-0">
+                <tr key={String(b.id)} className="border-b last:border-b-0">
                   <td className="p-3">{b.name}</td>
                   <td className="p-3">{b.email}</td>
                   <td className="p-3">{fmt.format(new Date(b.start))}</td>

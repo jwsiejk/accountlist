@@ -4,6 +4,13 @@ import { OfficeScheduleClient } from "./OfficeScheduleClient";
 
 export const dynamic = "force-dynamic";
 
+type OfficeRow = {
+  id: number;
+  name: string;
+  address: string | null;
+  description: string | null;
+};
+
 function pad2(n: number) {
   return String(n).padStart(2, "0");
 }
@@ -18,7 +25,10 @@ export default async function OfficeSchedulePage({
   searchParams?: { date?: string; office?: string; duration?: string };
 }) {
   const todayKey = toDateKey(new Date());
-  const dateKey = searchParams?.date && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.date) ? searchParams.date : todayKey;
+  const dateKey =
+    searchParams?.date && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.date)
+      ? searchParams.date
+      : todayKey;
 
   const base = new Date(`${dateKey}T00:00:00`);
   const baseDay = Number.isNaN(base.getTime()) ? new Date() : base;
@@ -27,10 +37,10 @@ export default async function OfficeSchedulePage({
   const monthStart = new Date(baseDay.getFullYear(), baseDay.getMonth(), 1);
   const monthEnd = new Date(baseDay.getFullYear(), baseDay.getMonth() + 1, 1);
 
-  const offices = await prisma.office.findMany({
+  const offices = (await prisma.office.findMany({
     select: { id: true, name: true, address: true, description: true },
     orderBy: { name: "asc" },
-  });
+  })) as OfficeRow[];
 
   const officeParam = Number(searchParams?.office);
   const defaultOfficeId = offices[0]?.id ?? 0;
@@ -40,7 +50,9 @@ export default async function OfficeSchedulePage({
       : defaultOfficeId;
 
   const durationParam = Number(searchParams?.duration);
-  const initialDurationMin = [15, 30, 45, 60].includes(durationParam) ? durationParam : 60;
+  const initialDurationMin = [15, 30, 45, 60].includes(durationParam)
+    ? durationParam
+    : 60;
 
   const bookings = await getBookingsInRange(monthStart, monthEnd);
 
