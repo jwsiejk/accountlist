@@ -1443,14 +1443,14 @@ export function OfficeScheduleClient({
         ) : null}
 
         <div className={locked ? "pointer-events-none select-none opacity-40 grayscale" : ""}>
-          <div className="grid grid-cols-1 md:grid-cols-[360px_1fr]">
+          <div className="grid grid-cols-1 md:grid-cols-[356px_1fr]">
             {/* Left panel */}
             <section className="p-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h1 className="text-2xl font-semibold tracking-tight">Schedule a time</h1>
                 <button
                   type="button"
-                  className="inline-flex h-9 items-center gap-2 rounded-xl border border-border/70 bg-background px-3 text-xs font-semibold transition hover:bg-muted md:-ml-0.5"
+                  className="inline-flex h-9 items-center gap-2 rounded-xl border border-border/70 bg-background px-3 text-xs font-semibold transition hover:bg-muted"
                   onClick={() => setAiOpen(true)}
                 >
                   <Sparkles className="h-4 w-4 text-foreground/60" />
@@ -1491,7 +1491,7 @@ export function OfficeScheduleClient({
                 </div>
 
                 <select
-                  className="h-10 w-full rounded-md border border-border/70 bg-background px-3 text-sm md:-ml-0.5"
+                  className="h-10 w-full rounded-md border border-border/70 bg-background px-3 text-sm"
                   value={officeId}
                   onChange={(e) => {
                     const next = Number(e.target.value);
