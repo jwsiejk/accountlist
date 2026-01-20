@@ -1,5 +1,6 @@
 declare module "*.worker.ts" {
-  export const Worker: {
+  const WorkerFactory: {
     new (): globalThis.Worker;
   };
+  export default WorkerFactory;
 }

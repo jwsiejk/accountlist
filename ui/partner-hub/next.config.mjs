@@ -15,7 +15,7 @@ const nextConfig = {
           loader: "worker-loader",
           options: {
             filename: "static/chunks/[name].[contenthash].worker.js",
-            esModule: false,
+            esModule: true,
           },
         },
       ],

@@ -7,7 +7,7 @@ import {
   type SetStateAction,
 } from "react";
 
-import { Worker as CsvParseWorker } from "@/lib/account-mapping/workers/csvParse.worker.ts";
+import CsvParseWorker from "@/lib/account-mapping/workers/csvParse.worker.ts";
 
 import { DEFAULT_PROGRESS_STEP } from "../constants";
 import type { CsvParseResult, CsvParseState } from "../types";
