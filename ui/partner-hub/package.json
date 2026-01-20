@@ -1,48 +1,49 @@
 {
-    "name": "partner-hub",
-    "private": true,
-    "version": "0.0.1",
-    "scripts": {
-        "dev": "next dev",
-        "build": "next build",
-        "start": "next start",
-        "lint": "next lint",
-        "typecheck": "tsc --noEmit",
-        "test": "tsc --noEmit false --module commonjs --moduleResolution node --target ES2020 --outDir .tmp-tests --rootDir . lib/energy/energy-calc.ts lib/energy/energy-calc.test.ts lib/account-mapping/schema.ts lib/account-mapping/schema.test.ts lib/account-mapping/inference.ts lib/account-mapping/inference.test.ts lib/account-mapping/normalize.ts lib/account-mapping/normalize.test.ts lib/account-mapping/match.ts lib/account-mapping/match.test.ts lib/account-mapping/decisionStore.ts lib/account-mapping/decisionStore.test.ts lib/account-mapping/csv.ts lib/account-mapping/csv.test.ts lib/account-mapping/exportSchema.ts lib/account-mapping/exportSchema.test.ts lib/account-mapping/mergedSearch.ts lib/account-mapping/mergedSearch.test.ts lib/account-mapping/mergedSearchFilters.ts lib/account-mapping/mergedSearchFilters.test.ts lib/account-mapping/mergedSearchDataset.ts lib/account-mapping/mergedSearchDataset.test.ts lib/account-mapping/mergedSearchStorage.ts lib/account-mapping/mergedSearchStorage.test.ts components/ui/comboboxUtils.ts components/ui/comboboxUtils.test.ts && node --test .tmp-tests/lib/energy/energy-calc.test.js .tmp-tests/lib/account-mapping/schema.test.js .tmp-tests/lib/account-mapping/inference.test.js .tmp-tests/lib/account-mapping/normalize.test.js .tmp-tests/lib/account-mapping/match.test.js .tmp-tests/lib/account-mapping/decisionStore.test.js .tmp-tests/lib/account-mapping/csv.test.js .tmp-tests/lib/account-mapping/exportSchema.test.js .tmp-tests/lib/account-mapping/mergedSearch.test.js .tmp-tests/lib/account-mapping/mergedSearchFilters.test.js .tmp-tests/lib/account-mapping/mergedSearchDataset.test.js .tmp-tests/lib/account-mapping/mergedSearchStorage.test.js .tmp-tests/components/ui/comboboxUtils.test.js",
-        "build:export": "node scripts/sync-energy-data.mjs && next build && node scripts/post-export.mjs"
-    },
-    "dependencies": {
-        "@prisma/client": "^6.19.2",
-        "@xyflow/react": "^12.3.0",
-        "clsx": "^2.1.0",
-        "dagre": "^0.8.5",
-        "lucide-react": "^0.365.0",
-        "next": "^14.0.0",
-        "next-themes": "^0.2.1",
-        "papaparse": "^5.5.3",
-        "pdf-lib": "^1.17.1",
-        "pptxgenjs": "^3.12.0",
-        "react": "^18.3.1",
-        "react-dom": "^18.0.0",
-        "reactflow": "^11.11.4",
-        "worker-loader": "^3.0.8",
-        "zod": "^3.25.76"
-    },
-    "devDependencies": {
-        "@types/dagre": "^0.7.52",
-        "@types/node": "^20.9.0",
-        "@types/papaparse": "^5.5.2",
-        "@types/react": "^18.2.0",
-        "@types/react-dom": "^18.2.0",
-        "autoprefixer": "^10.4.16",
-        "eslint": "^8.55.0",
-        "eslint-config-next": "^14.0.0",
-        "postcss": "^8.4.31",
-        "prisma": "^6.19.2",
-        "tailwindcss": "^3.4.0",
-        "typescript": "^5.3.0"
-    },
-    "overrides": {
-        "glob": "^10.4.6"
-    }
+  "name": "partner-hub",
+  "private": true,
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "tsc --noEmit false --module commonjs --moduleResolution node --target ES2020 --outDir .tmp-tests --rootDir . lib/energy/energy-calc.ts lib/energy/energy-calc.test.ts lib/account-mapping/schema.ts lib/account-mapping/schema.test.ts lib/account-mapping/inference.ts lib/account-mapping/inference.test.ts lib/account-mapping/normalize.ts lib/account-mapping/normalize.test.ts lib/account-mapping/match.ts lib/account-mapping/match.test.ts lib/account-mapping/decisionStore.ts lib/account-mapping/decisionStore.test.ts lib/account-mapping/csv.ts lib/account-mapping/csv.test.ts lib/account-mapping/exportSchema.ts lib/account-mapping/exportSchema.test.ts lib/account-mapping/mergedSearch.ts lib/account-mapping/mergedSearch.test.ts lib/account-mapping/mergedSearchFilters.ts lib/account-mapping/mergedSearchFilters.test.ts lib/account-mapping/mergedSearchDataset.ts lib/account-mapping/mergedSearchDataset.test.ts lib/account-mapping/mergedSearchStorage.ts lib/account-mapping/mergedSearchStorage.test.ts components/ui/comboboxUtils.ts components/ui/comboboxUtils.test.ts && node --test .tmp-tests/lib/energy/energy-calc.test.js .tmp-tests/lib/account-mapping/schema.test.js .tmp-tests/lib/account-mapping/inference.test.js .tmp-tests/lib/account-mapping/normalize.test.js .tmp-tests/lib/account-mapping/match.test.js .tmp-tests/lib/account-mapping/decisionStore.test.js .tmp-tests/lib/account-mapping/csv.test.js .tmp-tests/lib/account-mapping/exportSchema.test.js .tmp-tests/lib/account-mapping/mergedSearch.test.js .tmp-tests/lib/account-mapping/mergedSearchFilters.test.js .tmp-tests/lib/account-mapping/mergedSearchDataset.test.js .tmp-tests/lib/account-mapping/mergedSearchStorage.test.js .tmp-tests/components/ui/comboboxUtils.test.js",
+    "build:export": "node scripts/sync-energy-data.mjs && next build && node scripts/post-export.mjs",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.2",
+    "@xyflow/react": "^12.3.0",
+    "clsx": "^2.1.0",
+    "dagre": "^0.8.5",
+    "lucide-react": "^0.365.0",
+    "next": "^14.0.0",
+    "next-themes": "^0.2.1",
+    "papaparse": "^5.5.3",
+    "pdf-lib": "^1.17.1",
+    "pptxgenjs": "^3.12.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.0.0",
+    "reactflow": "^11.11.4",
+    "worker-loader": "^3.0.8",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/dagre": "^0.7.52",
+    "@types/node": "^20.9.0",
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "autoprefixer": "^10.4.16",
+    "eslint": "^8.55.0",
+    "eslint-config-next": "^14.0.0",
+    "postcss": "^8.4.31",
+    "prisma": "^6.19.2",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.3.0"
+  },
+  "overrides": {
+    "glob": "^10.4.6"
+  }
 }
