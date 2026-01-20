@@ -1450,7 +1450,7 @@ export function OfficeScheduleClient({
                 <h1 className="text-2xl font-semibold tracking-tight">Schedule a time</h1>
                 <button
                   type="button"
-                  className="inline-flex h-9 items-center gap-2 rounded-xl border border-border/70 bg-background px-3 text-xs font-semibold transition hover:bg-muted"
+                  className="inline-flex h-9 items-center gap-2 rounded-xl border border-border/70 bg-background px-3 text-xs font-semibold transition hover:bg-muted md:-translate-x-0.5"
                   onClick={() => setAiOpen(true)}
                 >
                   <Sparkles className="h-4 w-4 text-foreground/60" />
@@ -1491,7 +1491,7 @@ export function OfficeScheduleClient({
                 </div>
 
                 <select
-                  className="h-10 w-full rounded-md border border-border/70 bg-background px-3 text-sm"
+                  className="h-10 w-full rounded-md border border-border/70 bg-background px-3 text-sm md:-translate-x-0.5 md:w-[calc(100%-0.25rem)]"
                   value={officeId}
                   onChange={(e) => {
                     const next = Number(e.target.value);
