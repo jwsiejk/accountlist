@@ -373,9 +373,9 @@ const MergedDatasetSearchPanelSimple = ({
   };
 
   return (
-    <Card className="space-y-6">
+    <Card className="space-y-6" data-tour="search-section">
       <CardHeader className="gap-2">
-        <CardTitle className="text-lg">Search merged dataset</CardTitle>
+        <CardTitle className="text-lg">Step 5: Search merged dataset</CardTitle>
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-foreground/60">
           <span>Dataset: {datasetLabel}</span>
         </div>

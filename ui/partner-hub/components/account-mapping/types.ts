@@ -87,6 +87,7 @@ export type TourStep = {
   title: string;
   body: string;
   highlight?: string;
-  autoAdvance?: boolean;
-  canAdvance?: boolean;
+  targetId: string;
+  fallbackTargetId?: string;
+  onEnter?: () => void;
 };
