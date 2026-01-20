@@ -18,12 +18,6 @@ const nextConfig = {
             esModule: false,
           },
         },
-        {
-          loader: "babel-loader",
-          options: {
-            presets: ["next/babel"],
-          },
-        },
       ],
     });
 
