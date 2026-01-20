@@ -5,12 +5,12 @@ import { CancelBookingForm } from "./CancelBookingForm";
 export const dynamic = "force-dynamic";
 
 type BookingWithOffice = {
-  id: string | number;
-  officeId: string;
+  id: number;
+  officeId: number;
   name: string;
   email: string;
-  start: string | Date;
-  end: string | Date;
+  start: Date;
+  end: Date;
   office: {
     name: string;
   };
@@ -25,7 +25,7 @@ export default async function BookingsPage({
     orderBy: { start: "desc" },
     take: 200,
     include: { office: true },
-  })) as BookingWithOffice[];
+  })) as unknown as BookingWithOffice[];
 
   return (
     <main className="mx-auto max-w-5xl p-6">
@@ -79,7 +79,7 @@ export default async function BookingsPage({
                   <td className="p-3">{new Date(b.start).toLocaleString()}</td>
                   <td className="p-3">{new Date(b.end).toLocaleString()}</td>
                   <td className="p-3">
-                    <CancelBookingForm bookingId={Number(b.id)} />
+                    <CancelBookingForm bookingId={b.id} />
                   </td>
                 </tr>
               ))}
