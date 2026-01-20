@@ -286,7 +286,17 @@ export default function AccountMappingTool() {
   const hasMappings = vendorValidation.success && partnerValidation.success;
   const hasMatches = matchResults.length > 0;
 
-  const currentStep = hasMatches ? 5 : hasMappings ? 2 : hasUploads ? 1 : 0;
+  const currentStep = mergedExportRows.length
+    ? 5
+    : mergedSearchHeaders.length
+      ? 4
+      : hasMatches
+        ? 3
+        : hasMappings
+          ? 2
+          : hasUploads
+            ? 1
+            : 0;
 
   const tourSteps = useMemo<TourStep[]>(
     () => [
