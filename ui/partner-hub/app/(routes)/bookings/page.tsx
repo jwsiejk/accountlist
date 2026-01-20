@@ -51,7 +51,7 @@ export default async function BookingsPage({
               </tr>
             </thead>
             <tbody>
-              {bookings.map((b) => (
+              {bookings.map((b: (typeof bookings)[number]) => (
                 <tr key={b.id} className="border-b last:border-b-0">
                   <td className="p-3">
                     <Link
