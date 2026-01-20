@@ -43,7 +43,7 @@ import { useMappingDecisions } from "./hooks/useMappingDecisions";
 import { useMappingTemplates } from "./hooks/useMappingTemplates";
 import { useRunHistory } from "./hooks/useRunHistory";
 import type { CsvParseState, TargetRuleState, TourStep } from "./types";
-import { buildCsvSnapshot, buildRunId, formatMs, isMappingEmpty } from "./utils";
+import { buildCsvSnapshot, buildRunId, isMappingEmpty } from "./utils";
 import { AccountMappingExportsPanel } from "./ui/AccountMappingExportsPanel";
 import { AccountMappingFiltersBar } from "./ui/AccountMappingFiltersBar";
 import { AccountMappingHeader } from "./ui/AccountMappingHeader";
@@ -272,10 +272,6 @@ export default function AccountMappingTool() {
 
   const summary = modelStats;
 
-  const autoMatchPercent = summary.total
-    ? Math.round((summary.matched / summary.total) * 100)
-    : 0;
-
   const selectedRow = useMemo(
     () => reviewRows.find((row) => row.id === selectedRowId) ?? null,
     [reviewRows, selectedRowId],
@@ -290,103 +286,120 @@ export default function AccountMappingTool() {
   const hasMappings = vendorValidation.success && partnerValidation.success;
   const hasMatches = matchResults.length > 0;
 
-  const currentStep = hasMatches ? 4 : hasMappings ? 2 : hasUploads ? 1 : 0;
+  const currentStep = hasMatches ? 5 : hasMappings ? 2 : hasUploads ? 1 : 0;
 
   const tourSteps = useMemo<TourStep[]>(
     () => [
       {
-        id: "intro",
-        title: "Welcome to account mapping",
-        body: "We’ll load a demo dataset and walk through how ops teams replace manual spreadsheet wrangling with a repeatable workflow.",
-        highlight: "Story arc: ingest → auto-match → review → targets → export.",
-        autoAdvance: true,
-        canAdvance: !isDemoLoading,
-      },
-      {
         id: "upload",
-        title: "Instant ingest, no uploads required",
-        body: "Partner managers typically chase two exports that never align. We normalize them instantly and keep the UI responsive.",
-        highlight: `Parsed in ${formatMs(runStats.vendorParseMs + runStats.partnerParseMs)} total.`,
-        autoAdvance: true,
-        canAdvance: hasUploads,
+        title: "Upload vendor + partner CSVs",
+        body: "Upload both CSVs here, or click Load demo dataset to explore the flow instantly.",
+        highlight: hasUploads ? "Both files are ready for mapping." : "Demo data is available if you don’t have CSVs handy.",
+        targetId: "upload-section",
+        fallbackTargetId: "upload",
       },
       {
-        id: "mapping",
-        title: "Auto-mapped fields + reusable templates",
-        body: "We infer canonical fields and let ops teams lock in mappings as templates for repeat runs.",
-        highlight: hasMappings ? "Required fields mapped—ready to match." : "Waiting on required fields.",
-        autoAdvance: true,
-        canAdvance: hasMappings,
+        id: "map",
+        title: "Map columns (Step 3)",
+        body: "Map vendor + partner columns to canonical fields. Mapped fields become searchable columns in Review and Search.",
+        highlight: hasMappings ? "Required fields are mapped." : "Map the required fields to unlock matching.",
+        targetId: "map-section",
+        fallbackTargetId: "map",
       },
       {
-        id: "matching",
-        title: "Matching engine reduces review volume",
-        body: "We auto-score likely matches and funnel only ambiguous pairs into a focused review queue.",
-        highlight: `Auto-matched ${autoMatchPercent}% • Review queue reduced by ${summary.matched}.`,
-        autoAdvance: true,
-        canAdvance: hasMatches,
+        id: "match",
+        title: "Run matching",
+        body: "Once both lists are mapped, run matching to generate auto-matches, a review queue, and unmatched rows.",
+        highlight: hasMatches
+          ? `${summary.matched.toLocaleString()} auto-matches and ${summary.needsReview.toLocaleString()} to review.`
+          : "Matching runs after required fields are mapped.",
+        targetId: "match-section",
+        fallbackTargetId: "review-section",
+        onEnter: () => setActiveTab("auto"),
       },
       {
         id: "review",
-        title: "Human-in-the-loop review stays fast",
-        body: "Approve, reject, or manually link accounts while keeping keyboard shortcuts for speed.",
-        highlight: `${summary.needsReview} accounts need review. ${summary.unmatched} need manual linking.`,
-        autoAdvance: true,
-        canAdvance: hasMatches,
+        title: "Review ambiguous matches",
+        body: "Review shared or ambiguous pairs, confirm or reject matches, and manage unmatched accounts.",
+        highlight: hasMatches
+          ? `${summary.needsReview.toLocaleString()} accounts need review.`
+          : "Review tools appear once matches are available.",
+        targetId: "review-section",
+        fallbackTargetId: "review",
+        onEnter: () => setActiveTab("review"),
       },
       {
-        id: "targets",
-        title: "Target lists generated in seconds",
-        body: "Ops can build cross-sell or expansion lists by combining vendor + partner lifecycle states.",
-        highlight: `Targets generated: ${targetRows.length}.`,
-        autoAdvance: true,
-        canAdvance: targetRows.length > 0,
+        id: "search",
+        title: "Search the merged dataset",
+        body: "Search and filter the merged dataset to see every mapped column. Use the current run or upload a merged CSV.",
+        highlight:
+          mergedSearchHeaders.length > 0
+            ? `Showing ${mergedSearchHeaders.length.toLocaleString()} mapped columns.`
+            : "Search is ready as soon as matches are available.",
+        targetId: "search-section",
+        fallbackTargetId: "search",
+        onEnter: () => setMergedSearchDatasetSelection("run"),
       },
       {
-        id: "stats",
-        title: "Run stats make the value visible",
-        body: "Share parsing + matching performance with stakeholders for confidence and auditability.",
-        highlight: `Match time ${formatMs(runStats.matchMs)} • Total ${formatMs(runStats.totalMs)}.`,
-        autoAdvance: false,
-        canAdvance: runStats.totalMs > 0,
+        id: "export",
+        title: "Export results",
+        body: "Export merged results or target lists for downstream activation and sharing.",
+        highlight: hasMatches
+          ? `${mergedExportRows.length.toLocaleString()} merged rows ready to export.`
+          : "Exports are available after matching runs.",
+        targetId: "export-section",
+        fallbackTargetId: "export",
       },
     ],
     [
-      autoMatchPercent,
-      hasMappings,
       hasMatches,
       hasUploads,
-      isDemoLoading,
-      runStats.matchMs,
-      runStats.partnerParseMs,
-      runStats.totalMs,
-      runStats.vendorParseMs,
+      hasMappings,
+      mergedExportRows.length,
+      mergedSearchHeaders.length,
       summary.matched,
       summary.needsReview,
-      summary.unmatched,
-      targetRows.length,
+      setActiveTab,
+      setMergedSearchDatasetSelection,
     ],
   );
 
   const activeTourStep = tourStepIndex !== null ? tourSteps[tourStepIndex] : null;
 
+  const resolveTourTarget = useCallback((step: TourStep) => {
+    const targetIds = [step.targetId, step.fallbackTargetId].filter(Boolean) as string[];
+    for (const targetId of targetIds) {
+      const element = document.querySelector(`[data-tour="${targetId}"]`);
+      if (element) {
+        return element;
+      }
+    }
+    return null;
+  }, []);
+
   useEffect(() => {
-    if (!activeTourStep || !activeTourStep.autoAdvance || !activeTourStep.canAdvance) {
+    if (!activeTourStep || tourStepIndex === null) {
       return;
     }
-    if (tourStepIndex === null || tourStepIndex >= tourSteps.length - 1) {
-      return;
-    }
+    activeTourStep.onEnter?.();
     const timer = window.setTimeout(() => {
-      setTourStepIndex((prev) => {
-        if (prev === null) {
-          return prev;
-        }
-        return Math.min(prev + 1, tourSteps.length - 1);
-      });
-    }, 1800);
+      const target = resolveTourTarget(activeTourStep);
+      if (!target) {
+        setTourStepIndex((prev) => {
+          if (prev === null) {
+            return prev;
+          }
+          if (prev >= tourSteps.length - 1) {
+            return null;
+          }
+          return prev + 1;
+        });
+        return;
+      }
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 120);
     return () => window.clearTimeout(timer);
-  }, [activeTourStep, tourStepIndex, tourSteps.length]);
+  }, [activeTourStep, resolveTourTarget, tourStepIndex, tourSteps.length]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -666,7 +679,7 @@ export default function AccountMappingTool() {
         onToggleStats={() => setStatsOpen((prev) => !prev)}
       />
 
-      <Card className="space-y-6">
+      <Card className="space-y-6" data-tour="upload-section">
         <CardHeader className="gap-2">
           <CardTitle className="text-lg">Step 1: Upload CSVs</CardTitle>
           <p className="text-sm text-foreground/60">
@@ -726,7 +739,7 @@ export default function AccountMappingTool() {
         </CardContent>
       </Card>
 
-      <Card className="space-y-6">
+      <Card className="space-y-6" data-tour="map-section">
         <CardHeader className="gap-2">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-2">
@@ -849,7 +862,7 @@ export default function AccountMappingTool() {
         </CardContent>
       </Card>
 
-      <Card className="space-y-6">
+      <Card className="space-y-6" data-tour="review-section">
         <CardHeader className="gap-2">
           <CardTitle className="text-lg">Step 4: Review matches</CardTitle>
           <p className="text-sm text-foreground/60">
@@ -858,13 +871,16 @@ export default function AccountMappingTool() {
         </CardHeader>
         <CardContent className="space-y-6">
           {!hasMatches ? (
-            <div className="rounded-lg border border-foreground/10 bg-muted/40 px-4 py-6 text-sm text-foreground/60">
+            <div
+              className="rounded-lg border border-foreground/10 bg-muted/40 px-4 py-6 text-sm text-foreground/60"
+              data-tour="match-section"
+            >
               Upload both CSVs (or load the demo dataset) and map the account name field to generate
               matching results. Matches appear instantly once both lists are ready.
             </div>
           ) : (
             <>
-              <div className="grid gap-4 md:grid-cols-4">
+              <div className="grid gap-4 md:grid-cols-4" data-tour="match-section">
                 <Card className="border border-foreground/10">
                   <CardContent className="space-y-1 py-4">
                     <p className="text-xs uppercase text-foreground/50">Total rows</p>
@@ -893,20 +909,22 @@ export default function AccountMappingTool() {
                 </Card>
               </div>
 
-              <AccountMappingFiltersBar
-                searchInputRef={searchInputRef}
-                searchTerm={searchTerm}
-                onSearchTermChange={setSearchTerm}
-                decisionFilter={decisionFilter}
-                onDecisionFilterChange={setDecisionFilter}
-                activeTab={activeTab}
-                onTabChange={setActiveTab}
-                summary={summary}
-                filteredRowsCount={filteredRows.length}
-                totalRowsCount={reviewRows.length}
-                onOpenAiReview={() => aiReview.setAiReviewOpen(true)}
-                aiReviewDisabled={reviewRows.length === 0}
-              />
+              <div data-tour="review-queue">
+                <AccountMappingFiltersBar
+                  searchInputRef={searchInputRef}
+                  searchTerm={searchTerm}
+                  onSearchTermChange={setSearchTerm}
+                  decisionFilter={decisionFilter}
+                  onDecisionFilterChange={setDecisionFilter}
+                  activeTab={activeTab}
+                  onTabChange={setActiveTab}
+                  summary={summary}
+                  filteredRowsCount={filteredRows.length}
+                  totalRowsCount={reviewRows.length}
+                  onOpenAiReview={() => aiReview.setAiReviewOpen(true)}
+                  aiReviewDisabled={reviewRows.length === 0}
+                />
+              </div>
 
               <VirtualizedList
                 items={filteredRows}
@@ -1046,9 +1064,20 @@ export default function AccountMappingTool() {
         </CardContent>
       </Card>
 
-      <Card className="space-y-6">
+      <MergedDatasetSearchPanelSimple
+        dataset={activeMergedSearchDataset}
+        datasetLabel={mergedSearchLabel}
+        rows={mergedSearchRows}
+        headers={mergedSearchHeaders}
+        onDownload={handleDownloadMergedSearch}
+        onDatasetChange={setMergedSearchDatasetSelection}
+        uploadState={mergedSearchState}
+        onUploadFile={handleMergedSearchFile}
+      />
+
+      <Card className="space-y-6" data-tour="export-section">
         <CardHeader className="gap-2">
-          <CardTitle className="text-lg">Step 5: Export + run history</CardTitle>
+          <CardTitle className="text-lg">Step 6: Export + run history</CardTitle>
           <p className="text-sm text-foreground/60">
             Download merged exports, build target lists, and save run snapshots for audit-ready demos.
           </p>
@@ -1075,17 +1104,6 @@ export default function AccountMappingTool() {
           />
         </CardContent>
       </Card>
-
-      <MergedDatasetSearchPanelSimple
-        dataset={activeMergedSearchDataset}
-        datasetLabel={mergedSearchLabel}
-        rows={mergedSearchRows}
-        headers={mergedSearchHeaders}
-        onDownload={handleDownloadMergedSearch}
-        onDatasetChange={setMergedSearchDatasetSelection}
-        uploadState={mergedSearchState}
-        onUploadFile={handleMergedSearchFile}
-      />
 
       <AiReviewModal
         open={aiReview.aiReviewOpen}
@@ -1133,11 +1151,11 @@ export default function AccountMappingTool() {
           <div className="w-full max-w-2xl space-y-4 rounded-xl border border-foreground/10 bg-background p-6 shadow-xl">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="space-y-1">
-                <p className="text-xs uppercase tracking-wide text-foreground/50">Guided tour</p>
+                <p className="text-xs uppercase tracking-wide text-foreground/50">Walkthrough</p>
                 <h2 className="text-lg font-semibold">{activeTourStep.title}</h2>
               </div>
               <Button variant="secondary" onClick={() => setTourStepIndex(null)}>
-                Exit tour
+                Exit walkthrough
               </Button>
             </div>
             <p className="text-sm text-foreground/70">{activeTourStep.body}</p>

@@ -39,10 +39,10 @@ export const AccountMappingHeader = ({
         <Button
           variant="secondary"
           onClick={onStartTour}
-          aria-label="Start guided tour"
+          aria-label="Start walkthrough"
           disabled={isTourActive}
         >
-          Start guided tour
+          Walkthrough
         </Button>
       </div>
     </div>
@@ -52,9 +52,10 @@ export const AccountMappingHeader = ({
       </p>
     )}
     <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
-      {["Upload", "Map", "Match", "Review", "Export"].map((step, index) => (
+      {["Upload", "Map", "Match", "Review", "Search", "Export"].map((step, index) => (
         <div
           key={step}
+          data-tour={step.toLowerCase()}
           className={`rounded-full px-3 py-1 shadow-sm ${
             index <= currentStep
               ? "bg-confirm text-confirm-foreground border border-confirm-strong"
