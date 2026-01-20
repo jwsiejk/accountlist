@@ -77,11 +77,6 @@ const caseStudies = [
 
 const toolCards = [
   {
-    title: "Architecture Explorer",
-    description: "Navigate reference architectures and validated design patterns.",
-    href: "/tools/architecture-explorer",
-  },
-  {
     title: "Account Mapping",
     description: "Normalize and match account lists to streamline partner alignment.",
     href: "/estimator",
@@ -112,7 +107,7 @@ export default function HomePage() {
               James Siejk
             </h1>
             <h2 className="text-xl font-semibold text-foreground/80 sm:text-2xl">
-              Senior Solutions Architect / Presales Engineer
+              Senior Solutions Architect / Sales Engineer
             </h2>
             <p className="max-w-xl text-base leading-relaxed text-foreground/70">
               I lead discovery, architecture, validation, and demos—helping sales teams and
@@ -196,7 +191,7 @@ export default function HomePage() {
             How I Work
           </p>
           <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
-            A focused operating model for presales delivery
+            A focused operating model for solution delivery
           </h2>
           <p className="max-w-2xl text-base text-foreground/70">
             I move from discovery to enablement with clear artifacts that build confidence, shorten

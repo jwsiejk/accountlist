@@ -4,11 +4,6 @@
       "label": "Case Studies Library",
       "href": "/case-studies",
       "type": "internal"
-    },
-    {
-      "label": "Architecture Explorer",
-      "href": "/tools/architecture-explorer",
-      "type": "internal"
     }
   ],
   "Tools": [

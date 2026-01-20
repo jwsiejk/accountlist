@@ -8,7 +8,7 @@ export default function AboutPage() {
       <header className="space-y-3">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">About / Contact</h1>
         <p className="max-w-2xl text-base text-foreground/70">
-          Portfolio context for presales solution architecture engagements.
+          Portfolio context for solution architecture engagements.
         </p>
       </header>
       <Card>
