@@ -284,10 +284,7 @@ export default function AccountMappingTool() {
 
   const hasUploads = vendorRecords.length > 0 || partnerRecords.length > 0;
   const hasMappings = vendorValidation.success && partnerValidation.success;
-  const hasMatches =
-    matchResults.length > 0 ||
-    reviewRows.length > 0 ||
-    unmatchedRows.length > 0;
+  const hasMatches = matchResults.length > 0 || reviewRows.length > 0;
 
   let currentStep = -1;
   if (hasUploads) {
