@@ -1,18 +1,19 @@
-# Partner Hub app
-/ui/partner-hub/node_modules
-/ui/partner-hub/.next
-/ui/partner-hub/.turbo
-/ui/partner-hub/dist
-/ui/partner-hub/out
-/ui/partner-hub/.vercel
-/ui/partner-hub/.cache
+# dependencies
+node_modules/
 
-# General node/next
-node_modules
-*.log
+# Next.js
+.next/
+out/
+
+# env
+.env.local
+.env.*.local
+
+# logs
 npm-debug.log*
-.next
-dist
-out
+yarn-debug.log*
+yarn-error.log*
+
+# OS
 .DS_Store
-.env
+Thumbs.db
