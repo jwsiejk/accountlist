@@ -9,12 +9,19 @@ const nextConfig = {
   webpack: (config) => {
     config.module.rules.push({
       test: /\.worker\.ts$/,
+      issuer: { and: [/\.[jt]sx?$/] },
       use: [
         {
           loader: "worker-loader",
           options: {
             filename: "static/chunks/[name].[contenthash].worker.js",
-            esModule: true,
+            esModule: false,
+          },
+        },
+        {
+          loader: "babel-loader",
+          options: {
+            presets: ["next/babel"],
           },
         },
       ],
