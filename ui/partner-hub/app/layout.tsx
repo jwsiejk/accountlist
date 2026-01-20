@@ -5,7 +5,7 @@ import { AppShell } from "@/components/app-shell";
 
 const siteTitle = "Portfolio Hub";
 const siteDescription =
-  "A presales solutions architect portfolio for data center infrastructure, showcasing tools, architectures, and proof points.";
+  "A solutions architect portfolio for data center infrastructure, showcasing tools, architectures, and proof points.";
 
 // For local static serving, leave NEXT_PUBLIC_SITE_URL unset and the URLs below will
 // resolve to http://localhost:3000/partner-hub/*.

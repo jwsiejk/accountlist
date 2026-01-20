@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   enumerateNetApp,
@@ -24,7 +24,6 @@ import {
   loadNetAppDriveCompat,
   type NetAppDriveCompat,
 } from "@/lib/energy/netapp-drive-compat";
-import { presalesExportSchema, type PresalesExportPayload } from "@/lib/exports/presalesExportSchema";
 import { BASE_PATH, withBasePath } from "@/lib/basePath";
 
 const fmt0 = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
@@ -172,9 +171,6 @@ export function EnergyTool() {
   const [sourceCheckHint, setSourceCheckHint] = useState<string | null>(null);
   const [checkSourcesActive, setCheckSourcesActive] = useState(false);
   const [view, setView] = useState<ViewMode>("energy");
-  const [exportChoice, setExportChoice] = useState("");
-  const [exportError, setExportError] = useState<string | null>(null);
-  const [exportLoading, setExportLoading] = useState<string | null>(null);
 
   const [inputs, setInputs] = useState<Inputs>(() => ({
     dfmTb: 48,
@@ -691,239 +687,6 @@ export function EnergyTool() {
       ],
     );
 
-  const buildNetAppSummary = (candidate: NetAppCandidate | null) => {
-    if (!candidate) return "No NetApp configuration selected";
-    const shelfLabel = `${candidate.expansionQty} shelf${candidate.expansionQty === 1 ? "" : "es"}`;
-    return `${candidate.controllerModel} + ${shelfLabel}`;
-  };
-
-  const buildPresalesExportPayload = (): PresalesExportPayload => {
-    const rowKeys = [...comparePrimaryKeys, ...compareSecondaryKeys];
-    const selectedIndex = selectedCandidate
-      ? candidates.findIndex((candidate) => candidateKey(candidate) === candidateKey(selectedCandidate))
-      : -1;
-    const payload: PresalesExportPayload = {
-      meta: {
-        toolName: "Energy Tool",
-        generatedAt: new Date().toISOString(),
-        viewMode: view,
-        dataset: energyMeta
-          ? {
-              lastSyncedISO: energyMeta.lastSyncedISO ?? null,
-              sourceFiles: energyMeta.sourceFiles ?? null,
-              copiedFiles: energyMeta.copiedFiles ?? null,
-              sha256: energyMeta.sha256 ?? null,
-              reportFiles: energyMeta.reportFiles ?? null,
-            }
-          : null,
-      },
-      assumptions: {
-        flashblade: {
-          utilizationPct: inputs.pureUtilPct,
-          pue: inputs.purePue,
-          pricePerKwh: inputs.purePrice,
-          drr: inputs.pureDrr,
-          dfmSizeTb: inputs.dfmTb,
-          capacityPb: inputs.capacityPb,
-        },
-        netapp: {
-          utilizationPct: inputs.naUtilPct,
-          pue: inputs.naPue,
-          pricePerKwh: inputs.naPrice,
-          overheadRawToUsable: inputs.naOverhead,
-          drr: inputs.naDrr,
-          driveSizeTb: inputs.naDriveSizeTb,
-          driveSizeSelection:
-            mode === "manual" ? "Compatibility dataset (controller + shelf pairing)" : "Compatibility dataset (all drives)",
-        },
-        sustainability: {
-          gridKgCo2ePerKwh,
-          gridFactorSource,
-        },
-      },
-      selection: {
-        mode,
-        selectedNetAppConfig: selectedCandidate
-          ? {
-              controllerModel: selectedCandidate.controllerModel,
-              expansionModel: selectedCandidate.expansionModel,
-              expansionQty: selectedCandidate.expansionQty,
-              driveSizeTb: inputs.naDriveSizeTb,
-              rackUnits: selectedCandidate.rackUnits ?? null,
-              effectiveTb: selectedCandidate.effectiveTb,
-              kwhPerYear: selectedCandidate.kwhYearWithPue,
-              annualCost: selectedCandidate.annualEnergyCost,
-              summary: buildNetAppSummary(selectedCandidate),
-            }
-          : null,
-        matchInfo:
-          mode === "auto" && selectedCandidate
-            ? {
-                tolerancePct: inputs.tolPct,
-                candidateCount: candidates.length,
-                selectedIndex: selectedIndex >= 0 ? selectedIndex : 0,
-              }
-            : null,
-      },
-      results: fb
-        ? {
-            flashbladeTotals: {
-              effectiveTb: fb.effectiveTb,
-              weightedW: fb.weightedW,
-              kwhPerYear: fb.kwhWithPue,
-              annualCost: fb.annualCost,
-              btuPerHour: fb.btuPerHour,
-              rackUnits: fb.rackUnits ?? null,
-              co2eKgPerYear: fbCo2eKgPerYear,
-              co2ePerTbYear: fbCo2ePerTbYear,
-            },
-            netappTotals: selectedCandidate
-              ? {
-                  effectiveTb: selectedCandidate.effectiveTb,
-                  weightedW: selectedCandidate.weightedW,
-                  kwhPerYear: selectedCandidate.kwhYearWithPue,
-                  annualCost: selectedCandidate.annualEnergyCost,
-                  btuPerHour: null,
-                  rackUnits: selectedCandidate.rackUnits ?? null,
-                  co2eKgPerYear: netappCo2eKgPerYear,
-                  co2ePerTbYear: netappCo2ePerTbYear,
-                }
-              : null,
-            deltaTotals: {
-              effectiveTb: savings?.deltaEffectiveTb ?? null,
-              weightedW: savings?.deltaW ?? null,
-              kwhPerYear: savings?.deltaKwh ?? null,
-              annualCost: savings?.deltaCost ?? null,
-              btuPerHour: null,
-              rackUnits: savings?.deltaRackUnits ?? null,
-              co2eKgPerYear: deltaCo2eKgPerYear,
-              co2ePerTbYear: deltaCo2ePerTbYear,
-            },
-          }
-        : null,
-      rows: rowKeys.map((key) => ({
-        key,
-        label: rowLabels[key],
-        flashblade: fbRowValues?.[key] ?? "—",
-        netapp: netappRowValues?.[key] ?? "—",
-        delta: deltaRowValues[key] ?? "—",
-        units: rowUnits[key] ?? null,
-      })),
-      sources: sourceList.map((item) => ({
-        label: item.label,
-        url: item.type === "link" ? item.url ?? null : null,
-        missing: item.type === "missing",
-      })),
-    };
-    return presalesExportSchema.parse(payload);
-  };
-
-  const downloadJson = (payload: PresalesExportPayload, filename: string) => {
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const escapeCsvCell = (value: string) => {
-    if (value.includes("\"")) {
-      value = value.replace(/\"/g, "\"\"");
-    }
-    if (value.includes(",") || value.includes("\n") || value.includes("\"")) {
-      return `"${value}"`;
-    }
-    return value;
-  };
-
-  const downloadCsv = (payload: PresalesExportPayload, filename: string) => {
-    const header = ["Row", "FlashBlade", "NetApp", "Delta", "Units", "Notes"];
-    const lines = [header.join(",")];
-    payload.rows.forEach((row) => {
-      lines.push(
-        [
-          escapeCsvCell(row.label),
-          escapeCsvCell(row.flashblade),
-          escapeCsvCell(row.netapp),
-          escapeCsvCell(row.delta),
-          escapeCsvCell(row.units ?? ""),
-          escapeCsvCell(row.notes ?? ""),
-        ].join(","),
-      );
-    });
-    const blob = new Blob([lines.join("\n")], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const buildExportFilename = (extension: string, payload: PresalesExportPayload) => {
-    const datePart = payload.meta.generatedAt.slice(0, 10);
-    const summary = payload.selection.selectedNetAppConfig?.summary ?? "netapp";
-    const safeSummary = summary.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "");
-    return `energy-presales-${datePart}-${safeSummary}.${extension}`;
-  };
-
-  const requestExportFile = async (type: "pdf" | "pptx", payload: PresalesExportPayload) => {
-    setExportLoading(type);
-    try {
-      const res = await fetch(withBasePath(`/api/exports/presales/${type}`), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        throw new Error(`Export failed (${res.status})`);
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = buildExportFilename(type, payload);
-      link.click();
-      URL.revokeObjectURL(url);
-    } finally {
-      setExportLoading(null);
-    }
-  };
-
-  const handleDownloadAssumptions = () => {
-    const payload = buildPresalesExportPayload();
-    downloadJson(payload, "assumptions.json");
-  };
-
-  const handleExportChange = async (event: ChangeEvent<HTMLSelectElement>) => {
-    const selection = event.target.value;
-    setExportChoice(selection);
-    if (!selection) return;
-    try {
-      setExportError(null);
-      const payload = buildPresalesExportPayload();
-      if (selection === "csv") {
-        downloadCsv(payload, buildExportFilename("csv", payload));
-        return;
-      }
-      if (selection === "json") {
-        downloadJson(payload, buildExportFilename("json", payload));
-        return;
-      }
-      if (selection === "pdf" || selection === "pptx") {
-        await requestExportFile(selection, payload);
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Export failed";
-      setExportError(message);
-      window.alert(message);
-    } finally {
-      setExportChoice("");
-    }
-  };
-
   const handleCheckSources = async () => {
     const command = "node ui/partner-hub/scripts/check-vendor-sources.mjs";
     if (checkSourcesActive) {
@@ -956,7 +719,6 @@ export function EnergyTool() {
     () => mode === "auto" && candidates.slice(0, 8).some((candidate) => candidate.rackUnits == null),
     [candidates, mode],
   );
-  const exportDisabled = loading || exportLoading != null || !fb || !selectedCandidate;
   const toggleButtonClass = (isActive: boolean) =>
     [
       "inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
@@ -1228,9 +990,7 @@ export function EnergyTool() {
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               {loading ? <span className="text-xs text-foreground/60">Loading datasets…</span> : null}
-              {exportLoading ? <span className="text-xs text-foreground/60">Exporting {exportLoading}…</span> : null}
               {computeError ? <span className="text-xs font-semibold text-red-600">{computeError}</span> : null}
-              {exportError ? <span className="text-xs font-semibold text-red-600">{exportError}</span> : null}
               {sourceCheckHint ? <span className="text-xs text-foreground/60">{sourceCheckHint}</span> : null}
             </div>
           </CardContent>
@@ -1239,8 +999,6 @@ export function EnergyTool() {
 
       {fb ? (
         <div className="space-y-4">
-          {/* Between the top inputs cards and the lower totals/candidates cards:
-              View control on the left, Export dropdown on the right */}
           <div className="flex flex-wrap items-center gap-3">
             <div className="text-xs font-semibold uppercase tracking-wide text-foreground/60">View</div>
             <div className="flex rounded-lg border border-border/70 bg-background p-1 text-xs font-semibold uppercase tracking-wide text-foreground/70">
@@ -1274,26 +1032,6 @@ export function EnergyTool() {
               >
                 Both
               </button>
-            </div>
-
-            {/* Export stays right-aligned and sits "between" the NetApp baseline card above
-                and the NetApp candidates card below (even when View is visible). */}
-            <div className="ml-auto flex w-full justify-end sm:w-auto">
-              <select
-                className={`${INPUT_BASE_CLASSES} font-semibold text-foreground transition hover:bg-muted/50 disabled:opacity-50 sm:w-[260px]`}
-                aria-label="Export"
-                value={exportChoice}
-                onChange={handleExportChange}
-                disabled={exportDisabled}
-              >
-                <option value="" disabled>
-                  Export…
-                </option>
-                <option value="pdf">PDF one-pager</option>
-                <option value="pptx">PPTX slide</option>
-                <option value="csv">CSV (totals + delta)</option>
-                <option value="json">JSON (assumptions + results)</option>
-              </select>
             </div>
           </div>
           {view !== "energy" ? (
@@ -1477,14 +1215,6 @@ export function EnergyTool() {
                 Last synced: {energyMeta?.lastSyncedISO ?? (metaError ? "Unavailable" : "Loading…")}
               </p>
             </div>
-            <button
-              type="button"
-              className="inline-flex h-9 items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-semibold text-foreground transition hover:bg-muted/50"
-              onClick={handleDownloadAssumptions}
-              disabled={sourceEntries.length === 0 && !energyMeta}
-            >
-              Download assumptions.json
-            </button>
           </CardHeader>
           <CardContent className="space-y-6 text-sm">
             <section className="space-y-3">
