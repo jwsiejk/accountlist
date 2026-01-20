@@ -1,13 +1,9 @@
 declare module "*.worker" {
-  const WorkerFactory: {
-    new (): globalThis.Worker;
-  };
+  const WorkerFactory: { new (): Worker };
   export default WorkerFactory;
 }
 
 declare module "*.worker.ts" {
-  const WorkerFactory: {
-    new (): globalThis.Worker;
-  };
+  const WorkerFactory: { new (): Worker };
   export default WorkerFactory;
 }
