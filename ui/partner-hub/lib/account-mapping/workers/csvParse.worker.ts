@@ -5,4 +5,7 @@ self.onmessage = (e) => {
   // existing worker logic lives here
 };
 
-export default class WorkerShim {}
+// Type-only shim for TS in the app bundle.
+// Runtime is provided by worker-loader; this export is never used at runtime.
+const WorkerShim = (null as unknown) as { new (): Worker };
+export default WorkerShim;
