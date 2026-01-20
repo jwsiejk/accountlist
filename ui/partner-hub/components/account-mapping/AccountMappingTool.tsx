@@ -282,21 +282,20 @@ export default function AccountMappingTool() {
     [manualLinkRowId, reviewRows],
   );
 
-  const hasUploads = Boolean(vendorState.result && partnerState.result);
+  const hasUploads = vendorRecords.length > 0 || partnerRecords.length > 0;
   const hasMappings = vendorValidation.success && partnerValidation.success;
-  const hasMatches = matchResults.length > 0;
+  const hasMatches = reviewRows.length > 0;
 
-  const currentStep = mergedExportRows.length
-    ? 5
-    : mergedSearchHeaders.length
-      ? 4
-      : hasMatches
-        ? 3
-        : hasMappings
-          ? 2
-          : hasUploads
-            ? 1
-            : 0;
+  let currentStep = -1;
+  if (hasUploads) {
+    currentStep = 0;
+  }
+  if (hasMappings) {
+    currentStep = 1;
+  }
+  if (hasMatches) {
+    currentStep = 2;
+  }
 
   const tourSteps = useMemo<TourStep[]>(
     () => [
