@@ -477,8 +477,7 @@ export function OfficeScheduleClient({
     }
   }, []);
 
-  useEffect(() => {
-    if (!aiOpen) return;
+  function resetAiFlow() {
     setAiMessages([
       {
         role: "assistant",
@@ -497,6 +496,11 @@ export function OfficeScheduleClient({
     setAiDateOptions([]);
     setAiStep("collect_date");
     setAiChecking(false);
+  }
+
+  useEffect(() => {
+    if (!aiOpen) return;
+    resetAiFlow();
   }, [aiOpen]);
 
   // Keep UI state in sync with URL navigation (back/forward).
@@ -658,6 +662,7 @@ export function OfficeScheduleClient({
   }, [selectedDaySlots]);
 
   const todayKey = useMemo(() => toDateKey(now), [now]);
+  const aiBookingComplete = aiStep === "done" || Boolean(aiBookingSuccess);
 
   function pushState(next: { officeId?: number; dateKey?: string; durationMin?: number }) {
     const qs = new URLSearchParams(sp?.toString());
@@ -665,6 +670,11 @@ export function OfficeScheduleClient({
     qs.set("office", String(next.officeId ?? officeId));
     qs.set("duration", String(next.durationMin ?? durationMin));
     router.push(`/offices/schedule?${qs.toString()}`);
+  }
+
+  function handleAiExit() {
+    setAiOpen(false);
+    pushState({});
   }
 
   const selectedSlotSet = useMemo(() => new Set(selectedSlotStarts), [selectedSlotStarts]);
@@ -1893,19 +1903,41 @@ export function OfficeScheduleClient({
               {aiBookingSuccess ? (
                 <div className="mt-2 text-xs font-semibold text-emerald-700">{aiBookingSuccess}</div>
               ) : null}
-              <button
-                type="button"
-                className={
-                  "mt-3 h-10 w-full rounded-md border border-border/70 px-3 text-sm font-semibold transition " +
-                  (aiBookingSubmitting
-                    ? "bg-muted/30 text-foreground/50"
-                    : "bg-foreground text-background hover:opacity-90")
-                }
-                onClick={() => submitAiBooking(aiSelectedOption)}
-                disabled={aiBookingSubmitting}
-              >
-                {aiBookingSubmitting ? "Booking..." : "Confirm booking"}
-              </button>
+              {aiBookingComplete ? (
+                <div className="mt-3 grid gap-2">
+                  <button
+                    type="button"
+                    className="h-10 w-full rounded-md border border-border/70 bg-foreground px-3 text-sm font-semibold text-background transition hover:opacity-90"
+                    onClick={handleAiExit}
+                  >
+                    Exit
+                  </button>
+                  <button
+                    type="button"
+                    className="text-sm font-semibold text-foreground/70 transition hover:text-foreground"
+                    onClick={() => {
+                      // Guardrail: reset the AI booking flow after success so the confirm button never reappears.
+                      resetAiFlow();
+                    }}
+                  >
+                    Book another time
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className={
+                    "mt-3 h-10 w-full rounded-md border border-border/70 px-3 text-sm font-semibold transition " +
+                    (aiBookingSubmitting
+                      ? "bg-muted/30 text-foreground/50"
+                      : "bg-foreground text-background hover:opacity-90")
+                  }
+                  onClick={() => submitAiBooking(aiSelectedOption)}
+                  disabled={aiBookingSubmitting}
+                >
+                  {aiBookingSubmitting ? "Booking..." : "Confirm booking"}
+                </button>
+              )}
             </div>
           ) : null}
 
