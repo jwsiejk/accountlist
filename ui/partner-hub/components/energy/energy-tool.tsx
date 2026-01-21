@@ -11,11 +11,13 @@ import {
   loadCsv,
   loadNetApp,
   loadPure,
+  loadVast,
   validCaps,
   type FbPowerResult,
   type NetAppCandidate,
   type NetAppRow,
   type PureRow,
+  type VastRow,
 } from "@/lib/energy/energy-calc";
 import {
   getControllerModels,
@@ -162,7 +164,7 @@ const defaults: Omit<Inputs, "dfmTb" | "capacityPb"> = {
 export function EnergyTool() {
   const [pureRows, setPureRows] = useState<PureRow[]>([]);
   const [netappRows, setNetappRows] = useState<NetAppRow[]>([]);
-  const [vastRows, setVastRows] = useState<NetAppRow[]>([]);
+  const [vastRows, setVastRows] = useState<VastRow[]>([]);
   const [netappCompat, setNetappCompat] = useState<NetAppDriveCompat | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -226,7 +228,7 @@ export function EnergyTool() {
         try {
           const vastCsv = await loadCsv(withBasePath("/data/energy/vast_data.csv"));
           if (!cancelled) {
-            setVastRows(loadNetApp(vastCsv));
+            setVastRows(loadVast(vastCsv));
           }
         } catch {
           if (!cancelled) {

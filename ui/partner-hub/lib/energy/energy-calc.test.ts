@@ -76,8 +76,8 @@ const makeVastRows = (): VastRow[] => [
   {
     Component_Type: "Controller_Shelf",
     Model: "VastBase",
-    Typical_W: 180,
-    Idle_W: 90,
+    Typical_W: 200,
+    Idle_W: 100,
     Drives_per_unit: 24,
     Rack_Units: 4,
   },
@@ -88,7 +88,7 @@ const makeVastRows = (): VastRow[] => [
     Idle_W: 60,
     Drives_per_unit: 12,
     Rack_Units: 2,
-    Auto_Default: "true",
+    Auto_Default: true,
   },
 ];
 
@@ -160,9 +160,26 @@ describe("NetApp candidates", () => {
 });
 
 describe("Vast candidates", () => {
-  it("returns at least one candidate within tolerance", () => {
-    const targetEffTb = 324;
-    const candidates = enumerateVast(makeVastRows(), targetEffTb, 0.5, 1.2, 0.1, 0.1, 1, 10, 0.05);
+  it("returns empty when Vast rows are missing", () => {
+    const candidates = enumerateVast([], 100, 0.5, 1.2, 0.1, 0.1, 1, 10, 0.05);
+    assert.deepEqual(candidates, []);
+  });
+
+  it("returns the expected candidate within tolerance", () => {
+    const targetEffTb = 432;
+    const tolFrac = 0.02;
+    const candidates = enumerateVast(makeVastRows(), targetEffTb, 0.5, 1.2, 0.1, 0.1, 1, 10, tolFrac);
+
     assert.ok(candidates.length > 0);
+    const maxPct = Math.max(...candidates.map((candidate) => Math.abs(candidate.pctDiffFromTarget)));
+    assert.ok(maxPct <= tolFrac * 100 + 1e-9);
+
+    const match = candidates.find((candidate) => candidate.expansionQty === 2);
+    assert.ok(match);
+    assert.equal(match?.rackUnits, 8);
+    assert.ok(Math.abs((match?.effectiveTb ?? 0) - 432) < 1e-6);
+    assert.ok(Math.abs((match?.weightedW ?? 0) - 330) < 1e-6);
+    assert.ok(Math.abs((match?.kwhYearWithPue ?? 0) - 3468.96) < 1e-2);
+    assert.ok(Math.abs((match?.annualEnergyCost ?? 0) - 346.896) < 1e-3);
   });
 });
