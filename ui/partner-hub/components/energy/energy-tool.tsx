@@ -560,7 +560,7 @@ export function EnergyTool() {
 
   const selectedCandidate = effectiveMode === "manual" ? manualCandidate : selected;
   const sourceEntries = useMemo(() => {
-    const entries: Array<{ model: string; url?: string }> = [];
+    const entries: Array<{ model: string; url?: string; missingLabel?: string }> = [];
     if (pureRows.length > 0) {
       const dfm = inputs.dfmTb;
       const lookup = (needle: string) =>
@@ -580,43 +580,43 @@ export function EnergyTool() {
     }
 
     if (selectedCandidate) {
+      const missingLabel = competitorVendor === "Vast" ? "Source: Not provided" : undefined;
       const controllerRow = competitorRows.find(
         (row) =>
           row.Component_Type === "Controller_Shelf" &&
           String(row.Model ?? "") === selectedCandidate.controllerModel,
       );
-      if (controllerRow) {
-        entries.push({
-          model: String(controllerRow.Model ?? selectedCandidate.controllerModel),
-          url: controllerRow.Source_URL ? String(controllerRow.Source_URL) : undefined,
-        });
-      }
+      entries.push({
+        model: String(controllerRow?.Model ?? selectedCandidate.controllerModel),
+        url: controllerRow?.Source_URL ? String(controllerRow.Source_URL) : undefined,
+        missingLabel,
+      });
       const expansionRow = competitorRows.find(
         (row) =>
           row.Component_Type === "Expansion_Shelf" &&
           String(row.Model ?? "") === selectedCandidate.expansionModel,
       );
-      if (expansionRow) {
-        entries.push({
-          model: String(expansionRow.Model ?? selectedCandidate.expansionModel),
-          url: expansionRow.Source_URL ? String(expansionRow.Source_URL) : undefined,
-        });
-      }
+      entries.push({
+        model: String(expansionRow?.Model ?? selectedCandidate.expansionModel),
+        url: expansionRow?.Source_URL ? String(expansionRow.Source_URL) : undefined,
+        missingLabel,
+      });
     }
 
     return entries;
-  }, [competitorRows, inputs.dfmTb, pureRows, selectedCandidate]);
+  }, [competitorRows, competitorVendor, inputs.dfmTb, pureRows, selectedCandidate]);
 
   const sourceList = useMemo(() => {
     const seen = new Set<string>();
-    const items: Array<{ type: "link" | "missing"; label: string; url?: string }> = [];
-    for (const entry of sourceEntries) {
+    const items: Array<{ type: "link" | "missing"; label: string; url?: string; key: string }> = [];
+    for (const [index, entry] of sourceEntries.entries()) {
       if (entry.url) {
         if (seen.has(entry.url)) continue;
         seen.add(entry.url);
-        items.push({ type: "link", label: entry.url, url: entry.url });
+        items.push({ type: "link", label: entry.url, url: entry.url, key: entry.url });
       } else {
-        items.push({ type: "missing", label: `Source missing for ${entry.model}` });
+        const label = entry.missingLabel ?? `Source missing for ${entry.model}`;
+        items.push({ type: "missing", label, key: `${entry.model}-${index}` });
       }
     }
     return items;
@@ -1319,7 +1319,7 @@ export function EnergyTool() {
                 </div>
                 <div className="rounded-md border border-border p-3">
                   <div className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                    {competitorLabel} baseline
+                    {competitorVendor === "Vast" ? "Vast baseline" : "NetApp baseline"}
                   </div>
                   <ul className="mt-2 space-y-1">
                     <li>Utilization: {fmt1.format(inputs.naUtilPct)}%</li>
@@ -1344,6 +1344,17 @@ export function EnergyTool() {
                         : `No ${competitorLabel} candidate selected`}
                     </li>
                   </ul>
+                  {competitorVendor === "Vast" ? (
+                    <div className="mt-2 space-y-1 text-xs text-foreground/60">
+                      <p>Modeled as base cluster + expansion units from vast_data.csv</p>
+                      <p>Only Controller_Shelf + Expansion_Shelf are included in energy totals</p>
+                      <p>
+                        Rows like Network_Fabric / Mgmt_Network are listed for completeness but NOT included in current
+                        energy totals
+                      </p>
+                      <p>Idle watts may be derived from Typical via Default_Idle_Factor when vendor idle is not provided</p>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </section>
@@ -1365,13 +1376,13 @@ export function EnergyTool() {
                 <ul className="space-y-1">
                   {sourceList.map((item) =>
                     item.type === "link" ? (
-                      <li key={item.label}>
+                      <li key={item.key}>
                         <a className="text-primary underline-offset-2 hover:underline" href={item.url} target="_blank" rel="noreferrer">
                           {item.label}
                         </a>
                       </li>
                     ) : (
-                      <li key={item.label} className="text-foreground/70">
+                      <li key={item.key} className="text-foreground/70">
                         {item.label}
                       </li>
                     ),
