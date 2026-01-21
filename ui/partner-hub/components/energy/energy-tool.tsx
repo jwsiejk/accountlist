@@ -476,41 +476,20 @@ export function EnergyTool() {
     if (competitorVendor === "Vast") {
       setMode("auto");
     }
+    setCandidates([]);
     setSelected(null);
     setManualCandidate(null);
+    setComputeError(null);
   }, [competitorVendor]);
 
   useEffect(() => {
     if (pureRows.length === 0) return;
-    const competitorData = competitorVendor === "Vast" ? vastRows : netappRows;
-    if (competitorData.length === 0) {
-      try {
-        setComputeError(null);
-        const fbResult = fbPower(
-          pureRows,
-          inputs.dfmTb,
-          inputs.capacityPb,
-          inputs.pureUtilPct / 100,
-          inputs.purePue,
-          inputs.purePrice,
-          inputs.pureDrr,
-        );
-        setFb(fbResult);
-        setCandidates([]);
-        setSelected(null);
-      } catch (err) {
-        setComputeError(err instanceof Error ? err.message : "Failed to compute results");
-        setFb(null);
-        setCandidates([]);
-        setSelected(null);
-      }
-      return;
-    }
     runModel();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [competitorVendor, netappRows.length, pureRows.length, vastRows.length]);
 
   useEffect(() => {
+    if (competitorVendor !== "NetApp") return;
     if (controllerModels.length === 0) return;
     const controllerModel = manualInputs.controllerModel || controllerModels[0];
     const controllerExpansionModels = getExpansionModels(netappCompat, controllerModel);
@@ -532,6 +511,7 @@ export function EnergyTool() {
     manualInputs.controllerModel,
     manualInputs.expansionModel,
     netappCompat,
+    competitorVendor,
   ]);
 
   useEffect(() => {
@@ -996,7 +976,7 @@ export function EnergyTool() {
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className={LABEL_CLASSES}>Expansion shelf model</label>
+                    <label className={LABEL_CLASSES}>Expansion {expansionLabel} model</label>
                     <select
                       className={INPUT_BASE_CLASSES}
                       value={manualInputs.expansionModel}
@@ -1023,7 +1003,7 @@ export function EnergyTool() {
                     </select>
                   </div>
                   <NumberInput
-                    label="# of expansion shelves"
+                    label={`# of expansion ${expansionLabelPlural}`}
                     value={manualInputs.expansionQty}
                     step={1}
                     onChange={(value) =>
