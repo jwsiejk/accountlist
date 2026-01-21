@@ -9,7 +9,7 @@ import { clsx } from "clsx";
 const links = [
   { name: "Home", href: "/" },
   { name: "Case Studies", href: "/case-studies" },
-  { name: "Account Mapping", href: "/estimator" },
+  { name: "Account Mapping", href: "/accountmap" },
   { name: "Energy Tool", href: "/tools/energy" },
   { name: "CHIP-8", href: "/tools/chip8" },
   { name: "Office Schedule", href: "/offices/schedule" },

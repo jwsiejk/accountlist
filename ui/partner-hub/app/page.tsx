@@ -79,7 +79,7 @@ const toolCards = [
   {
     title: "Account Mapping",
     description: "Normalize and match account lists to streamline partner alignment.",
-    href: "/estimator",
+    href: "/accountmap",
   },
   {
     title: "Energy Tool",
