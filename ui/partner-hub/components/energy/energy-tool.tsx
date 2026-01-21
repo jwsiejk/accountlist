@@ -31,6 +31,7 @@ const fmt1 = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
 const fmt2 = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
 const formatRackUnits = (value: number | null | undefined) => (value == null ? "—" : fmt0.format(value));
 const DEFAULT_GRID_KGCO2E_PER_KWH = 0.4;
+const VAST_DRIVE_SIZES_TB = [16, 18, 20, 22];
 const INPUT_BASE_CLASSES =
   "h-10 w-full rounded-lg border border-border/70 bg-card px-3 text-sm text-foreground shadow-sm transition placeholder:text-foreground/40 focus-visible:outline-none focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 const LABEL_CLASSES = "text-xs font-semibold uppercase tracking-wide text-foreground/60";
@@ -361,18 +362,23 @@ export function EnergyTool() {
     }
     return Array.from(sizes).sort((a, b) => a - b);
   }, [netappCompat]);
-  const driveSizeOptions = effectiveMode === "manual" ? driveSizes : allDriveSizes;
+  const driveSizeOptions = useMemo(() => {
+    if (competitorVendor === "Vast") return VAST_DRIVE_SIZES_TB;
+    return effectiveMode === "manual" ? driveSizes : allDriveSizes;
+  }, [allDriveSizes, competitorVendor, driveSizes, effectiveMode]);
   const manualDriveSizeMissing =
+    competitorVendor === "NetApp" &&
     effectiveMode === "manual" &&
     manualInputs.controllerModel.length > 0 &&
     manualInputs.expansionModel.length > 0 &&
     driveSizes.length === 0;
   const manualApplyDisabled =
-    loading ||
-    manualInputs.controllerModel.length === 0 ||
-    manualInputs.expansionModel.length === 0 ||
-    manualDriveSizeMissing ||
-    netappRows.length === 0;
+    competitorVendor === "NetApp" &&
+    (loading ||
+      manualInputs.controllerModel.length === 0 ||
+      manualInputs.expansionModel.length === 0 ||
+      manualDriveSizeMissing ||
+      netappRows.length === 0);
 
   const runModel = () => {
     try {
@@ -783,6 +789,9 @@ export function EnergyTool() {
         ? "border-button-primary bg-button-primary text-button-primary-foreground hover:bg-button-primary/90 ring-1 ring-button-primary/30"
         : "border-border bg-background text-foreground hover:bg-muted/50",
     ].join(" ");
+  const expansionLabel = competitorVendor === "Vast" ? "unit" : "shelf";
+  const expansionLabelPlural = competitorVendor === "Vast" ? "units" : "shelves";
+  const expansionHeaderLabel = competitorVendor === "Vast" ? "Exp units" : "Exp shelves";
 
   return (
     <div className="space-y-8 md:space-y-10">
@@ -1153,7 +1162,7 @@ export function EnergyTool() {
                           <thead className="border-b border-border text-foreground/60">
                             <tr>
                               <th className="py-2 pr-3 font-semibold">Controller</th>
-                              <th className="py-2 pr-3 font-semibold">Exp shelves</th>
+                              <th className="py-2 pr-3 font-semibold">{expansionHeaderLabel}</th>
                               <th className="py-2 pr-3 font-semibold whitespace-nowrap">Total rack units</th>
                               <th className="py-2 pr-3 font-semibold">Eff TB</th>
                               <th className="py-2 pr-3 font-semibold">Δ vs target</th>
@@ -1236,8 +1245,8 @@ export function EnergyTool() {
               <CardTitle className="text-base">Comparison</CardTitle>
               {selectedCandidate ? (
                 <div className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                  SELECTED: {selectedCandidate.controllerModel} + {selectedCandidate.expansionQty} shelf
-                  {selectedCandidate.expansionQty === 1 ? "" : "es"}
+                  SELECTED: {selectedCandidate.controllerModel} + {selectedCandidate.expansionQty}{" "}
+                  {selectedCandidate.expansionQty === 1 ? expansionLabel : expansionLabelPlural}
                 </div>
               ) : null}
             </CardHeader>
@@ -1318,12 +1327,18 @@ export function EnergyTool() {
                     <li>DRR: {fmt2.format(inputs.naDrr)}</li>
                     <li>
                       Drive size selection: {fmt0.format(inputs.naDriveSizeTb)} TB{" "}
-                      {effectiveMode === "manual" ? "(compat pairing)" : "(compat list)"}
+                      {competitorVendor === "NetApp"
+                        ? effectiveMode === "manual"
+                          ? "(compat pairing)"
+                          : "(compat list)"
+                        : "(default list)"}
                     </li>
                     <li>
                       Selected config:{" "}
                       {selectedCandidate
-                        ? `${selectedCandidate.controllerModel} + ${selectedCandidate.expansionQty} ${selectedCandidate.expansionQty === 1 ? "shelf" : "shelves"} (${selectedCandidate.expansionModel})`
+                        ? `${selectedCandidate.controllerModel} + ${selectedCandidate.expansionQty} ${
+                            selectedCandidate.expansionQty === 1 ? expansionLabel : expansionLabelPlural
+                          } (${selectedCandidate.expansionModel})`
                         : `No ${competitorLabel} candidate selected`}
                     </li>
                   </ul>
