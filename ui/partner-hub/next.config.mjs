@@ -18,6 +18,15 @@ const nextConfig = {
   basePath,
   images: { unoptimized: true },
   trailingSlash: false,
+  async redirects() {
+    return [
+      {
+        source: "/estimator",
+        destination: "/accountmap",
+        permanent: true,
+      },
+    ];
+  },
   env: {
     NEXT_PUBLIC_BASE_PATH: basePath,
   },
