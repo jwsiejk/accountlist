@@ -61,6 +61,7 @@ type Inputs = {
 
 type NetAppMode = "auto" | "manual";
 type ViewMode = "energy" | "sustainability" | "both";
+type CompetitorVendor = "NetApp" | "Vast";
 
 type RowKey =
   | "effectiveTb"
@@ -159,6 +160,7 @@ const defaults: Omit<Inputs, "dfmTb" | "capacityPb"> = {
 export function EnergyTool() {
   const [pureRows, setPureRows] = useState<PureRow[]>([]);
   const [netappRows, setNetappRows] = useState<NetAppRow[]>([]);
+  const [vastRows, setVastRows] = useState<NetAppRow[]>([]);
   const [netappCompat, setNetappCompat] = useState<NetAppDriveCompat | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -171,6 +173,7 @@ export function EnergyTool() {
   const [sourceCheckHint, setSourceCheckHint] = useState<string | null>(null);
   const [checkSourcesActive, setCheckSourcesActive] = useState(false);
   const [view, setView] = useState<ViewMode>("energy");
+  const [competitorVendor, setCompetitorVendor] = useState<CompetitorVendor>("NetApp");
 
   const [inputs, setInputs] = useState<Inputs>(() => ({
     dfmTb: 48,
@@ -218,6 +221,16 @@ export function EnergyTool() {
         const netapp = loadNetApp(netappCsv);
         setPureRows(pure);
         setNetappRows(netapp);
+        try {
+          const vastCsv = await loadCsv(withBasePath("/data/energy/vast_data.csv"));
+          if (!cancelled) {
+            setVastRows(loadNetApp(vastCsv));
+          }
+        } catch {
+          if (!cancelled) {
+            setVastRows([]);
+          }
+        }
 
         const tracks = getTracks(pure);
         const dfmTb = tracks[0] ?? 48;
@@ -317,6 +330,12 @@ export function EnergyTool() {
 
   const tracks = useMemo(() => getTracks(pureRows), [pureRows]);
   const capacities = useMemo(() => validCaps(pureRows, inputs.dfmTb, 20), [pureRows, inputs.dfmTb]);
+  const competitorRows = useMemo(
+    () => (competitorVendor === "NetApp" ? netappRows : vastRows),
+    [competitorVendor, netappRows, vastRows],
+  );
+  const competitorLabel = competitorVendor;
+  const effectiveMode: NetAppMode = competitorVendor === "Vast" ? "auto" : mode;
   const controllerModels = useMemo(() => getControllerModels(netappCompat), [netappCompat]);
   const expansionModels = useMemo(
     () => getExpansionModels(netappCompat, manualInputs.controllerModel),
@@ -342,9 +361,9 @@ export function EnergyTool() {
     }
     return Array.from(sizes).sort((a, b) => a - b);
   }, [netappCompat]);
-  const driveSizeOptions = mode === "manual" ? driveSizes : allDriveSizes;
+  const driveSizeOptions = effectiveMode === "manual" ? driveSizes : allDriveSizes;
   const manualDriveSizeMissing =
-    mode === "manual" &&
+    effectiveMode === "manual" &&
     manualInputs.controllerModel.length > 0 &&
     manualInputs.expansionModel.length > 0 &&
     driveSizes.length === 0;
@@ -367,9 +386,15 @@ export function EnergyTool() {
         inputs.purePrice,
         inputs.pureDrr,
       );
+      if (competitorRows.length === 0) {
+        setFb(fbResult);
+        setCandidates([]);
+        setSelected(null);
+        return;
+      }
       const tolFrac = inputs.tolPct / 100;
       const netapp = enumerateNetApp(
-        netappRows,
+        competitorRows,
         fbResult.effectiveTb,
         inputs.naUtilPct / 100,
         inputs.naPue,
@@ -415,17 +440,47 @@ export function EnergyTool() {
       );
       setManualCandidate(candidate);
     } catch (err) {
-      setComputeError(err instanceof Error ? err.message : "Failed to compute manual NetApp config");
+      setComputeError(err instanceof Error ? err.message : "Failed to compute manual configuration");
       setManualCandidate(null);
     }
   };
 
   useEffect(() => {
-    if (pureRows.length > 0 && netappRows.length > 0) {
-      runModel();
+    if (competitorVendor === "Vast") {
+      setMode("auto");
     }
+    setSelected(null);
+    setManualCandidate(null);
+  }, [competitorVendor]);
+
+  useEffect(() => {
+    if (pureRows.length === 0) return;
+    if (competitorRows.length === 0) {
+      try {
+        setComputeError(null);
+        const fbResult = fbPower(
+          pureRows,
+          inputs.dfmTb,
+          inputs.capacityPb,
+          inputs.pureUtilPct / 100,
+          inputs.purePue,
+          inputs.purePrice,
+          inputs.pureDrr,
+        );
+        setFb(fbResult);
+        setCandidates([]);
+        setSelected(null);
+      } catch (err) {
+        setComputeError(err instanceof Error ? err.message : "Failed to compute results");
+        setFb(null);
+        setCandidates([]);
+        setSelected(null);
+      }
+      return;
+    }
+    runModel();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pureRows.length, netappRows.length]);
+  }, [competitorRows.length, competitorVendor, pureRows.length]);
 
   useEffect(() => {
     if (controllerModels.length === 0) return;
@@ -453,7 +508,8 @@ export function EnergyTool() {
 
   useEffect(() => {
     if (
-      mode === "manual" &&
+      competitorVendor === "NetApp" &&
+      effectiveMode === "manual" &&
       manualInputs.controllerModel &&
       manualInputs.expansionModel &&
       !manualDriveSizeMissing &&
@@ -463,7 +519,8 @@ export function EnergyTool() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    mode,
+    competitorVendor,
+    effectiveMode,
     manualInputs.controllerModel,
     manualInputs.expansionModel,
     manualInputs.expansionQty,
@@ -493,7 +550,7 @@ export function EnergyTool() {
     };
   }, [fb, inputs.tolPct]);
 
-  const selectedCandidate = mode === "manual" ? manualCandidate : selected;
+  const selectedCandidate = effectiveMode === "manual" ? manualCandidate : selected;
   const sourceEntries = useMemo(() => {
     const entries: Array<{ model: string; url?: string }> = [];
     if (pureRows.length > 0) {
@@ -515,7 +572,7 @@ export function EnergyTool() {
     }
 
     if (selectedCandidate) {
-      const controllerRow = netappRows.find(
+      const controllerRow = competitorRows.find(
         (row) =>
           row.Component_Type === "Controller_Shelf" &&
           String(row.Model ?? "") === selectedCandidate.controllerModel,
@@ -526,7 +583,7 @@ export function EnergyTool() {
           url: controllerRow.Source_URL ? String(controllerRow.Source_URL) : undefined,
         });
       }
-      const expansionRow = netappRows.find(
+      const expansionRow = competitorRows.find(
         (row) =>
           row.Component_Type === "Expansion_Shelf" &&
           String(row.Model ?? "") === selectedCandidate.expansionModel,
@@ -540,7 +597,7 @@ export function EnergyTool() {
     }
 
     return entries;
-  }, [inputs.dfmTb, netappRows, pureRows, selectedCandidate]);
+  }, [competitorRows, inputs.dfmTb, pureRows, selectedCandidate]);
 
   const sourceList = useMemo(() => {
     const seen = new Set<string>();
@@ -716,8 +773,8 @@ export function EnergyTool() {
   const fbRackUnitsMissing = fb?.rackUnits == null;
   const selectedRackUnitsMissing = selectedCandidate?.rackUnits == null;
   const candidateTableRackUnitsMissing = useMemo(
-    () => mode === "auto" && candidates.slice(0, 8).some((candidate) => candidate.rackUnits == null),
-    [candidates, mode],
+    () => effectiveMode === "auto" && candidates.slice(0, 8).some((candidate) => candidate.rackUnits == null),
+    [candidates, effectiveMode],
   );
   const toggleButtonClass = (isActive: boolean) =>
     [
@@ -732,7 +789,7 @@ export function EnergyTool() {
       <header className="space-y-3">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Energy Tool</h1>
         <p className="max-w-2xl text-base text-foreground/70">
-          Compare annual energy consumption and cost between a FlashBlade//E configuration and a NetApp E-Series baseline.
+          Compare annual energy consumption and cost between a FlashBlade//E configuration and a {competitorLabel} baseline.
         </p>
       </header>
 
@@ -804,32 +861,46 @@ export function EnergyTool() {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">NetApp baseline inputs</CardTitle>
+          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle className="text-base">{competitorLabel} baseline inputs</CardTitle>
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-foreground/60">
+              <span>Competitor vendor</span>
+              <select
+                className={`${INPUT_BASE_CLASSES} w-32`}
+                value={competitorVendor}
+                onChange={(e) => setCompetitorVendor(e.target.value as CompetitorVendor)}
+                disabled={loading}
+              >
+                <option value="NetApp">NetApp</option>
+                <option value="Vast">Vast</option>
+              </select>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex w-full rounded-lg border border-border/70 bg-background p-1 text-xs font-semibold uppercase tracking-wide text-foreground/70">
-              <button
-                type="button"
-                className={
-                  "flex-1 rounded-sm px-3 py-2 transition " +
-                  (mode === "auto" ? "bg-muted text-foreground shadow-sm" : "hover:bg-muted/50")
-                }
-                onClick={() => setMode("auto")}
-              >
-                Auto match (within tolerance)
-              </button>
-              <button
-                type="button"
-                className={
-                  "flex-1 rounded-sm px-3 py-2 transition " +
-                  (mode === "manual" ? "bg-muted text-foreground shadow-sm" : "hover:bg-muted/50")
-                }
-                onClick={() => setMode("manual")}
-              >
-                Manual config
-              </button>
-            </div>
+            {competitorVendor === "NetApp" ? (
+              <div className="flex w-full rounded-lg border border-border/70 bg-background p-1 text-xs font-semibold uppercase tracking-wide text-foreground/70">
+                <button
+                  type="button"
+                  className={
+                    "flex-1 rounded-sm px-3 py-2 transition " +
+                    (mode === "auto" ? "bg-muted text-foreground shadow-sm" : "hover:bg-muted/50")
+                  }
+                  onClick={() => setMode("auto")}
+                >
+                  Auto match (within tolerance)
+                </button>
+                <button
+                  type="button"
+                  className={
+                    "flex-1 rounded-sm px-3 py-2 transition " +
+                    (mode === "manual" ? "bg-muted text-foreground shadow-sm" : "hover:bg-muted/50")
+                  }
+                  onClick={() => setMode("manual")}
+                >
+                  Manual config
+                </button>
+              </div>
+            ) : null}
 
             <div className="grid gap-3 sm:grid-cols-2">
               <NumberInput label="Utilization %" value={inputs.naUtilPct} onChange={(v) => setInputs((p) => ({ ...p, naUtilPct: v }))} />
@@ -852,12 +923,12 @@ export function EnergyTool() {
                   ))}
                 </select>
               </div>
-              {mode === "auto" ? (
+              {effectiveMode === "auto" ? (
                 <NumberInput label="Auto-match tolerance (±%)" value={inputs.tolPct} step={0.1} onChange={(v) => setInputs((p) => ({ ...p, tolPct: v }))} />
               ) : null}
             </div>
 
-            {mode === "manual" ? (
+            {effectiveMode === "manual" && competitorVendor === "NetApp" ? (
               <div className="rounded-lg border border-border/70 bg-muted/30 p-4">
                 <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground/60">
                   Manual configuration
@@ -952,12 +1023,12 @@ export function EnergyTool() {
 
             {/* Controls: stacked buttons (normal sizing; do not stretch full width) */}
             <div className="grid gap-2 justify-items-start">
-              {mode === "auto" ? (
+              {effectiveMode === "auto" ? (
                 <button
                   type="button"
                   className="inline-flex h-10 items-center justify-center rounded-lg bg-button-primary px-4 text-sm font-semibold text-button-primary-foreground transition hover:bg-button-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:bg-muted disabled:text-foreground/50"
                   onClick={runModel}
-                  disabled={loading || pureRows.length === 0 || netappRows.length === 0}
+                  disabled={loading || pureRows.length === 0 || competitorRows.length === 0}
                 >
                   Recalculate
                 </button>
@@ -1057,11 +1128,13 @@ export function EnergyTool() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">
-                  {mode === "auto" ? "NetApp candidates (within tolerance)" : "NetApp candidates"}
+                  {effectiveMode === "auto"
+                    ? `${competitorLabel} candidates (within tolerance)`
+                    : `${competitorLabel} candidates`}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {mode === "auto" ? (
+                {effectiveMode === "auto" ? (
                   <>
                     {band ? (
                       <p className="mb-3 text-xs text-foreground/60">
@@ -1070,7 +1143,9 @@ export function EnergyTool() {
                     ) : null}
                     {candidates.length === 0 ? (
                       <p className="text-sm text-foreground/70">
-                        No candidates found in the tolerance band. Try widening tolerance or adjusting NetApp overhead / DRR / drive size.
+                        {competitorVendor === "Vast"
+                          ? "No Vast candidates found."
+                          : `No candidates found in the tolerance band. Try widening tolerance or adjusting ${competitorLabel} overhead / DRR / drive size.`}
                       </p>
                     ) : (
                       <div className="overflow-x-auto">
@@ -1132,7 +1207,7 @@ export function EnergyTool() {
                           </tbody>
                         </table>
                         <p className="mt-2 text-[11px] text-foreground/60">
-                          Click a NetApp row to see a side-by-side comparison.
+                          Click a {competitorLabel} row to see a side-by-side comparison.
                         </p>
                         {candidateTableRackUnitsMissing ? (
                           <p className="mt-1 text-[11px] text-foreground/60">
@@ -1178,7 +1253,7 @@ export function EnergyTool() {
                     groupedLabel={view === "both" ? "Sustainability" : undefined}
                   />
                   <MiniCompare
-                    title="NetApp"
+                    title={competitorLabel}
                     items={buildCompareItems(comparePrimaryKeys, netappRowValues)}
                     groupedItems={
                       view === "both" ? buildCompareItems(compareSecondaryKeys, netappRowValues) : undefined
@@ -1186,7 +1261,7 @@ export function EnergyTool() {
                     groupedLabel={view === "both" ? "Sustainability" : undefined}
                   />
                   <MiniCompare
-                    title="Δ (Pure − NetApp)"
+                    title={`Δ (Pure − ${competitorLabel})`}
                     items={buildCompareItems(comparePrimaryKeys, deltaRowValues, "Δ")}
                     groupedItems={
                       view === "both" ? buildCompareItems(compareSecondaryKeys, deltaRowValues, "Δ") : undefined
@@ -1196,9 +1271,9 @@ export function EnergyTool() {
                 </div>
               ) : (
                 <p className="text-sm text-foreground/70">
-                  {mode === "manual"
-                    ? "Apply a manual NetApp configuration to see the comparison."
-                    : "Select a NetApp candidate to see the comparison."}
+                  {effectiveMode === "manual"
+                    ? `Apply a manual ${competitorLabel} configuration to see the comparison.`
+                    : `Select a ${competitorLabel} candidate to see the comparison.`}
                 </p>
               )}
             </CardContent>
@@ -1232,7 +1307,9 @@ export function EnergyTool() {
                   </ul>
                 </div>
                 <div className="rounded-md border border-border p-3">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/60">NetApp baseline</div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+                    {competitorLabel} baseline
+                  </div>
                   <ul className="mt-2 space-y-1">
                     <li>Utilization: {fmt1.format(inputs.naUtilPct)}%</li>
                     <li>PUE: {fmt2.format(inputs.naPue)}</li>
@@ -1241,13 +1318,13 @@ export function EnergyTool() {
                     <li>DRR: {fmt2.format(inputs.naDrr)}</li>
                     <li>
                       Drive size selection: {fmt0.format(inputs.naDriveSizeTb)} TB{" "}
-                      {mode === "manual" ? "(compat pairing)" : "(compat list)"}
+                      {effectiveMode === "manual" ? "(compat pairing)" : "(compat list)"}
                     </li>
                     <li>
                       Selected config:{" "}
                       {selectedCandidate
                         ? `${selectedCandidate.controllerModel} + ${selectedCandidate.expansionQty} ${selectedCandidate.expansionQty === 1 ? "shelf" : "shelves"} (${selectedCandidate.expansionModel})`
-                        : "No NetApp candidate selected"}
+                        : `No ${competitorLabel} candidate selected`}
                     </li>
                   </ul>
                 </div>
