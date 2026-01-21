@@ -38,7 +38,7 @@ export type NetAppRow = CsvRow & {
 };
 
 export type VastRow = NetAppRow & {
-  Auto_Default?: boolean | string | number | null;
+  Auto_Default?: boolean;
 };
 
 export type PowerModel = {
@@ -101,6 +101,24 @@ const toBool = (v: unknown): boolean => {
   }
   return false;
 };
+
+const isValidNumber = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value) && value >= 0;
+
+export function loadVast(rows: CsvRow[]): VastRow[] {
+  return rows.map((r) => {
+    const out: VastRow = {
+      ...r,
+      Typical_W: toFloat(r.Typical_W),
+      Idle_W: toFloat(r.Idle_W),
+      Drives_per_unit: toFloat(r.Drives_per_unit),
+      // Rack_Units is optional in source CSVs; keep null so the UI shows — and can warn intentionally.
+      Rack_Units: toOptionalFloat(r.Rack_Units),
+      Auto_Default: toBool(r.Auto_Default),
+    };
+    return out;
+  });
+}
 
 export function getTracks(pureRows: PureRow[]): number[] {
   return Array.from(new Set(pureRows.map((r) => r.DFM_Size_TB))).sort((a, b) => a - b);
@@ -431,22 +449,40 @@ export function enumerateVast(
   driveTb: number,
   tolFrac = 0.1,
 ): NetAppCandidate[] {
-  const controllerRows = vastRows.filter((r) => r.Component_Type === "Controller_Shelf");
-  const expansionRows = vastRows.filter((r) => r.Component_Type === "Expansion_Shelf");
-  if (controllerRows.length === 0) throw new Error("Missing Vast controller shelf row");
-  if (expansionRows.length === 0) throw new Error("Missing Vast expansion shelf row");
+  if (vastRows.length === 0) return [];
+  const controllerRows = vastRows.filter(
+    (r) =>
+      r.Component_Type === "Controller_Shelf" &&
+      isValidNumber(r.Typical_W) &&
+      isValidNumber(r.Idle_W) &&
+      isValidNumber(r.Drives_per_unit),
+  );
+  const expansionRows = vastRows.filter(
+    (r) =>
+      r.Component_Type === "Expansion_Shelf" &&
+      isValidNumber(r.Typical_W) &&
+      isValidNumber(r.Idle_W) &&
+      isValidNumber(r.Drives_per_unit),
+  );
+  if (controllerRows.length === 0 || expansionRows.length === 0) return [];
 
   const base = controllerRows[0];
-  const expansion = expansionRows.find((row) => toBool(row.Auto_Default)) ?? expansionRows[0];
-  if (!expansion) throw new Error("Missing Vast expansion shelf row");
+  const expansion = expansionRows.find((row) => row.Auto_Default) ?? expansionRows[0];
+  if (!expansion) return [];
 
   const baseWeighted = (u: number) => base.Idle_W + u * (base.Typical_W - base.Idle_W);
   const expWeighted = (u: number) => expansion.Idle_W + u * (expansion.Typical_W - expansion.Idle_W);
-  const baseDrives = toInt(base.Drives_per_unit);
-  const expDrives = toInt(expansion.Drives_per_unit);
+  const baseDrives = base.Drives_per_unit;
+  const expDrives = expansion.Drives_per_unit;
+  if (!isValidNumber(baseDrives) || !isValidNumber(expDrives)) return [];
 
   const out: NetAppCandidate[] = [];
-  for (let expQty = 0; expQty <= 40; expQty += 1) {
+  const maxExpansionQty = 200;
+  const maxOverToleranceSteps = 4;
+  let overToleranceSteps = 0;
+  const toleranceUpper = targetEffTb > 0 ? targetEffTb * (1 + tolFrac) : Number.POSITIVE_INFINITY;
+
+  for (let expQty = 0; expQty <= maxExpansionQty; expQty += 1) {
     const totalDrives = baseDrives + expQty * expDrives;
     const raw = totalDrives * driveTb;
     const usable = raw * (1 - overhead);
@@ -457,7 +493,7 @@ export function enumerateVast(
     const annual = kwhPue * price;
     const pct = targetEffTb > 0 ? ((eff - targetEffTb) / targetEffTb) * 100 : 0;
     const rackUnits =
-      base.Rack_Units != null && expansion.Rack_Units != null
+      isValidNumber(base.Rack_Units) && isValidNumber(expansion.Rack_Units)
         ? base.Rack_Units + expQty * expansion.Rack_Units
         : null;
 
@@ -477,6 +513,15 @@ export function enumerateVast(
         dollarsPerEffectiveTbYear: eff > 0 ? annual / eff : null,
         kwhPerEffectiveTbYear: eff > 0 ? kwhPue / eff : null,
       });
+    }
+
+    if (targetEffTb > 0) {
+      if (eff > toleranceUpper) {
+        overToleranceSteps += 1;
+        if (overToleranceSteps >= maxOverToleranceSteps) break;
+      } else {
+        overToleranceSteps = 0;
+      }
     }
   }
 
