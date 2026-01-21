@@ -560,7 +560,7 @@ export function EnergyTool() {
 
   const selectedCandidate = effectiveMode === "manual" ? manualCandidate : selected;
   const sourceEntries = useMemo(() => {
-    const entries: Array<{ model: string; url?: string }> = [];
+    const entries: Array<{ model: string; url?: string; missingLabel?: string }> = [];
     if (pureRows.length > 0) {
       const dfm = inputs.dfmTb;
       const lookup = (needle: string) =>
@@ -580,43 +580,43 @@ export function EnergyTool() {
     }
 
     if (selectedCandidate) {
+      const missingLabel = competitorVendor === "Vast" ? "Source: Not provided" : undefined;
       const controllerRow = competitorRows.find(
         (row) =>
           row.Component_Type === "Controller_Shelf" &&
           String(row.Model ?? "") === selectedCandidate.controllerModel,
       );
-      if (controllerRow) {
-        entries.push({
-          model: String(controllerRow.Model ?? selectedCandidate.controllerModel),
-          url: controllerRow.Source_URL ? String(controllerRow.Source_URL) : undefined,
-        });
-      }
+      entries.push({
+        model: String(controllerRow?.Model ?? selectedCandidate.controllerModel),
+        url: controllerRow?.Source_URL ? String(controllerRow.Source_URL) : undefined,
+        missingLabel,
+      });
       const expansionRow = competitorRows.find(
         (row) =>
           row.Component_Type === "Expansion_Shelf" &&
           String(row.Model ?? "") === selectedCandidate.expansionModel,
       );
-      if (expansionRow) {
-        entries.push({
-          model: String(expansionRow.Model ?? selectedCandidate.expansionModel),
-          url: expansionRow.Source_URL ? String(expansionRow.Source_URL) : undefined,
-        });
-      }
+      entries.push({
+        model: String(expansionRow?.Model ?? selectedCandidate.expansionModel),
+        url: expansionRow?.Source_URL ? String(expansionRow.Source_URL) : undefined,
+        missingLabel,
+      });
     }
 
     return entries;
-  }, [competitorRows, inputs.dfmTb, pureRows, selectedCandidate]);
+  }, [competitorRows, competitorVendor, inputs.dfmTb, pureRows, selectedCandidate]);
 
   const sourceList = useMemo(() => {
     const seen = new Set<string>();
-    const items: Array<{ type: "link" | "missing"; label: string; url?: string }> = [];
-    for (const entry of sourceEntries) {
+    const items: Array<{ type: "link" | "missing"; label: string; url?: string; key: string }> = [];
+    for (const [index, entry] of sourceEntries.entries()) {
       if (entry.url) {
         if (seen.has(entry.url)) continue;
         seen.add(entry.url);
-        items.push({ type: "link", label: entry.url, url: entry.url });
+        items.push({ type: "link", label: entry.url, url: entry.url, key: entry.url });
       } else {
-        items.push({ type: "missing", label: `Source missing for ${entry.model}` });
+        const label = entry.missingLabel ?? `Source missing for ${entry.model}`;
+        items.push({ type: "missing", label, key: `${entry.model}-${index}` });
       }
     }
     return items;
@@ -794,6 +794,12 @@ export function EnergyTool() {
   const expansionLabel = competitorVendor === "Vast" ? "unit" : "shelf";
   const expansionLabelPlural = competitorVendor === "Vast" ? "units" : "shelves";
   const expansionHeaderLabel = competitorVendor === "Vast" ? "Exp units" : "Exp shelves";
+  const expansionLabelFor = (qty: number) => (qty === 1 ? expansionLabel : expansionLabelPlural);
+  const selectedConfigLabel = selectedCandidate
+    ? `${selectedCandidate.controllerModel} + ${selectedCandidate.expansionQty} ${expansionLabelFor(
+        selectedCandidate.expansionQty,
+      )} (${selectedCandidate.expansionModel})`
+    : null;
 
   return (
     <div className="space-y-8 md:space-y-10">
@@ -1155,8 +1161,8 @@ export function EnergyTool() {
                     {candidates.length === 0 ? (
                       <p className="text-sm text-foreground/70">
                         {competitorVendor === "Vast"
-                          ? "No Vast candidates found."
-                          : `No candidates found in the tolerance band. Try widening tolerance or adjusting ${competitorLabel} overhead / DRR / drive size.`}
+                          ? `No Vast candidates found within ±${fmt1.format(inputs.tolPct)}%.`
+                          : `No NetApp candidates found within ±${fmt1.format(inputs.tolPct)}%.`}
                       </p>
                     ) : (
                       <div className="overflow-x-auto">
@@ -1206,7 +1212,9 @@ export function EnergyTool() {
                                       ) : null}
                                     </div>
                                   </td>
-                                  <td className="py-2 pr-3">{c.expansionQty}</td>
+                                  <td className="py-2 pr-3">
+                                    {c.expansionQty} {expansionLabelFor(c.expansionQty)}
+                                  </td>
                                   <td className="py-2 pr-3">{formatRackUnits(c.rackUnits)}</td>
                                   <td className="py-2 pr-3">{fmt0.format(c.effectiveTb)}</td>
                                   <td className="py-2 pr-3">{fmt2.format(c.pctDiffFromTarget)}%</td>
@@ -1247,8 +1255,7 @@ export function EnergyTool() {
               <CardTitle className="text-base">Comparison</CardTitle>
               {selectedCandidate ? (
                 <div className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                  SELECTED: {selectedCandidate.controllerModel} + {selectedCandidate.expansionQty}{" "}
-                  {selectedCandidate.expansionQty === 1 ? expansionLabel : expansionLabelPlural}
+                  SELECTED: {selectedConfigLabel}
                 </div>
               ) : null}
             </CardHeader>
@@ -1319,7 +1326,7 @@ export function EnergyTool() {
                 </div>
                 <div className="rounded-md border border-border p-3">
                   <div className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                    {competitorLabel} baseline
+                    {competitorVendor === "Vast" ? "Vast baseline" : "NetApp baseline"}
                   </div>
                   <ul className="mt-2 space-y-1">
                     <li>Utilization: {fmt1.format(inputs.naUtilPct)}%</li>
@@ -1337,13 +1344,20 @@ export function EnergyTool() {
                     </li>
                     <li>
                       Selected config:{" "}
-                      {selectedCandidate
-                        ? `${selectedCandidate.controllerModel} + ${selectedCandidate.expansionQty} ${
-                            selectedCandidate.expansionQty === 1 ? expansionLabel : expansionLabelPlural
-                          } (${selectedCandidate.expansionModel})`
-                        : `No ${competitorLabel} candidate selected`}
+                      {selectedCandidate ? selectedConfigLabel : `No ${competitorLabel} candidate selected`}
                     </li>
                   </ul>
+                  {competitorVendor === "Vast" ? (
+                    <div className="mt-2 space-y-1 text-xs text-foreground/60">
+                      <p>Modeled as base cluster + expansion units from vast_data.csv</p>
+                      <p>Only Controller_Shelf + Expansion_Shelf are included in energy totals</p>
+                      <p>
+                        Rows like Network_Fabric / Mgmt_Network are listed for completeness but NOT included in current
+                        energy totals
+                      </p>
+                      <p>Idle watts may be derived from Typical via Default_Idle_Factor when vendor idle is not provided</p>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </section>
@@ -1365,13 +1379,13 @@ export function EnergyTool() {
                 <ul className="space-y-1">
                   {sourceList.map((item) =>
                     item.type === "link" ? (
-                      <li key={item.label}>
+                      <li key={item.key}>
                         <a className="text-primary underline-offset-2 hover:underline" href={item.url} target="_blank" rel="noreferrer">
                           {item.label}
                         </a>
                       </li>
                     ) : (
-                      <li key={item.label} className="text-foreground/70">
+                      <li key={item.key} className="text-foreground/70">
                         {item.label}
                       </li>
                     ),
