@@ -1382,7 +1382,7 @@ export function OfficeScheduleClient({
 
   if (offices.length === 0) {
     return (
-      <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-sky-50">
+      <main className="min-h-screen bg-[#71646D]">
         <div className="mx-auto max-w-5xl px-6 py-16">
           <div className="rounded-3xl border border-slate-200/70 bg-white/80 p-6 shadow-sm backdrop-blur">
             <h1 className="text-xl font-semibold text-slate-900">Office Schedule</h1>
@@ -1395,7 +1395,7 @@ export function OfficeScheduleClient({
 
   const locked = !unlocked;
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-sky-50">
+    <main className="min-h-screen bg-[#71646D]">
       <div className="mx-auto flex max-w-6xl flex-col gap-8 px-6 pb-16 pt-10 lg:px-10">
         <section className="rounded-3xl border border-white/70 bg-white/70 p-8 shadow-sm backdrop-blur">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Office Booking</p>
