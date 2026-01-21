@@ -335,6 +335,7 @@ export function buildNetAppCandidate(
   pue: number,
   price: number,
   overhead: number,
+  extraWatts: number,
   drr: number,
   driveTb: number,
 ): NetAppCandidate {
@@ -351,7 +352,7 @@ export function buildNetAppCandidate(
   const usable = raw * (1 - overhead);
   const eff = usable * drr;
 
-  const w = ctrlWeighted(util) + expansionQty * exp.weightedW(util);
+  const w = ctrlWeighted(util) + expansionQty * exp.weightedW(util) + extraWatts;
   const kwhPue = kwhYear(w) * pue;
   const annual = kwhPue * price;
   const rackUnits =
@@ -381,6 +382,7 @@ export function enumerateNetApp(
   pue: number,
   price: number,
   overhead: number,
+  extraWatts: number,
   drr: number,
   driveTb: number,
   tolFrac = 0.1,
@@ -402,7 +404,7 @@ export function enumerateNetApp(
       const usable = raw * (1 - overhead);
       const eff = usable * drr;
 
-      const w = ctrlWeighted(util) + expQty * exp.weightedW(util);
+      const w = ctrlWeighted(util) + expQty * exp.weightedW(util) + extraWatts;
       const kwhPue = kwhYear(w) * pue;
       const annual = kwhPue * price;
       const pct = targetEffTb > 0 ? ((eff - targetEffTb) / targetEffTb) * 100 : 0;
@@ -445,6 +447,7 @@ export function enumerateVast(
   pue: number,
   price: number,
   overhead: number,
+  extraWatts: number,
   drr: number,
   driveTb: number,
   tolFrac = 0.1,
@@ -488,7 +491,7 @@ export function enumerateVast(
     const usable = raw * (1 - overhead);
     const eff = usable * drr;
 
-    const w = baseWeighted(util) + expQty * expWeighted(util);
+    const w = baseWeighted(util) + expQty * expWeighted(util) + extraWatts;
     const kwhPue = kwhYear(w) * pue;
     const annual = kwhPue * price;
     const pct = targetEffTb > 0 ? ((eff - targetEffTb) / targetEffTb) * 100 : 0;

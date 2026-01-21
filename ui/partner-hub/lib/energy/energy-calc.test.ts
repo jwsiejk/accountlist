@@ -129,7 +129,19 @@ describe("fbPower", () => {
 
 describe("NetApp candidates", () => {
   it("computes rack units in buildNetAppCandidate", () => {
-    const candidate = buildNetAppCandidate(makeNetAppRows(), "C1", "DE460C 60-bay", 2, 0.5, 1.2, 0.1, 0.2, 1.3, 18);
+    const candidate = buildNetAppCandidate(
+      makeNetAppRows(),
+      "C1",
+      "DE460C 60-bay",
+      2,
+      0.5,
+      1.2,
+      0.1,
+      0.2,
+      0,
+      1.3,
+      18,
+    );
 
     assert.equal(candidate.rackUnits, 12);
     assert.ok(Math.abs(candidate.weightedW - 375) < 1e-6);
@@ -141,14 +153,26 @@ describe("NetApp candidates", () => {
   it("returns null rack units when any NetApp RU input is missing", () => {
     const rows = makeNetAppRows();
     rows[0] = { ...rows[0], Rack_Units: null };
-    const candidate = buildNetAppCandidate(rows, "C1", "DE460C 60-bay", 2, 0.5, 1.2, 0.1, 0.2, 1.3, 18);
+    const candidate = buildNetAppCandidate(
+      rows,
+      "C1",
+      "DE460C 60-bay",
+      2,
+      0.5,
+      1.2,
+      0.1,
+      0.2,
+      0,
+      1.3,
+      18,
+    );
     assert.equal(candidate.rackUnits, null);
     assert.ok(Math.abs(candidate.weightedW - 375) < 1e-6);
   });
 
   it("computes rack units in enumerateNetApp", () => {
     const targetEffTb = 2695.68;
-    const candidates = enumerateNetApp(makeNetAppRows(), targetEffTb, 0.5, 1.2, 0.1, 0.2, 1.3, 18, 0.5);
+    const candidates = enumerateNetApp(makeNetAppRows(), targetEffTb, 0.5, 1.2, 0.1, 0.2, 0, 1.3, 18, 0.5);
     const match = candidates.find((candidate) => candidate.expansionQty === 2);
 
     assert.ok(match);
@@ -161,14 +185,14 @@ describe("NetApp candidates", () => {
 
 describe("Vast candidates", () => {
   it("returns empty when Vast rows are missing", () => {
-    const candidates = enumerateVast([], 100, 0.5, 1.2, 0.1, 0.1, 1, 10, 0.05);
+    const candidates = enumerateVast([], 100, 0.5, 1.2, 0.1, 0.1, 0, 1, 10, 0.05);
     assert.deepEqual(candidates, []);
   });
 
   it("returns the expected candidate within tolerance", () => {
     const targetEffTb = 432;
     const tolFrac = 0.02;
-    const candidates = enumerateVast(makeVastRows(), targetEffTb, 0.5, 1.2, 0.1, 0.1, 1, 10, tolFrac);
+    const candidates = enumerateVast(makeVastRows(), targetEffTb, 0.5, 1.2, 0.1, 0.1, 0, 1, 10, tolFrac);
 
     assert.ok(candidates.length > 0);
     const maxPct = Math.max(...candidates.map((candidate) => Math.abs(candidate.pctDiffFromTarget)));
