@@ -1,20 +1,23 @@
 {
-  "lastSyncedISO": "2026-01-15T04:16:59.515Z",
+  "lastSyncedISO": "2026-01-21T05:10:46.620Z",
   "sourceFiles": [
     "energy/data/netapp_e_series.csv",
     "energy/data/netapp_drive_compat.json",
-    "energy/data/pure_flashblade_e.csv"
+    "energy/data/pure_flashblade_e.csv",
+    "energy/data/vast_data.csv"
   ],
   "copiedFiles": [
-    "ui\\partner-hub\\public\\data\\energy\\netapp_e_series.csv",
-    "ui\\partner-hub\\public\\data\\energy\\netapp_drive_compat.json",
-    "ui\\partner-hub\\public\\data\\energy\\pure_flashblade_e.csv",
-    "ui\\partner-hub\\public\\data\\energy\\vendor_update_report.json"
+    "ui/partner-hub/public/data/energy/netapp_e_series.csv",
+    "ui/partner-hub/public/data/energy/netapp_drive_compat.json",
+    "ui/partner-hub/public/data/energy/pure_flashblade_e.csv",
+    "ui/partner-hub/public/data/energy/vast_data.csv",
+    "ui/partner-hub/public/data/energy/vendor_update_report.json"
   ],
   "sha256": {
     "netapp_e_series.csv": "ea71dfeb445020e3291a1f2fbb974b482d40e3f4394cdd03fd4c07479ca8670f",
     "netapp_drive_compat.json": "65c7c8c80ca4ea54cb38a1b82d2db218b9451130907ddf4e5e8f38b51614886a",
     "pure_flashblade_e.csv": "84d5daa1d55856fa26015ca379dc6d427f94d629569458f03564d4a5d189996e",
+    "vast_data.csv": "0cee0b7dc9cdcde41ea11d2ddfa8cf8be6da6e09d15971c4cfb1ada4fc0af004",
     "vendor_update_report.json": "58567e9a495851188f8da08288c9d1e6d60c7eccae59624cea49f73e25eb8f0d"
   },
   "reportFiles": [

@@ -8,6 +8,7 @@ const sourceFiles = [
   "energy/data/netapp_e_series.csv",
   "energy/data/netapp_drive_compat.json",
   "energy/data/pure_flashblade_e.csv",
+  "energy/data/vast_data.csv",
 ];
 const reportFile = "energy/data/vendor_update_report.json";
 

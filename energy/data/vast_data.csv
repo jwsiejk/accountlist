@@ -1,0 +1,3 @@
+Vendor,Family,Component_Type,Model,Unit,Typical_W,Max_W,Idle_W,Default_Idle_Factor,Drives_per_unit,Rack_Units,Notes,Source_URL,Auto_Default
+VAST Data,VAST,Controller_Shelf,VAST Cluster Base,unit,1200,,900,0.75,24,4,Representative base chassis power for VAST deployment planning.,https://www.vastdata.com/resources,
+VAST Data,VAST,Expansion_Shelf,VAST Expansion Unit,unit,1000,,750,0.75,24,4,Representative expansion unit power for VAST deployment planning.,https://www.vastdata.com/resources,true
