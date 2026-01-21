@@ -1,7 +1,15 @@
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
 
-import { buildNetAppCandidate, enumerateNetApp, fbPower, type NetAppRow, type PureRow } from "./energy-calc";
+import {
+  buildNetAppCandidate,
+  enumerateNetApp,
+  enumerateVast,
+  fbPower,
+  type NetAppRow,
+  type PureRow,
+  type VastRow,
+} from "./energy-calc";
 
 const makePureRows = (): PureRow[] => [
   {
@@ -61,6 +69,26 @@ const makeNetAppRows = (): NetAppRow[] => [
     Idle_W: 75,
     Drives_per_unit: 60,
     Rack_Units: 4,
+  },
+];
+
+const makeVastRows = (): VastRow[] => [
+  {
+    Component_Type: "Controller_Shelf",
+    Model: "VastBase",
+    Typical_W: 180,
+    Idle_W: 90,
+    Drives_per_unit: 24,
+    Rack_Units: 4,
+  },
+  {
+    Component_Type: "Expansion_Shelf",
+    Model: "VastExpansion",
+    Typical_W: 120,
+    Idle_W: 60,
+    Drives_per_unit: 12,
+    Rack_Units: 2,
+    Auto_Default: "true",
   },
 ];
 
@@ -128,5 +156,13 @@ describe("NetApp candidates", () => {
     assert.ok(Math.abs((match?.weightedW ?? 0) - 375) < 1e-6);
     assert.ok(Math.abs((match?.kwhYearWithPue ?? 0) - 3942) < 1e-6);
     assert.ok(Math.abs((match?.annualEnergyCost ?? 0) - 394.2) < 1e-6);
+  });
+});
+
+describe("Vast candidates", () => {
+  it("returns at least one candidate within tolerance", () => {
+    const targetEffTb = 324;
+    const candidates = enumerateVast(makeVastRows(), targetEffTb, 0.5, 1.2, 0.1, 0.1, 1, 10, 0.05);
+    assert.ok(candidates.length > 0);
   });
 });

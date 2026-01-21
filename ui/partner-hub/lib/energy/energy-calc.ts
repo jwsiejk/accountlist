@@ -37,6 +37,10 @@ export type NetAppRow = CsvRow & {
   Rack_Units: number | null;
 };
 
+export type VastRow = NetAppRow & {
+  Auto_Default?: boolean | string | number | null;
+};
+
 export type PowerModel = {
   model: string;
   typicalW: number;
@@ -87,6 +91,16 @@ export function loadNetApp(rows: CsvRow[]): NetAppRow[] {
     return out;
   });
 }
+
+const toBool = (v: unknown): boolean => {
+  if (typeof v === "boolean") return v;
+  if (typeof v === "number") return v === 1;
+  if (typeof v === "string") {
+    const t = v.trim().toLowerCase();
+    return t === "true" || t === "yes" || t === "1";
+  }
+  return false;
+};
 
 export function getTracks(pureRows: PureRow[]): number[] {
   return Array.from(new Set(pureRows.map((r) => r.DFM_Size_TB))).sort((a, b) => a - b);
@@ -394,6 +408,75 @@ export function enumerateNetApp(
           kwhPerEffectiveTbYear: eff > 0 ? kwhPue / eff : null,
         });
       }
+    }
+  }
+
+  out.sort((a, b) => {
+    const da = Math.abs(a.pctDiffFromTarget);
+    const db = Math.abs(b.pctDiffFromTarget);
+    if (da !== db) return da - db;
+    return a.annualEnergyCost - b.annualEnergyCost;
+  });
+  return out;
+}
+
+export function enumerateVast(
+  vastRows: VastRow[],
+  targetEffTb: number,
+  util: number,
+  pue: number,
+  price: number,
+  overhead: number,
+  drr: number,
+  driveTb: number,
+  tolFrac = 0.1,
+): NetAppCandidate[] {
+  const controllerRows = vastRows.filter((r) => r.Component_Type === "Controller_Shelf");
+  const expansionRows = vastRows.filter((r) => r.Component_Type === "Expansion_Shelf");
+  if (controllerRows.length === 0) throw new Error("Missing Vast controller shelf row");
+  if (expansionRows.length === 0) throw new Error("Missing Vast expansion shelf row");
+
+  const base = controllerRows[0];
+  const expansion = expansionRows.find((row) => toBool(row.Auto_Default)) ?? expansionRows[0];
+  if (!expansion) throw new Error("Missing Vast expansion shelf row");
+
+  const baseWeighted = (u: number) => base.Idle_W + u * (base.Typical_W - base.Idle_W);
+  const expWeighted = (u: number) => expansion.Idle_W + u * (expansion.Typical_W - expansion.Idle_W);
+  const baseDrives = toInt(base.Drives_per_unit);
+  const expDrives = toInt(expansion.Drives_per_unit);
+
+  const out: NetAppCandidate[] = [];
+  for (let expQty = 0; expQty <= 40; expQty += 1) {
+    const totalDrives = baseDrives + expQty * expDrives;
+    const raw = totalDrives * driveTb;
+    const usable = raw * (1 - overhead);
+    const eff = usable * drr;
+
+    const w = baseWeighted(util) + expQty * expWeighted(util);
+    const kwhPue = kwhYear(w) * pue;
+    const annual = kwhPue * price;
+    const pct = targetEffTb > 0 ? ((eff - targetEffTb) / targetEffTb) * 100 : 0;
+    const rackUnits =
+      base.Rack_Units != null && expansion.Rack_Units != null
+        ? base.Rack_Units + expQty * expansion.Rack_Units
+        : null;
+
+    if (Math.abs(pct) <= tolFrac * 100 + 1e-9) {
+      out.push({
+        controllerModel: String(base.Model ?? ""),
+        expansionModel: String(expansion.Model ?? ""),
+        controllerQty: 1,
+        expansionQty: expQty,
+        effectiveTb: eff,
+        rackUnits,
+        pctDiffFromTarget: pct,
+        weightedW: w,
+        kwhYearWithPue: kwhPue,
+        annualEnergyCost: annual,
+        wPerEffectiveTb: eff > 0 ? w / eff : null,
+        dollarsPerEffectiveTbYear: eff > 0 ? annual / eff : null,
+        kwhPerEffectiveTbYear: eff > 0 ? kwhPue / eff : null,
+      });
     }
   }
 

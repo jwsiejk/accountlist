@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  enumerateVast,
   enumerateNetApp,
   fbPower,
   getTracks,
@@ -399,17 +400,30 @@ export function EnergyTool() {
         return;
       }
       const tolFrac = inputs.tolPct / 100;
-      const netapp = enumerateNetApp(
-        competitorRows,
-        fbResult.effectiveTb,
-        inputs.naUtilPct / 100,
-        inputs.naPue,
-        inputs.naPrice,
-        inputs.naOverhead,
-        inputs.naDrr,
-        inputs.naDriveSizeTb,
-        tolFrac,
-      );
+      const netapp =
+        competitorVendor === "Vast"
+          ? enumerateVast(
+              competitorRows,
+              fbResult.effectiveTb,
+              inputs.naUtilPct / 100,
+              inputs.naPue,
+              inputs.naPrice,
+              inputs.naOverhead,
+              inputs.naDrr,
+              inputs.naDriveSizeTb,
+              tolFrac,
+            )
+          : enumerateNetApp(
+              competitorRows,
+              fbResult.effectiveTb,
+              inputs.naUtilPct / 100,
+              inputs.naPue,
+              inputs.naPrice,
+              inputs.naOverhead,
+              inputs.naDrr,
+              inputs.naDriveSizeTb,
+              tolFrac,
+            );
       setFb(fbResult);
       setCandidates(netapp);
       setSelected((prev) => {
