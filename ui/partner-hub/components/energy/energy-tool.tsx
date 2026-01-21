@@ -58,6 +58,7 @@ type Inputs = {
   naPue: number;
   naPrice: number;
   naOverhead: number;
+  competitorExtraWatts: number;
   naDrr: number;
   naDriveSizeTb: number;
   tolPct: number;
@@ -156,6 +157,7 @@ const defaults: Omit<Inputs, "dfmTb" | "capacityPb"> = {
   naPue: 1.35,
   naPrice: 0.12,
   naOverhead: 0.2,
+  competitorExtraWatts: 0,
   naDrr: 1.3,
   naDriveSizeTb: 18,
   tolPct: 10,
@@ -414,6 +416,7 @@ export function EnergyTool() {
               inputs.naPue,
               inputs.naPrice,
               inputs.naOverhead,
+              inputs.competitorExtraWatts,
               inputs.naDrr,
               inputs.naDriveSizeTb,
               tolFrac,
@@ -425,6 +428,7 @@ export function EnergyTool() {
               inputs.naPue,
               inputs.naPrice,
               inputs.naOverhead,
+              inputs.competitorExtraWatts,
               inputs.naDrr,
               inputs.naDriveSizeTb,
               tolFrac,
@@ -462,6 +466,7 @@ export function EnergyTool() {
         inputs.naPue,
         inputs.naPrice,
         inputs.naOverhead,
+        inputs.competitorExtraWatts,
         inputs.naDrr,
         inputs.naDriveSizeTb,
       );
@@ -537,6 +542,7 @@ export function EnergyTool() {
     inputs.naPue,
     inputs.naPrice,
     inputs.naOverhead,
+    inputs.competitorExtraWatts,
     inputs.naDrr,
     inputs.naDriveSizeTb,
     netappRows.length,
@@ -924,6 +930,13 @@ export function EnergyTool() {
               <NumberInput label="PUE" value={inputs.naPue} step={0.01} onChange={(v) => setInputs((p) => ({ ...p, naPue: v }))} />
               <NumberInput label="$ / kWh" value={inputs.naPrice} step={0.001} onChange={(v) => setInputs((p) => ({ ...p, naPrice: v }))} />
               <NumberInput label="Overhead (raw→usable)" value={inputs.naOverhead} step={0.01} onChange={(v) => setInputs((p) => ({ ...p, naOverhead: v }))} />
+              <NumberInput
+                label="Extra overhead (W)"
+                helperText="Optional: networking / non-modeled hardware"
+                value={inputs.competitorExtraWatts}
+                step={1}
+                onChange={(v) => setInputs((p) => ({ ...p, competitorExtraWatts: v }))}
+              />
               <NumberInput label="DRR" value={inputs.naDrr} step={0.1} onChange={(v) => setInputs((p) => ({ ...p, naDrr: v }))} />
               <div className="space-y-1">
                 <label className={LABEL_CLASSES}>Drive size (TB)</label>
@@ -1333,6 +1346,7 @@ export function EnergyTool() {
                     <li>PUE: {fmt2.format(inputs.naPue)}</li>
                     <li>$ / kWh: ${fmt2.format(inputs.naPrice)}</li>
                     <li>Overhead (raw→usable): {fmt2.format(inputs.naOverhead)}</li>
+                    <li>Extra overhead: {fmt0.format(inputs.competitorExtraWatts)} W</li>
                     <li>DRR: {fmt2.format(inputs.naDrr)}</li>
                     <li>
                       Drive size selection: {fmt0.format(inputs.naDriveSizeTb)} TB{" "}
@@ -1515,11 +1529,13 @@ function NumberInput({
   value,
   onChange,
   step,
+  helperText,
 }: {
   label: string;
   value: number;
   step?: number;
   onChange: (value: number) => void;
+  helperText?: string;
 }) {
   return (
     <div className="space-y-1">
@@ -1531,6 +1547,7 @@ function NumberInput({
         onChange={(e) => onChange(Number(e.target.value))}
         className={INPUT_BASE_CLASSES}
       />
+      {helperText ? <p className="text-xs text-foreground/60">{helperText}</p> : null}
     </div>
   );
 }
