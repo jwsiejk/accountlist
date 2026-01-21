@@ -1420,30 +1420,6 @@ export function OfficeScheduleClient({
           </svg>
         </div>
 
-        <section className="grid gap-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-400">Coastal Moments</h2>
-            <span className="text-xs text-slate-500">A calming backdrop for your planning</span>
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            {[
-              "from-sky-100 via-white to-amber-100",
-              "from-slate-100 via-white to-sky-100",
-              "from-amber-100 via-white to-sky-100",
-              "from-sky-50 via-white to-slate-100",
-              "from-slate-100 via-white to-amber-50",
-              "from-sky-100 via-white to-slate-50",
-            ].map((gradient, index) => (
-              <div
-                key={`${gradient}-${index}`}
-                className={`aspect-[4/3] rounded-2xl border border-white/70 bg-gradient-to-br ${gradient} shadow-sm`}
-                aria-hidden
-              />
-            ))}
-          </div>
-          <div className="h-px w-full bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
-        </section>
-
         {/* Top bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur">
           <div className="text-sm font-semibold text-slate-600">Manage your schedule</div>
