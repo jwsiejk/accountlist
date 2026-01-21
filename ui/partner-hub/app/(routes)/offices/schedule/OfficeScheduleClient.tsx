@@ -334,7 +334,7 @@ function computeDaySlots({
 
 function DurationChips({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
-    <div className="inline-flex rounded-full border border-slate-200/80 bg-slate-100/70 p-1 shadow-sm">
+    <div className="inline-flex rounded-lg border bg-black/5 p-1">
       {DURATIONS_MIN.map((d) => {
         const active = d === value;
         return (
@@ -343,10 +343,8 @@ function DurationChips({ value, onChange }: { value: number; onChange: (v: numbe
             type="button"
             onClick={() => onChange(d)}
             className={
-              "rounded-full px-3 py-2 text-sm font-semibold transition " +
-              (active
-                ? "bg-white text-slate-700 shadow-sm"
-                : "text-slate-500 hover:bg-white/80")
+              "rounded-md px-3 py-2 text-sm font-semibold transition " +
+              (active ? "bg-white" : "hover:bg-black/5")
             }
             aria-pressed={active}
           >
@@ -379,16 +377,16 @@ function Modal({
     >
       <button
         type="button"
-        className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/50"
         onClick={onClose}
         aria-label="Close modal"
       />
-      <div className="relative w-[92vw] max-w-lg rounded-3xl border border-white/70 bg-white/90 shadow-lg backdrop-blur">
-        <div className="flex items-center justify-between border-b border-slate-200/70 p-4">
-          <div className="text-sm font-semibold text-slate-800">{title}</div>
+      <div className="relative w-full max-w-lg rounded-lg border border-border bg-background shadow-lg">
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <div className="text-sm font-semibold">{title}</div>
           <button
             type="button"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-600 transition hover:bg-slate-50"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-foreground/70 transition hover:bg-black/5"
             onClick={onClose}
             aria-label="Close"
           >
@@ -1382,12 +1380,10 @@ export function OfficeScheduleClient({
 
   if (offices.length === 0) {
     return (
-      <main className="min-h-screen bg-[#71646D]">
-        <div className="mx-auto max-w-5xl px-6 py-16">
-          <div className="rounded-3xl border border-slate-200/70 bg-white/80 p-6 shadow-sm backdrop-blur">
-            <h1 className="text-xl font-semibold text-slate-900">Office Schedule</h1>
-            <p className="mt-1 text-sm text-slate-600">No offices found. Seed offices using Prisma Studio.</p>
-          </div>
+      <main className="mx-auto max-w-5xl p-6">
+        <div className="rounded-lg border p-4">
+          <h1 className="text-2xl font-semibold">Office schedule</h1>
+          <p className="mt-1 text-sm opacity-80">No offices found. Seed offices using Prisma Studio.</p>
         </div>
       </main>
     );
@@ -1395,72 +1391,49 @@ export function OfficeScheduleClient({
 
   const locked = !unlocked;
   return (
-    <main className="min-h-screen bg-[#71646D]">
-      <div className="mx-auto flex max-w-6xl flex-col gap-8 px-6 pb-16 pt-10 lg:px-10">
-        <section className="rounded-3xl border border-white/70 bg-white/70 p-8 shadow-sm backdrop-blur">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Office Booking</p>
-          <h1 className="mt-3 text-3xl font-semibold text-slate-900 sm:text-4xl">Office Schedule</h1>
-          <p className="mt-2 max-w-2xl text-base text-slate-600">
-            Pick a day, select an office, book your time.
-          </p>
-          <div className="mt-6 h-px w-full bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
-        </section>
-
-        <div className="-mt-10">
-          <svg
-            viewBox="0 0 1200 120"
-            preserveAspectRatio="none"
-            className="h-16 w-full text-sky-100"
-            aria-hidden
+    <main className="mx-auto max-w-5xl p-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold">Office schedule</h1>
+          <p className="mt-1 text-sm opacity-80">Pick a day, select an office, book your time.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-black/5"
+            onClick={() => setUserModalOpen(true)}
           >
-            <path
-              d="M0,96L60,90.7C120,85,240,75,360,69.3C480,64,600,64,720,58.7C840,53,960,43,1080,42.7C1200,43,1320,53,1380,58.7L1440,64L1440,0L1380,0C1320,0,1200,0,1080,0C960,0,840,0,720,0C600,0,480,0,360,0C240,0,120,0,60,0L0,0Z"
-              className="fill-current"
-            />
-          </svg>
+            <UserRound className="h-4 w-4" />
+            User information
+          </button>
+          <button
+            type="button"
+            className={
+              "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-black/5 " +
+              (unlocked ? "" : "opacity-50")
+            }
+            onClick={() => setMyScheduleOpen(true)}
+            disabled={!unlocked}
+          >
+            <CalendarDays className="h-4 w-4" />
+            My Office Schedule
+          </button>
         </div>
+      </div>
 
-        {/* Top bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur">
-          <div className="text-sm font-semibold text-slate-600">Manage your schedule</div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              className="inline-flex h-10 items-center gap-2 rounded-full border border-slate-200/80 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-              onClick={() => setUserModalOpen(true)}
-            >
-              <UserRound className="h-4 w-4 text-slate-500" />
-              User information
-            </button>
-
-            <button
-              type="button"
-              className={
-                "inline-flex h-10 items-center gap-2 rounded-full border border-slate-200/80 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 " +
-                (unlocked ? "" : "opacity-50")
-              }
-              onClick={() => setMyScheduleOpen(true)}
-              disabled={!unlocked}
-            >
-              <CalendarDays className="h-4 w-4 text-slate-500" />
-              My Office Schedule
-            </button>
-          </div>
-        </div>
-
-        <div className="relative rounded-3xl border border-white/70 bg-white/80 shadow-sm backdrop-blur">
+      <div className="relative mt-6 overflow-hidden rounded-xl border bg-white">
         {/* Lock overlay */}
         {locked ? (
-          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-3xl bg-white/70 backdrop-blur-sm">
-            <div className="mx-auto max-w-md rounded-3xl border border-slate-200/70 bg-white/90 p-6 text-center shadow-sm">
-              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full border border-slate-200/70 bg-slate-50">
-                <UserRound className="h-5 w-5 text-slate-500" />
+          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/80">
+            <div className="mx-auto max-w-md rounded-lg border bg-white p-6 text-center shadow-sm">
+              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full border bg-white">
+                <UserRound className="h-5 w-5" />
               </div>
-              <div className="mt-3 text-sm font-semibold text-slate-800">Add your user information to schedule</div>
-              <div className="mt-1 text-sm text-slate-600">Name + email are required (no login yet).</div>
+              <div className="mt-3 text-sm font-semibold">Add your user information to schedule</div>
+              <div className="mt-1 text-sm opacity-80">Name + email are required (no login yet).</div>
               <button
                 type="button"
-                className="mt-4 inline-flex h-10 items-center justify-center rounded-full border border-sky-200 bg-sky-600 px-4 text-sm font-semibold text-white transition hover:bg-sky-500"
+                className="mt-4 inline-flex h-10 items-center justify-center rounded-md border px-4 text-sm font-medium hover:bg-black/5"
                 onClick={() => setUserModalOpen(true)}
               >
                 Enter user information
@@ -1474,26 +1447,26 @@ export function OfficeScheduleClient({
             {/* Left panel */}
             <section className="p-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Schedule a time</h1>
+                <h2 className="text-2xl font-semibold">Schedule a time</h2>
                 <button
                   type="button"
-                  className="inline-flex h-9 items-center gap-2 rounded-full border border-slate-200/80 bg-white px-3 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
+                  className="inline-flex h-9 items-center gap-2 rounded-md border px-3 text-xs font-semibold hover:bg-black/5"
                   onClick={() => setAiOpen(true)}
                 >
-                  <Sparkles className="h-4 w-4 text-slate-500" />
+                  <Sparkles className="h-4 w-4" />
                   Use AI
                 </button>
               </div>
 
               {selectedOffice?.description ? (
-                <p className="mt-3 text-sm text-slate-600 line-clamp-4">{selectedOffice.description}</p>
+                <p className="mt-3 text-sm opacity-80 line-clamp-4">{selectedOffice.description}</p>
               ) : (
-                <p className="mt-3 text-sm text-slate-600">Choose a duration, then pick a day and time.</p>
+                <p className="mt-3 text-sm opacity-80">Choose a duration, then pick a day and time.</p>
               )}
 
               <div className="mt-6">
-                <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                  <Clock className="h-4 w-4 text-slate-500" />
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <Clock className="h-4 w-4" />
                   Duration
                 </div>
                 <div className="mt-3">
@@ -1505,20 +1478,22 @@ export function OfficeScheduleClient({
                     }}
                   />
                 </div>
-                <div className="mt-2 text-xs text-slate-500">Time slots show in {durationMin} minute increments.</div>
+                <div className="mt-2 text-xs opacity-70">
+                  Time slots show in {durationMin} minute increments.
+                </div>
               </div>
 
               <div className="mt-6 grid gap-3">
-                <div className="flex items-center gap-2 text-sm text-slate-600">
-                  <Building2 className="h-4 w-4 text-slate-500" />
+                <div className="flex items-center gap-2 text-sm opacity-80">
+                  <Building2 className="h-4 w-4" />
                   <div className="min-w-0">
-                    <div className="font-semibold text-slate-700">Office</div>
-                    <div className="text-xs text-slate-500">Choose an office to book</div>
+                    <div className="font-semibold">Office</div>
+                    <div className="text-xs opacity-70">Choose an office to book</div>
                   </div>
                 </div>
 
                 <select
-                  className="h-11 w-full rounded-xl border border-slate-200/80 bg-white px-3 text-sm text-slate-700 shadow-sm"
+                  className="h-10 w-full rounded-md border bg-white px-3 text-sm"
                   value={officeId}
                   onChange={(e) => {
                     const next = Number(e.target.value);
@@ -1537,7 +1512,7 @@ export function OfficeScheduleClient({
             </section>
 
             {/* Right panel */}
-            <section className="border-t border-slate-200/70 p-6 md:border-l md:border-t-0">
+            <section className="border-t p-6 md:border-l md:border-t-0">
               {/*
                 Layout note:
                 On large screens, the selected-day header (e.g. "Mon, Jan 19" + availability counts)
@@ -1547,11 +1522,11 @@ export function OfficeScheduleClient({
               */}
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_260px] lg:items-start">
                 <div className="flex items-center gap-2">
-                  <div className="text-lg font-semibold text-slate-800">{formatMonthLabel(monthFirst)}</div>
+                  <div className="text-lg font-semibold">{formatMonthLabel(monthFirst)}</div>
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-600 transition hover:bg-slate-50"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-md border text-sm transition hover:bg-black/5"
                       onClick={() => {
                         const prev = new Date(monthFirst);
                         prev.setMonth(prev.getMonth() - 1);
@@ -1566,7 +1541,7 @@ export function OfficeScheduleClient({
                     </button>
                     <button
                       type="button"
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-600 transition hover:bg-slate-50"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-md border text-sm transition hover:bg-black/5"
                       onClick={() => {
                         const next = new Date(monthFirst);
                         next.setMonth(next.getMonth() + 1);
@@ -1584,8 +1559,8 @@ export function OfficeScheduleClient({
 
                 {/* Desktop-aligned selected-day header */}
                 <div className="hidden lg:block">
-                  <div className="text-sm font-semibold text-slate-700">{formatDayLabel(baseDate)}</div>
-                  <div className="mt-1 text-xs text-slate-500">
+                  <div className="text-sm font-semibold">{formatDayLabel(baseDate)}</div>
+                  <div className="mt-1 text-xs opacity-70">
                     {selectedDayAvailableCount === 0
                       ? "No available times. Try another day."
                       : `${selectedDayAvailableCount} available • ${selectedDaySlots.length - selectedDayAvailableCount} unavailable`}
@@ -1595,7 +1570,7 @@ export function OfficeScheduleClient({
 
               <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_260px] lg:items-start">
                 <div>
-                  <div className="grid grid-cols-7 gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  <div className="grid grid-cols-7 gap-2 text-[11px] font-semibold uppercase tracking-wide opacity-70">
                     {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map((d) => (
                       <div key={d} className="text-center">
                         {d}
@@ -1620,17 +1595,17 @@ export function OfficeScheduleClient({
                       }
 
                       const baseCls =
-                        "relative flex h-12 w-full items-center justify-center rounded-2xl text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-sky-200";
+                        "relative flex h-12 w-full items-center justify-center rounded-lg text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-black/10";
 
                       const enabled = !isPastDay && hasAvailability;
                       const cls =
                         baseCls +
                         " " +
                         (selected
-                          ? "bg-sky-600 text-white"
+                          ? "bg-black/10 text-black"
                           : enabled
-                            ? "bg-slate-100 text-slate-700 hover:bg-slate-200/70"
-                            : "text-slate-300");
+                            ? "bg-black/5 text-black/70 hover:bg-black/10"
+                            : "text-black/30");
 
                       return (
                         <button
@@ -1655,7 +1630,7 @@ export function OfficeScheduleClient({
                             <span
                               className={
                                 "absolute bottom-1 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full " +
-                                (selected ? "bg-white" : "bg-slate-400")
+                                (selected ? "bg-black/70" : "bg-black/40")
                               }
                               aria-hidden
                             />
@@ -1664,7 +1639,7 @@ export function OfficeScheduleClient({
                             <span
                               className={
                                 "absolute top-1 left-1/2 h-1 w-6 -translate-x-1/2 rounded-full " +
-                                (selected ? "bg-white/80" : "bg-sky-300")
+                                (selected ? "bg-black/40" : "bg-black/30")
                               }
                               aria-hidden
                             />
@@ -1674,7 +1649,7 @@ export function OfficeScheduleClient({
                     })}
                   </div>
 
-                  <div className="mt-4 text-xs text-slate-500">
+                  <div className="mt-4 text-xs opacity-70">
                     Working hours: {formatTime(new Date(new Date(baseDate).setMinutes(WORK_START_MIN)))} –{" "}
                     {formatTime(new Date(new Date(baseDate).setMinutes(WORK_END_MIN)))}.
                   </div>
@@ -1684,8 +1659,8 @@ export function OfficeScheduleClient({
                 <aside className="flex flex-col">
                   {/* Mobile-only selected-day header (desktop version is aligned with the month header above). */}
                   <div className="lg:hidden">
-                    <div className="text-sm font-semibold text-slate-700">{formatDayLabel(baseDate)}</div>
-                    <div className="mt-1 text-xs text-slate-500">
+                    <div className="text-sm font-semibold">{formatDayLabel(baseDate)}</div>
+                    <div className="mt-1 text-xs opacity-70">
                       {selectedDayAvailableCount === 0
                         ? "No available times. Try another day."
                         : `${selectedDayAvailableCount} available • ${selectedDaySlots.length - selectedDayAvailableCount} unavailable`}
@@ -1696,10 +1671,10 @@ export function OfficeScheduleClient({
                     <button
                       type="button"
                       className={
-                        "h-9 rounded-full border border-slate-200/80 px-3 text-xs font-semibold text-slate-600 transition " +
+                        "h-9 rounded-md border px-3 text-xs font-semibold transition " +
                         (bookAllDay
-                          ? "bg-sky-600 text-white"
-                          : "bg-white hover:bg-slate-50")
+                          ? "bg-black/5"
+                          : "bg-white hover:bg-black/5")
                       }
                       onClick={() => {
                         if (!canAllDay.ok) return;
@@ -1716,7 +1691,7 @@ export function OfficeScheduleClient({
                     {(bookAllDay || selectedSlotStarts.length > 0) ? (
                       <button
                         type="button"
-                        className="h-9 rounded-full border border-slate-200/80 bg-white px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                        className="h-9 rounded-md border bg-white px-3 text-xs font-semibold transition hover:bg-black/5"
                         onClick={() => {
                           setBookAllDay(false);
                           setSelectedSlotStarts([]);
@@ -1727,11 +1702,11 @@ export function OfficeScheduleClient({
                         Clear
                       </button>
                     ) : (
-                      <div className="text-[11px] text-slate-500">Select one or more slots</div>
+                      <div className="text-[11px] opacity-70">Select one or more slots</div>
                     )}
                   </div>
 
-                  <div className="mt-3 max-h-[360px] overflow-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+                  <div className="mt-3 max-h-[360px] overflow-auto rounded-lg border bg-white">
                     <div className="grid gap-1 p-2">
                       {selectedDaySlots.map((slot) => {
                         const iso = slot.start.toISOString();
@@ -1749,12 +1724,12 @@ export function OfficeScheduleClient({
                               : "Past";
 
                         const cls =
-                          "flex h-10 w-full items-center justify-between rounded-xl border px-3 text-sm font-semibold transition " +
+                          "flex h-10 w-full items-center justify-between rounded-md border px-3 text-sm font-semibold transition " +
                           (selected
-                            ? "border-sky-200 bg-sky-600 text-white"
+                            ? "border-black/20 bg-black/10 text-black"
                             : clickable
-                              ? "border-slate-200/80 bg-white text-slate-700 hover:bg-slate-50"
-                              : "border-slate-200/60 bg-slate-50 text-slate-300");
+                              ? "border-black/10 bg-white hover:bg-black/5"
+                              : "border-black/5 bg-black/5 text-black/30");
 
                         return (
                           <button
@@ -1772,15 +1747,15 @@ export function OfficeScheduleClient({
                             aria-pressed={selected}
                           >
                             <span>{label}</span>
-                            <span className={selected ? "text-white/80" : "text-slate-400"}>{right}</span>
+                            <span className={selected ? "text-black/70" : "text-black/40"}>{right}</span>
                           </button>
                         );
                       })}
                     </div>
                   </div>
 
-                  <div className="mt-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
-                    <div className="text-xs text-slate-600">
+                  <div className="mt-3 rounded-lg border bg-white p-4">
+                    <div className="text-xs opacity-80">
                       <span className="font-semibold">Selection:</span>{" "}
                       {selectionSummary.ok ? selectionSummary.label : selectionSummary.error}
                     </div>
@@ -1795,10 +1770,7 @@ export function OfficeScheduleClient({
                     <button
                       type="button"
                       className={
-                        "mt-3 h-10 w-full rounded-full border border-sky-200 px-3 text-sm font-semibold transition " +
-                        (selectionSummary.ok && !bookingSubmitting
-                          ? "bg-sky-600 text-white hover:bg-sky-500"
-                          : "bg-slate-100 text-slate-400")
+                        "mt-3 h-10 w-full rounded-md border px-3 text-sm font-semibold transition hover:bg-black/5 disabled:opacity-60"
                       }
                       onClick={submitBooking}
                       disabled={!selectionSummary.ok || bookingSubmitting}
@@ -1836,13 +1808,13 @@ export function OfficeScheduleClient({
         onClose={() => setMyScheduleOpen(false)}
       >
         {!unlocked ? (
-          <div className="text-sm text-slate-600">Add your user information first.</div>
+          <div className="text-sm opacity-80">Add your user information first.</div>
         ) : myBookingsLoading ? (
-          <div className="text-sm text-slate-600">Loading…</div>
+          <div className="text-sm opacity-80">Loading…</div>
         ) : myBookingsError ? (
           <div className="text-sm font-semibold text-red-600">{myBookingsError}</div>
         ) : myBookings.length === 0 ? (
-          <div className="text-sm text-slate-600">No bookings found for {user?.email}.</div>
+          <div className="text-sm opacity-80">No bookings found for {user?.email}.</div>
         ) : (
           <div className="grid gap-2">
             {myBookings
@@ -1853,9 +1825,9 @@ export function OfficeScheduleClient({
                 const e = new Date(b.end);
                 const officeName = officeNameById.get(b.officeId) ?? `Office #${b.officeId}`;
                 return (
-                  <div key={b.id} className="rounded-2xl border border-slate-200/80 bg-slate-50 p-3">
-                    <div className="text-sm font-semibold text-slate-800">{officeName}</div>
-                    <div className="mt-1 text-xs text-slate-500">
+                  <div key={b.id} className="rounded-lg border bg-black/5 p-3">
+                    <div className="text-sm font-semibold">{officeName}</div>
+                    <div className="mt-1 text-xs opacity-70">
                       {new Intl.DateTimeFormat(undefined, {
                         weekday: "short",
                         month: "short",
@@ -1863,7 +1835,7 @@ export function OfficeScheduleClient({
                         year: "numeric",
                       }).format(s)}
                     </div>
-                    <div className="mt-1 text-xs text-slate-500">
+                    <div className="mt-1 text-xs opacity-70">
                       {formatTime(s)} – {formatTime(e)}
                     </div>
                   </div>
@@ -1880,23 +1852,21 @@ export function OfficeScheduleClient({
               <div
                 key={`${msg.role}-${idx}`}
                 className={
-                  "rounded-2xl px-3 py-2 text-sm " +
-                  (msg.role === "assistant"
-                    ? "bg-slate-100 text-slate-700"
-                    : "bg-sky-600 text-white")
+                  "rounded-lg border px-3 py-2 text-sm " +
+                  (msg.role === "assistant" ? "bg-black/5" : "bg-white")
                 }
               >
                 {msg.content}
               </div>
             ))}
-            {aiLoading ? <div className="text-xs text-slate-500">Thinking…</div> : null}
+            {aiLoading ? <div className="text-xs opacity-70">Thinking…</div> : null}
           </div>
 
           {aiError ? <div className="text-xs font-semibold text-red-600">{aiError}</div> : null}
 
           {aiOptions.length > 0 ? (
             <div className="grid gap-2">
-              <div className="text-xs font-semibold text-slate-500">Suggested options</div>
+              <div className="text-xs font-semibold opacity-70">Suggested options</div>
               {aiOptions.map((option, idx) => {
                 const selected = aiSelectedOption?.startISO === option.startISO;
                 return (
@@ -1908,10 +1878,8 @@ export function OfficeScheduleClient({
                       setAiStep("confirm");
                     }}
                     className={
-                      "flex w-full items-center gap-2 rounded-2xl border border-slate-200/80 px-3 py-2 text-left text-sm transition " +
-                      (selected
-                        ? "bg-sky-600 text-white"
-                        : "bg-white text-slate-700 hover:bg-slate-50")
+                      "flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition hover:bg-black/5 " +
+                      (selected ? "bg-black/10" : "bg-white")
                     }
                     aria-pressed={selected}
                   >
@@ -1924,9 +1892,9 @@ export function OfficeScheduleClient({
           ) : null}
 
           {aiSelectedOption ? (
-            <div className="rounded-2xl border border-slate-200/80 bg-slate-50 p-3">
-              <div className="text-xs text-slate-500">Selected option</div>
-              <div className="mt-1 text-sm font-semibold text-slate-800">{aiSelectedOption.label}</div>
+            <div className="rounded-lg border bg-black/5 p-3">
+              <div className="text-xs opacity-70">Selected option</div>
+              <div className="mt-1 text-sm font-semibold">{aiSelectedOption.label}</div>
               {aiBookingSuccess ? (
                 <div className="mt-2 text-xs font-semibold text-emerald-700">{aiBookingSuccess}</div>
               ) : null}
@@ -1934,14 +1902,14 @@ export function OfficeScheduleClient({
                 <div className="mt-3 grid gap-2">
                   <button
                     type="button"
-                    className="h-10 w-full rounded-full border border-sky-200 bg-sky-600 px-3 text-sm font-semibold text-white transition hover:bg-sky-500"
+                    className="h-10 w-full rounded-md border px-3 text-sm font-semibold transition hover:bg-black/5"
                     onClick={handleAiExit}
                   >
                     Exit
                   </button>
                   <button
                     type="button"
-                    className="text-sm font-semibold text-slate-500 transition hover:text-slate-700"
+                    className="text-sm font-semibold opacity-70 transition hover:opacity-100"
                     onClick={() => {
                       // Guardrail: reset the AI booking flow after success so the confirm button never reappears.
                       resetAiFlow();
@@ -1954,10 +1922,7 @@ export function OfficeScheduleClient({
                 <button
                   type="button"
                   className={
-                    "mt-3 h-10 w-full rounded-full border border-sky-200 px-3 text-sm font-semibold transition " +
-                    (aiBookingSubmitting
-                      ? "bg-slate-100 text-slate-400"
-                      : "bg-sky-600 text-white hover:bg-sky-500")
+                    "mt-3 h-10 w-full rounded-md border px-3 text-sm font-semibold transition hover:bg-black/5 disabled:opacity-60"
                   }
                   onClick={() => submitAiBooking(aiSelectedOption)}
                   disabled={aiBookingSubmitting}
@@ -1970,14 +1935,14 @@ export function OfficeScheduleClient({
 
           {aiNeedsDuration ? (
             <div className="grid gap-2">
-              <div className="text-xs font-semibold text-slate-500">How long do you need?</div>
+              <div className="text-xs font-semibold opacity-70">How long do you need?</div>
               <DurationChips value={aiDraft.durationMinutes ?? 0} onChange={handleAiDurationSelect} />
             </div>
           ) : null}
 
           <div className="flex items-center gap-2">
             <input
-              className="h-10 flex-1 rounded-full border border-slate-200/80 bg-white px-4 text-sm text-slate-700 shadow-sm"
+              className="h-10 flex-1 rounded-md border bg-white px-3 text-sm"
               value={aiInput}
               onChange={(e) => setAiInput(e.target.value)}
               placeholder="e.g. Thursday afternoon for 30 minutes at Midtown"
@@ -1991,10 +1956,7 @@ export function OfficeScheduleClient({
             <button
               type="button"
               className={
-                "h-10 rounded-full border border-sky-200 px-4 text-sm font-semibold transition " +
-                (!aiInput.trim() || aiSending
-                  ? "bg-slate-100 text-slate-400"
-                  : "bg-sky-600 text-white hover:bg-sky-500")
+                "h-10 rounded-md border px-4 text-sm font-semibold transition hover:bg-black/5 disabled:opacity-60"
               }
               onClick={handleAiSend}
               disabled={!aiInput.trim() || aiSending}
@@ -2003,12 +1965,11 @@ export function OfficeScheduleClient({
             </button>
           </div>
 
-          <div className="text-xs text-slate-500">
+          <div className="text-xs opacity-70">
             AI suggestions use your local Ollama model. If it’s unavailable, you can still book manually.
           </div>
         </div>
       </Modal>
-      </div>
     </main>
   );
 }
@@ -2039,18 +2000,18 @@ function UserInfoModal({
     <Modal open={open} title="User information" onClose={onClose}>
       <div className="grid gap-3">
         <div>
-          <label className="text-xs font-semibold text-slate-500">Name</label>
+          <label className="text-xs font-semibold opacity-70">Name</label>
           <input
-            className="mt-1 h-10 w-full rounded-full border border-slate-200/80 bg-white px-4 text-sm text-slate-700 shadow-sm"
+            className="mt-1 h-10 w-full rounded-md border bg-white px-3 text-sm"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Jane Doe"
           />
         </div>
         <div>
-          <label className="text-xs font-semibold text-slate-500">Email</label>
+          <label className="text-xs font-semibold opacity-70">Email</label>
           <input
-            className="mt-1 h-10 w-full rounded-full border border-slate-200/80 bg-white px-4 text-sm text-slate-700 shadow-sm"
+            className="mt-1 h-10 w-full rounded-md border bg-white px-3 text-sm"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="jane@company.com"
@@ -2063,14 +2024,14 @@ function UserInfoModal({
         <div className="mt-1 flex items-center justify-end gap-2">
           <button
             type="button"
-            className="h-10 rounded-full border border-slate-200/80 bg-white px-4 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+            className="h-10 rounded-md border bg-white px-4 text-sm font-semibold transition hover:bg-black/5"
             onClick={onClose}
           >
             Cancel
           </button>
           <button
             type="button"
-            className="h-10 rounded-full border border-sky-200 bg-sky-600 px-4 text-sm font-semibold text-white transition hover:bg-sky-500"
+            className="h-10 rounded-md border px-4 text-sm font-semibold transition hover:bg-black/5"
             onClick={() => {
               const n = name.trim();
               const e = email.trim();
