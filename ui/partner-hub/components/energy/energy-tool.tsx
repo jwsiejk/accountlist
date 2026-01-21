@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   enumerateVast,
@@ -383,6 +383,7 @@ export function EnergyTool() {
       manualDriveSizeMissing ||
       netappRows.length === 0);
 
+  const lastVendorRef = useRef<CompetitorVendor>(competitorVendor);
   const runModel = () => {
     try {
       setComputeError(null);
@@ -395,17 +396,19 @@ export function EnergyTool() {
         inputs.purePrice,
         inputs.pureDrr,
       );
-      if (competitorRows.length === 0) {
+      const competitorData = competitorVendor === "Vast" ? vastRows : netappRows;
+      if (competitorData.length === 0) {
         setFb(fbResult);
         setCandidates([]);
         setSelected(null);
+        lastVendorRef.current = competitorVendor;
         return;
       }
       const tolFrac = inputs.tolPct / 100;
-      const netapp =
+      const candidateRows =
         competitorVendor === "Vast"
           ? enumerateVast(
-              competitorRows,
+              competitorData,
               fbResult.effectiveTb,
               inputs.naUtilPct / 100,
               inputs.naPue,
@@ -416,7 +419,7 @@ export function EnergyTool() {
               tolFrac,
             )
           : enumerateNetApp(
-              competitorRows,
+              competitorData,
               fbResult.effectiveTb,
               inputs.naUtilPct / 100,
               inputs.naPue,
@@ -426,15 +429,17 @@ export function EnergyTool() {
               inputs.naDriveSizeTb,
               tolFrac,
             );
+      const vendorChanged = lastVendorRef.current !== competitorVendor;
+      lastVendorRef.current = competitorVendor;
       setFb(fbResult);
-      setCandidates(netapp);
+      setCandidates(candidateRows);
       setSelected((prev) => {
-        if (netapp.length === 0) return null;
-        if (prev) {
-          const match = netapp.find((candidate) => candidateKey(candidate) === candidateKey(prev));
+        if (candidateRows.length === 0) return null;
+        if (!vendorChanged && prev) {
+          const match = candidateRows.find((candidate) => candidateKey(candidate) === candidateKey(prev));
           if (match) return match;
         }
-        return netapp[0];
+        return candidateRows[0];
       });
     } catch (err) {
       setComputeError(err instanceof Error ? err.message : "Failed to compute results");
@@ -477,7 +482,8 @@ export function EnergyTool() {
 
   useEffect(() => {
     if (pureRows.length === 0) return;
-    if (competitorRows.length === 0) {
+    const competitorData = competitorVendor === "Vast" ? vastRows : netappRows;
+    if (competitorData.length === 0) {
       try {
         setComputeError(null);
         const fbResult = fbPower(
@@ -502,7 +508,7 @@ export function EnergyTool() {
     }
     runModel();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [competitorRows.length, competitorVendor, pureRows.length]);
+  }, [competitorVendor, netappRows.length, pureRows.length, vastRows.length]);
 
   useEffect(() => {
     if (controllerModels.length === 0) return;
