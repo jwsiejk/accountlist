@@ -794,6 +794,12 @@ export function EnergyTool() {
   const expansionLabel = competitorVendor === "Vast" ? "unit" : "shelf";
   const expansionLabelPlural = competitorVendor === "Vast" ? "units" : "shelves";
   const expansionHeaderLabel = competitorVendor === "Vast" ? "Exp units" : "Exp shelves";
+  const expansionLabelFor = (qty: number) => (qty === 1 ? expansionLabel : expansionLabelPlural);
+  const selectedConfigLabel = selectedCandidate
+    ? `${selectedCandidate.controllerModel} + ${selectedCandidate.expansionQty} ${expansionLabelFor(
+        selectedCandidate.expansionQty,
+      )} (${selectedCandidate.expansionModel})`
+    : null;
 
   return (
     <div className="space-y-8 md:space-y-10">
@@ -1155,8 +1161,8 @@ export function EnergyTool() {
                     {candidates.length === 0 ? (
                       <p className="text-sm text-foreground/70">
                         {competitorVendor === "Vast"
-                          ? "No Vast candidates found."
-                          : `No candidates found in the tolerance band. Try widening tolerance or adjusting ${competitorLabel} overhead / DRR / drive size.`}
+                          ? `No Vast candidates found within ±${fmt1.format(inputs.tolPct)}%.`
+                          : `No NetApp candidates found within ±${fmt1.format(inputs.tolPct)}%.`}
                       </p>
                     ) : (
                       <div className="overflow-x-auto">
@@ -1206,7 +1212,9 @@ export function EnergyTool() {
                                       ) : null}
                                     </div>
                                   </td>
-                                  <td className="py-2 pr-3">{c.expansionQty}</td>
+                                  <td className="py-2 pr-3">
+                                    {c.expansionQty} {expansionLabelFor(c.expansionQty)}
+                                  </td>
                                   <td className="py-2 pr-3">{formatRackUnits(c.rackUnits)}</td>
                                   <td className="py-2 pr-3">{fmt0.format(c.effectiveTb)}</td>
                                   <td className="py-2 pr-3">{fmt2.format(c.pctDiffFromTarget)}%</td>
@@ -1247,8 +1255,7 @@ export function EnergyTool() {
               <CardTitle className="text-base">Comparison</CardTitle>
               {selectedCandidate ? (
                 <div className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                  SELECTED: {selectedCandidate.controllerModel} + {selectedCandidate.expansionQty}{" "}
-                  {selectedCandidate.expansionQty === 1 ? expansionLabel : expansionLabelPlural}
+                  SELECTED: {selectedConfigLabel}
                 </div>
               ) : null}
             </CardHeader>
@@ -1337,11 +1344,7 @@ export function EnergyTool() {
                     </li>
                     <li>
                       Selected config:{" "}
-                      {selectedCandidate
-                        ? `${selectedCandidate.controllerModel} + ${selectedCandidate.expansionQty} ${
-                            selectedCandidate.expansionQty === 1 ? expansionLabel : expansionLabelPlural
-                          } (${selectedCandidate.expansionModel})`
-                        : `No ${competitorLabel} candidate selected`}
+                      {selectedCandidate ? selectedConfigLabel : `No ${competitorLabel} candidate selected`}
                     </li>
                   </ul>
                   {competitorVendor === "Vast" ? (
