@@ -9,17 +9,46 @@ base_url="${AI_INTERVIEW_APP_URL%/}"
 
 make_audio_sample() {
   local target="$1"
-  python - "$target" <<'PY'
-import sys
-import wave
-
-path = sys.argv[1]
-with wave.open(path, "wb") as wav:
-    wav.setnchannels(1)
-    wav.setsampwidth(2)
-    wav.setframerate(16000)
-    wav.writeframes(b"\x00\x00" * 1600)
-PY
+  node -e '
+const fs = require("fs");
+const path = process.argv[1];
+const sampleRate = 16000;
+const numChannels = 1;
+const bitsPerSample = 16;
+const numSamples = 1600;
+const blockAlign = (numChannels * bitsPerSample) / 8;
+const byteRate = sampleRate * blockAlign;
+const dataSize = numSamples * blockAlign;
+const buffer = Buffer.alloc(44 + dataSize);
+let offset = 0;
+buffer.write("RIFF", offset);
+offset += 4;
+buffer.writeUInt32LE(36 + dataSize, offset);
+offset += 4;
+buffer.write("WAVE", offset);
+offset += 4;
+buffer.write("fmt ", offset);
+offset += 4;
+buffer.writeUInt32LE(16, offset);
+offset += 4;
+buffer.writeUInt16LE(1, offset);
+offset += 2;
+buffer.writeUInt16LE(numChannels, offset);
+offset += 2;
+buffer.writeUInt32LE(sampleRate, offset);
+offset += 4;
+buffer.writeUInt32LE(byteRate, offset);
+offset += 4;
+buffer.writeUInt16LE(blockAlign, offset);
+offset += 2;
+buffer.writeUInt16LE(bitsPerSample, offset);
+offset += 2;
+buffer.write("data", offset);
+offset += 4;
+buffer.writeUInt32LE(dataSize, offset);
+offset += 4;
+fs.writeFileSync(path, buffer);
+' "$target"
 }
 
 check_chat() {
