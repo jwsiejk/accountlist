@@ -8,18 +8,51 @@ function Test-Url {
     [string]$Url
   )
 
+  $supportsSkipHttpErrorCheck = (Get-Command Invoke-WebRequest).Parameters.ContainsKey('SkipHttpErrorCheck')
+  $requestParams = @{
+    Uri = $Url
+    Method = 'Get'
+    TimeoutSec = 2
+    UseBasicParsing = $true
+  }
+  if ($supportsSkipHttpErrorCheck) {
+    $requestParams.SkipHttpErrorCheck = $true
+  }
+
   try {
-    $response = Invoke-WebRequest -Uri $Url -Method Get -TimeoutSec 2 -UseBasicParsing
+    $response = Invoke-WebRequest @requestParams
     if ($response.StatusCode -gt 0) {
       Write-Host "PASS: $Name ($Url) [HTTP $($response.StatusCode)]"
       return $true
     }
   } catch {
+    $statusCode = $null
+    if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+      $statusCode = [int]$_.Exception.Response.StatusCode
+    } elseif ($_.Exception.Response -and $_.Exception.Response.StatusCode.value__) {
+      $statusCode = $_.Exception.Response.StatusCode.value__
+    }
+
+    if ($null -ne $statusCode) {
+      Write-Host "PASS: $Name ($Url) [HTTP $statusCode]"
+      return $true
+    }
+
     Write-Host "FAIL: $Name ($Url)"
     return $false
   }
+
+  Write-Host "FAIL: $Name ($Url)"
+  return $false
 }
 
-Test-Url -Name "Ollama" -Url ($OllamaUrl.TrimEnd('/') + "/api/tags")
-Test-Url -Name "STT" -Url ($SttUrl.TrimEnd('/') + "/")
-Test-Url -Name "TTS" -Url ($TtsUrl.TrimEnd('/') + "/")
+$results = @()
+$results += Test-Url -Name "Ollama" -Url ($OllamaUrl.TrimEnd('/') + "/api/tags")
+$results += Test-Url -Name "STT" -Url ($SttUrl.TrimEnd('/') + "/")
+$results += Test-Url -Name "TTS" -Url ($TtsUrl.TrimEnd('/') + "/")
+
+if ($results -contains $false) {
+  exit 1
+}
+
+exit 0
