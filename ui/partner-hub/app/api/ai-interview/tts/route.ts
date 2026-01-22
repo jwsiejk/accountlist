@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 const DEFAULT_TIMEOUT_MS = 20_000;
 
