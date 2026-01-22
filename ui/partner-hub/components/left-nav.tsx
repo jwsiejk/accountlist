@@ -6,24 +6,23 @@ import { Menu, ChevronLeft } from "lucide-react";
 import { useState } from "react";
 import { clsx } from "clsx";
 
-const aiInterviewEnabled = process.env.NEXT_PUBLIC_ENABLE_AI_INTERVIEW === "true";
-const toolLinks = [
-  { name: "Energy Tool", href: "/tools/energy" },
-  { name: "CHIP-8", href: "/tools/chip8" },
-  ...(aiInterviewEnabled ? [{ name: "AI Interview", href: "/tools/interview" }] : []),
-];
-const links = [
-  { name: "Home", href: "/" },
-  { name: "Case Studies", href: "/case-studies" },
-  { name: "Account Mapping", href: "/accountmap" },
-  ...toolLinks,
-  { name: "Office Schedule", href: "/offices/schedule" },
-  { name: "About / Contact", href: "/about" },
-];
-
 export function LeftNav() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const aiInterviewEnabled = process.env.NEXT_PUBLIC_ENABLE_AI_INTERVIEW === "true";
+  const toolLinks = [
+    { name: "Energy Tool", href: "/tools/energy" },
+    { name: "CHIP-8", href: "/tools/chip8" },
+    ...(aiInterviewEnabled ? [{ name: "AI Interview", href: "/tools/interview" }] : []),
+  ];
+  const links = [
+    { name: "Home", href: "/" },
+    { name: "Case Studies", href: "/case-studies" },
+    { name: "Account Mapping", href: "/accountmap" },
+    ...toolLinks,
+    { name: "Office Schedule", href: "/offices/schedule" },
+    { name: "About / Contact", href: "/about" },
+  ];
 
   return (
     <aside
