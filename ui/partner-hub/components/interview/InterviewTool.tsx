@@ -91,6 +91,7 @@ export function InterviewTool() {
   const [recordingElapsed, setRecordingElapsed] = useState(0);
   const [recordingWarning, setRecordingWarning] = useState<string | null>(null);
   const [recordingNotice, setRecordingNotice] = useState<string | null>(null);
+  const [copyFeedback, setCopyFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -100,6 +101,7 @@ export function InterviewTool() {
   const recordingStartRef = useRef<number | null>(null);
   const recordingTimerRef = useRef<number | null>(null);
   const recordingAutoStoppedRef = useRef(false);
+  const copyTimeoutRef = useRef<number | null>(null);
 
   const activePersona = useMemo(
     () => personaOptions.find((option) => option.id === personaId) ?? personaOptions[0],
@@ -154,6 +156,9 @@ export function InterviewTool() {
       stopRecorderIfActive({ skipOnStop: true });
       stopAudioPlayback();
       cleanupStream();
+      if (copyTimeoutRef.current) {
+        window.clearTimeout(copyTimeoutRef.current);
+      }
     };
   }, [stopRecorderIfActive]);
 
@@ -317,6 +322,79 @@ export function InterviewTool() {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
+  };
+
+  const buildTranscriptPlainText = () => {
+    const now = new Date();
+    const pad = (value: number) => String(value).padStart(2, "0");
+    const timestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(
+      now.getHours()
+    )}:${pad(now.getMinutes())}`;
+    const lines = [`AI Interview (Persona: ${activePersona.label})`, `Date: ${timestamp}`, ""];
+
+    transcript.forEach((entry) => {
+      const speaker = entry.role === "user" ? "You" : "Interviewer";
+      lines.push(`${speaker}: ${entry.text.trim()}`, "");
+    });
+
+    return lines.join("\n").trimEnd();
+  };
+
+  const handleCopyTranscript = async () => {
+    if (isProcessing || transcript.length === 0) {
+      return;
+    }
+
+    const text = buildTranscriptPlainText();
+    const showFeedback = (type: "success" | "error", message: string) => {
+      setCopyFeedback({ type, message });
+      if (copyTimeoutRef.current) {
+        window.clearTimeout(copyTimeoutRef.current);
+      }
+      copyTimeoutRef.current = window.setTimeout(() => {
+        setCopyFeedback(null);
+      }, 2000);
+    };
+
+    const fallbackCopy = () => {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "absolute";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+
+      const selection = document.getSelection();
+      const selectedRange = selection?.rangeCount ? selection.getRangeAt(0) : null;
+      textarea.select();
+      const success = document.execCommand("copy");
+      textarea.remove();
+
+      if (selectedRange && selection) {
+        selection.removeAllRanges();
+        selection.addRange(selectedRange);
+      }
+
+      if (!success) {
+        throw new Error("Copy command failed.");
+      }
+    };
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        fallbackCopy();
+      }
+      showFeedback("success", "Copied!");
+    } catch (err) {
+      try {
+        fallbackCopy();
+        showFeedback("success", "Copied!");
+      } catch {
+        showFeedback("error", "Unable to copy. Please copy manually.");
+      }
+    }
   };
 
   const handleRecordingComplete = async (blob: Blob) => {
@@ -509,6 +587,25 @@ export function InterviewTool() {
               >
                 Download Markdown
               </button>
+              <button
+                type="button"
+                onClick={handleCopyTranscript}
+                disabled={isProcessing || transcript.length === 0}
+                className={`rounded-full border border-border/60 px-6 py-3 text-sm font-semibold text-foreground/70 transition hover:border-border ${
+                  isProcessing || transcript.length === 0 ? "cursor-not-allowed opacity-60" : ""
+                }`}
+              >
+                Copy Transcript
+              </button>
+              {copyFeedback ? (
+                <span
+                  className={`text-xs font-semibold ${
+                    copyFeedback.type === "success" ? "text-emerald-400" : "text-red-400"
+                  }`}
+                >
+                  {copyFeedback.message}
+                </span>
+              ) : null}
               <span className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground/40">
                 {isProcessing
                   ? "Processing"
