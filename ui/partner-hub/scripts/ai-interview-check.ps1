@@ -9,14 +9,17 @@ function Test-Url {
   )
 
   $supportsSkipHttpErrorCheck = (Get-Command Invoke-WebRequest).Parameters.ContainsKey('SkipHttpErrorCheck')
+  $supportsUseBasicParsing = (Get-Command Invoke-WebRequest).Parameters.ContainsKey('UseBasicParsing')
   $requestParams = @{
     Uri = $Url
     Method = 'Get'
     TimeoutSec = 2
-    UseBasicParsing = $true
   }
   if ($supportsSkipHttpErrorCheck) {
     $requestParams.SkipHttpErrorCheck = $true
+  }
+  if ($supportsUseBasicParsing) {
+    $requestParams.UseBasicParsing = $true
   }
 
   try {
