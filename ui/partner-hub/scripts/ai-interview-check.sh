@@ -20,6 +20,9 @@ check_url() {
   return 1
 }
 
-check_url "Ollama" "${AI_INTERVIEW_OLLAMA_URL%/}/api/tags"
-check_url "STT" "${AI_INTERVIEW_STT_URL%/}/"
-check_url "TTS" "${AI_INTERVIEW_TTS_URL%/}/"
+failed=0
+check_url "Ollama" "${AI_INTERVIEW_OLLAMA_URL%/}/api/tags" || failed=1
+check_url "STT" "${AI_INTERVIEW_STT_URL%/}/" || failed=1
+check_url "TTS" "${AI_INTERVIEW_TTS_URL%/}/" || failed=1
+
+exit "$failed"
