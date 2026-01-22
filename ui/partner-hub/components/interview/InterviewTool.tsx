@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { withBasePath } from "@/lib/basePath";
@@ -16,6 +16,15 @@ type TranscriptEntry = {
   role: "user" | "assistant";
   text: string;
 };
+
+type StoredInterviewSession = {
+  personaId: PersonaOption["id"];
+  transcript: TranscriptEntry[];
+};
+
+const SESSION_STORAGE_KEY = "ai-interview-session-v1";
+const MAX_RECORDING_SECONDS = 60;
+const WARNING_RECORDING_SECONDS = 50;
 
 const personaOptions: PersonaOption[] = [
   {
@@ -79,12 +88,18 @@ export function InterviewTool() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
+  const [recordingElapsed, setRecordingElapsed] = useState(0);
+  const [recordingWarning, setRecordingWarning] = useState<string | null>(null);
+  const [recordingNotice, setRecordingNotice] = useState<string | null>(null);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
+  const recordingStartRef = useRef<number | null>(null);
+  const recordingTimerRef = useRef<number | null>(null);
+  const recordingAutoStoppedRef = useRef(false);
 
   const activePersona = useMemo(
     () => personaOptions.find((option) => option.id === personaId) ?? personaOptions[0],
@@ -116,7 +131,7 @@ export function InterviewTool() {
     }
   };
 
-  const stopRecorderIfActive = (options?: { skipOnStop?: boolean }) => {
+  const stopRecorderIfActive = useCallback((options?: { skipOnStop?: boolean }) => {
     const recorder = recorderRef.current;
     if (!recorder) {
       return;
@@ -128,7 +143,11 @@ export function InterviewTool() {
     if (recorder.state === "recording") {
       recorder.stop();
     }
-  };
+  }, []);
+
+  const handleStopRecording = useCallback(() => {
+    stopRecorderIfActive();
+  }, [stopRecorderIfActive]);
 
   useEffect(() => {
     return () => {
@@ -136,7 +155,92 @@ export function InterviewTool() {
       stopAudioPlayback();
       cleanupStream();
     };
+  }, [stopRecorderIfActive]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const stored = window.localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!stored) {
+      return;
+    }
+    try {
+      const parsed = JSON.parse(stored) as StoredInterviewSession;
+      if (parsed && parsed.personaId) {
+        setPersonaId(parsed.personaId);
+      }
+      if (parsed && Array.isArray(parsed.transcript)) {
+        const sanitized = parsed.transcript.filter(
+          (entry): entry is TranscriptEntry =>
+            entry &&
+            (entry.role === "user" || entry.role === "assistant") &&
+            typeof entry.text === "string"
+        );
+        if (sanitized.length > 0) {
+          setTranscript(sanitized);
+        }
+      }
+    } catch {
+      window.localStorage.removeItem(SESSION_STORAGE_KEY);
+    }
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const payload: StoredInterviewSession = {
+      personaId,
+      transcript,
+    };
+    window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload));
+  }, [personaId, transcript]);
+
+  useEffect(() => {
+    if (!isRecording) {
+      if (recordingTimerRef.current) {
+        window.clearInterval(recordingTimerRef.current);
+      }
+      recordingTimerRef.current = null;
+      recordingStartRef.current = null;
+      recordingAutoStoppedRef.current = false;
+      setRecordingElapsed(0);
+      setRecordingWarning(null);
+      return;
+    }
+
+    recordingStartRef.current = Date.now();
+    setRecordingElapsed(0);
+    setRecordingWarning(null);
+    recordingAutoStoppedRef.current = false;
+
+    recordingTimerRef.current = window.setInterval(() => {
+      if (!recordingStartRef.current) {
+        return;
+      }
+      const elapsedSeconds = Math.floor((Date.now() - recordingStartRef.current) / 1000);
+      setRecordingElapsed(elapsedSeconds);
+      if (elapsedSeconds >= WARNING_RECORDING_SECONDS && elapsedSeconds < MAX_RECORDING_SECONDS) {
+        setRecordingWarning("Heads up: recordings auto-stop at 60 seconds.");
+      } else if (elapsedSeconds < WARNING_RECORDING_SECONDS) {
+        setRecordingWarning(null);
+      }
+      if (elapsedSeconds >= MAX_RECORDING_SECONDS && !recordingAutoStoppedRef.current) {
+        recordingAutoStoppedRef.current = true;
+        setRecordingWarning(null);
+        setRecordingNotice("Recording stopped at 60 seconds to keep answers concise.");
+        handleStopRecording();
+      }
+    }, 1000);
+
+    return () => {
+      if (recordingTimerRef.current) {
+        window.clearInterval(recordingTimerRef.current);
+      }
+      recordingTimerRef.current = null;
+    };
+  }, [handleStopRecording, isRecording]);
 
   const handleStartRecording = async () => {
     if (isRecording || isProcessing) {
@@ -144,6 +248,7 @@ export function InterviewTool() {
     }
 
     setError(null);
+    setRecordingNotice(null);
 
     try {
       if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
@@ -185,8 +290,33 @@ export function InterviewTool() {
     }
   };
 
-  const handleStopRecording = () => {
-    stopRecorderIfActive();
+  const buildTranscriptMarkdown = () => {
+    const lines = [
+      "# AI Interview Transcript",
+      "",
+      `**Persona:** ${activePersona.label}`,
+      "",
+    ];
+
+    transcript.forEach((entry) => {
+      const header = entry.role === "user" ? "You" : activePersona.label;
+      lines.push(`## ${header}`, "", entry.text.trim(), "");
+    });
+
+    return lines.join("\n");
+  };
+
+  const handleDownloadTranscript = () => {
+    const markdown = buildTranscriptMarkdown();
+    const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "ai-interview-transcript.md";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
   };
 
   const handleRecordingComplete = async (blob: Blob) => {
@@ -302,6 +432,7 @@ export function InterviewTool() {
     setError(null);
     setIsProcessing(false);
     setIsRecording(false);
+    setRecordingNotice(null);
   };
 
   return (
@@ -368,10 +499,36 @@ export function InterviewTool() {
               >
                 Reset
               </button>
+              <button
+                type="button"
+                onClick={handleDownloadTranscript}
+                disabled={isProcessing || transcript.length === 0}
+                className={`rounded-full border border-border/60 px-6 py-3 text-sm font-semibold text-foreground/70 transition hover:border-border ${
+                  isProcessing || transcript.length === 0 ? "cursor-not-allowed opacity-60" : ""
+                }`}
+              >
+                Download Markdown
+              </button>
               <span className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground/40">
-                {isProcessing ? "Processing" : isRecording ? "Recording" : "Idle"}
+                {isProcessing
+                  ? "Processing"
+                  : isRecording
+                    ? `Recording ${Math.min(recordingElapsed, MAX_RECORDING_SECONDS)}s/${MAX_RECORDING_SECONDS}s`
+                    : "Idle"}
               </span>
             </div>
+
+            {recordingWarning ? (
+              <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+                {recordingWarning}
+              </div>
+            ) : null}
+
+            {recordingNotice ? (
+              <div className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-4 py-3 text-sm text-blue-200">
+                {recordingNotice}
+              </div>
+            ) : null}
 
             {error ? (
               <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
