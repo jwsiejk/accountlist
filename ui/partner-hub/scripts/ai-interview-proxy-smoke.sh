@@ -5,12 +5,15 @@ set -u
 : "${AI_INTERVIEW_APP_URL:=http://localhost:3000}"
 : "${AI_INTERVIEW_SAMPLE_TEXT:=Hello from AI interview}"
 
+command -v node >/dev/null 2>&1 || { echo "FAIL: node not found (required to generate WAV sample)."; exit 1; }
+
 base_url="${AI_INTERVIEW_APP_URL%/}"
 
 make_audio_sample() {
   local target="$1"
   node -e '
 const fs = require("fs");
+// When using -e, the first argument after the snippet is process.argv[1].
 const path = process.argv[1];
 const sampleRate = 16000;
 const numChannels = 1;
