@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { withBasePath } from "@/lib/basePath";
@@ -109,6 +109,28 @@ export function InterviewTool() {
     }
   };
 
+  const stopRecorderIfActive = (options?: { skipOnStop?: boolean }) => {
+    const recorder = recorderRef.current;
+    if (!recorder) {
+      return;
+    }
+    if (options?.skipOnStop) {
+      recorder.onstop = null;
+      recorder.ondataavailable = null;
+    }
+    if (recorder.state === "recording") {
+      recorder.stop();
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      stopRecorderIfActive({ skipOnStop: true });
+      stopAudioPlayback();
+      cleanupStream();
+    };
+  }, []);
+
   const handleStartRecording = async () => {
     if (isRecording || isProcessing) {
       return;
@@ -117,6 +139,11 @@ export function InterviewTool() {
     setError(null);
 
     try {
+      if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+        setError("Recording isn’t supported in this browser. Try Chrome/Edge.");
+        return;
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       const mimeType = pickSupportedMimeType();
@@ -153,6 +180,9 @@ export function InterviewTool() {
 
   const handleStopRecording = () => {
     if (!recorderRef.current || !isRecording) {
+      return;
+    }
+    if (recorderRef.current.state !== "recording") {
       return;
     }
     recorderRef.current.stop();
@@ -265,7 +295,7 @@ export function InterviewTool() {
 
   const handleReset = () => {
     if (isRecording) {
-      handleStopRecording();
+      stopRecorderIfActive({ skipOnStop: true });
     }
     stopAudioPlayback();
     cleanupStream();
@@ -302,11 +332,12 @@ export function InterviewTool() {
                     key={option.id}
                     type="button"
                     onClick={() => setPersonaId(option.id)}
+                    disabled={isRecording || isProcessing}
                     className={`rounded-xl border px-4 py-3 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                       personaId === option.id
                         ? "border-primary/70 bg-primary/10"
                         : "border-border/60 bg-background hover:border-border"
-                    }`}
+                    } ${isRecording || isProcessing ? "cursor-not-allowed opacity-60" : ""}`}
                   >
                     <div className="font-semibold text-foreground">{option.label}</div>
                     <div className="mt-1 text-xs text-foreground/60">{option.summary}</div>
@@ -331,7 +362,10 @@ export function InterviewTool() {
               <button
                 type="button"
                 onClick={handleReset}
-                className="rounded-full border border-border/60 px-6 py-3 text-sm font-semibold text-foreground/70 transition hover:border-border"
+                disabled={isProcessing}
+                className={`rounded-full border border-border/60 px-6 py-3 text-sm font-semibold text-foreground/70 transition hover:border-border ${
+                  isProcessing ? "cursor-not-allowed opacity-60" : ""
+                }`}
               >
                 Reset
               </button>
