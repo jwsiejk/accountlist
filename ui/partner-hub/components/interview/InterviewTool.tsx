@@ -92,17 +92,24 @@ export function InterviewTool() {
   );
 
   const cleanupStream = () => {
-    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current?.getTracks().forEach((track) => {
+      if (track.readyState !== "ended") {
+        track.stop();
+      }
+    });
     streamRef.current = null;
     recorderRef.current = null;
     chunksRef.current = [];
   };
 
   const stopAudioPlayback = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.src = "";
+      audio.currentTime = 0;
     }
+    audioRef.current = null;
     if (audioUrlRef.current) {
       URL.revokeObjectURL(audioUrlRef.current);
       audioUrlRef.current = null;
@@ -179,13 +186,7 @@ export function InterviewTool() {
   };
 
   const handleStopRecording = () => {
-    if (!recorderRef.current || !isRecording) {
-      return;
-    }
-    if (recorderRef.current.state !== "recording") {
-      return;
-    }
-    recorderRef.current.stop();
+    stopRecorderIfActive();
   };
 
   const handleRecordingComplete = async (blob: Blob) => {
@@ -294,9 +295,7 @@ export function InterviewTool() {
   };
 
   const handleReset = () => {
-    if (isRecording) {
-      stopRecorderIfActive({ skipOnStop: true });
-    }
+    stopRecorderIfActive({ skipOnStop: true });
     stopAudioPlayback();
     cleanupStream();
     setTranscript([]);
