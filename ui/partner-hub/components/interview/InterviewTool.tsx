@@ -438,6 +438,7 @@ export function InterviewTool() {
 
     setIsProcessing(true);
     setError(null);
+    stopAudioPlayback();
 
     try {
       const prompt = "Begin the interview now. Ask exactly ONE opening question. No preamble.";
@@ -580,7 +581,7 @@ export function InterviewTool() {
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              {transcript.length === 0 ? (
+              {transcript.length === 0 && !isRecording ? (
                 <button
                   type="button"
                   onClick={handleStartInterview}
