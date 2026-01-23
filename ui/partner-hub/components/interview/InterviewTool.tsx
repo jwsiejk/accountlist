@@ -431,6 +431,31 @@ export function InterviewTool() {
     }
   };
 
+  const handleStartInterview = async () => {
+    if (isProcessing || isRecording) {
+      return;
+    }
+
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      const prompt = "Begin the interview now. Ask exactly ONE opening question. No preamble.";
+      const responseText = await sendToChat(prompt, activePersona);
+      if (!responseText) {
+        throw new Error("Chat response was empty.");
+      }
+
+      setTranscript((prev) => [...prev, { role: "assistant", text: responseText }]);
+
+      await sendToTts(responseText);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unexpected error while starting interview.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const sendToStt = async (blob: Blob) => {
     const formData = new FormData();
     formData.append("file", blob, "recording.webm");
@@ -555,6 +580,20 @@ export function InterviewTool() {
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
+              {transcript.length === 0 ? (
+                <button
+                  type="button"
+                  onClick={handleStartInterview}
+                  disabled={isProcessing || isRecording}
+                  className={`rounded-full px-6 py-3 text-sm font-semibold transition ${
+                    isProcessing || isRecording
+                      ? "cursor-not-allowed bg-primary/40 text-primary-foreground/80"
+                      : "bg-primary text-primary-foreground hover:bg-primary/90"
+                  }`}
+                >
+                  Start Interview
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={isRecording ? handleStopRecording : handleStartRecording}
