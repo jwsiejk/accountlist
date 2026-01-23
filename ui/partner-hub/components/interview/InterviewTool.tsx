@@ -83,6 +83,13 @@ const parseResponseText = async (response: Response) => {
   return response.text();
 };
 
+const truncateForLog = (value: string, max = 300) => {
+  if (value.length <= max) {
+    return value;
+  }
+  return `${value.slice(0, max)}…`;
+};
+
 const createTurnId = () => {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -315,7 +322,7 @@ export function InterviewTool() {
       cleanupStream();
       logDebug("error", {
         step: "record_start",
-        message: err instanceof Error ? err.message : String(err),
+        message: truncateForLog(err instanceof Error ? err.message : String(err)),
         turnId: currentTurnIdRef.current,
       });
       setError(
@@ -460,7 +467,7 @@ export function InterviewTool() {
     } catch (err) {
       logDebug("error", {
         step: "recording_complete",
-        message: err instanceof Error ? err.message : String(err),
+        message: truncateForLog(err instanceof Error ? err.message : String(err)),
         turnId: currentTurnIdRef.current,
       });
       setError(err instanceof Error ? err.message : "Unexpected error while processing interview.");
@@ -494,7 +501,7 @@ export function InterviewTool() {
     } catch (err) {
       logDebug("error", {
         step: "start_interview",
-        message: err instanceof Error ? err.message : String(err),
+        message: truncateForLog(err instanceof Error ? err.message : String(err)),
         turnId,
       });
       setError(err instanceof Error ? err.message : "Unexpected error while starting interview.");
@@ -551,7 +558,7 @@ export function InterviewTool() {
       }
       logDebug("error", {
         step: "stt_request",
-        message: err instanceof Error ? err.message : String(err),
+        message: truncateForLog(err instanceof Error ? err.message : String(err)),
         turnId,
       });
       throw err;
@@ -608,7 +615,7 @@ export function InterviewTool() {
       }
       logDebug("error", {
         step: "chat_request",
-        message: err instanceof Error ? err.message : String(err),
+        message: truncateForLog(err instanceof Error ? err.message : String(err)),
         turnId,
       });
       throw err;
@@ -670,7 +677,7 @@ export function InterviewTool() {
         logDebug("audio_play_error", { turnId });
         logDebug("error", {
           step: "audio_playback",
-          message: err instanceof Error ? err.message : String(err),
+          message: truncateForLog(err instanceof Error ? err.message : String(err)),
           turnId,
         });
         throw new Error(
@@ -692,7 +699,7 @@ export function InterviewTool() {
       }
       logDebug("error", {
         step: "tts_request",
-        message: err instanceof Error ? err.message : String(err),
+        message: truncateForLog(err instanceof Error ? err.message : String(err)),
         turnId,
       });
       throw err;

@@ -22,7 +22,11 @@ export async function POST(req: Request) {
   const responseHeaders: Record<string, string> = turnId ? { "x-ai-interview-turn-id": turnId } : {};
   const routeStart = nowMs();
   serverLog("route_in", { route, method: req.method, turnId });
+  const logRouteOut = (status: number) => {
+    serverLog("route_out", { route, status, ms: nowMs() - routeStart, turnId });
+  };
   if (!aiInterviewEnabled()) {
+    logRouteOut(404);
     return NextResponse.json({ error: "AI interview is disabled." }, { status: 404, headers: responseHeaders });
   }
 
@@ -30,11 +34,13 @@ export async function POST(req: Request) {
   try {
     body = (await req.json()) as TtsRequest;
   } catch {
+    logRouteOut(400);
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400, headers: responseHeaders });
   }
 
   const text = body?.text?.trim();
   if (!text) {
+    logRouteOut(400);
     return NextResponse.json({ error: "text is required." }, { status: 400, headers: responseHeaders });
   }
 
@@ -68,6 +74,7 @@ export async function POST(req: Request) {
 
     if (!resp.ok) {
       const detail = await resp.text().catch(() => "");
+      logRouteOut(502);
       return NextResponse.json(
         {
           error: "TTS request failed.",
@@ -80,6 +87,7 @@ export async function POST(req: Request) {
 
     const audio = await resp.arrayBuffer();
 
+    logRouteOut(200);
     return new Response(audio, {
       status: 200,
       headers: {
@@ -96,9 +104,11 @@ export async function POST(req: Request) {
       message: error instanceof Error ? error.message : String(error),
     });
     if (error instanceof Error && error.name === "AbortError") {
+      logRouteOut(504);
       return NextResponse.json({ error: "TTS request timed out." }, { status: 504, headers: responseHeaders });
     }
     const message = error instanceof Error ? error.message : String(error);
+    logRouteOut(502);
     return NextResponse.json(
       { error: "Failed to reach TTS service.", detail: message },
       { status: 502, headers: responseHeaders },

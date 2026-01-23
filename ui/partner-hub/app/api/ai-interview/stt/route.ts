@@ -26,7 +26,11 @@ export async function POST(req: Request) {
   const responseHeaders: Record<string, string> = turnId ? { "x-ai-interview-turn-id": turnId } : {};
   const routeStart = nowMs();
   serverLog("route_in", { route, method: req.method, turnId });
+  const logRouteOut = (status: number) => {
+    serverLog("route_out", { route, status, ms: nowMs() - routeStart, turnId });
+  };
   if (!aiInterviewEnabled()) {
+    logRouteOut(404);
     return NextResponse.json({ error: "AI interview is disabled." }, { status: 404, headers: responseHeaders });
   }
 
@@ -34,6 +38,7 @@ export async function POST(req: Request) {
   try {
     formData = await req.formData();
   } catch {
+    logRouteOut(400);
     return NextResponse.json(
       { error: "Invalid multipart/form-data body." },
       { status: 400, headers: responseHeaders },
@@ -42,6 +47,7 @@ export async function POST(req: Request) {
 
   const audioFile = extractAudioFile(formData);
   if (!audioFile) {
+    logRouteOut(400);
     return NextResponse.json({ error: "audio file is required." }, { status: 400, headers: responseHeaders });
   }
 
@@ -73,6 +79,7 @@ export async function POST(req: Request) {
 
     if (!resp.ok) {
       const detail = await resp.text().catch(() => "");
+      logRouteOut(502);
       return NextResponse.json(
         {
           error: "STT request failed.",
@@ -86,6 +93,7 @@ export async function POST(req: Request) {
     const data = (await resp.json()) as { text?: string };
     const text = typeof data?.text === "string" ? data.text : "";
 
+    logRouteOut(200);
     return NextResponse.json(
       { text },
       {
@@ -103,9 +111,11 @@ export async function POST(req: Request) {
       message: error instanceof Error ? error.message : String(error),
     });
     if (error instanceof Error && error.name === "AbortError") {
+      logRouteOut(504);
       return NextResponse.json({ error: "STT request timed out." }, { status: 504, headers: responseHeaders });
     }
     const message = error instanceof Error ? error.message : String(error);
+    logRouteOut(502);
     return NextResponse.json(
       { error: "Failed to reach STT service.", detail: message },
       { status: 502, headers: responseHeaders },
