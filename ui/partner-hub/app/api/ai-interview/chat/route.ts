@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { getTurnId, nowMs, serverLog } from "../_debug";
+
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -21,20 +23,25 @@ function buildSystem(system?: string, persona?: string) {
 }
 
 export async function POST(req: Request) {
+  const route = "/api/ai-interview/chat";
+  const turnId = getTurnId(req);
+  const responseHeaders: Record<string, string> = turnId ? { "x-ai-interview-turn-id": turnId } : {};
+  const routeStart = nowMs();
+  serverLog("route_in", { route, method: req.method, turnId });
   if (!aiInterviewEnabled()) {
-    return NextResponse.json({ error: "AI interview is disabled." }, { status: 404 });
+    return NextResponse.json({ error: "AI interview is disabled." }, { status: 404, headers: responseHeaders });
   }
 
   let body: ChatRequest | null = null;
   try {
     body = (await req.json()) as ChatRequest;
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400, headers: responseHeaders });
   }
 
   const prompt = body?.prompt?.trim();
   if (!prompt) {
-    return NextResponse.json({ error: "prompt is required." }, { status: 400 });
+    return NextResponse.json({ error: "prompt is required." }, { status: 400, headers: responseHeaders });
   }
 
   const baseUrl = process.env.AI_INTERVIEW_OLLAMA_URL?.trim() || "http://127.0.0.1:11434";
@@ -48,7 +55,10 @@ export async function POST(req: Request) {
   const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
 
   try {
-    const resp = await fetch(`${baseUrl.replace(/\/$/, "")}/api/generate`, {
+    const upstreamUrl = `${baseUrl.replace(/\/$/, "")}/api/generate`;
+    serverLog("upstream_request", { route, upstreamUrl, turnId });
+    const upstreamStart = nowMs();
+    const resp = await fetch(upstreamUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -59,6 +69,12 @@ export async function POST(req: Request) {
       }),
       signal: controller.signal,
     });
+    serverLog("upstream_response", {
+      route,
+      status: resp.status,
+      ms: nowMs() - upstreamStart,
+      turnId,
+    });
 
     if (!resp.ok) {
       const detail = await resp.text().catch(() => "");
@@ -68,7 +84,7 @@ export async function POST(req: Request) {
           status: resp.status,
           detail: detail.slice(0, 500),
         },
-        { status: 502 },
+        { status: 502, headers: responseHeaders },
       );
     }
 
@@ -80,15 +96,28 @@ export async function POST(req: Request) {
       {
         headers: {
           "Cache-Control": "no-store",
+          ...responseHeaders,
         },
       },
     );
   } catch (error) {
+    serverLog("route_error", {
+      route,
+      ms: nowMs() - routeStart,
+      turnId,
+      message: error instanceof Error ? error.message : String(error),
+    });
     if (error instanceof Error && error.name === "AbortError") {
-      return NextResponse.json({ error: "Ollama request timed out." }, { status: 504 });
+      return NextResponse.json(
+        { error: "Ollama request timed out." },
+        { status: 504, headers: responseHeaders },
+      );
     }
     const message = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: "Failed to reach Ollama.", detail: message }, { status: 502 });
+    return NextResponse.json(
+      { error: "Failed to reach Ollama.", detail: message },
+      { status: 502, headers: responseHeaders },
+    );
   } finally {
     clearTimeout(timeout);
   }
