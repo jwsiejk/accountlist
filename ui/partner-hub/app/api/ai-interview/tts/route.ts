@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { getTurnId, nowMs, serverLog } from "../_debug";
+
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -15,20 +17,25 @@ function aiInterviewEnabled() {
 }
 
 export async function POST(req: Request) {
+  const route = "/api/ai-interview/tts";
+  const turnId = getTurnId(req);
+  const responseHeaders: Record<string, string> = turnId ? { "x-ai-interview-turn-id": turnId } : {};
+  const routeStart = nowMs();
+  serverLog("route_in", { route, method: req.method, turnId });
   if (!aiInterviewEnabled()) {
-    return NextResponse.json({ error: "AI interview is disabled." }, { status: 404 });
+    return NextResponse.json({ error: "AI interview is disabled." }, { status: 404, headers: responseHeaders });
   }
 
   let body: TtsRequest | null = null;
   try {
     body = (await req.json()) as TtsRequest;
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400, headers: responseHeaders });
   }
 
   const text = body?.text?.trim();
   if (!text) {
-    return NextResponse.json({ error: "text is required." }, { status: 400 });
+    return NextResponse.json({ error: "text is required." }, { status: 400, headers: responseHeaders });
   }
 
   const baseUrl = process.env.AI_INTERVIEW_TTS_URL?.trim() || "http://127.0.0.1:8000";
@@ -39,7 +46,10 @@ export async function POST(req: Request) {
   const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
 
   try {
-    const resp = await fetch(`${baseUrl.replace(/\/$/, "")}/v1/audio/speech`, {
+    const upstreamUrl = `${baseUrl.replace(/\/$/, "")}/v1/audio/speech`;
+    serverLog("upstream_request", { route, upstreamUrl, turnId });
+    const upstreamStart = nowMs();
+    const resp = await fetch(upstreamUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -48,6 +58,12 @@ export async function POST(req: Request) {
         input: text,
       }),
       signal: controller.signal,
+    });
+    serverLog("upstream_response", {
+      route,
+      status: resp.status,
+      ms: nowMs() - upstreamStart,
+      turnId,
     });
 
     if (!resp.ok) {
@@ -58,7 +74,7 @@ export async function POST(req: Request) {
           status: resp.status,
           detail: detail.slice(0, 500),
         },
-        { status: 502 },
+        { status: 502, headers: responseHeaders },
       );
     }
 
@@ -69,14 +85,24 @@ export async function POST(req: Request) {
       headers: {
         "Content-Type": "audio/mpeg",
         "Cache-Control": "no-store",
+        ...responseHeaders,
       },
     });
   } catch (error) {
+    serverLog("route_error", {
+      route,
+      ms: nowMs() - routeStart,
+      turnId,
+      message: error instanceof Error ? error.message : String(error),
+    });
     if (error instanceof Error && error.name === "AbortError") {
-      return NextResponse.json({ error: "TTS request timed out." }, { status: 504 });
+      return NextResponse.json({ error: "TTS request timed out." }, { status: 504, headers: responseHeaders });
     }
     const message = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: "Failed to reach TTS service.", detail: message }, { status: 502 });
+    return NextResponse.json(
+      { error: "Failed to reach TTS service.", detail: message },
+      { status: 502, headers: responseHeaders },
+    );
   } finally {
     clearTimeout(timeout);
   }

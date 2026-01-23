@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { getTurnId, nowMs, serverLog } from "../_debug";
+
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -19,20 +21,28 @@ function extractAudioFile(formData: FormData): File | null {
 }
 
 export async function POST(req: Request) {
+  const route = "/api/ai-interview/stt";
+  const turnId = getTurnId(req);
+  const responseHeaders: Record<string, string> = turnId ? { "x-ai-interview-turn-id": turnId } : {};
+  const routeStart = nowMs();
+  serverLog("route_in", { route, method: req.method, turnId });
   if (!aiInterviewEnabled()) {
-    return NextResponse.json({ error: "AI interview is disabled." }, { status: 404 });
+    return NextResponse.json({ error: "AI interview is disabled." }, { status: 404, headers: responseHeaders });
   }
 
   let formData: FormData;
   try {
     formData = await req.formData();
   } catch {
-    return NextResponse.json({ error: "Invalid multipart/form-data body." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid multipart/form-data body." },
+      { status: 400, headers: responseHeaders },
+    );
   }
 
   const audioFile = extractAudioFile(formData);
   if (!audioFile) {
-    return NextResponse.json({ error: "audio file is required." }, { status: 400 });
+    return NextResponse.json({ error: "audio file is required." }, { status: 400, headers: responseHeaders });
   }
 
   const baseUrl = process.env.AI_INTERVIEW_STT_URL?.trim() || "http://127.0.0.1:9000";
@@ -46,10 +56,19 @@ export async function POST(req: Request) {
   const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
 
   try {
-    const resp = await fetch(`${baseUrl.replace(/\/$/, "")}/v1/audio/transcriptions`, {
+    const upstreamUrl = `${baseUrl.replace(/\/$/, "")}/v1/audio/transcriptions`;
+    serverLog("upstream_request", { route, upstreamUrl, turnId });
+    const upstreamStart = nowMs();
+    const resp = await fetch(upstreamUrl, {
       method: "POST",
       body: upstream,
       signal: controller.signal,
+    });
+    serverLog("upstream_response", {
+      route,
+      status: resp.status,
+      ms: nowMs() - upstreamStart,
+      turnId,
     });
 
     if (!resp.ok) {
@@ -60,7 +79,7 @@ export async function POST(req: Request) {
           status: resp.status,
           detail: detail.slice(0, 500),
         },
-        { status: 502 },
+        { status: 502, headers: responseHeaders },
       );
     }
 
@@ -72,15 +91,25 @@ export async function POST(req: Request) {
       {
         headers: {
           "Cache-Control": "no-store",
+          ...responseHeaders,
         },
       },
     );
   } catch (error) {
+    serverLog("route_error", {
+      route,
+      ms: nowMs() - routeStart,
+      turnId,
+      message: error instanceof Error ? error.message : String(error),
+    });
     if (error instanceof Error && error.name === "AbortError") {
-      return NextResponse.json({ error: "STT request timed out." }, { status: 504 });
+      return NextResponse.json({ error: "STT request timed out." }, { status: 504, headers: responseHeaders });
     }
     const message = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: "Failed to reach STT service.", detail: message }, { status: 502 });
+    return NextResponse.json(
+      { error: "Failed to reach STT service.", detail: message },
+      { status: 502, headers: responseHeaders },
+    );
   } finally {
     clearTimeout(timeout);
   }

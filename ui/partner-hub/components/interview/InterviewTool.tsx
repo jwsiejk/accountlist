@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { withBasePath } from "@/lib/basePath";
+import { logDebug } from "./debug";
 
 type PersonaOption = {
   id: "se-leader" | "peer-engineer" | "sales-exec";
@@ -82,6 +83,13 @@ const parseResponseText = async (response: Response) => {
   return response.text();
 };
 
+const createTurnId = () => {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
+
 export function InterviewTool() {
   const [personaId, setPersonaId] = useState<PersonaOption["id"]>("se-leader");
   const [isRecording, setIsRecording] = useState(false);
@@ -102,6 +110,7 @@ export function InterviewTool() {
   const recordingTimerRef = useRef<number | null>(null);
   const recordingAutoStoppedRef = useRef(false);
   const copyTimeoutRef = useRef<number | null>(null);
+  const currentTurnIdRef = useRef<string | null>(null);
 
   const activePersona = useMemo(
     () => personaOptions.find((option) => option.id === personaId) ?? personaOptions[0],
@@ -147,7 +156,8 @@ export function InterviewTool() {
     }
   }, []);
 
-  const handleStopRecording = useCallback(() => {
+  const handleStopRecordingClick = useCallback(() => {
+    logDebug("record_stop_click", { turnId: currentTurnIdRef.current });
     stopRecorderIfActive();
   }, [stopRecorderIfActive]);
 
@@ -235,7 +245,7 @@ export function InterviewTool() {
         recordingAutoStoppedRef.current = true;
         setRecordingWarning(null);
         setRecordingNotice("Recording stopped at 60 seconds to keep answers concise.");
-        handleStopRecording();
+        stopRecorderIfActive();
       }
     }, 1000);
 
@@ -245,7 +255,7 @@ export function InterviewTool() {
       }
       recordingTimerRef.current = null;
     };
-  }, [handleStopRecording, isRecording]);
+  }, [isRecording, stopRecorderIfActive]);
 
   const handleStartRecording = async () => {
     if (isRecording || isProcessing) {
@@ -264,9 +274,16 @@ export function InterviewTool() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       const mimeType = pickSupportedMimeType();
+      const turnId = createTurnId();
+      currentTurnIdRef.current = turnId;
       const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       recorderRef.current = recorder;
       chunksRef.current = [];
+      logDebug("record_start", {
+        turnId,
+        mimeType: recorder.mimeType || mimeType || "unknown",
+        timestamp: new Date().toISOString(),
+      });
 
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -275,9 +292,18 @@ export function InterviewTool() {
       };
 
       recorder.onstop = async () => {
+        const stopTimestamp = Date.now();
+        const startTimestamp = recordingStartRef.current;
         setIsRecording(false);
         const recordingBlob = new Blob(chunksRef.current, {
           type: recorder.mimeType || "audio/webm",
+        });
+        const durationMs = startTimestamp ? Math.max(stopTimestamp - startTimestamp, 0) : null;
+        logDebug("record_onstop", {
+          turnId: currentTurnIdRef.current,
+          blobBytes: recordingBlob.size,
+          durationMs,
+          durationSeconds: durationMs ? Math.round(durationMs / 1000) : null,
         });
         cleanupStream();
         await handleRecordingComplete(recordingBlob);
@@ -287,6 +313,11 @@ export function InterviewTool() {
       setIsRecording(true);
     } catch (err) {
       cleanupStream();
+      logDebug("error", {
+        step: "record_start",
+        message: err instanceof Error ? err.message : String(err),
+        turnId: currentTurnIdRef.current,
+      });
       setError(
         err instanceof Error
           ? `Microphone error: ${err.message}`
@@ -407,12 +438,14 @@ export function InterviewTool() {
     setError(null);
 
     try {
-      const transcription = await sendToStt(blob);
+      const turnId = currentTurnIdRef.current ?? createTurnId();
+      currentTurnIdRef.current = turnId;
+      const transcription = await sendToStt(blob, turnId);
       if (!transcription) {
         throw new Error("Speech-to-text returned an empty transcription.");
       }
 
-      const responseText = await sendToChat(transcription, activePersona);
+      const responseText = await sendToChat(transcription, activePersona, turnId);
       if (!responseText) {
         throw new Error("Chat response was empty.");
       }
@@ -423,8 +456,13 @@ export function InterviewTool() {
         { role: "assistant", text: responseText },
       ]);
 
-      await sendToTts(responseText);
+      await sendToTts(responseText, turnId);
     } catch (err) {
+      logDebug("error", {
+        step: "recording_complete",
+        message: err instanceof Error ? err.message : String(err),
+        turnId: currentTurnIdRef.current,
+      });
       setError(err instanceof Error ? err.message : "Unexpected error while processing interview.");
     } finally {
       setIsProcessing(false);
@@ -439,96 +477,232 @@ export function InterviewTool() {
     setIsProcessing(true);
     setError(null);
     stopAudioPlayback();
+    const turnId = createTurnId();
+    currentTurnIdRef.current = turnId;
+    logDebug("start_interview_click", { turnId });
 
     try {
       const prompt = "Begin the interview now. Ask exactly ONE opening question. No preamble.";
-      const responseText = await sendToChat(prompt, activePersona);
+      const responseText = await sendToChat(prompt, activePersona, turnId);
       if (!responseText) {
         throw new Error("Chat response was empty.");
       }
 
       setTranscript((prev) => [...prev, { role: "assistant", text: responseText }]);
 
-      await sendToTts(responseText);
+      await sendToTts(responseText, turnId);
     } catch (err) {
+      logDebug("error", {
+        step: "start_interview",
+        message: err instanceof Error ? err.message : String(err),
+        turnId,
+      });
       setError(err instanceof Error ? err.message : "Unexpected error while starting interview.");
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const sendToStt = async (blob: Blob) => {
+  const sendToStt = async (blob: Blob, turnId: string) => {
     const formData = new FormData();
     formData.append("file", blob, "recording.webm");
 
-    const response = await fetch(withBasePath("/api/ai-interview/stt"), {
-      method: "POST",
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const body = await response.text();
-      throw new Error(`STT request failed (${response.status}): ${body}`);
-    }
-
-    return parseResponseText(response);
-  };
-
-  const sendToChat = async (prompt: string, persona: PersonaOption) => {
-    const response = await fetch(withBasePath("/api/ai-interview/chat"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        prompt,
-        persona: persona.label,
-        system: persona.systemPrompt,
-      }),
-    });
-
-    if (!response.ok) {
-      const body = await response.text();
-      throw new Error(`Chat request failed (${response.status}): ${body}`);
-    }
-
-    return parseResponseText(response);
-  };
-
-  const sendToTts = async (text: string) => {
-    stopAudioPlayback();
-
-    const response = await fetch(withBasePath("/api/ai-interview/tts"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
-
-    if (!response.ok) {
-      const body = await response.text();
-      throw new Error(`TTS request failed (${response.status}): ${body}`);
-    }
-
-    const audioBlob = await response.blob();
-    const url = URL.createObjectURL(audioBlob);
-    audioUrlRef.current = url;
-    const audio = new Audio(url);
-    audioRef.current = audio;
+    const startedAt = Date.now();
+    logDebug("stt_request_start", { turnId });
+    let loggedFailure = false;
 
     try {
-      await audio.play();
-    } catch (err) {
-      throw new Error(
-        err instanceof Error
-          ? `Unable to play audio: ${err.message}`
-          : "Unable to play audio response."
-      );
-    }
+      const response = await fetch(withBasePath("/api/ai-interview/stt"), {
+        method: "POST",
+        body: formData,
+        headers: {
+          "x-ai-interview-turn-id": turnId,
+        },
+      });
+      const elapsedMs = Date.now() - startedAt;
 
-    audio.onended = () => {
-      stopAudioPlayback();
-    };
+      if (!response.ok) {
+        loggedFailure = true;
+        logDebug("stt_request_fail", {
+          turnId,
+          ms: elapsedMs,
+          status: response.status,
+          message: response.statusText,
+        });
+        const body = await response.text();
+        throw new Error(`STT request failed (${response.status}): ${body}`);
+      }
+
+      const text = await parseResponseText(response);
+      logDebug("stt_request_ok", {
+        turnId,
+        ms: elapsedMs,
+        textLength: text.length,
+      });
+      return text;
+    } catch (err) {
+      const elapsedMs = Date.now() - startedAt;
+      if (!loggedFailure) {
+        logDebug("stt_request_fail", {
+          turnId,
+          ms: elapsedMs,
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
+      logDebug("error", {
+        step: "stt_request",
+        message: err instanceof Error ? err.message : String(err),
+        turnId,
+      });
+      throw err;
+    }
   };
 
-  const handleReset = () => {
+  const sendToChat = async (prompt: string, persona: PersonaOption, turnId: string) => {
+    const startedAt = Date.now();
+    logDebug("chat_request_start", { turnId });
+    let loggedFailure = false;
+
+    try {
+      const response = await fetch(withBasePath("/api/ai-interview/chat"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-ai-interview-turn-id": turnId,
+        },
+        body: JSON.stringify({
+          prompt,
+          persona: persona.label,
+          system: persona.systemPrompt,
+        }),
+      });
+      const elapsedMs = Date.now() - startedAt;
+
+      if (!response.ok) {
+        loggedFailure = true;
+        logDebug("chat_request_fail", {
+          turnId,
+          ms: elapsedMs,
+          status: response.status,
+          message: response.statusText,
+        });
+        const body = await response.text();
+        throw new Error(`Chat request failed (${response.status}): ${body}`);
+      }
+
+      const text = await parseResponseText(response);
+      logDebug("chat_request_ok", {
+        turnId,
+        ms: elapsedMs,
+        textLength: text.length,
+      });
+      return text;
+    } catch (err) {
+      const elapsedMs = Date.now() - startedAt;
+      if (!loggedFailure) {
+        logDebug("chat_request_fail", {
+          turnId,
+          ms: elapsedMs,
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
+      logDebug("error", {
+        step: "chat_request",
+        message: err instanceof Error ? err.message : String(err),
+        turnId,
+      });
+      throw err;
+    }
+  };
+
+  const sendToTts = async (text: string, turnId: string) => {
+    stopAudioPlayback();
+    const startedAt = Date.now();
+    logDebug("tts_request_start", { turnId });
+    let loggedFailure = false;
+
+    try {
+      const response = await fetch(withBasePath("/api/ai-interview/tts"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-ai-interview-turn-id": turnId,
+        },
+        body: JSON.stringify({ text }),
+      });
+      const elapsedMs = Date.now() - startedAt;
+
+      if (!response.ok) {
+        loggedFailure = true;
+        logDebug("tts_request_fail", {
+          turnId,
+          ms: elapsedMs,
+          status: response.status,
+          message: response.statusText,
+        });
+        const body = await response.text();
+        throw new Error(`TTS request failed (${response.status}): ${body}`);
+      }
+
+      const audioBlob = await response.blob();
+      logDebug("tts_request_ok", {
+        turnId,
+        ms: elapsedMs,
+        bytes: audioBlob.size,
+      });
+      const url = URL.createObjectURL(audioBlob);
+      audioUrlRef.current = url;
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onended = () => {
+        logDebug("audio_play_end", { turnId });
+        stopAudioPlayback();
+      };
+      audio.onerror = () => {
+        logDebug("audio_play_error", { turnId });
+        stopAudioPlayback();
+      };
+
+      try {
+        logDebug("audio_play_start", { turnId });
+        await audio.play();
+      } catch (err) {
+        logDebug("audio_play_error", { turnId });
+        logDebug("error", {
+          step: "audio_playback",
+          message: err instanceof Error ? err.message : String(err),
+          turnId,
+        });
+        throw new Error(
+          err instanceof Error
+            ? `Unable to play audio: ${err.message}`
+            : "Unable to play audio response."
+        );
+      }
+
+      return;
+    } catch (err) {
+      const elapsedMs = Date.now() - startedAt;
+      if (!loggedFailure) {
+        logDebug("tts_request_fail", {
+          turnId,
+          ms: elapsedMs,
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
+      logDebug("error", {
+        step: "tts_request",
+        message: err instanceof Error ? err.message : String(err),
+        turnId,
+      });
+      throw err;
+    }
+  };
+
+  const resetSession = (options?: { logReset?: boolean }) => {
+    if (options?.logReset !== false) {
+      logDebug("reset_click", { turnId: currentTurnIdRef.current });
+    }
     stopRecorderIfActive({ skipOnStop: true });
     stopAudioPlayback();
     cleanupStream();
@@ -537,6 +711,18 @@ export function InterviewTool() {
     setIsProcessing(false);
     setIsRecording(false);
     setRecordingNotice(null);
+  };
+
+  const handleReset = () => {
+    resetSession({ logReset: true });
+  };
+
+  const handleClearSavedSession = () => {
+    logDebug("clear_saved_session_click", { turnId: currentTurnIdRef.current });
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(SESSION_STORAGE_KEY);
+    }
+    resetSession({ logReset: false });
   };
 
   return (
@@ -595,10 +781,10 @@ export function InterviewTool() {
                   Start Interview
                 </button>
               ) : null}
-              <button
-                type="button"
-                onClick={isRecording ? handleStopRecording : handleStartRecording}
-                disabled={isProcessing}
+                <button
+                  type="button"
+                  onClick={isRecording ? handleStopRecordingClick : handleStartRecording}
+                  disabled={isProcessing}
                 className={`rounded-full px-6 py-3 text-sm font-semibold transition ${
                   isRecording
                     ? "bg-red-500 text-white hover:bg-red-600"
@@ -616,6 +802,16 @@ export function InterviewTool() {
                 }`}
               >
                 Reset
+              </button>
+              <button
+                type="button"
+                onClick={handleClearSavedSession}
+                disabled={isProcessing}
+                className={`rounded-full border border-border/60 px-6 py-3 text-sm font-semibold text-foreground/70 transition hover:border-border ${
+                  isProcessing ? "cursor-not-allowed opacity-60" : ""
+                }`}
+              >
+                Clear Saved Session
               </button>
               <button
                 type="button"
