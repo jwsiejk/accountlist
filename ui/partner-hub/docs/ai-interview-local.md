@@ -27,6 +27,20 @@ Ports used:
 
 Note: the first STT request may download the model and take a bit longer.
 
+## Quick Start (Windows PowerShell)
+
+From `ui/partner-hub`, run:
+
+```
+.\scripts\ai-interview-services-up.ps1
+```
+
+When you're done:
+
+```
+.\scripts\ai-interview-services-down.ps1
+```
+
 ## Healthchecks
 
 Each local service provides a health endpoint that returns JSON:
