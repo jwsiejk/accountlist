@@ -10,12 +10,22 @@ services:
       STT_MODEL: ${STT_MODEL:-base.en}
     volumes:
       - ai-interview-stt-cache:/root/.cache
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   ai-interview-tts:
     build:
       context: ./services/tts
     ports:
       - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   ai-interview-stt-cache:
