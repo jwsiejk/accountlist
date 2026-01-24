@@ -10,6 +10,26 @@ Run these services locally (defaults shown):
 - **STT (speech-to-text)**: `http://127.0.0.1:9000`
 - **TTS (text-to-speech)**: `http://127.0.0.1:8000`
 
+## Local Services (Docker compose)
+
+These containers are intended for **local development only**.
+
+From `ui/partner-hub/dev/ai-interview`, run:
+
+```
+docker compose up -d
+```
+
+Ports used:
+
+- `9000` → STT (`/v1/audio/transcriptions`)
+- `8000` → TTS (`/v1/audio/speech`)
+
+Verify health endpoints:
+
+- `http://127.0.0.1:9000/health`
+- `http://127.0.0.1:8000/health`
+
 ## Environment variables
 
 Set these in `.env.local` (see `.env.local.example`):
