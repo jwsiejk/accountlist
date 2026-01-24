@@ -1,0 +1,21 @@
+version: "3.9"
+
+services:
+  ai-interview-stt:
+    build:
+      context: ./services/stt
+    ports:
+      - "9000:9000"
+    environment:
+      STT_MODEL: ${STT_MODEL:-base.en}
+    volumes:
+      - ai-interview-stt-cache:/root/.cache
+
+  ai-interview-tts:
+    build:
+      context: ./services/tts
+    ports:
+      - "8000:8000"
+
+volumes:
+  ai-interview-stt-cache:
