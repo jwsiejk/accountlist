@@ -25,10 +25,14 @@ Ports used:
 - `9000` → STT (`/v1/audio/transcriptions`)
 - `8000` → TTS (`/v1/audio/speech`)
 
-Verify health endpoints:
+Note: the first STT request may download the model and take a bit longer.
 
-- `http://127.0.0.1:9000/health`
-- `http://127.0.0.1:8000/health`
+## Healthchecks
+
+Each local service provides a health endpoint that returns JSON:
+
+- `http://127.0.0.1:9000/health` → `{ "ok": true }`
+- `http://127.0.0.1:8000/health` → `{ "ok": true }`
 
 ## Environment variables
 
