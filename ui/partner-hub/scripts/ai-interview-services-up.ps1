@@ -1,6 +1,17 @@
 $composeFile = Join-Path $PSScriptRoot "..\dev\ai-interview\docker-compose.yml"
 
 Write-Host "Starting AI interview services..."
+if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
+  Write-Host "Docker Desktop not running"
+  exit 1
+}
+
+docker compose version *> $null
+if ($LASTEXITCODE -ne 0) {
+  Write-Host "Docker Compose is not available. Please install Docker Desktop."
+  exit 1
+}
+
 docker compose -f $composeFile up -d --build
 if ($LASTEXITCODE -ne 0) {
   Write-Host "Failed to start docker compose services."
@@ -44,7 +55,7 @@ function Wait-ForHealth {
   param (
     [string]$Name,
     [string]$Url,
-    [int]$Retries = 10,
+    [int]$Retries = 60,
     [int]$DelaySeconds = 2
   )
 
@@ -66,6 +77,9 @@ $sttHealthy = Wait-ForHealth -Name "STT" -Url "http://127.0.0.1:9000/health"
 $ttsHealthy = Wait-ForHealth -Name "TTS" -Url "http://127.0.0.1:8000/health"
 
 if (-not $sttHealthy -or -not $ttsHealthy) {
+  Write-Host "Service health checks failed. Collecting diagnostics..."
+  docker compose -f $composeFile ps
+  docker compose -f $composeFile logs --tail 150
   exit 1
 }
 
