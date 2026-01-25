@@ -44,6 +44,8 @@ try {
 $client = [System.Net.Http.HttpClient]::new()
 $form = [System.Net.Http.MultipartFormDataContent]::new()
 $fileContent = $null
+$response = $null
+$responseBody = $null
 
 $sttEndpoint = $SttUrl.TrimEnd('/') + "/v1/audio/transcriptions"
 
