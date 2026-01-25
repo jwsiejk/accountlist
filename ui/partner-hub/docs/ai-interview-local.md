@@ -50,6 +50,17 @@ Each local service provides a health endpoint that returns JSON:
 - `http://127.0.0.1:9000/health` → `{ "ok": true }`
 - `http://127.0.0.1:8000/health` → `{ "ok": true }`
 
+## Smoke tests (Windows PowerShell)
+
+From `ui/partner-hub`, run:
+
+```
+.\scripts\ai-interview-tts-smoke.ps1
+.\scripts\ai-interview-stt-smoke.ps1
+```
+
+The TTS command saves output to `ui/partner-hub/tmp/tts-smoke.mp3`. The STT command generates a tiny WAV file in `ui/partner-hub/tmp/stt-smoke.wav` and prints the transcription response.
+
 ## Environment variables
 
 Set these in `.env.local` (see `.env.local.example`):
