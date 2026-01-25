@@ -12,7 +12,11 @@ MAX_INPUT_LENGTH = 2000
 MAX_ERROR_DETAIL_LENGTH = 500
 
 
-_CONTROL_CHAR_PATTERN = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]")
+_CONTROL_CHAR_PATTERN = re.compile(r"[\x00-\x1F\x7F]")
+
+
+def truncate_error_detail(detail: str) -> str:
+    return detail[:MAX_ERROR_DETAIL_LENGTH]
 
 
 def sanitize_tts_text(text: str) -> str:
@@ -83,9 +87,7 @@ def speech(request: SpeechRequest) -> Response:
                 input=sanitized_text,
             )
         except subprocess.CalledProcessError as exc:
-            stderr = (exc.stderr or "").strip()
-            if len(stderr) > MAX_ERROR_DETAIL_LENGTH:
-                stderr = f"{stderr[:MAX_ERROR_DETAIL_LENGTH]}..."
+            stderr = truncate_error_detail((exc.stderr or "").strip())
             raise HTTPException(status_code=500, detail=f"espeak failed: {stderr}")
 
         if response_format == "wav":
@@ -103,9 +105,7 @@ def speech(request: SpeechRequest) -> Response:
                 text=True,
             )
         except subprocess.CalledProcessError as exc:
-            stderr = (exc.stderr or "").strip()
-            if len(stderr) > MAX_ERROR_DETAIL_LENGTH:
-                stderr = f"{stderr[:MAX_ERROR_DETAIL_LENGTH]}..."
+            stderr = truncate_error_detail((exc.stderr or "").strip())
             raise HTTPException(status_code=500, detail=f"ffmpeg failed: {stderr}")
 
         with open(mp3_path, "rb") as mp3_handle:
