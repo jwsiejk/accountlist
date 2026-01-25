@@ -43,16 +43,51 @@ try {
 
 $client = [System.Net.Http.HttpClient]::new()
 $form = [System.Net.Http.MultipartFormDataContent]::new()
-$fileBytes = [System.IO.File]::ReadAllBytes($wavPath)
-$fileContent = [System.Net.Http.ByteArrayContent]::new($fileBytes)
-$fileContent.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse("audio/wav")
-$form.Add($fileContent, "file", "stt-smoke.wav")
+$fileContent = $null
 
-$response = $client.PostAsync(($SttUrl.TrimEnd('/') + "/v1/audio/transcriptions"), $form).Result
-$responseBody = $response.Content.ReadAsStringAsync().Result
+$sttEndpoint = $SttUrl.TrimEnd('/') + "/v1/audio/transcriptions"
 
-if (-not $response.IsSuccessStatusCode) {
-  throw "STT request failed with status $($response.StatusCode): $responseBody"
+try {
+  $fileBytes = [System.IO.File]::ReadAllBytes($wavPath)
+  $fileContent = [System.Net.Http.ByteArrayContent]::new($fileBytes)
+  $fileContent.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse("audio/wav")
+  $form.Add($fileContent, "file", "stt-smoke.wav")
+
+  $response = $client.PostAsync($sttEndpoint, $form).Result
+  $responseBody = $response.Content.ReadAsStringAsync().Result
+
+  if (-not $response.IsSuccessStatusCode) {
+    throw "STT request failed with status $($response.StatusCode)"
+  }
+
+  Write-Host $responseBody
+  Write-Host "Silence sample may return empty text; success is HTTP 200."
+  exit 0
+} catch {
+  Write-Host "STT request failed."
+  Write-Host "URL called: $sttEndpoint"
+
+  $statusCode = $null
+  $responseBody = $null
+  if ($null -ne $response) {
+    $statusCode = [int]$response.StatusCode
+    $responseBody = $response.Content.ReadAsStringAsync().Result
+  }
+
+  if ($null -ne $statusCode) {
+    Write-Host "HTTP status code: $statusCode"
+  }
+  if ($null -ne $responseBody) {
+    if ($responseBody.Length -gt 500) {
+      $responseBody = $responseBody.Substring(0, 500) + "..."
+    }
+    Write-Host "Response body: $responseBody"
+  }
+  exit 1
+} finally {
+  if ($null -ne $fileContent) {
+    $fileContent.Dispose()
+  }
+  $form.Dispose()
+  $client.Dispose()
 }
-
-Write-Host $responseBody

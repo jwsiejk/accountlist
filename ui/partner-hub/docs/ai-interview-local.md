@@ -59,7 +59,7 @@ From `ui/partner-hub`, run:
 .\scripts\ai-interview-stt-smoke.ps1
 ```
 
-The TTS command saves output to `ui/partner-hub/tmp/tts-smoke.mp3`. The STT command generates a tiny WAV file in `ui/partner-hub/tmp/stt-smoke.wav` and prints the transcription response.
+The TTS command saves output to `ui/partner-hub/tmp/tts-smoke.mp3`. The STT command generates a tiny WAV file in `ui/partner-hub/tmp/stt-smoke.wav` and prints the transcription response. STT smoke uses a silent WAV; an empty transcript is expected but the request should return 200.
 
 ## Environment variables
 
