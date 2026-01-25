@@ -12,7 +12,7 @@ if ($LASTEXITCODE -ne 0) {
   exit 0
 }
 
-docker compose -f $composeFile down
+docker compose -f $composeFile down *> $null
 if ($LASTEXITCODE -ne 0) {
   $runningServices = docker compose -f $composeFile ps -q
   if ([string]::IsNullOrWhiteSpace($runningServices)) {
