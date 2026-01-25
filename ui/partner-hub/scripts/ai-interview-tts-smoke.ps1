@@ -1,8 +1,9 @@
 $TtsUrl = if ($env:AI_INTERVIEW_TTS_URL) { $env:AI_INTERVIEW_TTS_URL } else { "http://127.0.0.1:8000" }
 
 $scriptRoot = $PSScriptRoot
-$tmpDir = Join-Path $scriptRoot ".." "tmp"
-$null = New-Item -ItemType Directory -Path $tmpDir -Force
+$repoRoot = Resolve-Path (Join-Path $scriptRoot "..")
+$tmpDir = Join-Path $repoRoot "tmp"
+New-Item -ItemType Directory -Path $tmpDir -Force | Out-Null
 
 $outputPath = Join-Path $tmpDir "tts-smoke.mp3"
 $payload = @{
@@ -13,7 +14,19 @@ $payload = @{
 $ttsEndpoint = $TtsUrl.TrimEnd('/') + "/v1/audio/speech"
 
 try {
-  $response = Invoke-WebRequest -Uri $ttsEndpoint -Method Post -ContentType "application/json" -Body $payload -OutFile $outputPath -ErrorAction Stop
+  $iwrParams = @{
+    Method = "Post"
+    Uri = $ttsEndpoint
+    ContentType = "application/json"
+    Body = $payload
+    OutFile = $outputPath
+    ErrorAction = "Stop"
+    TimeoutSec = 60
+  }
+  if ((Get-Command Invoke-WebRequest).Parameters.ContainsKey("UseBasicParsing")) {
+    $iwrParams.UseBasicParsing = $true
+  }
+  $response = Invoke-WebRequest @iwrParams
 } catch {
   Write-Host "TTS request failed."
   Write-Host "URL called: $ttsEndpoint"

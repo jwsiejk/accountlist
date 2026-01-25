@@ -1,8 +1,9 @@
 $SttUrl = if ($env:AI_INTERVIEW_STT_URL) { $env:AI_INTERVIEW_STT_URL } else { "http://127.0.0.1:9000" }
 
 $scriptRoot = $PSScriptRoot
-$tmpDir = Join-Path $scriptRoot ".." "tmp"
-$null = New-Item -ItemType Directory -Path $tmpDir -Force
+$repoRoot = Resolve-Path (Join-Path $scriptRoot "..")
+$tmpDir = Join-Path $repoRoot "tmp"
+New-Item -ItemType Directory -Path $tmpDir -Force | Out-Null
 
 $wavPath = Join-Path $tmpDir "stt-smoke.wav"
 
