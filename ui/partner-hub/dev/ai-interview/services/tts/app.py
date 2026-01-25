@@ -37,19 +37,26 @@ def speech(request: SpeechRequest) -> Response:
     if response_format not in {"mp3", "wav"}:
         raise HTTPException(status_code=400, detail="Unsupported response_format")
 
+    voice = (request.voice or "").strip()
+    if not voice:
+        voice = "en-us"
+
     mp3_path = None
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as wav_file:
         wav_path = wav_file.name
 
     try:
         command = ["espeak-ng", "-w", wav_path]
-        if request.voice:
-            command.extend(["-v", request.voice])
+        if voice:
+            command.extend(["-v", voice])
         command.append(text)
         try:
-            subprocess.run(command, check=True)
-        except subprocess.CalledProcessError:
-            raise HTTPException(status_code=500, detail="espeak failed")
+            subprocess.run(command, check=True, capture_output=True, text=True)
+        except subprocess.CalledProcessError as exc:
+            stderr = (exc.stderr or "").strip()
+            if len(stderr) > 500:
+                stderr = f"{stderr[:500]}..."
+            raise HTTPException(status_code=500, detail=f"espeak failed: {stderr}")
 
         if response_format == "wav":
             with open(wav_path, "rb") as wav_handle:
