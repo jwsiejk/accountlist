@@ -12,7 +12,7 @@ MAX_INPUT_LENGTH = 2000
 MAX_ERROR_DETAIL_LENGTH = 500
 
 
-_CONTROL_CHAR_PATTERN = re.compile(r"[\x00-\x1F\x7F]")
+_NON_PRINTABLE_PATTERN = re.compile(r"[\x00-\x1F\x7F-\x9F]")
 
 
 def truncate_error_detail(detail: str) -> str:
@@ -21,8 +21,7 @@ def truncate_error_detail(detail: str) -> str:
 
 def sanitize_tts_text(text: str) -> str:
     sanitized = text.replace("\r\n", "\n").replace("\r", "\n")
-    sanitized = sanitized.replace("`", "")
-    sanitized = sanitized.replace("**", "").replace("__", "")
+    sanitized = sanitized.replace("`", "").replace("**", "").replace("__", "")
     sanitized = (
         sanitized.replace("“", '"')
         .replace("”", '"')
@@ -31,8 +30,10 @@ def sanitize_tts_text(text: str) -> str:
         .replace("—", "-")
         .replace("–", "-")
     )
-    sanitized = _CONTROL_CHAR_PATTERN.sub("", sanitized)
+    sanitized = _NON_PRINTABLE_PATTERN.sub("", sanitized)
     sanitized = re.sub(r"\s+", " ", sanitized).strip()
+    if len(sanitized) > MAX_INPUT_LENGTH:
+        raise ValueError(f"Input text exceeds {MAX_INPUT_LENGTH} characters")
     return sanitized
 
 
@@ -53,14 +54,12 @@ def speech(request: SpeechRequest) -> Response:
     text = request.input or request.text
     if not text:
         raise HTTPException(status_code=400, detail="Missing input text")
-    sanitized_text = sanitize_tts_text(text)
+    try:
+        sanitized_text = sanitize_tts_text(text)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     if not sanitized_text:
         raise HTTPException(status_code=400, detail="Missing input text")
-    if len(sanitized_text) > MAX_INPUT_LENGTH:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Input text exceeds {MAX_INPUT_LENGTH} characters",
-        )
 
     response_format = (request.response_format or "mp3").lower()
     if response_format not in {"mp3", "wav"}:
