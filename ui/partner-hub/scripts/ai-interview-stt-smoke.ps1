@@ -42,9 +42,6 @@ try {
   $stream.Dispose()
 }
 
-$client = [System.Net.Http.HttpClient]::new()
-$form = [System.Net.Http.MultipartFormDataContent]::new()
-$fileContent = $null
 $response = $null
 $responseBody = $null
 
@@ -52,16 +49,30 @@ $sttEndpoint = $SttUrl.TrimEnd('/') + "/v1/audio/transcriptions"
 
 try {
   $fileBytes = [System.IO.File]::ReadAllBytes($wavPath)
-  $fileContent = [System.Net.Http.ByteArrayContent]::new($fileBytes)
-  $fileContent.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse("audio/wav")
-  $form.Add($fileContent, "file", "stt-smoke.wav")
+  $boundary = [System.Guid]::NewGuid().ToString()
+  $header = "--$boundary`r`nContent-Disposition: form-data; name=`"file`"; filename=`"stt-smoke.wav`"`r`nContent-Type: audio/wav`r`n`r`n"
+  $footer = "`r`n--$boundary--`r`n"
+  $headerBytes = [System.Text.Encoding]::UTF8.GetBytes($header)
+  $footerBytes = [System.Text.Encoding]::UTF8.GetBytes($footer)
+  $bodyBytes = New-Object byte[] ($headerBytes.Length + $fileBytes.Length + $footerBytes.Length)
+  [System.Array]::Copy($headerBytes, 0, $bodyBytes, 0, $headerBytes.Length)
+  [System.Array]::Copy($fileBytes, 0, $bodyBytes, $headerBytes.Length, $fileBytes.Length)
+  [System.Array]::Copy($footerBytes, 0, $bodyBytes, $headerBytes.Length + $fileBytes.Length, $footerBytes.Length)
 
-  $response = $client.PostAsync($sttEndpoint, $form).Result
-  $responseBody = $response.Content.ReadAsStringAsync().Result
-
-  if (-not $response.IsSuccessStatusCode) {
-    throw "STT request failed with status $($response.StatusCode)"
+  $iwrParams = @{
+    Method = "Post"
+    Uri = $sttEndpoint
+    ContentType = "multipart/form-data; boundary=$boundary"
+    Body = $bodyBytes
+    ErrorAction = "Stop"
+    TimeoutSec = 60
   }
+  if ((Get-Command Invoke-WebRequest).Parameters.ContainsKey("UseBasicParsing")) {
+    $iwrParams.UseBasicParsing = $true
+  }
+
+  $response = Invoke-WebRequest @iwrParams
+  $responseBody = $response.Content
 
   Write-Host $responseBody
   Write-Host "Silence sample may return empty text; success is HTTP 200."
@@ -72,9 +83,24 @@ try {
 
   $statusCode = $null
   $responseBody = $null
-  if ($null -ne $response) {
-    $statusCode = [int]$response.StatusCode
-    $responseBody = $response.Content.ReadAsStringAsync().Result
+  $exception = $_.Exception
+  if ($exception -and $exception.Response) {
+    if ($exception.Response -is [System.Net.Http.HttpResponseMessage]) {
+      $statusCode = [int]$exception.Response.StatusCode
+      $responseBody = $exception.Response.Content.ReadAsStringAsync().Result
+    } elseif ($exception.Response -is [System.Net.HttpWebResponse]) {
+      $statusCode = [int]$exception.Response.StatusCode
+      $stream = $exception.Response.GetResponseStream()
+      if ($stream) {
+        $reader = [System.IO.StreamReader]::new($stream)
+        try {
+          $responseBody = $reader.ReadToEnd()
+        } finally {
+          $reader.Dispose()
+          $stream.Dispose()
+        }
+      }
+    }
   }
 
   if ($null -ne $statusCode) {
@@ -87,10 +113,4 @@ try {
     Write-Host "Response body: $responseBody"
   }
   exit 1
-} finally {
-  if ($null -ne $fileContent) {
-    $fileContent.Dispose()
-  }
-  $form.Dispose()
-  $client.Dispose()
 }
