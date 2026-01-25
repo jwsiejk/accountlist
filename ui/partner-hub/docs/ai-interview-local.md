@@ -35,6 +35,8 @@ From `ui/partner-hub`, run:
 .\scripts\ai-interview-services-up.ps1
 ```
 
+First run may take a couple minutes while images build.
+
 When you're done:
 
 ```
