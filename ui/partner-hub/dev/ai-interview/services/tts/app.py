@@ -7,6 +7,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
 
+if not logging.getLogger().handlers:
+    logging.basicConfig(level=logging.INFO)
+
 app = FastAPI()
 logger = logging.getLogger("ai_interview_tts")
 

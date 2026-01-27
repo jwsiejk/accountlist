@@ -60,7 +60,19 @@ export async function POST(req: Request) {
 
   try {
     const upstreamUrl = `${baseUrl.replace(/\/$/, "")}/v1/audio/speech`;
-    serverLog("upstream_request", { route, upstreamUrl, turnId });
+    const requestId = req.headers.get("x-request-id");
+    const rawVoicePresent = body?.voice !== undefined;
+    const trimmedVoice = voice ?? null;
+    const forwardVoice = Boolean(voice);
+    serverLog("upstream_request", {
+      route,
+      upstreamUrl,
+      turnId,
+      requestId,
+      rawVoicePresent,
+      trimmedVoice,
+      forwardVoice,
+    });
     const upstreamStart = nowMs();
     const resp = await fetch(upstreamUrl, {
       method: "POST",
@@ -80,15 +92,42 @@ export async function POST(req: Request) {
     });
 
     if (!resp.ok) {
-      const detail = await resp.text().catch(() => "");
-      logRouteOut(502);
+      let rawBody = "";
+      try {
+        rawBody = await resp.text();
+      } catch (readError) {
+        serverLog("upstream_error", {
+          route,
+          status: resp.status,
+          turnId,
+          message: readError instanceof Error ? readError.message : String(readError),
+        });
+        logRouteOut(502);
+        return NextResponse.json(
+          { error: "TTS upstream response could not be read." },
+          { status: 502, headers: responseHeaders },
+        );
+      }
+      const contentType = resp.headers.get("content-type") || "";
+      let parsedJson: unknown = null;
+      if (contentType.includes("application/json") || rawBody.trim().startsWith("{") || rawBody.trim().startsWith("[")) {
+        try {
+          parsedJson = JSON.parse(rawBody);
+        } catch {
+          parsedJson = null;
+        }
+      }
+      logRouteOut(resp.status);
+      if (parsedJson) {
+        return NextResponse.json(parsedJson, { status: resp.status, headers: responseHeaders });
+      }
+      const detail = rawBody.trim();
       return NextResponse.json(
         {
           error: "TTS request failed.",
-          status: resp.status,
-          detail: detail.slice(0, 500),
+          detail: detail ? detail.slice(0, 500) : "Upstream error without a response body.",
         },
-        { status: 502, headers: responseHeaders },
+        { status: resp.status, headers: responseHeaders },
       );
     }
 
