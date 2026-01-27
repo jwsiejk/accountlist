@@ -46,7 +46,14 @@ export async function POST(req: Request) {
 
   const baseUrl = process.env.AI_INTERVIEW_TTS_URL?.trim() || "http://127.0.0.1:8000";
   const model = process.env.AI_INTERVIEW_TTS_MODEL?.trim() || "tts-1";
-  const voice = body?.voice?.trim() || "alloy";
+  const voice = body?.voice?.trim();
+  if (body?.voice !== undefined && !voice) {
+    logRouteOut(400);
+    return NextResponse.json(
+      { error: "voice must be a non-empty string when provided." },
+      { status: 400, headers: responseHeaders },
+    );
+  }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
@@ -60,8 +67,8 @@ export async function POST(req: Request) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model,
-        voice,
         input: text,
+        ...(voice ? { voice } : {}),
       }),
       signal: controller.signal,
     });
