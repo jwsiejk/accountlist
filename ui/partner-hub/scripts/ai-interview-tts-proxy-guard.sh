@@ -50,7 +50,7 @@ check_omitted_voice() {
 check_upstream_400_passthrough() {
   local body_file code long_text
   body_file=$(mktemp)
-  long_text=$(node -e 'console.log("a".repeat(2001))')
+  long_text=$(printf 'a%.0s' {1..2001})
   code=$(curl -sS -o "$body_file" -w "%{http_code}" \
     -H "Content-Type: application/json" \
     -d "{\"text\":\"${long_text}\"}" \
