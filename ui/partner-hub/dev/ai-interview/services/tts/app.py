@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 import subprocess
@@ -7,6 +8,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 app = FastAPI()
+logger = logging.getLogger("ai_interview_tts")
 
 MAX_INPUT_LENGTH = 2000
 MAX_ERROR_DETAIL_LENGTH = 500
@@ -65,7 +67,10 @@ def speech(request: SpeechRequest) -> Response:
     if response_format not in {"mp3", "wav"}:
         raise HTTPException(status_code=400, detail="Unsupported response_format")
 
-    voice = (request.voice or "").strip()
+    raw_voice = request.voice
+    voice = (raw_voice or "").strip()
+    if raw_voice is not None and not voice:
+        raise HTTPException(status_code=400, detail="voice must be a non-empty string when provided")
     if not voice:
         voice = "en-us"
 
@@ -77,6 +82,15 @@ def speech(request: SpeechRequest) -> Response:
         command = ["espeak-ng", "--stdin", "-w", wav_path]
         if voice:
             command.extend(["-v", voice])
+        logger.info(
+            "tts_espeak_request voice=%r response_format=%s input_len=%s raw_voice=%r raw_input=%r raw_text=%r",
+            voice,
+            response_format,
+            len(sanitized_text),
+            raw_voice,
+            request.input,
+            request.text,
+        )
         try:
             subprocess.run(
                 command,
