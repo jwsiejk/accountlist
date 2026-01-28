@@ -19,8 +19,9 @@ type BookingWithOffice = {
 export default async function BookingsPage({
   searchParams,
 }: {
-  searchParams?: { created?: string };
+  searchParams?: Promise<{ created?: string }>;
 }) {
+  const sp = await searchParams;
   const bookings = (await prisma.booking.findMany({
     orderBy: { start: "desc" },
     take: 200,
@@ -41,7 +42,7 @@ export default async function BookingsPage({
         </Link>
       </div>
 
-      {searchParams?.created ? (
+        {sp?.created ? (
         <div className="mt-6 rounded-xl border p-3 text-sm">
           ✅ Booking created.
         </div>
