@@ -17,10 +17,12 @@ export default async function OfficeDetailPage({
   params,
   searchParams,
 }: {
-  params: { id: string };
-  searchParams?: { start?: string; end?: string };
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ start?: string; end?: string }>;
 }) {
-  const id = Number(params.id);
+  const p = await params;
+  const sp = await searchParams;
+  const id = Number(p.id);
   if (!Number.isFinite(id)) notFound();
 
   const office = await prisma.office.findUnique({
@@ -87,8 +89,8 @@ export default async function OfficeDetailPage({
 
         <BookingForm
           officeId={id}
-          initialStartIso={searchParams?.start}
-          initialEndIso={searchParams?.end}
+          initialStartIso={sp?.start}
+          initialEndIso={sp?.end}
         />
       </section>
 

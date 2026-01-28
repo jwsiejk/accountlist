@@ -22,12 +22,13 @@ function toDateKey(d: Date) {
 export default async function OfficeSchedulePage({
   searchParams,
 }: {
-  searchParams?: { date?: string; office?: string; duration?: string };
+  searchParams?: Promise<{ date?: string; office?: string; duration?: string }>;
 }) {
+  const sp = await searchParams;
   const todayKey = toDateKey(new Date());
   const dateKey =
-    searchParams?.date && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.date)
-      ? searchParams.date
+    sp?.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date)
+      ? sp.date
       : todayKey;
 
   const base = new Date(`${dateKey}T00:00:00`);
@@ -42,14 +43,14 @@ export default async function OfficeSchedulePage({
     orderBy: { name: "asc" },
   })) as OfficeRow[];
 
-  const officeParam = Number(searchParams?.office);
+  const officeParam = Number(sp?.office);
   const defaultOfficeId = offices[0]?.id ?? 0;
   const initialOfficeId =
     Number.isFinite(officeParam) && offices.some((o) => o.id === officeParam)
       ? officeParam
       : defaultOfficeId;
 
-  const durationParam = Number(searchParams?.duration);
+  const durationParam = Number(sp?.duration);
   const initialDurationMin = [15, 30, 45, 60].includes(durationParam)
     ? durationParam
     : 60;
