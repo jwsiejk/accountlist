@@ -17,7 +17,7 @@ These containers are intended for **local development only**.
 From `ui/partner-hub/dev/ai-interview`, run:
 
 ```
-docker compose up -d
+docker compose up -d --build
 ```
 
 Ports used:
@@ -50,6 +50,22 @@ Each local service provides a health endpoint that returns JSON:
 - `http://127.0.0.1:9000/health` → `{ "ok": true }`
 - `http://127.0.0.1:8000/health` → `{ "ok": true }`
 
+## TTS model (Piper)
+
+The TTS container uses Piper (neural TTS) with a default English voice baked into the image:
+
+- Default model path: `/models/en_US-amy-medium.onnx`
+- Override with `PIPER_MODEL_PATH` (for a different model in the container)
+
+To use a different model, either rebuild the image with a new model file or mount a local model and set
+`PIPER_MODEL_PATH` to the mounted path.
+
+Example (from `ui/partner-hub/dev/ai-interview`):
+
+```
+PIPER_MODEL_PATH=/models/en_US-amy-medium.onnx docker compose up -d --build
+```
+
 ## Smoke tests (Windows PowerShell)
 
 From `ui/partner-hub`, run:
@@ -71,6 +87,23 @@ AI_INTERVIEW_OLLAMA_URL=http://127.0.0.1:11434
 AI_INTERVIEW_STT_URL=http://127.0.0.1:9000
 AI_INTERVIEW_TTS_URL=http://127.0.0.1:8000
 ```
+
+## Verify TTS (curl)
+
+From `ui/partner-hub/dev/ai-interview`, run:
+
+```
+docker compose build ai-interview-tts
+docker compose up -d
+curl -X POST http://127.0.0.1:8000/v1/audio/speech \
+  -H "Content-Type: application/json" \
+  -d '{"input":"Hello from Piper.","response_format":"mp3"}' \
+  --output /tmp/tts-sample.mp3 \
+  --silent --show-error --write-out "\nHTTP %{http_code} content-type=%{content_type}\n"
+ls -lh /tmp/tts-sample.mp3
+```
+
+Confirm the response shows `HTTP 200` and `content-type=audio/mpeg`, and the output file is larger than a few KB.
 
 ## Planned proxy routes
 
