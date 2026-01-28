@@ -1,0 +1,130 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.validateMapping = exports.normalizeMapping = exports.createEmptyRawMapping = exports.accountMappingSchema = exports.DEFAULT_VISIBLE_FIELD_KEYS = exports.canonicalFields = void 0;
+const zod_1 = require("zod");
+exports.canonicalFields = [
+    {
+        key: "account_name",
+        label: "Account Name",
+        required: true,
+        description: "Primary account or company name.",
+    },
+    {
+        key: "owner_name",
+        label: "Account Owner",
+        required: false,
+        description: "Account owner or salesperson assigned.",
+    },
+    {
+        key: "owner_email",
+        label: "Account Owner Email",
+        required: false,
+        description: "Email address for the account owner.",
+    },
+    {
+        key: "manager_name",
+        label: "Manager Name",
+        required: false,
+        description: "Manager or team lead for the account.",
+    },
+    {
+        key: "pam_name",
+        label: "PAM Name",
+        required: false,
+        description: "Partner account manager name.",
+    },
+    {
+        key: "status",
+        label: "Status",
+        required: false,
+        description: "Prospect or customer status.",
+    },
+    {
+        key: "segment_type",
+        label: "Segment",
+        required: false,
+        description: "Segment or account type.",
+    },
+    {
+        key: "organization",
+        label: "Organization",
+        required: false,
+        description: "Organization or business unit.",
+    },
+    {
+        key: "region",
+        label: "Region",
+        required: false,
+        description: "Region or territory assignment.",
+    },
+    {
+        key: "city",
+        label: "City",
+        required: false,
+        description: "Primary city for the account.",
+    },
+    {
+        key: "state",
+        label: "State",
+        required: false,
+        description: "Primary state or province.",
+    },
+    {
+        key: "country",
+        label: "Country",
+        required: false,
+        description: "Primary country or region.",
+    },
+    {
+        key: "contacts",
+        label: "Contacts",
+        required: false,
+        description: "Contact info (single column allowed).",
+    },
+    {
+        key: "crm_account_id",
+        label: "CRM account ID",
+        required: false,
+        description: "CRM system account identifier.",
+    },
+];
+exports.DEFAULT_VISIBLE_FIELD_KEYS = [
+    "account_name",
+    "owner_name",
+    "owner_email",
+    "manager_name",
+    "pam_name",
+    "status",
+    "segment_type",
+    "organization",
+    "region",
+];
+exports.accountMappingSchema = zod_1.z.object({
+    account_name: zod_1.z.string().min(1, "Account name is required."),
+    owner_name: zod_1.z.string().nullable().optional(),
+    owner_email: zod_1.z.string().nullable().optional(),
+    manager_name: zod_1.z.string().nullable().optional(),
+    pam_name: zod_1.z.string().nullable().optional(),
+    status: zod_1.z.string().nullable().optional(),
+    segment_type: zod_1.z.string().nullable().optional(),
+    organization: zod_1.z.string().nullable().optional(),
+    region: zod_1.z.string().nullable().optional(),
+    city: zod_1.z.string().nullable().optional(),
+    state: zod_1.z.string().nullable().optional(),
+    country: zod_1.z.string().nullable().optional(),
+    contacts: zod_1.z.string().nullable().optional(),
+    crm_account_id: zod_1.z.string().nullable().optional(),
+});
+const createEmptyRawMapping = () => exports.canonicalFields.reduce((acc, field) => {
+    acc[field.key] = "";
+    return acc;
+}, {});
+exports.createEmptyRawMapping = createEmptyRawMapping;
+const normalizeMapping = (mapping) => exports.canonicalFields.reduce((acc, field) => {
+    const value = mapping[field.key]?.trim();
+    acc[field.key] = value ? value : null;
+    return acc;
+}, {});
+exports.normalizeMapping = normalizeMapping;
+const validateMapping = (mapping) => exports.accountMappingSchema.safeParse((0, exports.normalizeMapping)(mapping));
+exports.validateMapping = validateMapping;
