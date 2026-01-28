@@ -24,12 +24,6 @@ type CaseStudyPageProps = {
   }>;
 };
 
-type CaseStudyMetadataProps = {
-  params: {
-    slug: string;
-  };
-};
-
 const beforeAfterCards = [
   {
     title: "Before",
@@ -146,10 +140,11 @@ const AdjacentCaseStudyCard = ({
   );
 };
 
-export function generateMetadata({
+export async function generateMetadata({
   params,
-}: CaseStudyMetadataProps): Metadata {
-  const caseStudy = getCaseStudyBySlug(params.slug);
+}: CaseStudyPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const caseStudy = getCaseStudyBySlug(slug);
 
   if (!caseStudy) {
     notFound();
