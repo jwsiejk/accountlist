@@ -66,6 +66,23 @@ Example (from `ui/partner-hub/dev/ai-interview`):
 PIPER_MODEL_PATH=/models/en_US-amy-medium.onnx docker compose up -d --build
 ```
 
+### Prosody tuning (optional)
+
+You can tune Piper prosody with environment variables (defaults shown):
+
+```
+PIPER_LENGTH_SCALE=1.0   # speaking rate (lower = faster)
+PIPER_NOISE_SCALE=0.667  # expressiveness
+PIPER_NOISE_W=0.8        # variation
+PIPER_SPEAKER_ID=        # optional speaker id (if the model supports it)
+```
+
+Example (from `ui/partner-hub/dev/ai-interview`):
+
+```
+PIPER_LENGTH_SCALE=0.95 PIPER_NOISE_SCALE=0.75 PIPER_NOISE_W=0.9 docker compose up -d --build
+```
+
 ## Smoke tests (Windows PowerShell)
 
 From `ui/partner-hub`, run:
