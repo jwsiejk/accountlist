@@ -19,6 +19,12 @@ import {
 } from "@/lib/case-studies";
 
 type CaseStudyPageProps = {
+  params: Promise<{
+    slug: string;
+  }>;
+};
+
+type CaseStudyMetadataProps = {
   params: {
     slug: string;
   };
@@ -140,7 +146,9 @@ const AdjacentCaseStudyCard = ({
   );
 };
 
-export function generateMetadata({ params }: CaseStudyPageProps): Metadata {
+export function generateMetadata({
+  params,
+}: CaseStudyMetadataProps): Metadata {
   const caseStudy = getCaseStudyBySlug(params.slug);
 
   if (!caseStudy) {
@@ -180,8 +188,11 @@ export function generateMetadata({ params }: CaseStudyPageProps): Metadata {
   };
 }
 
-export default function CaseStudyPage({ params }: CaseStudyPageProps) {
-  const caseStudy = getCaseStudyBySlug(params.slug);
+export default async function CaseStudyPage({
+  params,
+}: CaseStudyPageProps) {
+  const { slug } = await params;
+  const caseStudy = getCaseStudyBySlug(slug);
 
   if (!caseStudy) {
     notFound();
@@ -215,7 +226,7 @@ export default function CaseStudyPage({ params }: CaseStudyPageProps) {
               A tiered storage and backup architecture anchors Epic and PACS
               workloads while isolating recovery lanes for cyber resilience.
             </p>
-            {params.slug === "healthcare-data-center-refresh" ? (
+            {slug === "healthcare-data-center-refresh" ? (
               <Card className="border-border/70 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-4 sm:p-6 motion-safe:transition motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-md motion-reduce:transition-none">
                 <CardHeader>
                   <CardTitle className="text-white">Reference Architecture</CardTitle>
