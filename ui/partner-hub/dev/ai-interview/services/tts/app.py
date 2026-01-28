@@ -15,6 +15,7 @@ logger = logging.getLogger("ai_interview_tts")
 
 MAX_INPUT_LENGTH = 2000
 MAX_ERROR_DETAIL_LENGTH = 500
+DEFAULT_PIPER_MODEL_PATH = "/models/en_US-amy-medium.onnx"
 
 
 _NON_PRINTABLE_PATTERN = re.compile(r"[\x00-\x1F\x7F-\x9F]")
@@ -77,19 +78,31 @@ def speech(request: SpeechRequest) -> Response:
     if not voice:
         voice = "en-us"
 
+    model_path = os.environ.get("PIPER_MODEL_PATH", DEFAULT_PIPER_MODEL_PATH)
+    model_config_path = f"{model_path}.json"
+    if not os.path.isfile(model_path):
+        raise HTTPException(
+            status_code=500,
+            detail=f"Piper model not found at {model_path}. Set PIPER_MODEL_PATH or mount /models.",
+        )
+    if not os.path.isfile(model_config_path):
+        raise HTTPException(
+            status_code=500,
+            detail=f"Piper model config not found at {model_config_path}.",
+        )
+
     mp3_path = None
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as wav_file:
         wav_path = wav_file.name
 
     try:
-        command = ["espeak-ng", "--stdin", "-w", wav_path]
-        if voice:
-            command.extend(["-v", voice])
+        command = ["piper", "--model", model_path, "--output_file", wav_path]
         logger.info(
-            "tts_espeak_request voice=%r response_format=%s input_len=%s raw_voice=%r raw_input=%r raw_text=%r",
+            "tts_piper_request voice=%r response_format=%s input_len=%s model_path=%r raw_voice=%r raw_input=%r raw_text=%r",
             voice,
             response_format,
             len(sanitized_text),
+            model_path,
             raw_voice,
             request.input,
             request.text,
@@ -102,9 +115,11 @@ def speech(request: SpeechRequest) -> Response:
                 text=True,
                 input=sanitized_text,
             )
+        except FileNotFoundError:
+            raise HTTPException(status_code=500, detail="piper binary not found in PATH")
         except subprocess.CalledProcessError as exc:
             stderr = truncate_error_detail((exc.stderr or "").strip())
-            raise HTTPException(status_code=500, detail=f"espeak failed: {stderr}")
+            raise HTTPException(status_code=500, detail=f"piper failed: {stderr}")
 
         if response_format == "wav":
             with open(wav_path, "rb") as wav_handle:
@@ -120,6 +135,8 @@ def speech(request: SpeechRequest) -> Response:
                 capture_output=True,
                 text=True,
             )
+        except FileNotFoundError:
+            raise HTTPException(status_code=500, detail="ffmpeg binary not found in PATH")
         except subprocess.CalledProcessError as exc:
             stderr = truncate_error_detail((exc.stderr or "").strip())
             raise HTTPException(status_code=500, detail=f"ffmpeg failed: {stderr}")

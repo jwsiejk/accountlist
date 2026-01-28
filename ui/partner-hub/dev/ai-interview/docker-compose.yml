@@ -22,6 +22,8 @@ services:
       context: ./services/tts
     ports:
       - "8000:8000"
+    environment:
+      PIPER_MODEL_PATH: ${PIPER_MODEL_PATH:-/models/en_US-amy-medium.onnx}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/health"]
       interval: 10s
