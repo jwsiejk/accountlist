@@ -22,9 +22,10 @@ function addDays(d: Date, days: number) {
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const officeId = Number(params.id);
+  const { id } = await params;
+  const officeId = Number(id);
   if (!Number.isFinite(officeId)) {
     return NextResponse.json({ error: "Invalid office id" }, { status: 400 });
   }
