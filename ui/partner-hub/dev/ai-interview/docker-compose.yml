@@ -24,10 +24,13 @@ services:
       - "8000:8000"
     environment:
       PIPER_MODEL_PATH: ${PIPER_MODEL_PATH:-/models/en_US-amy-medium.onnx}
-      PIPER_LENGTH_SCALE: ${PIPER_LENGTH_SCALE:-1.0}
-      PIPER_NOISE_SCALE: ${PIPER_NOISE_SCALE:-0.667}
-      PIPER_NOISE_W: ${PIPER_NOISE_W:-0.8}
+      PIPER_MODEL_URL: ${PIPER_MODEL_URL:-}
+      PIPER_MODEL_JSON_URL: ${PIPER_MODEL_JSON_URL:-}
+      PIPER_LENGTH_SCALE: ${PIPER_LENGTH_SCALE:-1.10}
+      PIPER_NOISE_SCALE: ${PIPER_NOISE_SCALE:-0.60}
+      PIPER_NOISE_W: ${PIPER_NOISE_W:-0.80}
       PIPER_SPEAKER_ID: ${PIPER_SPEAKER_ID:-}
+      TTS_MP3_BITRATE: ${TTS_MP3_BITRATE:-192k}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/health"]
       interval: 10s
