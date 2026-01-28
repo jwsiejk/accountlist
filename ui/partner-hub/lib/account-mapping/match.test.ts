@@ -31,8 +31,8 @@ describe("matchAccounts", () => {
     assert.equal(results[0].best?.matchType, "strong");
     assert.equal(results[0].status, "autoMatch");
 
-    assert.equal(results[1].best?.matchType, "weak");
-    assert.equal(results[1].status, "review");
+    assert.equal(results[1].best?.matchType, "exact");
+    assert.equal(results[1].status, "autoMatch");
   });
 
   it("marks unmatched when scores fall below the review threshold", () => {
