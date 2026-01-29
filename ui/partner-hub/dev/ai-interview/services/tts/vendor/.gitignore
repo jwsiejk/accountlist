@@ -1,0 +1,5 @@
+*.onnx
+*.json
+*.tar.gz
+*.zip
+*.bin
