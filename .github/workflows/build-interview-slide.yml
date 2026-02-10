@@ -1,0 +1,29 @@
+name: Build interview slide
+
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  build-slide:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install python-pptx
+
+      - name: Build slide deck
+        run: python scripts/slide_fix/fix_slide.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: interview-slide
+          path: artifacts/pure-vs-hpe-metro-ransomware.pptx
