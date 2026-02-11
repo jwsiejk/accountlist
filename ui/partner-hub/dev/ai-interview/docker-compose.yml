@@ -29,7 +29,7 @@ services:
       TTS_MP3_BITRATE: ${TTS_MP3_BITRATE:-192k}
       TTS_ATEMPO: ${TTS_ATEMPO:-0.94}
       TTS_VOICE_ATEMPO_JSON: '${TTS_VOICE_ATEMPO_JSON:-{"se_leader":0.92,"peer_engineer":0.96,"sales_exec":0.90}}'
-      TTS_VOICE_SPEAKER_JSON: '${TTS_VOICE_SPEAKER_JSON:-{"se_leader":"p287","peer_engineer":"p314","sales_exec":"p259"}}'
+      TTS_VOICE_SPEAKER_JSON: '${TTS_VOICE_SPEAKER_JSON:-{"se_leader":"p287","peer_engineer":"p340","sales_exec":"p259"}}'
       TTS_SENTENCE_PAUSE_MS: ${TTS_SENTENCE_PAUSE_MS:-180}
       TTS_CLAUSE_PAUSE_MS: ${TTS_CLAUSE_PAUSE_MS:-90}
       TTS_VOICE_PAUSE_JSON: '${TTS_VOICE_PAUSE_JSON:-{"se_leader":{"sentence":220,"clause":110},"peer_engineer":{"sentence":170,"clause":90},"sales_exec":{"sentence":200,"clause":100}}}'
