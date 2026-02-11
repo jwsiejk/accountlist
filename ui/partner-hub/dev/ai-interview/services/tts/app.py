@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 import time
 import uuid
+import json
 from functools import lru_cache
 
 import numpy as np
@@ -25,6 +26,7 @@ MAX_INPUT_LENGTH = 2000
 MAX_ERROR_DETAIL_LENGTH = 500
 DEFAULT_COQUI_MODEL_NAME = "tts_models/en/vctk/vits"
 DEFAULT_MP3_BITRATE = "192k"
+DEFAULT_TTS_ATEMPO = 0.94
 LAST_SYNTH_METRICS: dict[str, int | str] = {}
 LAST_ENGINE_LOAD_ERROR: str | None = None
 LAST_EFFECTIVE_SPEAKER: str | None = None
@@ -84,6 +86,63 @@ def env_as_bool(name: str, default: bool) -> bool:
     if raw is None:
         return default
     return raw.strip().lower() in {"1", "true", "yes"}
+
+
+def get_tts_atempo_default() -> float:
+    raw_value = os.environ.get("TTS_ATEMPO")
+    if raw_value is None or not raw_value.strip():
+        return DEFAULT_TTS_ATEMPO
+    normalized = raw_value.strip()
+    try:
+        tempo = float(normalized)
+    except ValueError as exc:
+        raise RuntimeError(f"Invalid TTS_ATEMPO='{raw_value}'. Expected float between 0.5 and 2.0") from exc
+    if tempo < 0.5 or tempo > 2.0:
+        raise RuntimeError(f"Invalid TTS_ATEMPO='{raw_value}'. Value must be between 0.5 and 2.0")
+    return tempo
+
+
+def get_voice_atempo_overrides() -> dict[str, float]:
+    raw_value = os.environ.get("TTS_VOICE_ATEMPO_JSON")
+    if raw_value is None or not raw_value.strip():
+        return {}
+    try:
+        parsed = json.loads(raw_value)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            f"Invalid TTS_VOICE_ATEMPO_JSON. Expected JSON object like {{\"voice\":0.94}}: {exc}"
+        ) from exc
+    if not isinstance(parsed, dict):
+        raise RuntimeError("Invalid TTS_VOICE_ATEMPO_JSON. Expected a JSON object mapping voice names to tempo")
+
+    overrides: dict[str, float] = {}
+    for voice_name, tempo_value in parsed.items():
+        if not isinstance(voice_name, str) or not voice_name.strip():
+            raise RuntimeError("Invalid TTS_VOICE_ATEMPO_JSON key. Voice names must be non-empty strings")
+        if isinstance(tempo_value, bool):
+            raise RuntimeError(
+                f"Invalid tempo override for voice '{voice_name}'. Expected numeric value between 0.5 and 2.0"
+            )
+        try:
+            tempo = float(tempo_value)
+        except (TypeError, ValueError) as exc:
+            raise RuntimeError(
+                f"Invalid tempo override for voice '{voice_name}'. Expected numeric value between 0.5 and 2.0"
+            ) from exc
+        if tempo < 0.5 or tempo > 2.0:
+            raise RuntimeError(
+                f"Invalid tempo override for voice '{voice_name}'. Value must be between 0.5 and 2.0"
+            )
+        overrides[voice_name.strip()] = tempo
+    return overrides
+
+
+def get_effective_tempo(request_voice: str | None) -> float:
+    default_tempo = get_tts_atempo_default()
+    overrides = get_voice_atempo_overrides()
+    if request_voice and request_voice in overrides:
+        return overrides[request_voice]
+    return default_tempo
 
 
 def get_effective_runtime_config() -> tuple[str, bool]:
@@ -272,6 +331,15 @@ def debug_info() -> dict:
     configured_speaker = (os.environ.get("COQUI_SPEAKER") or "").strip() or None
     cuda_available = get_cuda_available()
     device_selected = get_selected_device(use_cuda, cuda_available)
+    voice_atempo_raw = os.environ.get("TTS_VOICE_ATEMPO_JSON")
+    voice_atempo_preview = None
+    atempo_config_error = None
+    try:
+        tts_atempo_default = get_tts_atempo_default()
+        voice_atempo_preview = get_voice_atempo_overrides()
+    except RuntimeError as exc:
+        tts_atempo_default = None
+        atempo_config_error = str(exc)
 
     return {
         "ok": True,
@@ -286,6 +354,10 @@ def debug_info() -> dict:
         "speakers_count": LAST_SPEAKERS_COUNT,
         "last_engine_load_error": LAST_ENGINE_LOAD_ERROR,
         "mp3_bitrate": EFFECTIVE_MP3_BITRATE,
+        "tts_atempo_default": tts_atempo_default,
+        "voice_atempo_json": voice_atempo_raw,
+        "voice_atempo_preview": voice_atempo_preview,
+        "atempo_config_error": atempo_config_error,
         "ffmpeg_version": get_ffmpeg_version(),
         "last_synth": LAST_SYNTH_METRICS or None,
     }
@@ -337,10 +409,16 @@ def speech(request: SpeechRequest):
     LAST_SPEAKERS_COUNT = speakers_count
 
     mp3_path = None
+    wav_tempo_path = None
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as wav_file:
         wav_path = wav_file.name
 
     try:
+        try:
+            tempo = get_effective_tempo(voice)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=500, detail=truncate_error_detail(str(exc)))
+
         total_start = time.monotonic()
         tts_start = time.monotonic()
         logger.info(
@@ -370,8 +448,39 @@ def speech(request: SpeechRequest):
         if not os.path.isfile(wav_path) or os.path.getsize(wav_path) == 0:
             raise HTTPException(status_code=500, detail="coqui output WAV was empty")
 
+        ffmpeg_ms = 0
+        wav_output_path = wav_path
+        if response_format == "wav" and tempo != 1.0:
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as wav_tempo_file:
+                wav_tempo_path = wav_tempo_file.name
+            try:
+                ffmpeg_start = time.monotonic()
+                subprocess.run(
+                    [
+                        "ffmpeg",
+                        "-y",
+                        "-i",
+                        wav_path,
+                        "-filter:a",
+                        f"atempo={tempo}",
+                        wav_tempo_path,
+                    ],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                ffmpeg_ms = int((time.monotonic() - ffmpeg_start) * 1000)
+            except FileNotFoundError:
+                raise HTTPException(status_code=500, detail="ffmpeg binary not found in PATH")
+            except subprocess.CalledProcessError as exc:
+                stderr = truncate_error_detail((exc.stderr or "").strip())
+                raise HTTPException(status_code=500, detail=f"ffmpeg failed: {stderr}")
+            if not os.path.isfile(wav_tempo_path) or os.path.getsize(wav_tempo_path) == 0:
+                raise HTTPException(status_code=500, detail="ffmpeg output WAV was empty")
+            wav_output_path = wav_tempo_path
+
         if response_format == "wav":
-            with open(wav_path, "rb") as wav_handle:
+            with open(wav_output_path, "rb") as wav_handle:
                 wav_content = wav_handle.read()
             total_ms = int((time.monotonic() - total_start) * 1000)
             wav_bytes = len(wav_content)
@@ -380,15 +489,18 @@ def speech(request: SpeechRequest):
                     "request_id": request_id,
                     "format": "wav",
                     "tts_ms": tts_ms,
-                    "ffmpeg_ms": 0,
+                    "ffmpeg_ms": ffmpeg_ms,
                     "total_ms": total_ms,
                     "response_bytes": wav_bytes,
+                    "tempo": tempo,
                 }
             )
             logger.info(
-                "tts_timing id=%s format=wav tts_ms=%s ffmpeg_ms=0 total_ms=%s input_len=%s response_bytes=%s",
+                "tts_timing id=%s format=wav tempo=%s tts_ms=%s ffmpeg_ms=%s total_ms=%s input_len=%s response_bytes=%s",
                 request_id,
+                tempo,
                 tts_ms,
+                ffmpeg_ms,
                 total_ms,
                 len(sanitized_text),
                 wav_bytes,
@@ -415,6 +527,8 @@ def speech(request: SpeechRequest):
                     "-i",
                     wav_path,
                     "-vn",
+                    "-filter:a",
+                    f"atempo={tempo}",
                     "-b:a",
                     EFFECTIVE_MP3_BITRATE,
                     "-codec:a",
@@ -447,11 +561,13 @@ def speech(request: SpeechRequest):
                 "ffmpeg_ms": ffmpeg_ms,
                 "total_ms": total_ms,
                 "response_bytes": mp3_bytes,
+                "tempo": tempo,
             }
         )
         logger.info(
-            "tts_timing id=%s format=mp3 tts_ms=%s ffmpeg_ms=%s total_ms=%s input_len=%s response_bytes=%s",
+            "tts_timing id=%s format=mp3 tempo=%s tts_ms=%s ffmpeg_ms=%s total_ms=%s input_len=%s response_bytes=%s",
             request_id,
+            tempo,
             tts_ms,
             ffmpeg_ms,
             total_ms,
@@ -475,5 +591,10 @@ def speech(request: SpeechRequest):
         if mp3_path:
             try:
                 os.remove(mp3_path)
+            except Exception:
+                pass
+        if wav_tempo_path:
+            try:
+                os.remove(wav_tempo_path)
             except Exception:
                 pass

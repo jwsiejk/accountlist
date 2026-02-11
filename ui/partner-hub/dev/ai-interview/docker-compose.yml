@@ -27,6 +27,8 @@ services:
       COQUI_USE_CUDA: ${COQUI_USE_CUDA:-true}
       COQUI_SPEAKER: ${COQUI_SPEAKER:-}
       TTS_MP3_BITRATE: ${TTS_MP3_BITRATE:-192k}
+      TTS_ATEMPO: ${TTS_ATEMPO:-0.94}
+      TTS_VOICE_ATEMPO_JSON: ${TTS_VOICE_ATEMPO_JSON:-}
     gpus: all  # Requires NVIDIA Container Toolkit and WSL2 GPU support
     volumes:
       - ai-interview-tts-local-share:/root/.local/share/tts
