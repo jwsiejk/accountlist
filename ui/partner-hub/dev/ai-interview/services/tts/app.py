@@ -118,6 +118,16 @@ def log_startup_config() -> None:
     )
 
 
+@app.on_event("startup")
+def warm_engine() -> None:
+    model_name, use_cuda = get_effective_runtime_config()
+    try:
+        get_tts_engine(model_name, use_cuda)
+        logger.info("coqui_engine_warm_complete model=%s use_cuda=%s", model_name, use_cuda)
+    except Exception as exc:
+        logger.error("coqui_engine_warm_failed: %s", exc)
+
+
 @lru_cache(maxsize=1)
 def get_ffmpeg_version() -> str | None:
     try:
