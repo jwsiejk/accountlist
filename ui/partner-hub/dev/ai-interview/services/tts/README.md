@@ -10,7 +10,7 @@ This service provides a local OpenAI-compatible TTS endpoint for AI Interview de
 
 ## Runtime
 
-- Engine: **Coqui TTS** (`ghcr.io/coqui-ai/tts`)
+- Engine: **Coqui TTS** (`ghcr.io/coqui-ai/tts:0.22.0`)
 - Default model: `tts_models/en/vctk/vits`
 - GPU: enabled by default through compose (`COQUI_USE_CUDA=true` + `gpus: all`)
 
@@ -26,5 +26,8 @@ This service provides a local OpenAI-compatible TTS endpoint for AI Interview de
 - First run downloads model weights and caches them in docker volumes mounted at:
   - `/root/.local/share/tts`
   - `/root/.cache/tts`
+- `GET /health` stays fast and reports `preflight_ok` / `preflight_detail` without synthesizing audio.
+- If `COQUI_USE_CUDA=true` and CUDA is unavailable, synth requests fail with an explicit actionable error (no silent CPU fallback).
+- Request `voice` is used as a speaker override when the model supports speakers.
 - WAV output is generated directly by Coqui inference.
 - MP3 output is generated with ffmpeg from the WAV intermediate file.
