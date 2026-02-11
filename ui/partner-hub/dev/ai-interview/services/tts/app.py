@@ -27,6 +27,13 @@ MAX_ERROR_DETAIL_LENGTH = 500
 DEFAULT_COQUI_MODEL_NAME = "tts_models/en/vctk/vits"
 DEFAULT_MP3_BITRATE = "192k"
 DEFAULT_TTS_ATEMPO = 0.94
+DEFAULT_SENTENCE_PAUSE_MS = 180
+DEFAULT_CLAUSE_PAUSE_MS = 90
+DEFAULT_TTS_VOICE_PAUSE_OVERRIDES = {
+    "se_leader": {"sentence": 220, "clause": 110},
+    "peer_engineer": {"sentence": 170, "clause": 90},
+    "sales_exec": {"sentence": 200, "clause": 100},
+}
 LAST_SYNTH_METRICS: dict[str, int | float | str] = {}
 LAST_ENGINE_LOAD_ERROR: str | None = None
 LAST_EFFECTIVE_SPEAKER: str | None = None
@@ -58,11 +65,16 @@ def sanitize_tts_text(text: str) -> str:
         .replace("”", '"')
         .replace("‘", "'")
         .replace("’", "'")
-        .replace("—", "-")
         .replace("–", "-")
     )
+    sanitized = sanitized.replace("—", ", ").replace("--", ", ")
     sanitized = _NON_PRINTABLE_PATTERN.sub("", sanitized)
+    sanitized = re.sub(r"\s*([.?!,;:])\s*", r"\1 ", sanitized)
     sanitized = re.sub(r"\s+", " ", sanitized).strip()
+    if len(sanitized) > 350:
+        sanitized = re.sub(r"([.?!])\s+", r"\1\n", sanitized)
+        sanitized = re.sub(r"\s+", " ", sanitized.replace("\n", " \n ")).strip()
+        sanitized = re.sub(r"\s*\n\s*", "\n", sanitized)
     if len(sanitized) > MAX_INPUT_LENGTH:
         raise ValueError(f"Input text exceeds {MAX_INPUT_LENGTH} characters")
     return sanitized
@@ -102,6 +114,160 @@ def get_tts_atempo_default() -> float:
     if tempo < 0.5 or tempo > 2.0:
         raise RuntimeError(f"Invalid TTS_ATEMPO='{raw_value}'. Value must be between 0.5 and 2.0")
     return tempo
+
+
+def get_pause_ms_env(name: str, default: int, *, min_value: int, max_value: int) -> int:
+    raw_value = os.environ.get(name)
+    if raw_value is None or not raw_value.strip():
+        return default
+    normalized = raw_value.strip()
+    try:
+        pause_ms = int(normalized)
+    except ValueError as exc:
+        raise RuntimeError(f"Invalid {name}='{raw_value}'. Expected integer {min_value}..{max_value}") from exc
+    if pause_ms < min_value or pause_ms > max_value:
+        raise RuntimeError(f"Invalid {name}='{raw_value}'. Value must be between {min_value} and {max_value}")
+    return pause_ms
+
+
+def get_sentence_pause_default_ms() -> int:
+    return get_pause_ms_env(
+        "TTS_SENTENCE_PAUSE_MS",
+        DEFAULT_SENTENCE_PAUSE_MS,
+        min_value=0,
+        max_value=800,
+    )
+
+
+def get_clause_pause_default_ms() -> int:
+    return get_pause_ms_env(
+        "TTS_CLAUSE_PAUSE_MS",
+        DEFAULT_CLAUSE_PAUSE_MS,
+        min_value=0,
+        max_value=400,
+    )
+
+
+def get_voice_pause_overrides() -> dict[str, dict[str, int]]:
+    raw_value = os.environ.get("TTS_VOICE_PAUSE_JSON")
+    if raw_value is None or not raw_value.strip():
+        return DEFAULT_TTS_VOICE_PAUSE_OVERRIDES.copy()
+    try:
+        parsed = json.loads(raw_value)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            "Invalid TTS_VOICE_PAUSE_JSON. Expected JSON object like "
+            '{"se_leader":{"sentence":220,"clause":110}}'
+        ) from exc
+    if not isinstance(parsed, dict):
+        raise RuntimeError(
+            "Invalid TTS_VOICE_PAUSE_JSON. Expected a JSON object mapping voice names to pause configs"
+        )
+
+    result: dict[str, dict[str, int]] = {}
+    for voice_name, pause_cfg in parsed.items():
+        if not isinstance(voice_name, str) or not voice_name.strip():
+            raise RuntimeError("Invalid TTS_VOICE_PAUSE_JSON key. Voice names must be non-empty strings")
+        if not isinstance(pause_cfg, dict):
+            raise RuntimeError(f"Invalid pause override for voice '{voice_name}'. Expected object")
+        if "sentence" not in pause_cfg or "clause" not in pause_cfg:
+            raise RuntimeError(
+                f"Invalid pause override for voice '{voice_name}'. 'sentence' and 'clause' are required"
+            )
+
+        sentence_value = pause_cfg["sentence"]
+        clause_value = pause_cfg["clause"]
+        if isinstance(sentence_value, bool) or isinstance(clause_value, bool):
+            raise RuntimeError(f"Invalid pause override for voice '{voice_name}'. Values must be integers")
+        try:
+            sentence_ms = int(sentence_value)
+            clause_ms = int(clause_value)
+        except (TypeError, ValueError) as exc:
+            raise RuntimeError(f"Invalid pause override for voice '{voice_name}'. Values must be integers") from exc
+        if sentence_ms < 0 or sentence_ms > 800:
+            raise RuntimeError(
+                f"Invalid sentence pause override for voice '{voice_name}'. Value must be between 0 and 800"
+            )
+        if clause_ms < 0 or clause_ms > 400:
+            raise RuntimeError(
+                f"Invalid clause pause override for voice '{voice_name}'. Value must be between 0 and 400"
+            )
+        result[voice_name.strip()] = {"sentence": sentence_ms, "clause": clause_ms}
+    return result
+
+
+def get_effective_pause_config(request_voice: str | None) -> tuple[int, int]:
+    sentence_pause_ms = get_sentence_pause_default_ms()
+    clause_pause_ms = get_clause_pause_default_ms()
+    voice_overrides = get_voice_pause_overrides()
+    if request_voice and request_voice in voice_overrides:
+        voice_pause = voice_overrides[request_voice]
+        sentence_pause_ms = voice_pause["sentence"]
+        clause_pause_ms = voice_pause["clause"]
+    return sentence_pause_ms, clause_pause_ms
+
+
+def split_long_chunk(chunk_text: str, max_len: int = 220) -> list[str]:
+    normalized = re.sub(r"\s+", " ", chunk_text).strip()
+    if len(normalized) <= max_len:
+        return [normalized] if normalized else []
+
+    words = normalized.split(" ")
+    split_chunks: list[str] = []
+    current: list[str] = []
+    current_len = 0
+    for word in words:
+        if not word:
+            continue
+        word_len = len(word)
+        extra = word_len if current_len == 0 else word_len + 1
+        if current and current_len + extra > max_len:
+            split_chunks.append(" ".join(current).strip())
+            current = [word]
+            current_len = word_len
+            continue
+        current.append(word)
+        current_len += extra
+    if current:
+        split_chunks.append(" ".join(current).strip())
+
+    return [item for item in split_chunks if item]
+
+
+def split_into_chunks(text: str, sentence_pause_ms: int, clause_pause_ms: int) -> list[tuple[str, int]]:
+    normalized = re.sub(r"\s+", " ", text.replace("\n", " ")).strip()
+    if not normalized:
+        return []
+
+    parts = re.split(r"([.?!,;:])", normalized)
+    chunks_with_pauses: list[tuple[str, int]] = []
+
+    for idx in range(0, len(parts), 2):
+        base_text = (parts[idx] or "").strip()
+        delimiter = parts[idx + 1] if idx + 1 < len(parts) else ""
+        if delimiter:
+            base_text = f"{base_text}{delimiter}".strip()
+
+        if not base_text:
+            continue
+
+        pause_after = 0
+        if delimiter in ".?!":
+            pause_after = sentence_pause_ms
+        elif delimiter in ",;:":
+            pause_after = clause_pause_ms
+
+        long_splits = split_long_chunk(base_text)
+        if not long_splits:
+            continue
+        for split_idx, split_text in enumerate(long_splits):
+            split_pause = clause_pause_ms if split_idx < len(long_splits) - 1 else pause_after
+            chunks_with_pauses.append((split_text, split_pause))
+
+    if chunks_with_pauses:
+        last_text, _ = chunks_with_pauses[-1]
+        chunks_with_pauses[-1] = (last_text, 0)
+    return chunks_with_pauses
 
 
 def get_voice_atempo_overrides() -> dict[str, float]:
@@ -201,10 +367,12 @@ EFFECTIVE_MP3_BITRATE = get_bitrate_env("TTS_MP3_BITRATE", DEFAULT_MP3_BITRATE)
 def log_startup_config() -> None:
     model_name, use_cuda = get_effective_runtime_config()
     logger.info(
-        "tts_config model=%s use_cuda=%s mp3_bitrate=%s",
+        "tts_config model=%s use_cuda=%s mp3_bitrate=%s sentence_pause_ms=%s clause_pause_ms=%s",
         model_name,
         use_cuda,
         EFFECTIVE_MP3_BITRATE,
+        get_sentence_pause_default_ms(),
+        get_clause_pause_default_ms(),
     )
 
 
@@ -374,10 +542,13 @@ def debug_info() -> dict:
     device_selected = get_selected_device(use_cuda, cuda_available)
     voice_atempo_raw = os.environ.get("TTS_VOICE_ATEMPO_JSON")
     voice_speaker_raw = os.environ.get("TTS_VOICE_SPEAKER_JSON")
+    voice_pause_raw = os.environ.get("TTS_VOICE_PAUSE_JSON")
     voice_atempo_preview = None
     voice_speaker_preview = None
+    voice_pause_preview = None
     atempo_config_error = None
     speaker_config_error = None
+    pause_config_error = None
     try:
         tts_atempo_default = get_tts_atempo_default()
         voice_atempo_preview = get_voice_atempo_overrides()
@@ -388,6 +559,14 @@ def debug_info() -> dict:
         voice_speaker_preview = get_voice_speaker_map()
     except RuntimeError as exc:
         speaker_config_error = str(exc)
+    try:
+        sentence_pause_ms_default = get_sentence_pause_default_ms()
+        clause_pause_ms_default = get_clause_pause_default_ms()
+        voice_pause_preview = get_voice_pause_overrides()
+    except RuntimeError as exc:
+        sentence_pause_ms_default = None
+        clause_pause_ms_default = None
+        pause_config_error = str(exc)
 
     return {
         "ok": True,
@@ -402,6 +581,9 @@ def debug_info() -> dict:
         "voice_aliases": sorted(list((voice_speaker_preview or {}).keys())),
         "voice_speaker_json_configured": bool(voice_speaker_raw and voice_speaker_raw.strip()),
         "voice_atempo_json_configured": bool(voice_atempo_raw and voice_atempo_raw.strip()),
+        "voice_pause_json": voice_pause_raw,
+        "voice_pause_preview": voice_pause_preview,
+        "voice_pause_json_configured": bool(voice_pause_raw and voice_pause_raw.strip()),
         "effective_voice_alias_last": LAST_EFFECTIVE_VOICE_ALIAS,
         "effective_speaker": LAST_EFFECTIVE_SPEAKER,
         "tempo_used_last": LAST_TEMPO_USED,
@@ -414,6 +596,9 @@ def debug_info() -> dict:
         "voice_atempo_preview": voice_atempo_preview,
         "atempo_config_error": atempo_config_error,
         "speaker_config_error": speaker_config_error,
+        "pause_config_error": pause_config_error,
+        "sentence_pause_ms_default": sentence_pause_ms_default,
+        "clause_pause_ms_default": clause_pause_ms_default,
         "ffmpeg_version": get_ffmpeg_version(),
         "last_synth": LAST_SYNTH_METRICS or None,
     }
@@ -478,6 +663,7 @@ def speech(request: SpeechRequest):
     try:
         try:
             tempo = get_effective_tempo(voice)
+            sentence_pause_ms, clause_pause_ms = get_effective_pause_config(voice)
         except RuntimeError as exc:
             raise HTTPException(status_code=500, detail=truncate_error_detail(str(exc)))
         LAST_TEMPO_USED = tempo
@@ -492,16 +678,32 @@ def speech(request: SpeechRequest):
             model_name,
         )
 
-        try:
-            tts_kwargs = {"text": sanitized_text}
-            if speaker:
-                tts_kwargs["speaker"] = speaker
-            wav = engine.tts(**tts_kwargs)
-        except Exception as exc:
-            detail = truncate_error_detail(str(exc))
-            raise HTTPException(status_code=500, detail=f"coqui tts failed: {detail}")
+        chunks = split_into_chunks(sanitized_text, sentence_pause_ms, clause_pause_ms)
+        if not chunks:
+            raise HTTPException(status_code=500, detail="No TTS chunks generated from sanitized input")
 
-        wav_array = np.array(wav, dtype=np.float32)
+        wav_segments: list[np.ndarray] = []
+        for chunk_text, pause_ms_after in chunks:
+            try:
+                tts_kwargs = {"text": chunk_text}
+                if speaker:
+                    tts_kwargs["speaker"] = speaker
+                wav_part = engine.tts(**tts_kwargs)
+            except Exception as exc:
+                detail = truncate_error_detail(str(exc))
+                raise HTTPException(status_code=500, detail=f"coqui tts failed: {detail}")
+
+            wav_part_array = np.array(wav_part, dtype=np.float32)
+            if wav_part_array.size == 0:
+                raise HTTPException(status_code=500, detail="coqui chunk output WAV was empty")
+            wav_segments.append(wav_part_array)
+
+            if pause_ms_after > 0:
+                silence_samples = int(sample_rate * pause_ms_after / 1000.0)
+                if silence_samples > 0:
+                    wav_segments.append(np.zeros((silence_samples,), dtype=np.float32))
+
+        wav_array = np.concatenate(wav_segments).astype(np.float32, copy=False)
         if wav_array.size == 0:
             raise HTTPException(status_code=500, detail="coqui output WAV was empty")
 
@@ -557,12 +759,16 @@ def speech(request: SpeechRequest):
                     "response_bytes": wav_bytes,
                     "tempo": tempo,
                     "tempo_used": tempo,
+                    "chunks_count": len(chunks),
+                    "sentence_pause_ms_used": sentence_pause_ms,
+                    "clause_pause_ms_used": clause_pause_ms,
                 }
             )
             logger.info(
-                "tts_timing id=%s format=wav tempo=%s tts_ms=%s ffmpeg_ms=%s total_ms=%s input_len=%s response_bytes=%s",
+                "tts_timing id=%s format=wav tempo=%s chunks=%s tts_ms=%s ffmpeg_ms=%s total_ms=%s input_len=%s response_bytes=%s",
                 request_id,
                 tempo,
+                len(chunks),
                 tts_ms,
                 ffmpeg_ms,
                 total_ms,
@@ -627,12 +833,16 @@ def speech(request: SpeechRequest):
                 "response_bytes": mp3_bytes,
                 "tempo": tempo,
                 "tempo_used": tempo,
+                "chunks_count": len(chunks),
+                "sentence_pause_ms_used": sentence_pause_ms,
+                "clause_pause_ms_used": clause_pause_ms,
             }
         )
         logger.info(
-            "tts_timing id=%s format=mp3 tempo=%s tts_ms=%s ffmpeg_ms=%s total_ms=%s input_len=%s response_bytes=%s",
+            "tts_timing id=%s format=mp3 tempo=%s chunks=%s tts_ms=%s ffmpeg_ms=%s total_ms=%s input_len=%s response_bytes=%s",
             request_id,
             tempo,
+            len(chunks),
             tts_ms,
             ffmpeg_ms,
             total_ms,
