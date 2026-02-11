@@ -7,6 +7,7 @@ ENV LC_ALL=C.UTF-8
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg libsndfile1 ca-certificates curl \
+    && ffmpeg -version \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /app/requirements.txt

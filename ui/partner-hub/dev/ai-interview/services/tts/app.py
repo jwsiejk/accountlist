@@ -105,13 +105,17 @@ def get_selected_device(use_cuda: bool, cuda_available: bool) -> str:
 
 
 EFFECTIVE_MP3_BITRATE = get_bitrate_env("TTS_MP3_BITRATE", DEFAULT_MP3_BITRATE)
-_effective_model_name, _effective_use_cuda = get_effective_runtime_config()
-logger.info(
-    "tts_config model=%s use_cuda=%s mp3_bitrate=%s",
-    _effective_model_name,
-    _effective_use_cuda,
-    EFFECTIVE_MP3_BITRATE,
-)
+
+
+@app.on_event("startup")
+def log_startup_config() -> None:
+    model_name, use_cuda = get_effective_runtime_config()
+    logger.info(
+        "tts_config model=%s use_cuda=%s mp3_bitrate=%s",
+        model_name,
+        use_cuda,
+        EFFECTIVE_MP3_BITRATE,
+    )
 
 
 @lru_cache(maxsize=1)
@@ -144,7 +148,7 @@ def engine_preflight() -> tuple[bool, str | None]:
     return True, None
 
 
-@lru_cache(maxsize=8)
+@lru_cache(maxsize=4)
 def get_tts_engine(model_name: str, use_cuda: bool) -> TTS:
     global LAST_ENGINE_LOAD_ERROR
 
@@ -215,6 +219,7 @@ def resolve_speaker(engine: TTS, requested_voice: str | None) -> tuple[str | Non
     speakers_count = len(speakers)
 
     if not speaker_supported:
+        logger.info("single_speaker_model_detected; ignoring voice override")
         if requested:
             logger.info("request_voice_ignored reason=no_multispeaker_support voice=%s", requested)
         if configured_speaker:
@@ -239,10 +244,14 @@ def resolve_speaker(engine: TTS, requested_voice: str | None) -> tuple[str | Non
 @app.get("/health")
 def health() -> dict:
     preflight_ok, preflight_detail = engine_preflight()
+    model_name, use_cuda = get_effective_runtime_config()
+    cuda_available = get_cuda_available()
     return {
         "ok": True,
         "preflight_ok": preflight_ok,
         "preflight_detail": preflight_detail,
+        "cuda_available": cuda_available,
+        "device_selected": get_selected_device(use_cuda, cuda_available),
     }
 
 
@@ -302,10 +311,13 @@ def speech(request: SpeechRequest):
 
     request_id = str(uuid.uuid4())
     model_name, use_cuda = get_effective_runtime_config()
+    cache_hits_before = get_tts_engine.cache_info().hits
     try:
         engine = get_tts_engine(model_name, use_cuda)
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=truncate_error_detail(str(exc)))
+    if get_tts_engine.cache_info().hits > cache_hits_before:
+        logger.info("coqui_engine_cache_hit model=%s use_cuda=%s", model_name, use_cuda)
 
     sample_rate = get_output_sample_rate(engine)
     speaker, speaker_supported, speakers_count = resolve_speaker(engine, voice)
@@ -447,7 +459,7 @@ def speech(request: SpeechRequest):
     finally:
         try:
             os.remove(wav_path)
-        except FileNotFoundError:
+        except Exception:
             pass
         if mp3_path:
             try:
