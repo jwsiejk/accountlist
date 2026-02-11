@@ -21,7 +21,8 @@ This service provides a local OpenAI-compatible TTS endpoint for AI Interview de
 - `COQUI_SPEAKER` (optional; only used when model supports multi-speaker)
 - `TTS_MP3_BITRATE` (default: `192k`, valid range `32k..320k`)
 - `TTS_ATEMPO` (default: `0.94`, valid range `0.5..2.0`)
-- `TTS_VOICE_ATEMPO_JSON` (optional JSON object mapping `voice` to tempo, e.g. `{"se_leader":0.92,"peer_engineer":0.96,"sales_exec":0.98}`)
+- `TTS_VOICE_ATEMPO_JSON` (JSON object mapping `voice` alias to tempo, default: `{"se_leader":0.92,"peer_engineer":0.96,"sales_exec":0.90}`)
+- `TTS_VOICE_SPEAKER_JSON` (JSON object mapping `voice` alias to Coqui speaker ID, default: `{"se_leader":"p287","peer_engineer":"p314","sales_exec":"p259"}`)
 
 ## Notes
 
@@ -30,8 +31,10 @@ This service provides a local OpenAI-compatible TTS endpoint for AI Interview de
   - `/root/.cache/tts`
 - `GET /health` stays fast and reports `preflight_ok` / `preflight_detail` without synthesizing audio.
 - If `COQUI_USE_CUDA=true` and CUDA is unavailable, synth requests fail with an explicit actionable error (no silent CPU fallback).
-- Request `voice` is used as a speaker override when the model supports speakers.
-- Tempo is applied with ffmpeg `atempo` for both output formats.
+- Request `voice` is treated as a persona alias (for example `se_leader`, `peer_engineer`, `sales_exec`).
+- Persona alias to speaker resolution is controlled by `TTS_VOICE_SPEAKER_JSON` and validated against the model speaker inventory.
+- Invalid alias speaker configuration fails fast with an actionable 500 error (`Configured speaker "<mapped>" for alias "<alias>" not found.`); there is no silent fallback for bad alias mappings.
+- Tempo is applied with ffmpeg `atempo` for both output formats. Persona-specific tempo can be set via `TTS_VOICE_ATEMPO_JSON`; otherwise `TTS_ATEMPO` is used as default.
   - `0.92` = slower
   - `0.94` = slightly slower
   - `1.0` = normal speed
