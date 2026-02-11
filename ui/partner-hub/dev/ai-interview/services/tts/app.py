@@ -29,6 +29,8 @@ DEFAULT_MP3_BITRATE = "192k"
 DEFAULT_TTS_ATEMPO = 0.94
 DEFAULT_SENTENCE_PAUSE_MS = 180
 DEFAULT_CLAUSE_PAUSE_MS = 90
+DEFAULT_MAX_CHUNK_CHARS = 160
+DEFAULT_MAX_CHUNK_WORDS = 18
 DEFAULT_TTS_VOICE_PAUSE_OVERRIDES = {
     "se_leader": {"sentence": 220, "clause": 110},
     "peer_engineer": {"sentence": 170, "clause": 90},
@@ -130,6 +132,20 @@ def get_pause_ms_env(name: str, default: int, *, min_value: int, max_value: int)
     return pause_ms
 
 
+def get_chunk_limit_env(name: str, default: int, *, min_value: int, max_value: int) -> int:
+    raw_value = os.environ.get(name)
+    if raw_value is None or not raw_value.strip():
+        return default
+    normalized = raw_value.strip()
+    try:
+        value = int(normalized)
+    except ValueError as exc:
+        raise RuntimeError(f"Invalid {name}='{raw_value}'. Expected integer {min_value}..{max_value}") from exc
+    if value < min_value or value > max_value:
+        raise RuntimeError(f"Invalid {name}='{raw_value}'. Value must be between {min_value} and {max_value}")
+    return value
+
+
 def get_sentence_pause_default_ms() -> int:
     return get_pause_ms_env(
         "TTS_SENTENCE_PAUSE_MS",
@@ -145,6 +161,24 @@ def get_clause_pause_default_ms() -> int:
         DEFAULT_CLAUSE_PAUSE_MS,
         min_value=0,
         max_value=400,
+    )
+
+
+def get_max_chunk_chars() -> int:
+    return get_chunk_limit_env(
+        "TTS_MAX_CHUNK_CHARS",
+        DEFAULT_MAX_CHUNK_CHARS,
+        min_value=80,
+        max_value=260,
+    )
+
+
+def get_max_chunk_words() -> int:
+    return get_chunk_limit_env(
+        "TTS_MAX_CHUNK_WORDS",
+        DEFAULT_MAX_CHUNK_WORDS,
+        min_value=8,
+        max_value=30,
     )
 
 
@@ -234,10 +268,45 @@ def split_long_chunk(chunk_text: str, max_len: int = 220) -> list[str]:
     return [item for item in split_chunks if item]
 
 
-def split_into_chunks(text: str, sentence_pause_ms: int, clause_pause_ms: int) -> list[tuple[str, int]]:
-    normalized = re.sub(r"\s+", " ", text.replace("\n", " ")).strip()
+def force_split_by_words(text: str, max_words: int, max_chars: int) -> list[str]:
+    normalized = re.sub(r"\s+", " ", text).strip()
     if not normalized:
         return []
+
+    chunks: list[str] = []
+    current_words: list[str] = []
+    current_len = 0
+
+    for word in normalized.split(" "):
+        if not word:
+            continue
+
+        word_len = len(word)
+        extra_len = word_len if current_len == 0 else word_len + 1
+        exceeds_word_limit = len(current_words) >= max_words
+        exceeds_char_limit = bool(current_words) and current_len + extra_len > max_chars
+
+        if current_words and (exceeds_word_limit or exceeds_char_limit):
+            chunks.append(" ".join(current_words).strip())
+            current_words = [word]
+            current_len = word_len
+            continue
+
+        current_words.append(word)
+        current_len += extra_len
+
+    if current_words:
+        chunks.append(" ".join(current_words).strip())
+
+    return [chunk for chunk in chunks if chunk]
+
+
+def split_into_chunks(text: str, sentence_pause_ms: int, clause_pause_ms: int) -> tuple[list[tuple[str, int]], str]:
+    normalized = re.sub(r"\s+", " ", text.replace("\n", " ")).strip()
+    if not normalized:
+        return [], "punctuation"
+
+    has_punctuation_delimiter = bool(re.search(r"[.?!,;:]", normalized))
 
     parts = re.split(r"([.?!,;:])", normalized)
     chunks_with_pauses: list[tuple[str, int]] = []
@@ -264,10 +333,22 @@ def split_into_chunks(text: str, sentence_pause_ms: int, clause_pause_ms: int) -
             split_pause = clause_pause_ms if split_idx < len(long_splits) - 1 else pause_after
             chunks_with_pauses.append((split_text, split_pause))
 
+    if len(chunks_with_pauses) <= 1 or not has_punctuation_delimiter:
+        forced_chunks = force_split_by_words(
+            normalized,
+            max_words=get_max_chunk_words(),
+            max_chars=get_max_chunk_chars(),
+        )
+        chunks_with_pauses = []
+        for index, forced_chunk in enumerate(forced_chunks):
+            pause_after = clause_pause_ms if index < len(forced_chunks) - 1 else 0
+            chunks_with_pauses.append((forced_chunk, pause_after))
+        return chunks_with_pauses, "forced_length"
+
     if chunks_with_pauses:
         last_text, _ = chunks_with_pauses[-1]
         chunks_with_pauses[-1] = (last_text, 0)
-    return chunks_with_pauses
+    return chunks_with_pauses, "punctuation"
 
 
 def get_voice_atempo_overrides() -> dict[str, float]:
@@ -664,6 +745,8 @@ def speech(request: SpeechRequest):
         try:
             tempo = get_effective_tempo(voice)
             sentence_pause_ms, clause_pause_ms = get_effective_pause_config(voice)
+            max_chunk_chars = get_max_chunk_chars()
+            max_chunk_words = get_max_chunk_words()
         except RuntimeError as exc:
             raise HTTPException(status_code=500, detail=truncate_error_detail(str(exc)))
         LAST_TEMPO_USED = tempo
@@ -678,9 +761,12 @@ def speech(request: SpeechRequest):
             model_name,
         )
 
-        chunks = split_into_chunks(sanitized_text, sentence_pause_ms, clause_pause_ms)
+        chunks, chunks_reason = split_into_chunks(sanitized_text, sentence_pause_ms, clause_pause_ms)
         if not chunks:
             raise HTTPException(status_code=500, detail="No TTS chunks generated from sanitized input")
+        chunk_lengths = [len(chunk_text) for chunk_text, _ in chunks]
+        avg_chunk_len = round(sum(chunk_lengths) / len(chunk_lengths), 2)
+        max_chunk_len = max(chunk_lengths)
 
         wav_segments: list[np.ndarray] = []
         for chunk_text, pause_ms_after in chunks:
@@ -760,8 +846,13 @@ def speech(request: SpeechRequest):
                     "tempo": tempo,
                     "tempo_used": tempo,
                     "chunks_count": len(chunks),
+                    "chunks_reason": chunks_reason,
+                    "avg_chunk_len": avg_chunk_len,
+                    "max_chunk_len": max_chunk_len,
                     "sentence_pause_ms_used": sentence_pause_ms,
                     "clause_pause_ms_used": clause_pause_ms,
+                    "max_chunk_chars_used": max_chunk_chars,
+                    "max_chunk_words_used": max_chunk_words,
                 }
             )
             logger.info(
@@ -834,8 +925,13 @@ def speech(request: SpeechRequest):
                 "tempo": tempo,
                 "tempo_used": tempo,
                 "chunks_count": len(chunks),
+                "chunks_reason": chunks_reason,
+                "avg_chunk_len": avg_chunk_len,
+                "max_chunk_len": max_chunk_len,
                 "sentence_pause_ms_used": sentence_pause_ms,
                 "clause_pause_ms_used": clause_pause_ms,
+                "max_chunk_chars_used": max_chunk_chars,
+                "max_chunk_words_used": max_chunk_words,
             }
         )
         logger.info(

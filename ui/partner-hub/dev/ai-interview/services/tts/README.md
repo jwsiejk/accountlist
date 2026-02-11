@@ -25,6 +25,8 @@ This service provides a local OpenAI-compatible TTS endpoint for AI Interview de
 - `TTS_VOICE_SPEAKER_JSON` (JSON object mapping `voice` alias to Coqui speaker ID, default: `{"se_leader":"p287","peer_engineer":"p314","sales_exec":"p259"}`)
 - `TTS_SENTENCE_PAUSE_MS` (default: `180`, valid range `0..800`)
 - `TTS_CLAUSE_PAUSE_MS` (default: `90`, valid range `0..400`)
+- `TTS_MAX_CHUNK_CHARS` (default: `160`, valid range `80..260`)
+- `TTS_MAX_CHUNK_WORDS` (default: `18`, valid range `8..30`)
 - `TTS_VOICE_PAUSE_JSON` (JSON object mapping persona aliases to pause overrides, default: `{"se_leader":{"sentence":220,"clause":110},"peer_engineer":{"sentence":170,"clause":90},"sales_exec":{"sentence":200,"clause":100}}`)
 
 ## Notes
@@ -39,7 +41,9 @@ This service provides a local OpenAI-compatible TTS endpoint for AI Interview de
 - Invalid alias speaker configuration fails fast with an actionable 500 error (`Configured speaker "<mapped>" for alias "<alias>" not found.`); there is no silent fallback for bad alias mappings.
 - Tempo is applied with ffmpeg `atempo` for both output formats. Persona-specific tempo can be set via `TTS_VOICE_ATEMPO_JSON`; otherwise `TTS_ATEMPO` is used as default.
 - Input text is normalized and split into sentence/clause chunks before synthesis, then chunk WAVs are concatenated with configurable silent pauses to reduce robotic run-on delivery.
+- Punctuation splitting remains primary, but when punctuation boundaries are weak (`<=1` chunk or no punctuation delimiters), the service force-splits by word/length limits and inserts `clause` pauses between forced chunks.
 - Pause timings default from `TTS_SENTENCE_PAUSE_MS` and `TTS_CLAUSE_PAUSE_MS`, with per-persona overrides from `TTS_VOICE_PAUSE_JSON`.
+- `GET /debug/info` includes `last_synth` metrics such as `chunks_reason` (`punctuation`/`forced_length`), `avg_chunk_len`, and `max_chunk_len`.
   - `0.92` = slower
   - `0.94` = slightly slower
   - `1.0` = normal speed
