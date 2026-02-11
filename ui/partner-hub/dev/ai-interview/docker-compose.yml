@@ -28,7 +28,8 @@ services:
       COQUI_SPEAKER: ${COQUI_SPEAKER:-}
       TTS_MP3_BITRATE: ${TTS_MP3_BITRATE:-192k}
       TTS_ATEMPO: ${TTS_ATEMPO:-0.94}
-      TTS_VOICE_ATEMPO_JSON: ${TTS_VOICE_ATEMPO_JSON:-}
+      TTS_VOICE_ATEMPO_JSON: '${TTS_VOICE_ATEMPO_JSON:-{"se_leader":0.92,"peer_engineer":0.96,"sales_exec":0.90}}'
+      TTS_VOICE_SPEAKER_JSON: '${TTS_VOICE_SPEAKER_JSON:-{"se_leader":"p287","peer_engineer":"p314","sales_exec":"p259"}}'
     gpus: all  # Requires NVIDIA Container Toolkit and WSL2 GPU support
     volumes:
       - ai-interview-tts-local-share:/root/.local/share/tts

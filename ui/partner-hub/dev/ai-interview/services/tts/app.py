@@ -27,9 +27,11 @@ MAX_ERROR_DETAIL_LENGTH = 500
 DEFAULT_COQUI_MODEL_NAME = "tts_models/en/vctk/vits"
 DEFAULT_MP3_BITRATE = "192k"
 DEFAULT_TTS_ATEMPO = 0.94
-LAST_SYNTH_METRICS: dict[str, int | str] = {}
+LAST_SYNTH_METRICS: dict[str, int | float | str] = {}
 LAST_ENGINE_LOAD_ERROR: str | None = None
 LAST_EFFECTIVE_SPEAKER: str | None = None
+LAST_EFFECTIVE_VOICE_ALIAS: str | None = None
+LAST_TEMPO_USED: float | None = None
 LAST_SPEAKER_SUPPORTED = False
 LAST_SPEAKERS_COUNT = 0
 
@@ -135,6 +137,35 @@ def get_voice_atempo_overrides() -> dict[str, float]:
             )
         overrides[voice_name.strip()] = tempo
     return overrides
+
+
+
+
+@lru_cache(maxsize=1)
+def get_voice_speaker_map() -> dict[str, str]:
+    raw_value = os.environ.get("TTS_VOICE_SPEAKER_JSON")
+    if raw_value is None or not raw_value.strip():
+        return {}
+    try:
+        parsed = json.loads(raw_value)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            "Invalid TTS_VOICE_SPEAKER_JSON. Expected JSON object like {\"se_leader\":\"p287\"}:"
+            f" {exc}"
+        ) from exc
+    if not isinstance(parsed, dict):
+        raise RuntimeError("Invalid TTS_VOICE_SPEAKER_JSON. Expected a JSON object mapping aliases to speakers")
+
+    mapping: dict[str, str] = {}
+    for alias_key, speaker_value in parsed.items():
+        if not isinstance(alias_key, str) or not alias_key.strip():
+            raise RuntimeError("Invalid TTS_VOICE_SPEAKER_JSON key. Alias names must be non-empty strings")
+        if not isinstance(speaker_value, str) or not speaker_value.strip():
+            raise RuntimeError(
+                f"Invalid speaker mapping for alias '{alias_key}'. Speaker values must be non-empty strings"
+            )
+        mapping[alias_key.strip()] = speaker_value.strip()
+    return mapping
 
 
 def get_effective_tempo(request_voice: str | None) -> float:
@@ -282,6 +313,7 @@ def get_speaker_inventory(engine: TTS) -> list[str]:
 def resolve_speaker(engine: TTS, requested_voice: str | None) -> tuple[str | None, bool, int]:
     configured_speaker = (os.environ.get("COQUI_SPEAKER") or "").strip() or None
     requested = (requested_voice or "").strip() or None
+    voice_map = get_voice_speaker_map()
 
     speakers = sorted(get_speaker_inventory(engine))
     speaker_supported = len(speakers) > 0
@@ -299,6 +331,15 @@ def resolve_speaker(engine: TTS, requested_voice: str | None) -> tuple[str | Non
         return None, False, 0
 
     effective_speaker = requested or configured_speaker
+    if requested and requested in voice_map:
+        mapped_speaker = voice_map[requested]
+        effective_speaker = mapped_speaker
+        if mapped_speaker not in speakers:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Configured speaker '{mapped_speaker}' for alias '{requested}' not found.",
+            )
+
     if not effective_speaker:
         effective_speaker = speakers[0]
         logger.info("coqui_default_speaker_selected speaker=%s", effective_speaker)
@@ -332,14 +373,21 @@ def debug_info() -> dict:
     cuda_available = get_cuda_available()
     device_selected = get_selected_device(use_cuda, cuda_available)
     voice_atempo_raw = os.environ.get("TTS_VOICE_ATEMPO_JSON")
+    voice_speaker_raw = os.environ.get("TTS_VOICE_SPEAKER_JSON")
     voice_atempo_preview = None
+    voice_speaker_preview = None
     atempo_config_error = None
+    speaker_config_error = None
     try:
         tts_atempo_default = get_tts_atempo_default()
         voice_atempo_preview = get_voice_atempo_overrides()
     except RuntimeError as exc:
         tts_atempo_default = None
         atempo_config_error = str(exc)
+    try:
+        voice_speaker_preview = get_voice_speaker_map()
+    except RuntimeError as exc:
+        speaker_config_error = str(exc)
 
     return {
         "ok": True,
@@ -349,7 +397,14 @@ def debug_info() -> dict:
         "cuda_available": cuda_available,
         "device_selected": device_selected,
         "configured_speaker": configured_speaker,
+        "voice_speaker_json": voice_speaker_raw,
+        "voice_speaker_preview": voice_speaker_preview,
+        "voice_aliases": sorted(list((voice_speaker_preview or {}).keys())),
+        "voice_speaker_json_configured": bool(voice_speaker_raw and voice_speaker_raw.strip()),
+        "voice_atempo_json_configured": bool(voice_atempo_raw and voice_atempo_raw.strip()),
+        "effective_voice_alias_last": LAST_EFFECTIVE_VOICE_ALIAS,
         "effective_speaker": LAST_EFFECTIVE_SPEAKER,
+        "tempo_used_last": LAST_TEMPO_USED,
         "speaker_supported": LAST_SPEAKER_SUPPORTED,
         "speakers_count": LAST_SPEAKERS_COUNT,
         "last_engine_load_error": LAST_ENGINE_LOAD_ERROR,
@@ -358,6 +413,7 @@ def debug_info() -> dict:
         "voice_atempo_json": voice_atempo_raw,
         "voice_atempo_preview": voice_atempo_preview,
         "atempo_config_error": atempo_config_error,
+        "speaker_config_error": speaker_config_error,
         "ffmpeg_version": get_ffmpeg_version(),
         "last_synth": LAST_SYNTH_METRICS or None,
     }
@@ -366,6 +422,8 @@ def debug_info() -> dict:
 @app.post("/v1/audio/speech")
 def speech(request: SpeechRequest):
     global LAST_EFFECTIVE_SPEAKER
+    global LAST_EFFECTIVE_VOICE_ALIAS
+    global LAST_TEMPO_USED
     global LAST_SPEAKER_SUPPORTED
     global LAST_SPEAKERS_COUNT
 
@@ -403,8 +461,12 @@ def speech(request: SpeechRequest):
         logger.info("coqui_engine_cache_hit model=%s use_cuda=%s", model_name, use_cuda)
 
     sample_rate = get_output_sample_rate(engine)
-    speaker, speaker_supported, speakers_count = resolve_speaker(engine, voice)
+    try:
+        speaker, speaker_supported, speakers_count = resolve_speaker(engine, voice)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=truncate_error_detail(str(exc)))
     LAST_EFFECTIVE_SPEAKER = speaker
+    LAST_EFFECTIVE_VOICE_ALIAS = voice or None
     LAST_SPEAKER_SUPPORTED = speaker_supported
     LAST_SPEAKERS_COUNT = speakers_count
 
@@ -418,6 +480,7 @@ def speech(request: SpeechRequest):
             tempo = get_effective_tempo(voice)
         except RuntimeError as exc:
             raise HTTPException(status_code=500, detail=truncate_error_detail(str(exc)))
+        LAST_TEMPO_USED = tempo
 
         total_start = time.monotonic()
         tts_start = time.monotonic()
@@ -493,6 +556,7 @@ def speech(request: SpeechRequest):
                     "total_ms": total_ms,
                     "response_bytes": wav_bytes,
                     "tempo": tempo,
+                    "tempo_used": tempo,
                 }
             )
             logger.info(
@@ -562,6 +626,7 @@ def speech(request: SpeechRequest):
                 "total_ms": total_ms,
                 "response_bytes": mp3_bytes,
                 "tempo": tempo,
+                "tempo_used": tempo,
             }
         )
         logger.info(

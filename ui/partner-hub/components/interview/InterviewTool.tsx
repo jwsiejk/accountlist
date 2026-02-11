@@ -8,6 +8,7 @@ import { logDebug } from "./debug";
 
 type PersonaOption = {
   id: "se-leader" | "peer-engineer" | "sales-exec";
+  voiceAlias: "se_leader" | "peer_engineer" | "sales_exec";
   label: string;
   summary: string;
   systemPrompt: string;
@@ -30,6 +31,7 @@ const WARNING_RECORDING_SECONDS = 50;
 const personaOptions: PersonaOption[] = [
   {
     id: "se-leader",
+    voiceAlias: "se_leader",
     label: "SE Leader",
     summary: "Strategic sales engineer leader focused on discovery and outcomes.",
     systemPrompt:
@@ -37,6 +39,7 @@ const personaOptions: PersonaOption[] = [
   },
   {
     id: "peer-engineer",
+    voiceAlias: "peer_engineer",
     label: "Peer Engineer",
     summary: "Hands-on peer engineer probing technical depth and tradeoffs.",
     systemPrompt:
@@ -44,6 +47,7 @@ const personaOptions: PersonaOption[] = [
   },
   {
     id: "sales-exec",
+    voiceAlias: "sales_exec",
     label: "Sales Exec",
     summary: "Executive sponsor focused on business value and ROI.",
     systemPrompt:
@@ -463,7 +467,7 @@ export function InterviewTool() {
         { role: "assistant", text: responseText },
       ]);
 
-      await sendToTts(responseText, turnId);
+      await sendToTts(responseText, activePersona.voiceAlias, turnId);
     } catch (err) {
       logDebug("error", {
         step: "recording_complete",
@@ -497,7 +501,7 @@ export function InterviewTool() {
 
       setTranscript((prev) => [...prev, { role: "assistant", text: responseText }]);
 
-      await sendToTts(responseText, turnId);
+      await sendToTts(responseText, activePersona.voiceAlias, turnId);
     } catch (err) {
       logDebug("error", {
         step: "start_interview",
@@ -622,7 +626,7 @@ export function InterviewTool() {
     }
   };
 
-  const sendToTts = async (text: string, turnId: string) => {
+  const sendToTts = async (text: string, voiceAlias: PersonaOption["voiceAlias"], turnId: string) => {
     stopAudioPlayback();
     const startedAt = Date.now();
     logDebug("tts_request_start", { turnId });
@@ -635,7 +639,7 @@ export function InterviewTool() {
           "Content-Type": "application/json",
           "x-ai-interview-turn-id": turnId,
         },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, voice: voiceAlias }),
       });
       const elapsedMs = Date.now() - startedAt;
 
