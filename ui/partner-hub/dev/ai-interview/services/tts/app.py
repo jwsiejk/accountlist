@@ -9,6 +9,7 @@ from functools import lru_cache
 
 import numpy as np
 import soundfile as sf
+import torch
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
@@ -25,6 +26,10 @@ MAX_ERROR_DETAIL_LENGTH = 500
 DEFAULT_COQUI_MODEL_NAME = "tts_models/en/vctk/vits"
 DEFAULT_MP3_BITRATE = "192k"
 LAST_SYNTH_METRICS: dict[str, int | str] = {}
+LAST_ENGINE_LOAD_ERROR: str | None = None
+LAST_EFFECTIVE_SPEAKER: str | None = None
+LAST_SPEAKER_SUPPORTED = False
+LAST_SPEAKERS_COUNT = 0
 
 _NON_PRINTABLE_PATTERN = re.compile(r"[\x00-\x1F\x7F-\x9F]")
 _BITRATE_PATTERN = re.compile(r"^(?P<rate>\d+)(?P<unit>k)$", re.IGNORECASE)
@@ -81,8 +86,32 @@ def env_as_bool(name: str, default: bool) -> bool:
     return raw.strip().lower() in {"1", "true", "yes"}
 
 
+def get_effective_runtime_config() -> tuple[str, bool]:
+    model_name = os.getenv("COQUI_MODEL_NAME", DEFAULT_COQUI_MODEL_NAME).strip()
+    use_cuda = env_as_bool("COQUI_USE_CUDA", True)
+    return model_name, use_cuda
+
+
+def get_cuda_available() -> bool:
+    try:
+        return bool(torch.cuda.is_available())
+    except Exception as exc:
+        logger.warning("cuda_availability_check_failed: %s", exc)
+        return False
+
+
+def get_selected_device(use_cuda: bool, cuda_available: bool) -> str:
+    return "cuda" if use_cuda and cuda_available else "cpu"
+
+
 EFFECTIVE_MP3_BITRATE = get_bitrate_env("TTS_MP3_BITRATE", DEFAULT_MP3_BITRATE)
-logger.info("tts_config model=%s use_cuda=%s mp3_bitrate=%s", DEFAULT_COQUI_MODEL_NAME, env_as_bool("COQUI_USE_CUDA", True), EFFECTIVE_MP3_BITRATE)
+_effective_model_name, _effective_use_cuda = get_effective_runtime_config()
+logger.info(
+    "tts_config model=%s use_cuda=%s mp3_bitrate=%s",
+    _effective_model_name,
+    _effective_use_cuda,
+    EFFECTIVE_MP3_BITRATE,
+)
 
 
 @lru_cache(maxsize=1)
@@ -101,20 +130,63 @@ def get_ffmpeg_version() -> str | None:
     return first_line[0].strip() if first_line else None
 
 
-@lru_cache(maxsize=1)
-def get_tts_engine() -> TTS:
-    model_name = os.environ.get("COQUI_MODEL_NAME", DEFAULT_COQUI_MODEL_NAME)
-    use_cuda = env_as_bool("COQUI_USE_CUDA", True)
-    device = "cuda" if use_cuda else "cpu"
+def engine_preflight() -> tuple[bool, str | None]:
+    model_name, use_cuda = get_effective_runtime_config()
+    if not model_name:
+        return False, "COQUI_MODEL_NAME is empty"
+    if get_ffmpeg_version() is None:
+        return False, "ffmpeg is unavailable in PATH"
+    if use_cuda and not get_cuda_available():
+        return (
+            False,
+            "CUDA requested but unavailable. Set COQUI_USE_CUDA=false or fix NVIDIA GPU passthrough.",
+        )
+    return True, None
+
+
+@lru_cache(maxsize=8)
+def get_tts_engine(model_name: str, use_cuda: bool) -> TTS:
+    global LAST_ENGINE_LOAD_ERROR
+
+    if not model_name:
+        LAST_ENGINE_LOAD_ERROR = "COQUI_MODEL_NAME is empty"
+        raise RuntimeError(LAST_ENGINE_LOAD_ERROR)
+
+    cuda_available = get_cuda_available()
+    if use_cuda and not cuda_available:
+        LAST_ENGINE_LOAD_ERROR = (
+            "CUDA requested but unavailable. Set COQUI_USE_CUDA=false or fix NVIDIA GPU passthrough."
+        )
+        raise RuntimeError(LAST_ENGINE_LOAD_ERROR)
+
+    device = get_selected_device(use_cuda, cuda_available)
     logger.info("loading_coqui_model model=%s device=%s", model_name, device)
-    engine = TTS(model_name=model_name)
-    return engine.to(device)
+
+    try:
+        engine = TTS(model_name=model_name)
+        engine = engine.to(device)
+    except Exception as exc:
+        detail = truncate_error_detail(str(exc))
+        if use_cuda:
+            LAST_ENGINE_LOAD_ERROR = (
+                "CUDA requested but unavailable. Set COQUI_USE_CUDA=false or fix NVIDIA GPU passthrough."
+            )
+            logger.exception("coqui_model_load_failed model=%s device=%s detail=%s", model_name, device, detail)
+            raise RuntimeError(LAST_ENGINE_LOAD_ERROR) from exc
+        LAST_ENGINE_LOAD_ERROR = f"Failed to load model '{model_name}' on {device}: {detail}"
+        logger.exception("coqui_model_load_failed model=%s device=%s detail=%s", model_name, device, detail)
+        raise RuntimeError(LAST_ENGINE_LOAD_ERROR) from exc
+
+    LAST_ENGINE_LOAD_ERROR = None
+    return engine
 
 
 def get_output_sample_rate(engine: TTS) -> int:
+    fallback_rate = 22050
     synthesizer = getattr(engine, "synthesizer", None)
     if synthesizer is None:
-        return 22050
+        logger.warning("sample_rate_fallback reason=missing_synthesizer fallback=%s", fallback_rate)
+        return fallback_rate
     sample_rate = getattr(synthesizer, "output_sample_rate", None)
     if isinstance(sample_rate, int) and sample_rate > 0:
         return sample_rate
@@ -123,42 +195,76 @@ def get_output_sample_rate(engine: TTS) -> int:
     nested_rate = getattr(audio_cfg, "sample_rate", None)
     if isinstance(nested_rate, int) and nested_rate > 0:
         return nested_rate
-    return 22050
+    logger.warning("sample_rate_fallback reason=invalid_or_missing fallback=%s", fallback_rate)
+    return fallback_rate
 
 
-def get_speaker_name(engine: TTS) -> str | None:
-    configured_speaker = (os.environ.get("COQUI_SPEAKER") or "").strip()
-    if not configured_speaker:
-        return None
-
+def get_speaker_inventory(engine: TTS) -> list[str]:
     speakers = getattr(engine, "speakers", None)
-    if not speakers:
-        logger.info("coqui_speaker_ignored reason=no_multispeaker_support configured_speaker=%s", configured_speaker)
-        return None
+    if isinstance(speakers, list):
+        return [str(s) for s in speakers]
+    return []
 
-    if configured_speaker in speakers:
-        return configured_speaker
 
-    logger.warning("coqui_speaker_ignored reason=unknown_speaker configured_speaker=%s", configured_speaker)
-    return None
+def resolve_speaker(engine: TTS, requested_voice: str | None) -> tuple[str | None, bool, int]:
+    configured_speaker = (os.environ.get("COQUI_SPEAKER") or "").strip() or None
+    requested = (requested_voice or "").strip() or None
+
+    speakers = get_speaker_inventory(engine)
+    speaker_supported = len(speakers) > 0
+    speakers_count = len(speakers)
+
+    if not speaker_supported:
+        if requested:
+            logger.info("request_voice_ignored reason=no_multispeaker_support voice=%s", requested)
+        if configured_speaker:
+            logger.info(
+                "coqui_speaker_ignored reason=no_multispeaker_support configured_speaker=%s",
+                configured_speaker,
+            )
+        return None, False, 0
+
+    effective_speaker = requested or configured_speaker
+    if not effective_speaker:
+        return None, True, speakers_count
+
+    if effective_speaker not in speakers:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown voice '{effective_speaker}' for model '{os.getenv('COQUI_MODEL_NAME', DEFAULT_COQUI_MODEL_NAME)}'",
+        )
+    return effective_speaker, True, speakers_count
 
 
 @app.get("/health")
 def health() -> dict:
-    return {"ok": True}
+    preflight_ok, preflight_detail = engine_preflight()
+    return {
+        "ok": True,
+        "preflight_ok": preflight_ok,
+        "preflight_detail": preflight_detail,
+    }
 
 
 @app.get("/debug/info")
 def debug_info() -> dict:
-    model_name = os.environ.get("COQUI_MODEL_NAME", DEFAULT_COQUI_MODEL_NAME)
-    use_cuda = env_as_bool("COQUI_USE_CUDA", True)
-    speaker = (os.environ.get("COQUI_SPEAKER") or "").strip() or None
+    model_name, use_cuda = get_effective_runtime_config()
+    configured_speaker = (os.environ.get("COQUI_SPEAKER") or "").strip() or None
+    cuda_available = get_cuda_available()
+    device_selected = get_selected_device(use_cuda, cuda_available)
+
     return {
         "ok": True,
         "engine": "coqui",
         "model_name": model_name,
         "use_cuda": use_cuda,
-        "speaker": speaker,
+        "cuda_available": cuda_available,
+        "device_selected": device_selected,
+        "configured_speaker": configured_speaker,
+        "effective_speaker": LAST_EFFECTIVE_SPEAKER,
+        "speaker_supported": LAST_SPEAKER_SUPPORTED,
+        "speakers_count": LAST_SPEAKERS_COUNT,
+        "last_engine_load_error": LAST_ENGINE_LOAD_ERROR,
         "mp3_bitrate": EFFECTIVE_MP3_BITRATE,
         "ffmpeg_version": get_ffmpeg_version(),
         "last_synth": LAST_SYNTH_METRICS or None,
@@ -167,6 +273,10 @@ def debug_info() -> dict:
 
 @app.post("/v1/audio/speech")
 def speech(request: SpeechRequest):
+    global LAST_EFFECTIVE_SPEAKER
+    global LAST_SPEAKER_SUPPORTED
+    global LAST_SPEAKERS_COUNT
+
     text_candidate = request.input if request.input is not None else request.text
     if text_candidate is None:
         raise HTTPException(status_code=400, detail="Missing input text")
@@ -191,10 +301,17 @@ def speech(request: SpeechRequest):
         raise HTTPException(status_code=400, detail="voice must be a non-empty string when provided")
 
     request_id = str(uuid.uuid4())
-    model_name = os.environ.get("COQUI_MODEL_NAME", DEFAULT_COQUI_MODEL_NAME)
-    engine = get_tts_engine()
+    model_name, use_cuda = get_effective_runtime_config()
+    try:
+        engine = get_tts_engine(model_name, use_cuda)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=truncate_error_detail(str(exc)))
+
     sample_rate = get_output_sample_rate(engine)
-    speaker = get_speaker_name(engine)
+    speaker, speaker_supported, speakers_count = resolve_speaker(engine, voice)
+    LAST_EFFECTIVE_SPEAKER = speaker
+    LAST_SPEAKER_SUPPORTED = speaker_supported
+    LAST_SPEAKERS_COUNT = speakers_count
 
     mp3_path = None
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as wav_file:

@@ -9,7 +9,7 @@ The TTS service exposes a lightweight diagnostic endpoint:
 GET http://localhost:8000/debug/info
 ```
 
-The response includes the Coqui engine name/model, CUDA setting, optional speaker, MP3 bitrate, ffmpeg version, and the most recent synth timing metrics.
+The response includes the Coqui engine name/model, CUDA setting and availability, selected device, configured/effective speaker state, MP3 bitrate, ffmpeg version, last engine load error, and most recent synth timing metrics.
 
 ### A/B output verification (WAV vs MP3)
 Use PowerShell to fetch deterministic outputs for comparison:
@@ -49,11 +49,14 @@ COQUI_SPEAKER=
 - `COQUI_MODEL_NAME` selects the Coqui model.
 - `COQUI_USE_CUDA=true` runs inference on GPU by default.
 - `COQUI_SPEAKER` is optional and only used if the model supports multi-speaker inference.
+- Compose uses `gpus: all`; Docker Desktop users need NVIDIA drivers and WSL2 GPU support enabled.
 
 First run downloads model files into compose-managed cache volumes mounted to:
 
 - `/root/.local/share/tts`
 - `/root/.cache/tts`
+
+The first synthesis request may take longer while model assets download and initialize.
 
 ### MP3 output
 MP3 bitrate is configurable:
