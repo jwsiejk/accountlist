@@ -1,4 +1,4 @@
-FROM ghcr.io/coqui-ai/tts:0.22.0
+FROM ghcr.io/coqui-ai/tts:latest
 
 WORKDIR /app
 
