@@ -6,9 +6,13 @@ import tempfile
 import time
 import uuid
 from functools import lru_cache
+
+import numpy as np
+import soundfile as sf
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
+from TTS.api import TTS
 
 if not logging.getLogger().handlers:
     logging.basicConfig(level=logging.INFO)
@@ -18,17 +22,19 @@ logger = logging.getLogger("ai_interview_tts")
 
 MAX_INPUT_LENGTH = 2000
 MAX_ERROR_DETAIL_LENGTH = 500
-DEFAULT_PIPER_MODEL_PATH = "/models/en_US-amy-medium.onnx"
-DEFAULT_PIPER_LENGTH_SCALE = 1.10
-DEFAULT_PIPER_NOISE_SCALE = 0.60
-DEFAULT_PIPER_NOISE_W = 0.80
+DEFAULT_COQUI_MODEL_NAME = "tts_models/en/vctk/vits"
 DEFAULT_MP3_BITRATE = "192k"
-MIN_PROSODY_VALUE = 0.5
-MAX_PROSODY_VALUE = 2.0
-
+LAST_SYNTH_METRICS: dict[str, int | str] = {}
 
 _NON_PRINTABLE_PATTERN = re.compile(r"[\x00-\x1F\x7F-\x9F]")
 _BITRATE_PATTERN = re.compile(r"^(?P<rate>\d+)(?P<unit>k)$", re.IGNORECASE)
+
+
+class SpeechRequest(BaseModel):
+    input: str | None = None
+    text: str | None = None
+    voice: str | None = None
+    response_format: str | None = None
 
 
 def truncate_error_detail(detail: str) -> str:
@@ -53,35 +59,6 @@ def sanitize_tts_text(text: str) -> str:
     return sanitized
 
 
-class SpeechRequest(BaseModel):
-    input: str | None = None
-    text: str | None = None
-    voice: str | None = None
-    response_format: str | None = None
-
-
-def get_float_env(name: str, default: float, minimum: float, maximum: float) -> float:
-    raw_value = os.environ.get(name)
-    if raw_value is None or not raw_value.strip():
-        return default
-    try:
-        parsed = float(raw_value)
-    except ValueError:
-        logger.warning("Invalid %s=%r; using default %s", name, raw_value, default)
-        return default
-    if parsed < minimum or parsed > maximum:
-        logger.warning(
-            "Out of bounds %s=%r; expected %s-%s. Using default %s",
-            name,
-            parsed,
-            minimum,
-            maximum,
-            default,
-        )
-        return default
-    return parsed
-
-
 def get_bitrate_env(name: str, default: str) -> str:
     raw_value = os.environ.get(name)
     if raw_value is None or not raw_value.strip():
@@ -97,61 +74,15 @@ def get_bitrate_env(name: str, default: str) -> str:
     return f"{rate}k"
 
 
-def get_piper_supported_flags() -> set[str]:
-    try:
-        result = subprocess.run(
-            ["piper", "--help"],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except Exception as exc:
-        logger.warning("Unable to probe piper flags: %s", exc)
-        return set()
-    help_text = f"{result.stdout}\n{result.stderr}"
-    supported = set()
-    for flag in ("--length_scale", "--noise_scale", "--noise_w", "--speaker"):
-        if flag in help_text:
-            supported.add(flag)
-    return supported
+def env_as_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes"}
 
 
-PIPER_SUPPORTED_FLAGS = get_piper_supported_flags()
-EFFECTIVE_LENGTH_SCALE = get_float_env(
-    "PIPER_LENGTH_SCALE", DEFAULT_PIPER_LENGTH_SCALE, MIN_PROSODY_VALUE, MAX_PROSODY_VALUE
-)
-EFFECTIVE_NOISE_SCALE = get_float_env(
-    "PIPER_NOISE_SCALE", DEFAULT_PIPER_NOISE_SCALE, MIN_PROSODY_VALUE, MAX_PROSODY_VALUE
-)
-EFFECTIVE_NOISE_W = get_float_env(
-    "PIPER_NOISE_W", DEFAULT_PIPER_NOISE_W, MIN_PROSODY_VALUE, MAX_PROSODY_VALUE
-)
 EFFECTIVE_MP3_BITRATE = get_bitrate_env("TTS_MP3_BITRATE", DEFAULT_MP3_BITRATE)
-LAST_SYNTH_METRICS: dict[str, int | str] = {}
-
-logger.info(
-    "tts_config length_scale=%s noise_scale=%s noise_w=%s mp3_bitrate=%s",
-    EFFECTIVE_LENGTH_SCALE,
-    EFFECTIVE_NOISE_SCALE,
-    EFFECTIVE_NOISE_W,
-    EFFECTIVE_MP3_BITRATE,
-)
-
-
-@lru_cache(maxsize=1)
-def get_piper_version() -> str | None:
-    try:
-        result = subprocess.run(
-            ["piper", "--version"],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except Exception as exc:
-        logger.warning("Unable to read piper version: %s", exc)
-        return None
-    version_line = (result.stdout or result.stderr or "").strip()
-    return version_line or None
+logger.info("tts_config model=%s use_cuda=%s mp3_bitrate=%s", DEFAULT_COQUI_MODEL_NAME, env_as_bool("COQUI_USE_CUDA", True), EFFECTIVE_MP3_BITRATE)
 
 
 @lru_cache(maxsize=1)
@@ -170,6 +101,48 @@ def get_ffmpeg_version() -> str | None:
     return first_line[0].strip() if first_line else None
 
 
+@lru_cache(maxsize=1)
+def get_tts_engine() -> TTS:
+    model_name = os.environ.get("COQUI_MODEL_NAME", DEFAULT_COQUI_MODEL_NAME)
+    use_cuda = env_as_bool("COQUI_USE_CUDA", True)
+    device = "cuda" if use_cuda else "cpu"
+    logger.info("loading_coqui_model model=%s device=%s", model_name, device)
+    engine = TTS(model_name=model_name)
+    return engine.to(device)
+
+
+def get_output_sample_rate(engine: TTS) -> int:
+    synthesizer = getattr(engine, "synthesizer", None)
+    if synthesizer is None:
+        return 22050
+    sample_rate = getattr(synthesizer, "output_sample_rate", None)
+    if isinstance(sample_rate, int) and sample_rate > 0:
+        return sample_rate
+    tts_config = getattr(synthesizer, "tts_config", None)
+    audio_cfg = getattr(tts_config, "audio", None)
+    nested_rate = getattr(audio_cfg, "sample_rate", None)
+    if isinstance(nested_rate, int) and nested_rate > 0:
+        return nested_rate
+    return 22050
+
+
+def get_speaker_name(engine: TTS) -> str | None:
+    configured_speaker = (os.environ.get("COQUI_SPEAKER") or "").strip()
+    if not configured_speaker:
+        return None
+
+    speakers = getattr(engine, "speakers", None)
+    if not speakers:
+        logger.info("coqui_speaker_ignored reason=no_multispeaker_support configured_speaker=%s", configured_speaker)
+        return None
+
+    if configured_speaker in speakers:
+        return configured_speaker
+
+    logger.warning("coqui_speaker_ignored reason=unknown_speaker configured_speaker=%s", configured_speaker)
+    return None
+
+
 @app.get("/health")
 def health() -> dict:
     return {"ok": True}
@@ -177,17 +150,15 @@ def health() -> dict:
 
 @app.get("/debug/info")
 def debug_info() -> dict:
-    model_path = os.environ.get("PIPER_MODEL_PATH", DEFAULT_PIPER_MODEL_PATH)
+    model_name = os.environ.get("COQUI_MODEL_NAME", DEFAULT_COQUI_MODEL_NAME)
+    use_cuda = env_as_bool("COQUI_USE_CUDA", True)
+    speaker = (os.environ.get("COQUI_SPEAKER") or "").strip() or None
     return {
         "ok": True,
-        "piper_version": get_piper_version(),
-        "model_path": model_path,
-        "model_basename": os.path.basename(model_path),
-        "prosody": {
-            "length_scale": EFFECTIVE_LENGTH_SCALE,
-            "noise_scale": EFFECTIVE_NOISE_SCALE,
-            "noise_w": EFFECTIVE_NOISE_W,
-        },
+        "engine": "coqui",
+        "model_name": model_name,
+        "use_cuda": use_cuda,
+        "speaker": speaker,
         "mp3_bitrate": EFFECTIVE_MP3_BITRATE,
         "ffmpeg_version": get_ffmpeg_version(),
         "last_synth": LAST_SYNTH_METRICS or None,
@@ -195,14 +166,16 @@ def debug_info() -> dict:
 
 
 @app.post("/v1/audio/speech")
-def speech(request: SpeechRequest) -> Response:
-    text = request.input or request.text
-    if not text:
+def speech(request: SpeechRequest):
+    text_candidate = request.input if request.input is not None else request.text
+    if text_candidate is None:
         raise HTTPException(status_code=400, detail="Missing input text")
+
     try:
-        sanitized_text = sanitize_tts_text(text)
+        sanitized_text = sanitize_tts_text(text_candidate)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
     if not sanitized_text:
         raise HTTPException(status_code=400, detail="Missing input text")
     if len(sanitized_text) < 2:
@@ -216,73 +189,46 @@ def speech(request: SpeechRequest) -> Response:
     voice = (raw_voice or "").strip()
     if raw_voice is not None and not voice:
         raise HTTPException(status_code=400, detail="voice must be a non-empty string when provided")
-    if not voice:
-        voice = "en-us"
 
-    model_path = os.environ.get("PIPER_MODEL_PATH", DEFAULT_PIPER_MODEL_PATH)
-    model_config_path = f"{model_path}.json"
-    if not os.path.isfile(model_path):
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                "Piper model not found. "
-                f"model_path={model_path} expected_config={model_config_path}. "
-                "Set PIPER_MODEL_PATH or mount /models."
-            ),
-        )
-    if not os.path.isfile(model_config_path):
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                "Piper model config not found. "
-                f"model_path={model_path} expected_config={model_config_path}."
-            ),
-        )
-
-    speaker_id = os.environ.get("PIPER_SPEAKER_ID")
     request_id = str(uuid.uuid4())
+    model_name = os.environ.get("COQUI_MODEL_NAME", DEFAULT_COQUI_MODEL_NAME)
+    engine = get_tts_engine()
+    sample_rate = get_output_sample_rate(engine)
+    speaker = get_speaker_name(engine)
 
     mp3_path = None
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as wav_file:
         wav_path = wav_file.name
 
     try:
-        command = ["piper", "--model", model_path, "--output_file", wav_path]
-        if "--length_scale" in PIPER_SUPPORTED_FLAGS:
-            command += ["--length_scale", str(EFFECTIVE_LENGTH_SCALE)]
-        if "--noise_scale" in PIPER_SUPPORTED_FLAGS:
-            command += ["--noise_scale", str(EFFECTIVE_NOISE_SCALE)]
-        if "--noise_w" in PIPER_SUPPORTED_FLAGS:
-            command += ["--noise_w", str(EFFECTIVE_NOISE_W)]
-        if speaker_id and "--speaker" in PIPER_SUPPORTED_FLAGS:
-            command += ["--speaker", speaker_id]
-
         total_start = time.monotonic()
-        piper_start = time.monotonic()
+        tts_start = time.monotonic()
         logger.info(
-            "tts_request id=%s input_len=%s response_format=%s model_basename=%s",
+            "tts_request id=%s input_len=%s response_format=%s model_name=%s",
             request_id,
             len(sanitized_text),
             response_format,
-            os.path.basename(model_path),
+            model_name,
         )
+
         try:
-            subprocess.run(
-                command,
-                check=True,
-                capture_output=True,
-                text=True,
-                input=sanitized_text,
-            )
-        except FileNotFoundError:
-            raise HTTPException(status_code=500, detail="piper binary not found in PATH")
-        except subprocess.CalledProcessError as exc:
-            stderr = truncate_error_detail((exc.stderr or "").strip())
-            raise HTTPException(status_code=500, detail=f"piper failed: {stderr}")
-        piper_ms = int((time.monotonic() - piper_start) * 1000)
+            tts_kwargs = {"text": sanitized_text}
+            if speaker:
+                tts_kwargs["speaker"] = speaker
+            wav = engine.tts(**tts_kwargs)
+        except Exception as exc:
+            detail = truncate_error_detail(str(exc))
+            raise HTTPException(status_code=500, detail=f"coqui tts failed: {detail}")
+
+        wav_array = np.array(wav, dtype=np.float32)
+        if wav_array.size == 0:
+            raise HTTPException(status_code=500, detail="coqui output WAV was empty")
+
+        sf.write(wav_path, wav_array, sample_rate)
+        tts_ms = int((time.monotonic() - tts_start) * 1000)
 
         if not os.path.isfile(wav_path) or os.path.getsize(wav_path) == 0:
-            raise HTTPException(status_code=500, detail="piper output WAV was empty")
+            raise HTTPException(status_code=500, detail="coqui output WAV was empty")
 
         if response_format == "wav":
             with open(wav_path, "rb") as wav_handle:
@@ -293,16 +239,16 @@ def speech(request: SpeechRequest) -> Response:
                 {
                     "request_id": request_id,
                     "format": "wav",
-                    "piper_ms": piper_ms,
+                    "tts_ms": tts_ms,
                     "ffmpeg_ms": 0,
                     "total_ms": total_ms,
                     "response_bytes": wav_bytes,
                 }
             )
             logger.info(
-                "tts_timing id=%s format=wav piper_ms=%s ffmpeg_ms=0 total_ms=%s input_len=%s response_bytes=%s",
+                "tts_timing id=%s format=wav tts_ms=%s ffmpeg_ms=0 total_ms=%s input_len=%s response_bytes=%s",
                 request_id,
-                piper_ms,
+                tts_ms,
                 total_ms,
                 len(sanitized_text),
                 wav_bytes,
@@ -311,8 +257,8 @@ def speech(request: SpeechRequest) -> Response:
                 content=wav_content,
                 media_type="audio/wav",
                 headers={
-                    "X-TTS-Engine": "piper",
-                    "X-TTS-Model": os.path.basename(model_path),
+                    "X-TTS-Engine": "coqui",
+                    "X-TTS-Model": model_name,
                     "X-Request-Id": request_id,
                 },
             )
@@ -357,16 +303,16 @@ def speech(request: SpeechRequest) -> Response:
             {
                 "request_id": request_id,
                 "format": "mp3",
-                "piper_ms": piper_ms,
+                "tts_ms": tts_ms,
                 "ffmpeg_ms": ffmpeg_ms,
                 "total_ms": total_ms,
                 "response_bytes": mp3_bytes,
             }
         )
         logger.info(
-            "tts_timing id=%s format=mp3 piper_ms=%s ffmpeg_ms=%s total_ms=%s input_len=%s response_bytes=%s",
+            "tts_timing id=%s format=mp3 tts_ms=%s ffmpeg_ms=%s total_ms=%s input_len=%s response_bytes=%s",
             request_id,
-            piper_ms,
+            tts_ms,
             ffmpeg_ms,
             total_ms,
             len(sanitized_text),
@@ -376,8 +322,8 @@ def speech(request: SpeechRequest) -> Response:
             content=mp3_content,
             media_type="audio/mpeg",
             headers={
-                "X-TTS-Engine": "piper",
-                "X-TTS-Model": os.path.basename(model_path),
+                "X-TTS-Engine": "coqui",
+                "X-TTS-Model": model_name,
                 "X-Request-Id": request_id,
             },
         )

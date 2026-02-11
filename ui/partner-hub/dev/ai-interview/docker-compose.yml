@@ -23,16 +23,14 @@ services:
     ports:
       - "8000:8000"
     environment:
-      PIPER_MODEL_PATH: ${PIPER_MODEL_PATH:-/models/en_US-amy-medium.onnx}
-      PIPER_MODEL_URL: ${PIPER_MODEL_URL:-}
-      PIPER_MODEL_JSON_URL: ${PIPER_MODEL_JSON_URL:-}
-      PIPER_MODEL_SHA256: ${PIPER_MODEL_SHA256:-}
-      PIPER_MODEL_JSON_SHA256: ${PIPER_MODEL_JSON_SHA256:-}
-      PIPER_LENGTH_SCALE: ${PIPER_LENGTH_SCALE:-1.10}
-      PIPER_NOISE_SCALE: ${PIPER_NOISE_SCALE:-0.60}
-      PIPER_NOISE_W: ${PIPER_NOISE_W:-0.80}
-      PIPER_SPEAKER_ID: ${PIPER_SPEAKER_ID:-}
+      COQUI_MODEL_NAME: ${COQUI_MODEL_NAME:-tts_models/en/vctk/vits}
+      COQUI_USE_CUDA: ${COQUI_USE_CUDA:-true}
+      COQUI_SPEAKER: ${COQUI_SPEAKER:-}
       TTS_MP3_BITRATE: ${TTS_MP3_BITRATE:-192k}
+    gpus: all
+    volumes:
+      - ai-interview-tts-local-share:/root/.local/share/tts
+      - ai-interview-tts-cache:/root/.cache/tts
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/health"]
       interval: 10s
@@ -42,3 +40,5 @@ services:
 
 volumes:
   ai-interview-stt-cache:
+  ai-interview-tts-local-share:
+  ai-interview-tts-cache:

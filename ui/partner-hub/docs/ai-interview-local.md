@@ -50,38 +50,28 @@ Each local service provides a health endpoint that returns JSON:
 - `http://127.0.0.1:9000/health` → `{ "ok": true }`
 - `http://127.0.0.1:8000/health` → `{ "ok": true }`
 
-## TTS model (Piper)
+## TTS model (Coqui)
 
-The TTS container uses Piper (neural TTS) with a default English voice baked into the image:
+The TTS container uses Coqui TTS with a GPU-first runtime by default.
 
-- Default model path: `/models/en_US-amy-medium.onnx`
-- Override with `PIPER_MODEL_PATH` (for a different model in the container)
-
-To use a different model, either rebuild the image with a new model file or mount a local model and set
-`PIPER_MODEL_PATH` to the mounted path.
-
-Example (from `ui/partner-hub/dev/ai-interview`):
+Environment variables:
 
 ```
-PIPER_MODEL_PATH=/models/en_US-amy-medium.onnx docker compose up -d --build
+COQUI_MODEL_NAME=tts_models/en/vctk/vits
+COQUI_USE_CUDA=true
+COQUI_SPEAKER=
+TTS_MP3_BITRATE=192k
 ```
 
-### Prosody tuning (optional)
+- `COQUI_MODEL_NAME` controls which Coqui model is loaded.
+- `COQUI_USE_CUDA=true` enables CUDA inference on supported local machines.
+- `COQUI_SPEAKER` is optional and only applied when the loaded model supports multi-speaker synthesis.
+- `TTS_MP3_BITRATE` controls ffmpeg mp3 encoding bitrate.
 
-You can tune Piper prosody with environment variables (defaults shown):
+First run downloads model weights and caches them in named docker volumes mounted at:
 
-```
-PIPER_LENGTH_SCALE=1.0   # speaking rate (lower = faster)
-PIPER_NOISE_SCALE=0.667  # expressiveness
-PIPER_NOISE_W=0.8        # variation
-PIPER_SPEAKER_ID=        # optional speaker id (if the model supports it)
-```
-
-Example (from `ui/partner-hub/dev/ai-interview`):
-
-```
-PIPER_LENGTH_SCALE=0.95 PIPER_NOISE_SCALE=0.75 PIPER_NOISE_W=0.9 docker compose up -d --build
-```
+- `/root/.local/share/tts`
+- `/root/.cache/tts`
 
 ## Smoke tests (Windows PowerShell)
 
@@ -114,7 +104,7 @@ docker compose build ai-interview-tts
 docker compose up -d
 curl -X POST http://127.0.0.1:8000/v1/audio/speech \
   -H "Content-Type: application/json" \
-  -d '{"input":"Hello from Piper.","response_format":"mp3"}' \
+  -d '{"input":"Hello from Coqui.","response_format":"mp3"}' \
   --output /tmp/tts-sample.mp3 \
   --silent --show-error --write-out "\nHTTP %{http_code} content-type=%{content_type}\n"
 ls -lh /tmp/tts-sample.mp3

@@ -1,26 +1,30 @@
-# AI Interview TTS (Dev)
+# Local TTS Service (Coqui)
 
-## Vendored Piper artifacts
-To keep Docker builds deterministic, place the Piper release tarball and default model files in the vendor folder before building:
+This service provides a local OpenAI-compatible TTS endpoint for AI Interview development.
 
-```
-ui/partner-hub/dev/ai-interview/services/tts/vendor/piper_linux_x86_64.tar.gz
-ui/partner-hub/dev/ai-interview/services/tts/vendor/en_US-amy-medium.onnx
-ui/partner-hub/dev/ai-interview/services/tts/vendor/en_US-amy-medium.onnx.json
-```
+## Endpoints
 
-The Dockerfile copies these files during build and does **not** download Piper or models from the network.
+- `GET /health`
+- `GET /debug/info`
+- `POST /v1/audio/speech`
 
-## Local setup (one-time)
-- Do **not** commit the vendor artifacts; they are gitignored and meant to stay local.
-- Place these files locally:
-  - `vendor/piper_linux_x86_64.tar.gz`
-  - `vendor/en_US-amy-medium.onnx`
-  - `vendor/en_US-amy-medium.onnx.json`
-- Optional: if `PIPER_TARBALL_SHA256`, `PIPER_MODEL_SHA256`, or `PIPER_MODEL_JSON_SHA256` are set, their values must match the local files.
+## Runtime
 
-## Rebuild
+- Engine: **Coqui TTS** (`ghcr.io/coqui-ai/tts`)
+- Default model: `tts_models/en/vctk/vits`
+- GPU: enabled by default through compose (`COQUI_USE_CUDA=true` + `gpus: all`)
 
-```
-docker compose -f ui/partner-hub/dev/ai-interview/docker-compose.yml up -d --build ai-interview-tts
-```
+## Configuration
+
+- `COQUI_MODEL_NAME` (default: `tts_models/en/vctk/vits`)
+- `COQUI_USE_CUDA` (default: `true`)
+- `COQUI_SPEAKER` (optional; only used when model supports multi-speaker)
+- `TTS_MP3_BITRATE` (default: `192k`, valid range `32k..320k`)
+
+## Notes
+
+- First run downloads model weights and caches them in docker volumes mounted at:
+  - `/root/.local/share/tts`
+  - `/root/.cache/tts`
+- WAV output is generated directly by Coqui inference.
+- MP3 output is generated with ffmpeg from the WAV intermediate file.

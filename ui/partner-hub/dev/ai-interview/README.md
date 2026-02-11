@@ -9,7 +9,7 @@ The TTS service exposes a lightweight diagnostic endpoint:
 GET http://localhost:8000/debug/info
 ```
 
-The response includes the Piper version, configured model path/basename, effective prosody values, MP3 bitrate, ffmpeg version, and the most recent synth timing metrics.
+The response includes the Coqui engine name/model, CUDA setting, optional speaker, MP3 bitrate, ffmpeg version, and the most recent synth timing metrics.
 
 ### A/B output verification (WAV vs MP3)
 Use PowerShell to fetch deterministic outputs for comparison:
@@ -38,30 +38,22 @@ docker compose -f ui/partner-hub/dev/ai-interview/docker-compose.yml logs -f ai-
 
 ## Configuration
 
-### Prosody tuning
-Tuning is fully configurable via env vars (validated in-app with sane bounds):
+### Model + GPU
 
 ```
-PIPER_LENGTH_SCALE=1.10
-PIPER_NOISE_SCALE=0.60
-PIPER_NOISE_W=0.80
+COQUI_MODEL_NAME=tts_models/en/vctk/vits
+COQUI_USE_CUDA=true
+COQUI_SPEAKER=
 ```
 
-### Model selection
-The default model is still `/models/en_US-amy-medium.onnx`. You can swap models without editing the Dockerfile by supplying URLs and (optionally) a matching model path:
+- `COQUI_MODEL_NAME` selects the Coqui model.
+- `COQUI_USE_CUDA=true` runs inference on GPU by default.
+- `COQUI_SPEAKER` is optional and only used if the model supports multi-speaker inference.
 
-```
-PIPER_MODEL_URL=https://<your-host>/models/en_US-<voice>.onnx
-PIPER_MODEL_JSON_URL=https://<your-host>/models/en_US-<voice>.onnx.json
-PIPER_MODEL_PATH=/models/en_US-<voice>.onnx
-```
+First run downloads model files into compose-managed cache volumes mounted to:
 
-If only the URLs are set, the entrypoint downloads to `/models/<basename>`. Keep `PIPER_MODEL_PATH` aligned with the downloaded filename.
-
-**Recommended (better) voices**
-- Replace `<voice>` above with an alternate Piper voice you want to test.
-- Keep the `.onnx` and `.onnx.json` pair in sync.
-- Use `PIPER_MODEL_PATH` to switch the active model without rebuilding.
+- `/root/.local/share/tts`
+- `/root/.cache/tts`
 
 ### MP3 output
 MP3 bitrate is configurable:
