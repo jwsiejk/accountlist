@@ -224,7 +224,7 @@ def resolve_speaker(engine: TTS, requested_voice: str | None) -> tuple[str | Non
     configured_speaker = (os.environ.get("COQUI_SPEAKER") or "").strip() or None
     requested = (requested_voice or "").strip() or None
 
-    speakers = get_speaker_inventory(engine)
+    speakers = sorted(get_speaker_inventory(engine))
     speaker_supported = len(speakers) > 0
     speakers_count = len(speakers)
 
@@ -241,7 +241,8 @@ def resolve_speaker(engine: TTS, requested_voice: str | None) -> tuple[str | Non
 
     effective_speaker = requested or configured_speaker
     if not effective_speaker:
-        return None, True, speakers_count
+        effective_speaker = speakers[0]
+        logger.info("coqui_default_speaker_selected speaker=%s", effective_speaker)
 
     if effective_speaker not in speakers:
         raise HTTPException(
