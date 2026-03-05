@@ -1,4 +1,4 @@
-import type { JobHunterStore } from "./types";
+import type { Application, JobHunterStore } from "./types";
 
 export const JOB_HUNTER_STORAGE_KEY = "partner-hub:job-hunter:v1";
 
@@ -7,7 +7,14 @@ const DEFAULT_STORE: JobHunterStore = {
   jobsById: {},
   sources: [],
   applications: [],
+  applicationsById: {},
 };
+
+const toApplicationsById = (applications: Application[]) =>
+  applications.reduce<Record<string, Application>>((acc, application) => {
+    acc[application.jobId] = application;
+    return acc;
+  }, {});
 
 export const loadJobHunterStore = (): JobHunterStore => {
   if (typeof window === "undefined") {
@@ -26,16 +33,22 @@ export const loadJobHunterStore = (): JobHunterStore => {
         ? parsed.jobsById
         : {};
 
-    const jobs = Array.isArray(parsed.jobs)
-      ? parsed.jobs
-      : Object.values(jobsById);
+    const jobs = Array.isArray(parsed.jobs) ? parsed.jobs : Object.values(jobsById);
+
+    const applicationsFromArray = Array.isArray(parsed.applications) ? parsed.applications : [];
+    const applicationsById =
+      parsed.applicationsById && typeof parsed.applicationsById === "object" && !Array.isArray(parsed.applicationsById)
+        ? parsed.applicationsById
+        : toApplicationsById(applicationsFromArray);
+    const applications = Object.values(applicationsById);
 
     return {
       jobs,
       jobsById,
       sources: Array.isArray(parsed.sources) ? parsed.sources : [],
       lastSyncedAt: typeof parsed.lastSyncedAt === "string" ? parsed.lastSyncedAt : undefined,
-      applications: Array.isArray(parsed.applications) ? parsed.applications : [],
+      applications,
+      applicationsById,
     };
   } catch {
     return DEFAULT_STORE;
