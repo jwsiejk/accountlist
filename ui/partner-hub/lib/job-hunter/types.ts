@@ -8,13 +8,7 @@ export type JobSourceConfig = {
   boardToken: string;
 };
 
-export type ApplicationStatus =
-  | "saved"
-  | "applied"
-  | "interviewing"
-  | "offer"
-  | "rejected"
-  | "withdrawn";
+export type ApplicationStatus = "prepared" | "applied" | "interview" | "rejected" | "offer";
 
 export type JobPosting = {
   id: string;
@@ -38,7 +32,10 @@ export type Application = {
   jobId: string;
   status: ApplicationStatus;
   appliedAt?: string;
-  nextStepAt?: string;
+  reminderAt?: string;
+  interviewedAt?: string;
+  offeredAt?: string;
+  rejectedAt?: string;
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -50,4 +47,5 @@ export type JobHunterStore = {
   sources: JobSourceConfig[];
   lastSyncedAt?: string;
   applications: Application[];
+  applicationsById: Record<string, Application>;
 };
