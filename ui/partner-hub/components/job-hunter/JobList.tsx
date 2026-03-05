@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { JobPosting } from "@/lib/job-hunter/types";
 
@@ -27,9 +29,16 @@ export function JobList({ jobs }: JobListProps) {
               {jobs.map((job) => (
                 <tr key={job.id}>
                   <td className="px-3 py-2">
-                    <a className="font-medium text-blue-600 hover:underline" href={job.sourceUrl} rel="noreferrer" target="_blank">
-                      {job.title}
-                    </a>
+                    <div className="flex flex-col gap-1">
+                      <Link className="font-medium text-blue-600 hover:underline" href={`/job-hunter/jobs/${encodeURIComponent(job.id)}`}>
+                        {job.title}
+                      </Link>
+                      {job.sourceUrl ? (
+                        <a className="text-xs text-foreground/70 underline-offset-2 hover:underline" href={job.sourceUrl} rel="noreferrer" target="_blank">
+                          Open source posting
+                        </a>
+                      ) : null}
+                    </div>
                   </td>
                   <td className="px-3 py-2">{job.company}</td>
                   <td className="px-3 py-2">{job.location ?? "Remote / TBD"}</td>
