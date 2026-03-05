@@ -19,6 +19,7 @@ export function LeftNav() {
     { name: "Home", href: "/" },
     { name: "Case Studies", href: "/case-studies" },
     { name: "Account Mapping", href: "/accountmap" },
+    { name: "Job Hunter", href: "/job-hunter" },
     ...toolLinks,
     { name: "Office Schedule", href: "/offices/schedule" },
     { name: "About / Contact", href: "/about" },
