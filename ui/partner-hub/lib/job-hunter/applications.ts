@@ -1,4 +1,4 @@
-import type { Application, ApplicationStatus, JobPosting } from "./types";
+import type { Application, ApplicationStatus, ApplyChecklist, ApplicationJobSnapshot, JobPosting } from "./types";
 
 export const APPLICATION_STATUSES: ApplicationStatus[] = ["prepared", "applied", "interview", "rejected", "offer"];
 
@@ -10,10 +10,23 @@ export const STATUS_LABELS: Record<ApplicationStatus, string> = {
   offer: "Offer",
 };
 
+export const DEFAULT_APPLY_CHECKLIST: ApplyChecklist = {
+  resumeReviewed: false,
+  coverLetterReviewed: false,
+  screenerAnswersReviewed: false,
+  appliedExternally: false,
+  followUpScheduled: false,
+};
+
+export type ChecklistKey = keyof ApplyChecklist;
+
 export type ApplicationAction =
   | { type: "upsertFromJob"; job: JobPosting; now?: string }
   | { type: "setStatus"; jobId: string; status: ApplicationStatus; now?: string }
-  | { type: "setReminder"; jobId: string; reminderAt?: string; now?: string };
+  | { type: "setReminder"; jobId: string; reminderAt?: string; now?: string }
+  | { type: "setNotes"; jobId: string; notes?: string; now?: string }
+  | { type: "setChecklistItem"; jobId: string; item: ChecklistKey; value: boolean; now?: string }
+  | { type: "ensureSnapshotFromJob"; jobId: string; job: JobPosting; now?: string };
 
 export const buildFollowUpEmail = (job: JobPosting) => {
   return `Hi ${job.company} recruiting team,\n\nI applied for the ${job.title} role and wanted to follow up on next steps. I remain very interested in the position and would be happy to share any additional information.\n\nBest regards,\n[Your Name]`;
@@ -38,13 +51,56 @@ const statusTimestampPatch = (status: ApplicationStatus, now: string): Partial<A
   return {};
 };
 
+export const toJobSnapshot = (job: JobPosting): ApplicationJobSnapshot => ({
+  jobId: job.id,
+  title: job.title,
+  company: job.company,
+  location: job.location,
+  sourceUrl: job.sourceUrl,
+  department: job.department,
+  postedAt: job.postedAt,
+});
+
 export const createApplicationFromJob = (job: JobPosting, now: string): Application => ({
   id: job.id,
   jobId: job.id,
   status: "prepared",
+  checklist: { ...DEFAULT_APPLY_CHECKLIST },
   createdAt: now,
   updatedAt: now,
 });
+
+export const getApplicationChecklist = (application: Application): ApplyChecklist => ({
+  ...DEFAULT_APPLY_CHECKLIST,
+  ...(application.checklist ?? {}),
+});
+
+export const resolveApplicationJobDetails = (application: Application, jobsById: Record<string, JobPosting>) => {
+  const liveJob = jobsById[application.jobId];
+
+  if (liveJob) {
+    return {
+      missingLiveJob: false,
+      title: liveJob.title,
+      company: liveJob.company,
+      location: liveJob.location,
+      sourceUrl: liveJob.sourceUrl,
+      department: liveJob.department,
+      postedAt: liveJob.postedAt,
+    };
+  }
+
+  const snapshot = application.jobSnapshot;
+  return {
+    missingLiveJob: true,
+    title: snapshot?.title ?? "Unknown role",
+    company: snapshot?.company ?? "Unknown company",
+    location: snapshot?.location,
+    sourceUrl: snapshot?.sourceUrl,
+    department: snapshot?.department,
+    postedAt: snapshot?.postedAt,
+  };
+};
 
 export const applicationReducer = (
   state: Record<string, Application>,
@@ -70,11 +126,12 @@ export const applicationReducer = (
   }
 
   if (action.type === "setStatus") {
-    const next = {
+    const next: Application = {
       ...existing,
       status: action.status,
       updatedAt: now,
       ...statusTimestampPatch(action.status, now),
+      checklist: getApplicationChecklist(existing),
     };
 
     return {
@@ -89,6 +146,49 @@ export const applicationReducer = (
       [action.jobId]: {
         ...existing,
         reminderAt: action.reminderAt,
+        checklist: getApplicationChecklist(existing),
+        updatedAt: now,
+      },
+    };
+  }
+
+  if (action.type === "setNotes") {
+    return {
+      ...state,
+      [action.jobId]: {
+        ...existing,
+        notes: action.notes,
+        checklist: getApplicationChecklist(existing),
+        updatedAt: now,
+      },
+    };
+  }
+
+  if (action.type === "setChecklistItem") {
+    return {
+      ...state,
+      [action.jobId]: {
+        ...existing,
+        checklist: {
+          ...getApplicationChecklist(existing),
+          [action.item]: action.value,
+        },
+        updatedAt: now,
+      },
+    };
+  }
+
+  if (action.type === "ensureSnapshotFromJob") {
+    if (existing.jobSnapshot) {
+      return state;
+    }
+
+    return {
+      ...state,
+      [action.jobId]: {
+        ...existing,
+        checklist: getApplicationChecklist(existing),
+        jobSnapshot: toJobSnapshot(action.job),
         updatedAt: now,
       },
     };
@@ -104,6 +204,7 @@ export const exportApplicationsCsv = (applications: Application[], jobsById: Rec
     "company",
     "title",
     "status",
+    "notes",
     "createdAt",
     "appliedAt",
     "interviewedAt",
@@ -114,12 +215,13 @@ export const exportApplicationsCsv = (applications: Application[], jobsById: Rec
   ];
 
   const rows = applications.map((application) => {
-    const job = jobsById[application.jobId];
+    const jobDetails = resolveApplicationJobDetails(application, jobsById);
     return [
       application.jobId,
-      job?.company ?? "",
-      job?.title ?? "",
+      jobDetails.company,
+      jobDetails.title,
       application.status,
+      application.notes ?? "",
       application.createdAt,
       application.appliedAt ?? "",
       application.interviewedAt ?? "",

@@ -1,7 +1,13 @@
 import * as assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { applicationReducer, createApplicationFromJob, exportApplicationsCsv } from "./applications";
+import {
+  applicationReducer,
+  createApplicationFromJob,
+  exportApplicationsCsv,
+  resolveApplicationJobDetails,
+  toJobSnapshot,
+} from "./applications";
 import type { JobPosting } from "./types";
 
 const job: JobPosting = {
@@ -10,6 +16,9 @@ const job: JobPosting = {
   company: "Acme",
   source: "company-site",
   sourceUrl: "https://example.com/jobs/1",
+  location: "Remote",
+  department: "Product",
+  postedAt: "2024-02-01T00:00:00.000Z",
   createdAt: "2024-01-01T00:00:00.000Z",
   updatedAt: "2024-01-01T00:00:00.000Z",
 };
@@ -20,6 +29,7 @@ describe("job hunter application reducer", () => {
 
     assert.equal(created.status, "prepared");
     assert.equal(created.jobId, job.id);
+    assert.equal(created.checklist?.resumeReviewed, false);
   });
 
   it("updates status timestamps", () => {
@@ -38,17 +48,63 @@ describe("job hunter application reducer", () => {
     assert.equal(applied[job.id].status, "applied");
   });
 
+  it("updates checklist and notes", () => {
+    const initial = { [job.id]: createApplicationFromJob(job, "2024-03-01T10:00:00.000Z") };
+    const withChecklist = applicationReducer(initial, {
+      type: "setChecklistItem",
+      jobId: job.id,
+      item: "resumeReviewed",
+      value: true,
+      now: "2024-03-02T10:00:00.000Z",
+    });
+    const withNotes = applicationReducer(withChecklist, {
+      type: "setNotes",
+      jobId: job.id,
+      notes: "Submitted tailored resume and letter.",
+      now: "2024-03-03T10:00:00.000Z",
+    });
+
+    assert.equal(withNotes[job.id].checklist?.resumeReviewed, true);
+    assert.equal(withNotes[job.id].notes, "Submitted tailored resume and letter.");
+  });
+
+  it("captures immutable snapshot when requested", () => {
+    const initial = { [job.id]: createApplicationFromJob(job, "2024-03-01T10:00:00.000Z") };
+    const withSnapshot = applicationReducer(initial, {
+      type: "ensureSnapshotFromJob",
+      jobId: job.id,
+      job,
+      now: "2024-03-02T10:00:00.000Z",
+    });
+
+    assert.deepEqual(withSnapshot[job.id].jobSnapshot, toJobSnapshot(job));
+  });
+
+  it("falls back to snapshot when live job is missing", () => {
+    const application = {
+      ...createApplicationFromJob(job, "2024-03-01T10:00:00.000Z"),
+      jobSnapshot: toJobSnapshot(job),
+    };
+
+    const details = resolveApplicationJobDetails(application, {});
+
+    assert.equal(details.missingLiveJob, true);
+    assert.equal(details.title, "Product Manager");
+    assert.equal(details.company, "Acme");
+  });
+
   it("exports applications as csv", () => {
     const applications = [
       {
         ...createApplicationFromJob(job, "2024-03-01T10:00:00.000Z"),
         status: "applied" as const,
+        notes: "done",
       },
     ];
 
     const csv = exportApplicationsCsv(applications, { [job.id]: job });
 
-    assert.match(csv, /"jobId","company","title"/);
-    assert.match(csv, /"job-1","Acme","Product Manager"/);
+    assert.match(csv, /"jobId","company","title","status","notes"/);
+    assert.match(csv, /"job-1","Acme","Product Manager","applied","done"/);
   });
 });

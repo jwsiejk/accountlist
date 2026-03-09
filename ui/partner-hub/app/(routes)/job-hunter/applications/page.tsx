@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,9 @@ import {
   applicationReducer,
   buildAnswerPack,
   buildFollowUpEmail,
+  createApplicationFromJob,
   exportApplicationsCsv,
+  resolveApplicationJobDetails,
 } from "@/lib/job-hunter/applications";
 import { loadJobHunterStore, saveJobHunterStore } from "@/lib/job-hunter/storage";
 import type { ApplicationStatus, JobPosting } from "@/lib/job-hunter/types";
@@ -27,13 +30,7 @@ export default function JobHunterApplicationsPage() {
 
     Object.values(jobsById).forEach((job) => {
       if (!seeded[job.id]) {
-        seeded[job.id] = {
-          id: job.id,
-          jobId: job.id,
-          status: "prepared",
-          createdAt: now,
-          updatedAt: now,
-        };
+        seeded[job.id] = createApplicationFromJob(job, now);
       }
     });
 
@@ -55,7 +52,12 @@ export default function JobHunterApplicationsPage() {
   };
 
   const setStatus = (jobId: string, status: ApplicationStatus) => {
-    save(applicationReducer(applicationsById, { type: "setStatus", jobId, status }));
+    const job = jobsById[jobId];
+    let next = applicationReducer(applicationsById, { type: "setStatus", jobId, status });
+    if (status === "applied" && job) {
+      next = applicationReducer(next, { type: "ensureSnapshotFromJob", jobId, job });
+    }
+    save(next);
   };
 
   const setReminder = (jobId: string, reminderAt?: string) => {
@@ -98,47 +100,58 @@ export default function JobHunterApplicationsPage() {
               <h2 className="text-sm font-semibold">{STATUS_LABELS[status]}</h2>
               {items.map((application) => {
                 const job = jobsById[application.jobId];
-                if (!job) {
-                  return null;
-                }
+                const jobDetails = resolveApplicationJobDetails(application, jobsById);
 
                 return (
                   <article className="space-y-2 rounded-md border border-border/60 bg-background p-3" key={application.id}>
-                    <p className="text-sm font-medium">{job.title}</p>
-                    <p className="text-xs text-foreground/70">{job.company}</p>
+                    <p className="text-sm font-medium">{jobDetails.title}</p>
+                    <p className="text-xs text-foreground/70">{jobDetails.company}</p>
+                    {jobDetails.missingLiveJob ? (
+                      <p className="text-xs text-amber-700">Posting no longer in current sync. Showing stored application snapshot.</p>
+                    ) : (
+                      <Link className="text-xs text-blue-600 hover:underline" href={`/job-hunter/jobs/${encodeURIComponent(application.jobId)}`}>
+                        Open Job Workspace
+                      </Link>
+                    )}
+                    {application.notes ? <p className="rounded bg-muted/40 p-2 text-xs">Notes: {application.notes}</p> : null}
+
                     <div className="flex flex-wrap gap-2">
-                      {job.sourceUrl ? (
-                        <a className="text-xs text-blue-600 hover:underline" href={job.sourceUrl} rel="noreferrer" target="_blank">
+                      {jobDetails.sourceUrl ? (
+                        <a className="text-xs text-blue-600 hover:underline" href={jobDetails.sourceUrl} rel="noreferrer" target="_blank">
                           Open application link
                         </a>
                       ) : null}
-                      <button
-                        className="text-xs text-blue-600 hover:underline"
-                        onClick={async () => {
-                          await copyText(buildAnswerPack(job));
-                          setMessage(`Copied answer pack for ${job.company}.`);
-                        }}
-                        type="button"
-                      >
-                        Pre-fill answer pack
-                      </button>
-                      <button
-                        className="text-xs text-blue-600 hover:underline"
-                        onClick={async () => {
-                          await copyText(buildFollowUpEmail(job));
-                          setMessage(`Copied follow-up email for ${job.company}.`);
-                        }}
-                        type="button"
-                      >
-                        Copy follow-up email
-                      </button>
+                      {job ? (
+                        <>
+                          <button
+                            className="text-xs text-blue-600 hover:underline"
+                            onClick={async () => {
+                              await copyText(buildAnswerPack(job));
+                              setMessage(`Copied answer pack for ${job.company}.`);
+                            }}
+                            type="button"
+                          >
+                            Pre-fill answer pack
+                          </button>
+                          <button
+                            className="text-xs text-blue-600 hover:underline"
+                            onClick={async () => {
+                              await copyText(buildFollowUpEmail(job));
+                              setMessage(`Copied follow-up email for ${job.company}.`);
+                            }}
+                            type="button"
+                          >
+                            Copy follow-up email
+                          </button>
+                        </>
+                      ) : null}
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                      <Button onClick={() => setStatus(job.id, "applied")} size="sm" type="button" variant="ghost">Mark applied</Button>
-                      <Button onClick={() => setStatus(job.id, "interview")} size="sm" type="button" variant="ghost">Interview</Button>
-                      <Button onClick={() => setStatus(job.id, "offer")} size="sm" type="button" variant="ghost">Offer</Button>
-                      <Button onClick={() => setStatus(job.id, "rejected")} size="sm" type="button" variant="ghost">Reject</Button>
+                      <Button onClick={() => setStatus(application.jobId, "applied")} size="sm" type="button" variant="ghost">Mark applied</Button>
+                      <Button onClick={() => setStatus(application.jobId, "interview")} size="sm" type="button" variant="ghost">Interview</Button>
+                      <Button onClick={() => setStatus(application.jobId, "offer")} size="sm" type="button" variant="ghost">Offer</Button>
+                      <Button onClick={() => setStatus(application.jobId, "rejected")} size="sm" type="button" variant="ghost">Reject</Button>
                     </div>
 
                     <label className="block text-xs text-foreground/70">
@@ -147,7 +160,7 @@ export default function JobHunterApplicationsPage() {
                         className="mt-1 w-full rounded-md border border-border/60 bg-background px-2 py-1 text-xs"
                         onChange={(event) => {
                           const value = event.target.value;
-                          setReminder(job.id, value ? new Date(value).toISOString() : undefined);
+                          setReminder(application.jobId, value ? new Date(value).toISOString() : undefined);
                         }}
                         type="date"
                         value={application.reminderAt ? application.reminderAt.slice(0, 10) : ""}

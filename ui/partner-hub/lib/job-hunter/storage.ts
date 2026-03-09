@@ -1,6 +1,7 @@
-import type { Application, BoardType, JobHunterStore, JobSourceConfig } from "./types";
+import { DEFAULT_APPLY_CHECKLIST, getApplicationChecklist } from "./applications";
 import { getDefaultPreferences, normalizePreferences } from "./preferences";
 import { normalizeResumeProfile } from "./resumeProfile";
+import type { Application, ApplyChecklist, BoardType, JobHunterStore, JobSourceConfig } from "./types";
 
 export const JOB_HUNTER_STORAGE_KEY = "partner-hub:job-hunter:v1";
 
@@ -15,9 +16,41 @@ const DEFAULT_STORE: JobHunterStore = {
 
 const BOARD_TYPES: BoardType[] = ["greenhouse", "lever"];
 
+const normalizeChecklist = (value: unknown): ApplyChecklist => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { ...DEFAULT_APPLY_CHECKLIST };
+  }
+
+  const list = value as Partial<ApplyChecklist>;
+  return {
+    resumeReviewed: Boolean(list.resumeReviewed),
+    coverLetterReviewed: Boolean(list.coverLetterReviewed),
+    screenerAnswersReviewed: Boolean(list.screenerAnswersReviewed),
+    appliedExternally: Boolean(list.appliedExternally),
+    followUpScheduled: Boolean(list.followUpScheduled),
+  };
+};
+
+const normalizeApplication = (value: Application): Application => ({
+  ...value,
+  checklist: normalizeChecklist(value.checklist),
+  jobSnapshot:
+    value.jobSnapshot && typeof value.jobSnapshot === "object"
+      ? {
+          jobId: value.jobSnapshot.jobId,
+          title: value.jobSnapshot.title,
+          company: value.jobSnapshot.company,
+          location: value.jobSnapshot.location,
+          sourceUrl: value.jobSnapshot.sourceUrl,
+          department: value.jobSnapshot.department,
+          postedAt: value.jobSnapshot.postedAt,
+        }
+      : undefined,
+});
+
 const toApplicationsById = (applications: Application[]) =>
   applications.reduce<Record<string, Application>>((acc, application) => {
-    acc[application.jobId] = application;
+    acc[application.jobId] = normalizeApplication(application);
     return acc;
   }, {});
 
@@ -70,11 +103,21 @@ export const loadJobHunterStore = (): JobHunterStore => {
 
     const jobs = Array.isArray(parsed.jobs) ? parsed.jobs : Object.values(jobsById);
 
-    const applicationsFromArray = Array.isArray(parsed.applications) ? parsed.applications : [];
-    const applicationsById =
+    const applicationsFromArray = Array.isArray(parsed.applications)
+      ? parsed.applications.filter((item): item is Application => Boolean(item && item.jobId)).map(normalizeApplication)
+      : [];
+    const rawApplicationsById =
       parsed.applicationsById && typeof parsed.applicationsById === "object" && !Array.isArray(parsed.applicationsById)
         ? parsed.applicationsById
         : toApplicationsById(applicationsFromArray);
+    const applicationsById = Object.entries(rawApplicationsById).reduce<Record<string, Application>>((acc, [jobId, application]) => {
+      const normalized = normalizeApplication({ ...application, jobId });
+      acc[jobId] = {
+        ...normalized,
+        checklist: getApplicationChecklist(normalized),
+      };
+      return acc;
+    }, {});
     const applications = Object.values(applicationsById);
 
     return {
@@ -97,10 +140,20 @@ export const saveJobHunterStore = (store: JobHunterStore) => {
     return;
   }
 
+  const applicationsById = Object.entries(store.applicationsById ?? {}).reduce<Record<string, Application>>((acc, [jobId, application]) => {
+    acc[jobId] = {
+      ...application,
+      checklist: getApplicationChecklist(application),
+    };
+    return acc;
+  }, {});
+
   window.localStorage.setItem(
     JOB_HUNTER_STORAGE_KEY,
     JSON.stringify({
       ...store,
+      applicationsById,
+      applications: Object.values(applicationsById),
       resumeProfile: store.resumeProfile ? normalizeResumeProfile(store.resumeProfile) : undefined,
       preferences: normalizePreferences(store.preferences),
     }),
