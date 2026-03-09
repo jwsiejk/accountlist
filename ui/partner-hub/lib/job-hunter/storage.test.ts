@@ -1,6 +1,7 @@
 import * as assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { getDefaultPreferences } from "./preferences";
 import { JOB_HUNTER_STORAGE_KEY, isValidJobSourceConfig, loadJobHunterStore, saveJobHunterStore, validateJobSources } from "./storage";
 import { getSourceValidationMessage, truncateBoardToken } from "./sourceSettings";
 
@@ -98,6 +99,82 @@ describe("job hunter storage", () => {
       writable: true,
     });
   });
+
+
+  it("round-trips normalized preferences through local storage", () => {
+    const storage = new MemoryStorage();
+    const previousWindow = globalThis.window;
+    Object.defineProperty(globalThis, "window", {
+      value: { localStorage: storage },
+      configurable: true,
+      writable: true,
+    });
+
+    saveJobHunterStore({
+      jobs: [],
+      jobsById: {},
+      applications: [],
+      applicationsById: {},
+      sources: [],
+      preferences: {
+        targetRoles: ["  Solutions Architect  ", ""],
+        targetKeywords: ["AWS"],
+        targetLocations: [" Remote "],
+        remoteOnly: true,
+        excludedCompanies: ["  BadCo "],
+        excludedTitles: [" Senior Manager "],
+        minimumScore: 120,
+      },
+    });
+
+    const loaded = loadJobHunterStore();
+    assert.deepEqual(loaded.preferences, {
+      targetRoles: ["Solutions Architect"],
+      targetKeywords: ["AWS"],
+      targetLocations: ["Remote"],
+      remoteOnly: true,
+      excludedCompanies: ["BadCo"],
+      excludedTitles: ["Senior Manager"],
+      minimumScore: 100,
+    });
+
+    Object.defineProperty(globalThis, "window", {
+      value: previousWindow,
+      configurable: true,
+      writable: true,
+    });
+  });
+
+  it("hydrates default preferences when missing from stored payload", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(
+      JOB_HUNTER_STORAGE_KEY,
+      JSON.stringify({
+        jobsById: {},
+        jobs: [],
+        sources: [],
+        applications: [],
+        applicationsById: {},
+      }),
+    );
+
+    const previousWindow = globalThis.window;
+    Object.defineProperty(globalThis, "window", {
+      value: { localStorage: storage },
+      configurable: true,
+      writable: true,
+    });
+
+    const loaded = loadJobHunterStore();
+    assert.deepEqual(loaded.preferences, getDefaultPreferences());
+
+    Object.defineProperty(globalThis, "window", {
+      value: previousWindow,
+      configurable: true,
+      writable: true,
+    });
+  });
+
 
   it("returns an empty source list for non-array payloads", () => {
     assert.deepEqual(validateJobSources(null), []);

@@ -1,6 +1,6 @@
 import { scoreJobFit } from "../scoring";
 import { normalizeResumeProfile } from "../resumeProfile";
-import type { JobPosting, ResumeProfile } from "../types";
+import type { JobHunterPreferences, JobPosting, ResumeProfile } from "../types";
 import type { MasterResume } from "./masterResume";
 
 export type TailoringPacket = {
@@ -60,9 +60,13 @@ const buildCoverLetter = (resume: TailoringResume, job: JobPosting, matchedKeywo
   ].join("\n");
 };
 
-export const generateTailoringPacket = (job: JobPosting, resume: MasterResume | ResumeProfile): TailoringPacket => {
+export const generateTailoringPacket = (
+  job: JobPosting,
+  resume: MasterResume | ResumeProfile,
+  preferences?: JobHunterPreferences,
+): TailoringPacket => {
   const tailoringResume = toTailoringResume(resume);
-  const fit = scoreJobFit(job);
+  const fit = scoreJobFit(job, preferences);
   const matchedKeywords = fit.matched.map((item) => item.keyword);
   const missingKeywords = fit.missing.map((item) => item.keyword);
 
