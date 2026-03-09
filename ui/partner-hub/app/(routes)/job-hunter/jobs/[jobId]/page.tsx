@@ -169,16 +169,9 @@ export default function JobDetailPage({ params }: PageProps) {
               <Button onClick={() => copyText(applyPacket.screenerAnswersText)} size="sm" type="button" variant="secondary">Copy Screener Answers</Button>
             </div>
             <p className="font-medium">Cover-letter draft</p>
-            <pre className="whitespace-pre-wrap rounded-md bg-muted/50 p-3">{tailoringPacket.coverLetterDraft}</pre>
+            <pre className="whitespace-pre-wrap rounded-md bg-muted/50 p-3">{applyPacket.coverLetterMarkdown}</pre>
             <p className="font-medium">Common screener answers</p>
-            <ul className="space-y-2">
-              {tailoringPacket.screenerAnswers.map((item) => (
-                <li key={item.question}>
-                  <p className="font-medium">{item.question}</p>
-                  <p>{item.answer}</p>
-                </li>
-              ))}
-            </ul>
+            <pre className="whitespace-pre-wrap rounded-md bg-muted/50 p-3">{applyPacket.screenerAnswersText}</pre>
           </CardContent>
         </Card>
       ) : null}
