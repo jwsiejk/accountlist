@@ -56,6 +56,17 @@ export type ResumeProfile = {
   achievements: string[];
 };
 
+
+export type JobHunterPreferences = {
+  targetRoles: string[];
+  targetKeywords: string[];
+  targetLocations: string[];
+  remoteOnly?: boolean;
+  excludedCompanies: string[];
+  excludedTitles: string[];
+  minimumScore?: number;
+};
+
 export type JobHunterStore = {
   jobs: JobPosting[];
   jobsById: Record<string, JobPosting>;
@@ -64,4 +75,5 @@ export type JobHunterStore = {
   applications: Application[];
   applicationsById: Record<string, Application>;
   resumeProfile?: ResumeProfile;
+  preferences?: JobHunterPreferences;
 };

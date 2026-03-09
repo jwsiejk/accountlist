@@ -14,14 +14,19 @@ const sections = [
     href: "/job-hunter/applications",
   },
   {
-    title: "Settings",
-    description: "Manage source boards for job syncing.",
-    href: "/job-hunter/settings",
-  },
-  {
     title: "Resume",
     description: "Edit resume profile data used for tailoring output.",
     href: "/job-hunter/resume",
+  },
+  {
+    title: "Preferences",
+    description: "Set personalized targeting rules for scoring and filtering.",
+    href: "/job-hunter/preferences",
+  },
+  {
+    title: "Settings",
+    description: "Manage source boards for job syncing.",
+    href: "/job-hunter/settings",
   },
 ];
 
@@ -33,7 +38,7 @@ export default function JobHunterPage() {
         <p className="text-sm text-foreground/70">Manage saved jobs and applications.</p>
       </header>
 
-      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         {sections.map((section) => (
           <Link key={section.href} href={section.href}>
             <Card className="h-full hover:border-primary/40 hover:bg-muted/30">
