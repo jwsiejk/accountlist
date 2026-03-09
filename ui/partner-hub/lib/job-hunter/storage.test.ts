@@ -2,6 +2,7 @@ import * as assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { JOB_HUNTER_STORAGE_KEY, isValidJobSourceConfig, loadJobHunterStore, saveJobHunterStore, validateJobSources } from "./storage";
+import { getSourceValidationMessage, truncateBoardToken } from "./sourceSettings";
 
 class MemoryStorage {
   private store = new Map<string, string>();
@@ -89,5 +90,31 @@ describe("job hunter storage", () => {
       configurable: true,
       writable: true,
     });
+  });
+
+  it("returns an empty source list for non-array payloads", () => {
+    assert.deepEqual(validateJobSources(null), []);
+    assert.deepEqual(validateJobSources({ company: "Acme" }), []);
+  });
+
+  it("supports settings helper validation and token display", () => {
+    assert.equal(truncateBoardToken("abcdefghijklmno"), "abcd...lmno");
+    assert.equal(truncateBoardToken("short"), "short");
+
+    assert.equal(
+      getSourceValidationMessage(
+        { company: " ", boardType: "greenhouse", boardToken: "token" },
+        [{ company: "Acme", boardType: "greenhouse", boardToken: "token" }],
+      ),
+      "Company and board token are required.",
+    );
+
+    assert.equal(
+      getSourceValidationMessage(
+        { company: "Acme", boardType: "greenhouse", boardToken: " token " },
+        [{ company: "Acme", boardType: "greenhouse", boardToken: "token" }],
+      ),
+      "That source already exists.",
+    );
   });
 });

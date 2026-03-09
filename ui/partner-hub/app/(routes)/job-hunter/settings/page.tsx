@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { loadJobHunterStore, saveJobHunterStore } from "@/lib/job-hunter/storage";
+import { getSourceValidationMessage, truncateBoardToken } from "@/lib/job-hunter/sourceSettings";
 import type { BoardType } from "@/lib/job-hunter/types";
 
 const DEFAULT_FORM = {
@@ -15,11 +16,18 @@ const DEFAULT_FORM = {
 export default function JobHunterSettingsPage() {
   const [store, setStore] = useState(loadJobHunterStore());
   const [form, setForm] = useState(DEFAULT_FORM);
+  const [validationMessage, setValidationMessage] = useState<string | null>(null);
+
 
   const addSource = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!form.company.trim() || !form.boardToken.trim()) {
+    const company = form.company.trim();
+    const boardToken = form.boardToken.trim();
+
+    const message = getSourceValidationMessage(form, store.sources);
+    if (message) {
+      setValidationMessage(message);
       return;
     }
 
@@ -28,9 +36,9 @@ export default function JobHunterSettingsPage() {
       sources: [
         ...store.sources,
         {
-          company: form.company.trim(),
+          company,
           boardType: form.boardType,
-          boardToken: form.boardToken.trim(),
+          boardToken,
         },
       ],
     };
@@ -38,6 +46,7 @@ export default function JobHunterSettingsPage() {
     saveJobHunterStore(nextStore);
     setStore(nextStore);
     setForm(DEFAULT_FORM);
+    setValidationMessage(null);
   };
 
   const deleteSource = (index: number) => {
@@ -66,7 +75,7 @@ export default function JobHunterSettingsPage() {
             {store.sources.map((source, index) => (
               <li className="flex items-center justify-between rounded-md border border-border/60 p-3" key={`${source.boardType}-${source.boardToken}-${index}`}>
                 <p className="text-sm">
-                  <span className="font-medium">{source.company}</span> · {source.boardType} · {source.boardToken}
+                  <span className="font-medium">{source.company}</span> · {source.boardType} · {truncateBoardToken(source.boardToken)}
                 </p>
                 <Button onClick={() => deleteSource(index)} size="sm" type="button" variant="destructive">
                   Delete
@@ -102,6 +111,7 @@ export default function JobHunterSettingsPage() {
           />
           <div className="md:col-span-3">
             <Button type="submit">Add source</Button>
+            {validationMessage ? <p className="mt-2 text-sm text-red-600">{validationMessage}</p> : null}
           </div>
         </form>
       </section>
