@@ -1,4 +1,5 @@
 import type { Application, BoardType, JobHunterStore, JobSourceConfig } from "./types";
+import { getDefaultPreferences, normalizePreferences } from "./preferences";
 import { normalizeResumeProfile } from "./resumeProfile";
 
 export const JOB_HUNTER_STORAGE_KEY = "partner-hub:job-hunter:v1";
@@ -9,6 +10,7 @@ const DEFAULT_STORE: JobHunterStore = {
   sources: [],
   applications: [],
   applicationsById: {},
+  preferences: getDefaultPreferences(),
 };
 
 const BOARD_TYPES: BoardType[] = ["greenhouse", "lever"];
@@ -83,6 +85,7 @@ export const loadJobHunterStore = (): JobHunterStore => {
       applications,
       applicationsById,
       resumeProfile: parsed.resumeProfile ? normalizeResumeProfile(parsed.resumeProfile) : undefined,
+      preferences: parsed.preferences ? normalizePreferences(parsed.preferences) : getDefaultPreferences(),
     };
   } catch {
     return DEFAULT_STORE;
@@ -99,6 +102,7 @@ export const saveJobHunterStore = (store: JobHunterStore) => {
     JSON.stringify({
       ...store,
       resumeProfile: store.resumeProfile ? normalizeResumeProfile(store.resumeProfile) : undefined,
+      preferences: normalizePreferences(store.preferences),
     }),
   );
 };
