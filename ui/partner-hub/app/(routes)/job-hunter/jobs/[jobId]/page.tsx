@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/job-hunter/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { masterResume } from "@/lib/job-hunter/resume/masterResume";
+import { buildApplyPacket } from "@/lib/job-hunter/applyPacket";
 import { generateTailoringPacket } from "@/lib/job-hunter/resume/tailor";
 import { scoreJobFit } from "@/lib/job-hunter/scoring";
 import { loadJobHunterStore } from "@/lib/job-hunter/storage";
@@ -30,6 +31,10 @@ export default function JobDetailPage({ params }: PageProps) {
     () => (job ? generateTailoringPacket(job, store.resumeProfile ?? masterResume) : null),
     [job, store.resumeProfile],
   );
+  const applyPacket = useMemo(
+    () => (job && tailoringPacket ? buildApplyPacket(job, tailoringPacket) : null),
+    [job, tailoringPacket],
+  );
 
   const handleDownloadMarkdown = () => {
     if (!tailoringPacket || !job) {
@@ -43,6 +48,24 @@ export default function JobDetailPage({ params }: PageProps) {
     link.download = `${job.company}-${job.title}-tailoring.md`.replace(/\s+/g, "-").toLowerCase();
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadApplyPacket = () => {
+    if (!applyPacket) {
+      return;
+    }
+
+    const blob = new Blob([applyPacket.fullPacketMarkdown], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${applyPacket.fileBaseName}.md`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const copyText = (text: string) => {
+    void navigator.clipboard.writeText(text);
   };
 
   if (!job) {
@@ -133,12 +156,18 @@ export default function JobDetailPage({ params }: PageProps) {
         </Card>
       ) : null}
 
-      {activeTab === "Apply" && tailoringPacket ? (
+      {activeTab === "Apply" && tailoringPacket && applyPacket ? (
         <Card>
           <CardHeader>
             <CardTitle>Apply</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={handleDownloadApplyPacket} size="sm" type="button">Download Apply Packet</Button>
+              <Button onClick={() => copyText(applyPacket.fullPacketMarkdown)} size="sm" type="button" variant="secondary">Copy Apply Packet</Button>
+              <Button onClick={() => copyText(applyPacket.coverLetterMarkdown)} size="sm" type="button" variant="secondary">Copy Cover Letter</Button>
+              <Button onClick={() => copyText(applyPacket.screenerAnswersText)} size="sm" type="button" variant="secondary">Copy Screener Answers</Button>
+            </div>
             <p className="font-medium">Cover-letter draft</p>
             <pre className="whitespace-pre-wrap rounded-md bg-muted/50 p-3">{tailoringPacket.coverLetterDraft}</pre>
             <p className="font-medium">Common screener answers</p>
