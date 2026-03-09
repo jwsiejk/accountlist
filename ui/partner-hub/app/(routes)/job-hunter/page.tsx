@@ -18,6 +18,11 @@ const sections = [
     description: "Manage source boards for job syncing.",
     href: "/job-hunter/settings",
   },
+  {
+    title: "Resume",
+    description: "Edit resume profile data used for tailoring output.",
+    href: "/job-hunter/resume",
+  },
 ];
 
 export default function JobHunterPage() {
@@ -28,7 +33,7 @@ export default function JobHunterPage() {
         <p className="text-sm text-foreground/70">Manage saved jobs and applications.</p>
       </header>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {sections.map((section) => (
           <Link key={section.href} href={section.href}>
             <Card className="h-full hover:border-primary/40 hover:bg-muted/30">

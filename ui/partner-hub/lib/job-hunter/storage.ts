@@ -1,4 +1,5 @@
 import type { Application, BoardType, JobHunterStore, JobSourceConfig } from "./types";
+import { normalizeResumeProfile } from "./resumeProfile";
 
 export const JOB_HUNTER_STORAGE_KEY = "partner-hub:job-hunter:v1";
 
@@ -81,6 +82,7 @@ export const loadJobHunterStore = (): JobHunterStore => {
       lastSyncedAt: typeof parsed.lastSyncedAt === "string" ? parsed.lastSyncedAt : undefined,
       applications,
       applicationsById,
+      resumeProfile: parsed.resumeProfile ? normalizeResumeProfile(parsed.resumeProfile) : undefined,
     };
   } catch {
     return DEFAULT_STORE;
@@ -92,5 +94,11 @@ export const saveJobHunterStore = (store: JobHunterStore) => {
     return;
   }
 
-  window.localStorage.setItem(JOB_HUNTER_STORAGE_KEY, JSON.stringify(store));
+  window.localStorage.setItem(
+    JOB_HUNTER_STORAGE_KEY,
+    JSON.stringify({
+      ...store,
+      resumeProfile: store.resumeProfile ? normalizeResumeProfile(store.resumeProfile) : undefined,
+    }),
+  );
 };

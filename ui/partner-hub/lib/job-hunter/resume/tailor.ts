@@ -1,5 +1,6 @@
 import { scoreJobFit } from "../scoring";
-import type { JobPosting } from "../types";
+import { normalizeResumeProfile } from "../resumeProfile";
+import type { JobPosting, ResumeProfile } from "../types";
 import type { MasterResume } from "./masterResume";
 
 export type TailoringPacket = {
@@ -19,7 +20,30 @@ export type TailoringPacket = {
 
 const top = (items: string[], count: number) => items.slice(0, count);
 
-const buildCoverLetter = (resume: MasterResume, job: JobPosting, matchedKeywords: string[]) => {
+type TailoringResume = {
+  summary: string;
+  achievements: string[];
+  signer: string;
+};
+
+const toTailoringResume = (resume: MasterResume | ResumeProfile): TailoringResume => {
+  if ("name" in resume) {
+    return {
+      summary: resume.summary,
+      achievements: resume.achievements,
+      signer: resume.name,
+    };
+  }
+
+  const normalized = normalizeResumeProfile(resume);
+  return {
+    summary: normalized.summary,
+    achievements: normalized.achievements,
+    signer: "Candidate",
+  };
+};
+
+const buildCoverLetter = (resume: TailoringResume, job: JobPosting, matchedKeywords: string[]) => {
   return [
     `Dear Hiring Team,`,
     "",
@@ -32,16 +56,17 @@ const buildCoverLetter = (resume: MasterResume, job: JobPosting, matchedKeywords
     "Thank you for your consideration. I would welcome the opportunity to discuss how I can help your team accelerate customer success.",
     "",
     `Sincerely,`,
-    resume.name,
+    resume.signer,
   ].join("\n");
 };
 
-export const generateTailoringPacket = (job: JobPosting, resume: MasterResume): TailoringPacket => {
+export const generateTailoringPacket = (job: JobPosting, resume: MasterResume | ResumeProfile): TailoringPacket => {
+  const tailoringResume = toTailoringResume(resume);
   const fit = scoreJobFit(job);
   const matchedKeywords = fit.matched.map((item) => item.keyword);
   const missingKeywords = fit.missing.map((item) => item.keyword);
 
-  const tailoredSummary = `${resume.summary} Targeting ${job.title} at ${job.company} with emphasis on ${top(
+  const tailoredSummary = `${tailoringResume.summary} Targeting ${job.title} at ${job.company} with emphasis on ${top(
     matchedKeywords,
     3,
   ).join(", ") || "partner-facing technical leadership"}.`;
@@ -52,7 +77,7 @@ export const generateTailoringPacket = (job: JobPosting, resume: MasterResume): 
     `Address likely gaps proactively by emphasizing readiness in ${top(missingKeywords, 2).join(" and ") || "adjacent areas"}.`,
   ];
 
-  const coverLetterDraft = buildCoverLetter(resume, job, top(matchedKeywords, 4));
+  const coverLetterDraft = buildCoverLetter(tailoringResume, job, top(matchedKeywords, 4));
 
   const screenerAnswers = [
     {
@@ -63,7 +88,7 @@ export const generateTailoringPacket = (job: JobPosting, resume: MasterResume): 
     {
       question: "Describe your relevant experience.",
       answer: `I bring hands-on experience leading partner-facing and post-sales initiatives, including ${top(
-        resume.achievements,
+        tailoringResume.achievements,
         1,
       )[0] ?? "cross-functional technical programs"}.`,
     },
