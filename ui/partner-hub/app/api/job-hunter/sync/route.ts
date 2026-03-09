@@ -1,23 +1,23 @@
 import { NextResponse } from "next/server";
 
+import { validateJobSources } from "@/lib/job-hunter/storage";
 import { runJobSync } from "@/lib/job-hunter/syncEngine";
-import { loadJobHunterStore, setServerJobHunterStore } from "@/lib/job-hunter/storage";
 
-export async function POST() {
-  const jobs = await runJobSync();
-  const store = loadJobHunterStore();
-  const nextStore = {
-    ...store,
-    jobs,
-    jobsById: Object.fromEntries(jobs.map((job) => [job.id, job])),
-    lastSyncedAt: new Date().toISOString(),
-  };
+export async function POST(request: Request) {
+  const payload = (await request.json().catch(() => null)) as { sources?: unknown } | null;
+  const sources = validateJobSources(payload?.sources);
 
-  setServerJobHunterStore(nextStore);
+  if (!Array.isArray(payload?.sources) || sources.length !== payload.sources.length) {
+    return NextResponse.json({ error: "Invalid sources payload." }, { status: 400 });
+  }
+
+  const jobs = await runJobSync(sources);
+  const jobsById = Object.fromEntries(jobs.map((job) => [job.id, job]));
+  const lastSyncedAt = new Date().toISOString();
 
   return NextResponse.json({
-    jobs: nextStore.jobs,
-    jobsById: nextStore.jobsById,
-    lastSyncedAt: nextStore.lastSyncedAt,
+    jobs,
+    jobsById,
+    lastSyncedAt,
   });
 }

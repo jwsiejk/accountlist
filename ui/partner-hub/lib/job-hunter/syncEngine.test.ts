@@ -1,42 +1,11 @@
 import * as assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { JOB_HUNTER_STORAGE_KEY } from "./storage";
 import { __private__, runJobSync } from "./syncEngine";
-
-class MemoryStorage {
-  private store = new Map<string, string>();
-
-  getItem(key: string) {
-    return this.store.get(key) ?? null;
-  }
-
-  setItem(key: string, value: string) {
-    this.store.set(key, value);
-  }
-}
 
 describe("job hunter sync engine", () => {
   it("runs board adapters and syncs jobs", async () => {
-    const storage = new MemoryStorage();
-    storage.setItem(
-      JOB_HUNTER_STORAGE_KEY,
-      JSON.stringify({
-        sources: [
-          { company: "Acme", boardType: "greenhouse", boardToken: "acme-gh" },
-          { company: "Acme", boardType: "lever", boardToken: "acme-lever" },
-        ],
-      }),
-    );
-
-    const previousWindow = globalThis.window;
     const previousFetch = globalThis.fetch;
-
-    Object.defineProperty(globalThis, "window", {
-      value: { localStorage: storage },
-      configurable: true,
-      writable: true,
-    });
 
     const called: string[] = [];
     globalThis.fetch = (async (input: URL | RequestInfo) => {
@@ -54,24 +23,20 @@ describe("job hunter sync engine", () => {
 
       return {
         ok: true,
-        json: async () => [
-          { id: "abc", text: " PM ", hostedUrl: "https://lever/job/abc", categories: { location: "NYC" } },
-        ],
+        json: async () => [{ id: "abc", text: " PM ", hostedUrl: "https://lever/job/abc", categories: { location: "NYC" } }],
       } as Response;
     }) as typeof fetch;
 
-    const jobs = await runJobSync();
+    const jobs = await runJobSync([
+      { company: "Acme", boardType: "greenhouse", boardToken: "acme-gh" },
+      { company: "Acme", boardType: "lever", boardToken: "acme-lever" },
+    ]);
 
     assert.equal(called.length, 2);
     assert.ok(called.some((url) => url.includes("boards-api.greenhouse.io/v1/boards/acme-gh/jobs")));
     assert.ok(called.some((url) => url.includes("api.lever.co/v0/postings/acme-lever")));
     assert.equal(jobs.length, 2);
 
-    Object.defineProperty(globalThis, "window", {
-      value: previousWindow,
-      configurable: true,
-      writable: true,
-    });
     globalThis.fetch = previousFetch;
   });
 

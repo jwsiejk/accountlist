@@ -1,4 +1,4 @@
-import type { Application, JobHunterStore } from "./types";
+import type { Application, BoardType, JobHunterStore, JobSourceConfig } from "./types";
 
 export const JOB_HUNTER_STORAGE_KEY = "partner-hub:job-hunter:v1";
 
@@ -10,7 +10,7 @@ const DEFAULT_STORE: JobHunterStore = {
   applicationsById: {},
 };
 
-let serverStore: JobHunterStore = DEFAULT_STORE;
+const BOARD_TYPES: BoardType[] = ["greenhouse", "lever"];
 
 const toApplicationsById = (applications: Application[]) =>
   applications.reduce<Record<string, Application>>((acc, application) => {
@@ -18,9 +18,39 @@ const toApplicationsById = (applications: Application[]) =>
     return acc;
   }, {});
 
+export const isValidJobSourceConfig = (value: unknown): value is JobSourceConfig => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  const source = value as Partial<JobSourceConfig>;
+  return (
+    typeof source.company === "string" &&
+    source.company.trim().length > 0 &&
+    typeof source.boardToken === "string" &&
+    source.boardToken.trim().length > 0 &&
+    typeof source.boardType === "string" &&
+    BOARD_TYPES.includes(source.boardType as BoardType)
+  );
+};
+
+export const validateJobSources = (value: unknown): JobSourceConfig[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((source): source is JobSourceConfig => isValidJobSourceConfig(source))
+    .map((source) => ({
+      company: source.company.trim(),
+      boardType: source.boardType,
+      boardToken: source.boardToken.trim(),
+    }));
+};
+
 export const loadJobHunterStore = (): JobHunterStore => {
   if (typeof window === "undefined") {
-    return serverStore;
+    return DEFAULT_STORE;
   }
 
   try {
@@ -47,7 +77,7 @@ export const loadJobHunterStore = (): JobHunterStore => {
     return {
       jobs,
       jobsById,
-      sources: Array.isArray(parsed.sources) ? parsed.sources : [],
+      sources: validateJobSources(parsed.sources),
       lastSyncedAt: typeof parsed.lastSyncedAt === "string" ? parsed.lastSyncedAt : undefined,
       applications,
       applicationsById,
@@ -55,10 +85,6 @@ export const loadJobHunterStore = (): JobHunterStore => {
   } catch {
     return DEFAULT_STORE;
   }
-};
-
-export const setServerJobHunterStore = (store: JobHunterStore) => {
-  serverStore = store;
 };
 
 export const saveJobHunterStore = (store: JobHunterStore) => {
