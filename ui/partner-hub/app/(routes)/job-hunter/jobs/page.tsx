@@ -6,15 +6,12 @@ import { EmptyState } from "@/components/job-hunter/EmptyState";
 import { JobList } from "@/components/job-hunter/JobList";
 import { Button } from "@/components/ui/button";
 import { loadJobHunterStore, saveJobHunterStore } from "@/lib/job-hunter/storage";
-import type { JobPosting, JobSourceConfig } from "@/lib/job-hunter/types";
-
-const stringifySources = (sources: JobSourceConfig[]) => JSON.stringify(sources, null, 2);
+import type { JobPosting } from "@/lib/job-hunter/types";
 
 export default function JobHunterJobsPage() {
   const initialStore = loadJobHunterStore();
   const [jobsById, setJobsById] = useState<Record<string, JobPosting>>(initialStore.jobsById ?? {});
   const [lastSyncedAt, setLastSyncedAt] = useState<string | undefined>(initialStore.lastSyncedAt);
-  const [sourcesText, setSourcesText] = useState(stringifySources(initialStore.sources));
   const [error, setError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [search, setSearch] = useState("");
@@ -44,15 +41,8 @@ export default function JobHunterJobsPage() {
     setIsSyncing(true);
 
     try {
-      const parsedSources = JSON.parse(sourcesText) as JobSourceConfig[];
-      if (!Array.isArray(parsedSources)) {
-        throw new Error("Sources JSON must be an array.");
-      }
-
       const response = await fetch("/api/job-hunter/sync", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sources: parsedSources }),
       });
       const payload = (await response.json()) as {
         error?: string;
@@ -71,7 +61,6 @@ export default function JobHunterJobsPage() {
         ...loadJobHunterStore(),
         jobs: Object.values(payload.jobsById),
         jobsById: payload.jobsById,
-        sources: parsedSources,
         lastSyncedAt: payload.lastSyncedAt,
       });
     } catch (syncError) {
@@ -85,20 +74,14 @@ export default function JobHunterJobsPage() {
     <main className="mx-auto max-w-5xl space-y-6 p-6">
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold">Jobs</h1>
-        <p className="text-sm text-foreground/70">Sync public Greenhouse/Lever boards and store normalized jobs locally.</p>
+        <p className="text-sm text-foreground/70">Automatically sync configured Greenhouse/Lever boards each run.</p>
       </header>
 
       <section className="space-y-2 rounded-lg border border-border/60 p-4">
-        <p className="text-sm font-medium">Sources (JSON array)</p>
-        <textarea
-          className="min-h-32 w-full rounded-md border border-border/60 bg-background p-2 font-mono text-xs"
-          onChange={(event) => setSourcesText(event.target.value)}
-          value={sourcesText}
-        />
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs text-foreground/70">Last sync: {lastSyncedAt ? new Date(lastSyncedAt).toLocaleString() : "Never"}</p>
           <Button disabled={isSyncing} onClick={handleSync} type="button">
-            {isSyncing ? "Syncing..." : "Sync jobs"}
+            {isSyncing ? "Syncing..." : "Sync Jobs"}
           </Button>
         </div>
         {error ? <p className="text-xs text-red-600">{error}</p> : null}
@@ -126,10 +109,7 @@ export default function JobHunterJobsPage() {
       {filteredJobs.length > 0 ? (
         <JobList jobs={filteredJobs} />
       ) : (
-        <EmptyState
-          title="No jobs yet"
-          description="Add source definitions and click Sync jobs to pull postings from Greenhouse and Lever."
-        />
+        <EmptyState title="No jobs yet" description="Configure sources and click Sync Jobs to pull postings." />
       )}
     </main>
   );

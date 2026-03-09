@@ -10,6 +10,8 @@ const DEFAULT_STORE: JobHunterStore = {
   applicationsById: {},
 };
 
+let serverStore: JobHunterStore = DEFAULT_STORE;
+
 const toApplicationsById = (applications: Application[]) =>
   applications.reduce<Record<string, Application>>((acc, application) => {
     acc[application.jobId] = application;
@@ -18,7 +20,7 @@ const toApplicationsById = (applications: Application[]) =>
 
 export const loadJobHunterStore = (): JobHunterStore => {
   if (typeof window === "undefined") {
-    return DEFAULT_STORE;
+    return serverStore;
   }
 
   try {
@@ -53,6 +55,10 @@ export const loadJobHunterStore = (): JobHunterStore => {
   } catch {
     return DEFAULT_STORE;
   }
+};
+
+export const setServerJobHunterStore = (store: JobHunterStore) => {
+  serverStore = store;
 };
 
 export const saveJobHunterStore = (store: JobHunterStore) => {

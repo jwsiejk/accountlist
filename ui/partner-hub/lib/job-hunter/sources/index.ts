@@ -1,4 +1,4 @@
-import type { JobPosting, JobSourceConfig } from "@/lib/job-hunter/types";
+import type { JobPosting, JobSourceConfig } from "../types";
 
 import { fetchGreenhouseJobs } from "./greenhouse";
 import { fetchLeverJobs } from "./lever";
