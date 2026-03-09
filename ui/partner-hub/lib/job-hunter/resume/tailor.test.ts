@@ -29,6 +29,33 @@ describe("generateTailoringPacket", () => {
     assert.ok(packet.markdown.includes("## Cover Letter Draft"));
   });
 
+
+  it("uses preferences when calculating fit", () => {
+    const job: JobPosting = {
+      id: "pref:789",
+      title: "Solutions Architect",
+      company: "Nimbus Data",
+      source: "company-site",
+      createdAt: "2024-01-01T00:00:00.000Z",
+      updatedAt: "2024-01-02T00:00:00.000Z",
+    };
+
+    const withoutPreferences = generateTailoringPacket(job, masterResume);
+    const withExclusion = generateTailoringPacket(job, masterResume, {
+      targetRoles: [],
+      targetKeywords: [],
+      targetLocations: [],
+      remoteOnly: false,
+      excludedCompanies: ["Nimbus"],
+      excludedTitles: [],
+      minimumScore: 0,
+    });
+
+    assert.notEqual(withoutPreferences.fit.score, 0);
+    assert.equal(withExclusion.fit.score, 0);
+    assert.ok(withExclusion.fit.preferenceSignals.includes("Excluded company match"));
+  });
+
   it("supports resume profile input", () => {
     const job: JobPosting = {
       id: "greenhouse:456",

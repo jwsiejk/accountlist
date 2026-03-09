@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { masterResume } from "@/lib/job-hunter/resume/masterResume";
 import { buildApplyPacket } from "@/lib/job-hunter/applyPacket";
 import { generateTailoringPacket } from "@/lib/job-hunter/resume/tailor";
+import { normalizePreferences } from "@/lib/job-hunter/preferences";
 import { scoreJobFit } from "@/lib/job-hunter/scoring";
 import { loadJobHunterStore } from "@/lib/job-hunter/storage";
 
@@ -25,11 +26,12 @@ export default function JobDetailPage({ params }: PageProps) {
   const decodedJobId = decodeURIComponent(params.jobId);
   const store = loadJobHunterStore();
   const job = store.jobsById[decodedJobId];
+  const preferences = normalizePreferences(store.preferences);
   const [activeTab, setActiveTab] = useState<Tab>("Overview");
-  const fit = useMemo(() => (job ? scoreJobFit(job) : null), [job]);
+  const fit = useMemo(() => (job ? scoreJobFit(job, preferences) : null), [job, preferences]);
   const tailoringPacket = useMemo(
-    () => (job ? generateTailoringPacket(job, store.resumeProfile ?? masterResume) : null),
-    [job, store.resumeProfile],
+    () => (job ? generateTailoringPacket(job, store.resumeProfile ?? masterResume, preferences) : null),
+    [job, preferences, store.resumeProfile],
   );
   const applyPacket = useMemo(
     () => (job && tailoringPacket ? buildApplyPacket(job, tailoringPacket) : null),

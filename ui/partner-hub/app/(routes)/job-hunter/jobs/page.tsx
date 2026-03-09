@@ -33,14 +33,21 @@ export default function JobHunterJobsPage() {
   const [minDate, setMinDate] = useState("");
 
   const jobs = useMemo(() => Object.values(jobsById), [jobsById]);
+  const activePreferences = useMemo(
+    () => ({
+      ...preferences,
+      remoteOnly,
+    }),
+    [preferences, remoteOnly],
+  );
 
   const filteredJobs = useMemo<FilteredJob[]>(() => {
     const query = search.trim().toLowerCase();
 
     return jobs
       .map((job) => {
-        const fit = scoreJobFit(job, preferences);
-        const exclusion = jobMatchesPreferences(job, preferences);
+        const fit = scoreJobFit(job, activePreferences);
+        const exclusion = jobMatchesPreferences(job, activePreferences);
 
         return {
           job,
@@ -54,13 +61,13 @@ export default function JobHunterJobsPage() {
           query.length === 0 ||
           job.title.toLowerCase().includes(query) ||
           job.company.toLowerCase().includes(query);
-        const matchesRemote = !remoteOnly || job.isRemote === true;
-        const matchesScore = score >= Math.max(0, Math.min(100, minScore));
+        const minScoreThreshold = Math.max(0, Math.min(100, minScore));
+        const matchesScore = excluded && !hideExcluded ? true : score >= minScoreThreshold;
         const jobDate = (job.postedAt ?? job.updatedAt).slice(0, 10);
         const matchesDate = !minDate || jobDate >= minDate;
         const passesExcluded = !hideExcluded || !excluded;
 
-        return matchesQuery && matchesRemote && matchesScore && matchesDate && passesExcluded;
+        return matchesQuery && matchesScore && matchesDate && passesExcluded;
       })
       .sort((a, b) => {
         if (b.score !== a.score) {
@@ -69,7 +76,7 @@ export default function JobHunterJobsPage() {
 
         return b.job.updatedAt.localeCompare(a.job.updatedAt);
       });
-  }, [hideExcluded, jobs, minDate, minScore, preferences, remoteOnly, search]);
+  }, [activePreferences, hideExcluded, jobs, minDate, minScore, search]);
 
   const excludedVisible = filteredJobs.filter((item) => item.excluded).length;
 
