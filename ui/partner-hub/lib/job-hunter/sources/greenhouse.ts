@@ -1,5 +1,5 @@
-import { normalizeJobPosting } from "@/lib/job-hunter/normalize";
-import type { JobPosting, JobSourceConfig } from "@/lib/job-hunter/types";
+import { normalizeJobPosting } from "../normalize";
+import type { JobPosting, JobSourceConfig } from "../types";
 
 type GreenhouseJob = {
   id: number;
