@@ -8,7 +8,7 @@ export async function POST(request: Request) {
   const sources = validateJobSources(payload?.sources);
 
   if (!Array.isArray(payload?.sources) || sources.length !== payload.sources.length) {
-    return NextResponse.json({ error: "Invalid sources payload." }, { status: 400 });
+    return NextResponse.json({ error: "Invalid sources payload: one or more source entries are invalid." }, { status: 400 });
   }
 
   const jobs = await runJobSync(sources);

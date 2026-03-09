@@ -38,10 +38,16 @@ export default function JobHunterJobsPage() {
 
   const handleSync = async () => {
     setError(null);
+
+    const currentStore = loadJobHunterStore();
+    if (currentStore.sources.length === 0) {
+      setError("Add at least one job source in Settings before syncing.");
+      return;
+    }
+
     setIsSyncing(true);
 
     try {
-      const currentStore = loadJobHunterStore();
       const response = await fetch("/api/job-hunter/sync", {
         method: "POST",
         headers: {
