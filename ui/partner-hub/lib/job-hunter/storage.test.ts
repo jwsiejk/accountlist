@@ -56,6 +56,47 @@ describe("job hunter storage", () => {
     });
   });
 
+
+  it("hydrates legacy applications without checklist fields", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(
+      JOB_HUNTER_STORAGE_KEY,
+      JSON.stringify({
+        jobsById: {},
+        jobs: [],
+        applicationsById: {
+          "job-legacy": {
+            id: "job-legacy",
+            jobId: "job-legacy",
+            status: "prepared",
+            notes: "legacy note",
+            createdAt: "2024-03-01T10:00:00.000Z",
+            updatedAt: "2024-03-01T10:00:00.000Z",
+          },
+        },
+      }),
+    );
+
+    const previousWindow = globalThis.window;
+    Object.defineProperty(globalThis, "window", {
+      value: { localStorage: storage },
+      configurable: true,
+      writable: true,
+    });
+
+    const loaded = loadJobHunterStore();
+
+    assert.equal(loaded.applicationsById["job-legacy"].notes, "legacy note");
+    assert.equal(loaded.applicationsById["job-legacy"].checklist?.resumeReviewed, false);
+    assert.equal(loaded.applicationsById["job-legacy"].checklist?.followUpScheduled, false);
+
+    Object.defineProperty(globalThis, "window", {
+      value: previousWindow,
+      configurable: true,
+      writable: true,
+    });
+  });
+
   it("validates source payloads", () => {
     assert.equal(isValidJobSourceConfig({ company: "Acme", boardType: "greenhouse", boardToken: "acme" }), true);
     assert.equal(isValidJobSourceConfig({ company: "", boardType: "greenhouse", boardToken: "acme" }), false);

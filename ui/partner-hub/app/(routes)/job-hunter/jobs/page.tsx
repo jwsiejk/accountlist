@@ -3,19 +3,12 @@
 import { useMemo, useState } from "react";
 
 import { EmptyState } from "@/components/job-hunter/EmptyState";
-import { JobList } from "@/components/job-hunter/JobList";
+import { JobList, type JobListRow } from "@/components/job-hunter/JobList";
 import { Button } from "@/components/ui/button";
 import { getDefaultPreferences, jobMatchesPreferences, normalizePreferences } from "@/lib/job-hunter/preferences";
 import { scoreJobFit } from "@/lib/job-hunter/scoring";
 import { loadJobHunterStore, saveJobHunterStore } from "@/lib/job-hunter/storage";
 import type { JobHunterPreferences, JobPosting } from "@/lib/job-hunter/types";
-
-type FilteredJob = {
-  job: JobPosting;
-  score: number;
-  excluded: boolean;
-  reasons: string[];
-};
 
 export default function JobHunterJobsPage() {
   const initialStore = loadJobHunterStore();
@@ -41,7 +34,7 @@ export default function JobHunterJobsPage() {
     [preferences, remoteOnly],
   );
 
-  const filteredJobs = useMemo<FilteredJob[]>(() => {
+  const filteredJobs = useMemo<JobListRow[]>(() => {
     const query = search.trim().toLowerCase();
 
     return jobs
@@ -53,7 +46,10 @@ export default function JobHunterJobsPage() {
           job,
           score: fit.score,
           excluded: exclusion.excluded,
-          reasons: exclusion.reasons,
+          exclusionReasons: exclusion.reasons,
+          reasonSummary:
+            fit.preferenceSignals[0] ??
+            (exclusion.reasons.length > 0 ? `Excluded: ${exclusion.reasons.join(", ")}` : "No preference signal"),
         };
       })
       .filter(({ job, score, excluded }) => {
@@ -192,7 +188,7 @@ export default function JobHunterJobsPage() {
 
       {filteredJobs.length > 0 ? (
         <>
-          <JobList jobs={filteredJobs.map((item) => item.job)} />
+          <JobList rows={filteredJobs} />
           {!hideExcluded ? (
             <section className="space-y-2 rounded-lg border border-border/60 p-4 text-xs">
               <p className="font-medium">Excluded reasons</p>
@@ -200,7 +196,7 @@ export default function JobHunterJobsPage() {
                 .filter((item) => item.excluded)
                 .map((item) => (
                   <p key={item.job.id}>
-                    {item.job.title} at {item.job.company}: {item.reasons.join(", ")}
+                    {item.job.title} at {item.job.company}: {item.exclusionReasons.join(", ")}
                   </p>
                 ))}
             </section>

@@ -6,12 +6,13 @@ import { useMemo, useState } from "react";
 import { EmptyState } from "@/components/job-hunter/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { masterResume } from "@/lib/job-hunter/resume/masterResume";
+import { applicationReducer, createApplicationFromJob, getApplicationChecklist } from "@/lib/job-hunter/applications";
 import { buildApplyPacket } from "@/lib/job-hunter/applyPacket";
-import { generateTailoringPacket } from "@/lib/job-hunter/resume/tailor";
 import { normalizePreferences } from "@/lib/job-hunter/preferences";
+import { masterResume } from "@/lib/job-hunter/resume/masterResume";
+import { generateTailoringPacket } from "@/lib/job-hunter/resume/tailor";
 import { scoreJobFit } from "@/lib/job-hunter/scoring";
-import { loadJobHunterStore } from "@/lib/job-hunter/storage";
+import { loadJobHunterStore, saveJobHunterStore } from "@/lib/job-hunter/storage";
 
 type PageProps = {
   params: {
@@ -28,6 +29,24 @@ export default function JobDetailPage({ params }: PageProps) {
   const job = store.jobsById[decodedJobId];
   const preferences = normalizePreferences(store.preferences);
   const [activeTab, setActiveTab] = useState<Tab>("Overview");
+  const [applicationById, setApplicationById] = useState(() => {
+    if (!job) {
+      return store.applicationsById ?? {};
+    }
+
+    const seeded = { ...(store.applicationsById ?? {}) };
+    if (!seeded[job.id]) {
+      seeded[job.id] = createApplicationFromJob(job, new Date().toISOString());
+      saveJobHunterStore({
+        ...store,
+        applicationsById: seeded,
+        applications: Object.values(seeded),
+      });
+    }
+
+    return seeded;
+  });
+  const [workspaceMessage, setWorkspaceMessage] = useState<string | null>(null);
   const fit = useMemo(() => (job ? scoreJobFit(job, preferences) : null), [job, preferences]);
   const tailoringPacket = useMemo(
     () => (job ? generateTailoringPacket(job, store.resumeProfile ?? masterResume, preferences) : null),
@@ -37,6 +56,18 @@ export default function JobDetailPage({ params }: PageProps) {
     () => (job && tailoringPacket ? buildApplyPacket(job, tailoringPacket) : null),
     [job, tailoringPacket],
   );
+  const application = job ? applicationById[job.id] : undefined;
+  const checklist = application ? getApplicationChecklist(application) : null;
+
+  const saveApplications = (next: typeof applicationById) => {
+    setApplicationById(next);
+    const current = loadJobHunterStore();
+    saveJobHunterStore({
+      ...current,
+      applicationsById: next,
+      applications: Object.values(next),
+    });
+  };
 
   const handleDownloadMarkdown = () => {
     if (!tailoringPacket || !job) {
@@ -68,6 +99,24 @@ export default function JobDetailPage({ params }: PageProps) {
 
   const copyText = (text: string) => {
     void navigator.clipboard.writeText(text);
+  };
+
+  const setChecklistItem = (item: keyof NonNullable<typeof checklist>, value: boolean) => {
+    if (!job) return;
+    saveApplications(applicationReducer(applicationById, { type: "setChecklistItem", jobId: job.id, item, value }));
+  };
+
+  const setNotes = (notes: string) => {
+    if (!job) return;
+    saveApplications(applicationReducer(applicationById, { type: "setNotes", jobId: job.id, notes }));
+  };
+
+  const markApplied = () => {
+    if (!job) return;
+    const withSnapshot = applicationReducer(applicationById, { type: "ensureSnapshotFromJob", jobId: job.id, job });
+    const withApplied = applicationReducer(withSnapshot, { type: "setStatus", jobId: job.id, status: "applied" });
+    saveApplications(withApplied);
+    setWorkspaceMessage("Application marked as applied and snapshot saved.");
   };
 
   if (!job) {
@@ -170,6 +219,34 @@ export default function JobDetailPage({ params }: PageProps) {
               <Button onClick={() => copyText(applyPacket.coverLetterMarkdown)} size="sm" type="button" variant="secondary">Copy Cover Letter</Button>
               <Button onClick={() => copyText(applyPacket.screenerAnswersText)} size="sm" type="button" variant="secondary">Copy Screener Answers</Button>
             </div>
+
+            <section className="space-y-3 rounded-md border border-border/60 p-3">
+              <h3 className="font-medium">Apply Checklist</h3>
+              {checklist ? (
+                <div className="grid gap-2 md:grid-cols-2">
+                  <label className="flex items-center gap-2"><input checked={checklist.resumeReviewed} onChange={(e) => setChecklistItem("resumeReviewed", e.target.checked)} type="checkbox" />Resume reviewed</label>
+                  <label className="flex items-center gap-2"><input checked={checklist.coverLetterReviewed} onChange={(e) => setChecklistItem("coverLetterReviewed", e.target.checked)} type="checkbox" />Cover letter reviewed</label>
+                  <label className="flex items-center gap-2"><input checked={checklist.screenerAnswersReviewed} onChange={(e) => setChecklistItem("screenerAnswersReviewed", e.target.checked)} type="checkbox" />Screener answers reviewed</label>
+                  <label className="flex items-center gap-2"><input checked={checklist.appliedExternally} onChange={(e) => setChecklistItem("appliedExternally", e.target.checked)} type="checkbox" />Applied externally</label>
+                  <label className="flex items-center gap-2"><input checked={checklist.followUpScheduled} onChange={(e) => setChecklistItem("followUpScheduled", e.target.checked)} type="checkbox" />Follow-up scheduled</label>
+                </div>
+              ) : null}
+              <label className="block text-xs text-foreground/70">
+                Notes
+                <textarea
+                  className="mt-1 min-h-24 w-full rounded-md border border-border/60 bg-background px-2 py-1 text-sm"
+                  onChange={(event) => setNotes(event.target.value)}
+                  placeholder="Track what you actually submitted, recruiter details, and follow-up plan."
+                  value={application?.notes ?? ""}
+                />
+              </label>
+              <div className="flex items-center gap-3">
+                <Button onClick={markApplied} size="sm" type="button">Mark as Applied</Button>
+                {application?.appliedAt ? <span className="text-xs text-foreground/70">Applied at {new Date(application.appliedAt).toLocaleString()}</span> : null}
+              </div>
+              {workspaceMessage ? <p className="text-xs text-emerald-700">{workspaceMessage}</p> : null}
+            </section>
+
             <p className="font-medium">Apply Packet Preview</p>
             <pre className="whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-xs">{applyPacket.fullPacketMarkdown}</pre>
             <p className="font-medium">Cover-letter draft</p>

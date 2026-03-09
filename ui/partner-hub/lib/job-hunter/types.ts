@@ -10,6 +10,24 @@ export type JobSourceConfig = {
 
 export type ApplicationStatus = "prepared" | "applied" | "interview" | "rejected" | "offer";
 
+export type ApplicationJobSnapshot = {
+  jobId: string;
+  title: string;
+  company: string;
+  location?: string;
+  sourceUrl?: string;
+  department?: string;
+  postedAt?: string;
+};
+
+export type ApplyChecklist = {
+  resumeReviewed: boolean;
+  coverLetterReviewed: boolean;
+  screenerAnswersReviewed: boolean;
+  appliedExternally: boolean;
+  followUpScheduled: boolean;
+};
+
 export type JobPosting = {
   id: string;
   title: string;
@@ -37,6 +55,8 @@ export type Application = {
   offeredAt?: string;
   rejectedAt?: string;
   notes?: string;
+  checklist?: ApplyChecklist;
+  jobSnapshot?: ApplicationJobSnapshot;
   createdAt: string;
   updatedAt: string;
 };
