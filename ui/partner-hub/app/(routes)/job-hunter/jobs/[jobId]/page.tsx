@@ -22,10 +22,14 @@ type Tab = (typeof tabs)[number];
 
 export default function JobDetailPage({ params }: PageProps) {
   const decodedJobId = decodeURIComponent(params.jobId);
-  const job = loadJobHunterStore().jobsById[decodedJobId];
+  const store = loadJobHunterStore();
+  const job = store.jobsById[decodedJobId];
   const [activeTab, setActiveTab] = useState<Tab>("Overview");
   const fit = useMemo(() => (job ? scoreJobFit(job) : null), [job]);
-  const tailoringPacket = useMemo(() => (job ? generateTailoringPacket(job, masterResume) : null), [job]);
+  const tailoringPacket = useMemo(
+    () => (job ? generateTailoringPacket(job, store.resumeProfile ?? masterResume) : null),
+    [job, store.resumeProfile],
+  );
 
   const handleDownloadMarkdown = () => {
     if (!tailoringPacket || !job) {

@@ -79,11 +79,18 @@ describe("job hunter storage", () => {
       applications: [],
       applicationsById: {},
       sources: [{ company: "Acme", boardType: "greenhouse", boardToken: "acme" }],
+      resumeProfile: {
+        summary: "Summary",
+        skills: ["Architecture"],
+        experience: [{ company: "Acme", title: "SA", bullets: ["Led implementation"] }],
+        achievements: ["Improved win rates"],
+      },
     });
 
     const loaded = loadJobHunterStore();
     assert.equal(loaded.sources.length, 1);
     assert.deepEqual(loaded.sources[0], { company: "Acme", boardType: "greenhouse", boardToken: "acme" });
+    assert.equal(loaded.resumeProfile?.summary, "Summary");
 
     Object.defineProperty(globalThis, "window", {
       value: previousWindow,

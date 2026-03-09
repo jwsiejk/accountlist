@@ -41,6 +41,21 @@ export type Application = {
   updatedAt: string;
 };
 
+export type ResumeExperience = {
+  company: string;
+  title: string;
+  start?: string;
+  end?: string;
+  bullets: string[];
+};
+
+export type ResumeProfile = {
+  summary: string;
+  skills: string[];
+  experience: ResumeExperience[];
+  achievements: string[];
+};
+
 export type JobHunterStore = {
   jobs: JobPosting[];
   jobsById: Record<string, JobPosting>;
@@ -48,4 +63,5 @@ export type JobHunterStore = {
   lastSyncedAt?: string;
   applications: Application[];
   applicationsById: Record<string, Application>;
+  resumeProfile?: ResumeProfile;
 };

@@ -28,4 +28,25 @@ describe("generateTailoringPacket", () => {
     assert.ok(packet.markdown.includes("# Resume Tailoring Packet"));
     assert.ok(packet.markdown.includes("## Cover Letter Draft"));
   });
+
+  it("supports resume profile input", () => {
+    const job: JobPosting = {
+      id: "greenhouse:456",
+      title: "Solutions Architect",
+      company: "Acme",
+      source: "company-site",
+      createdAt: "2024-01-01T00:00:00.000Z",
+      updatedAt: "2024-01-02T00:00:00.000Z",
+    };
+
+    const packet = generateTailoringPacket(job, {
+      summary: "Profile summary",
+      skills: ["Cloud"],
+      experience: [{ company: "Acme", title: "Architect", bullets: ["Built platform"] }],
+      achievements: ["Led migration"],
+    });
+
+    assert.ok(packet.tailoredSummary.includes("Profile summary"));
+    assert.ok(packet.coverLetterDraft.includes("Sincerely,"));
+  });
 });
