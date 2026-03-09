@@ -1,8 +1,7 @@
 import { normalizeJobPosting } from "./normalize";
-import { loadJobHunterStore } from "./storage";
 import { fetchGreenhouseJobs } from "./sources/greenhouse";
 import { fetchLeverJobs } from "./sources/lever";
-import type { JobPosting } from "./types";
+import type { JobPosting, JobSourceConfig } from "./types";
 
 const normalizeJobs = (jobs: JobPosting[]) => {
   const merged = new Map<string, JobPosting>();
@@ -40,12 +39,10 @@ const normalizeJobs = (jobs: JobPosting[]) => {
   });
 };
 
-export const runJobSync = async () => {
-  const store = loadJobHunterStore();
-
+export const runJobSync = async (sources: JobSourceConfig[]) => {
   const jobs: JobPosting[] = [];
 
-  for (const source of store.sources) {
+  for (const source of sources) {
     if (source.boardType === "greenhouse") {
       const results = await fetchGreenhouseJobs(source);
       jobs.push(...results);

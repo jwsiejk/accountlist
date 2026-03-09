@@ -41,8 +41,15 @@ export default function JobHunterJobsPage() {
     setIsSyncing(true);
 
     try {
+      const currentStore = loadJobHunterStore();
       const response = await fetch("/api/job-hunter/sync", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sources: currentStore.sources,
+        }),
       });
       const payload = (await response.json()) as {
         error?: string;
@@ -58,7 +65,7 @@ export default function JobHunterJobsPage() {
       setLastSyncedAt(payload.lastSyncedAt);
 
       saveJobHunterStore({
-        ...loadJobHunterStore(),
+        ...currentStore,
         jobs: Object.values(payload.jobsById),
         jobsById: payload.jobsById,
         lastSyncedAt: payload.lastSyncedAt,
