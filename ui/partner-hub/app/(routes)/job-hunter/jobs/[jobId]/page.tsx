@@ -168,6 +168,8 @@ export default function JobDetailPage({ params }: PageProps) {
               <Button onClick={() => copyText(applyPacket.coverLetterMarkdown)} size="sm" type="button" variant="secondary">Copy Cover Letter</Button>
               <Button onClick={() => copyText(applyPacket.screenerAnswersText)} size="sm" type="button" variant="secondary">Copy Screener Answers</Button>
             </div>
+            <p className="font-medium">Apply Packet Preview</p>
+            <pre className="whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-xs">{applyPacket.fullPacketMarkdown}</pre>
             <p className="font-medium">Cover-letter draft</p>
             <pre className="whitespace-pre-wrap rounded-md bg-muted/50 p-3">{applyPacket.coverLetterMarkdown}</pre>
             <p className="font-medium">Common screener answers</p>
