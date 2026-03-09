@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { EmptyState } from "@/components/job-hunter/EmptyState";
 import { Button } from "@/components/ui/button";
@@ -29,23 +29,7 @@ export default function JobDetailPage({ params }: PageProps) {
   const job = store.jobsById[decodedJobId];
   const preferences = normalizePreferences(store.preferences);
   const [activeTab, setActiveTab] = useState<Tab>("Overview");
-  const [applicationById, setApplicationById] = useState(() => {
-    if (!job) {
-      return store.applicationsById ?? {};
-    }
-
-    const seeded = { ...(store.applicationsById ?? {}) };
-    if (!seeded[job.id]) {
-      seeded[job.id] = createApplicationFromJob(job, new Date().toISOString());
-      saveJobHunterStore({
-        ...store,
-        applicationsById: seeded,
-        applications: Object.values(seeded),
-      });
-    }
-
-    return seeded;
-  });
+  const [applicationById, setApplicationById] = useState(() => store.applicationsById ?? {});
   const [workspaceMessage, setWorkspaceMessage] = useState<string | null>(null);
   const fit = useMemo(() => (job ? scoreJobFit(job, preferences) : null), [job, preferences]);
   const tailoringPacket = useMemo(
@@ -59,7 +43,7 @@ export default function JobDetailPage({ params }: PageProps) {
   const application = job ? applicationById[job.id] : undefined;
   const checklist = application ? getApplicationChecklist(application) : null;
 
-  const saveApplications = (next: typeof applicationById) => {
+  const saveApplications = useCallback((next: typeof applicationById) => {
     setApplicationById(next);
     const current = loadJobHunterStore();
     saveJobHunterStore({
@@ -67,7 +51,25 @@ export default function JobDetailPage({ params }: PageProps) {
       applicationsById: next,
       applications: Object.values(next),
     });
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!job || applicationById[job.id]) {
+      return;
+    }
+
+    const current = loadJobHunterStore();
+    const persisted = current.applicationsById ?? {};
+    if (persisted[job.id]) {
+      setApplicationById(persisted);
+      return;
+    }
+
+    saveApplications({
+      ...applicationById,
+      [job.id]: createApplicationFromJob(job, new Date().toISOString()),
+    });
+  }, [applicationById, job, saveApplications]);
 
   const handleDownloadMarkdown = () => {
     if (!tailoringPacket || !job) {
