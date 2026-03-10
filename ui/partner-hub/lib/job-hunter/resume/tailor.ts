@@ -19,6 +19,18 @@ export type TailoringPacket = {
 };
 
 const top = (items: string[], count: number) => items.slice(0, count);
+const toSnapshot = (value: string | undefined, max = 220) => {
+  if (!value) {
+    return undefined;
+  }
+
+  const compact = value.trim().replace(/\s+/g, " ");
+  if (compact.length <= max) {
+    return compact;
+  }
+
+  return `${compact.slice(0, max - 1).trimEnd()}…`;
+};
 
 type TailoringResume = {
   summary: string;
@@ -70,14 +82,16 @@ export const generateTailoringPacket = (
   const matchedKeywords = fit.matched.map((item) => item.keyword);
   const missingKeywords = fit.missing.map((item) => item.keyword);
 
+  const jobSnapshot = toSnapshot(job.notes);
+
   const tailoredSummary = `${tailoringResume.summary} Targeting ${job.title} at ${job.company} with emphasis on ${top(
     matchedKeywords,
     3,
-  ).join(", ") || "partner-facing technical leadership"}.`;
+  ).join(", ") || "partner-facing technical leadership"}.${jobSnapshot ? ` Posting snapshot: ${jobSnapshot}` : ""}`;
 
   const tailoredBullets = [
     `Direct fit for ${job.title}: proven experience in ${top(matchedKeywords, 2).join(" and ") || "enterprise solution design"}.`,
-    `Strong alignment with ${job.company}'s hiring signals: ${top(matchedKeywords, 3).join(", ") || "customer impact and execution"}.`,
+    `Strong alignment with ${job.company}'s hiring signals: ${top(matchedKeywords, 3).join(", ") || "customer impact and execution"}.${jobSnapshot ? ` Context from posting: ${jobSnapshot}` : ""}`,
     `Address likely gaps proactively by emphasizing readiness in ${top(missingKeywords, 2).join(" and ") || "adjacent areas"}.`,
   ];
 

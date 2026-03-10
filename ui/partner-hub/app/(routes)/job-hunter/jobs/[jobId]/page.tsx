@@ -157,10 +157,19 @@ export default function JobDetailPage({ params }: PageProps) {
           <CardHeader>
             <CardTitle>Overview</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
+          <CardContent className="space-y-3 text-sm">
             <p><strong>Department:</strong> {job.department ?? "—"}</p>
             <p><strong>Posted:</strong> {(job.postedAt ?? job.updatedAt).slice(0, 10)}</p>
             <p><strong>Remote:</strong> {job.isRemote ? "Yes" : "No / unknown"}</p>
+            <p><strong>Employment type:</strong> {job.employmentType ?? "—"}</p>
+            <p><strong>Salary:</strong> {job.salaryRange ?? "—"}</p>
+            <p><strong>Source provider:</strong> {job.sourceProvider ?? "—"}</p>
+            {job.notes ? (
+              <div className="rounded-md border border-border/60 bg-muted/30 p-3">
+                <p className="font-medium">Posting Snapshot</p>
+                <p className="mt-1 text-foreground/80">{job.notes}</p>
+              </div>
+            ) : null}
             {job.sourceUrl ? <a className="text-blue-600 hover:underline" href={job.sourceUrl} rel="noreferrer" target="_blank">Open job posting</a> : null}
           </CardContent>
         </Card>

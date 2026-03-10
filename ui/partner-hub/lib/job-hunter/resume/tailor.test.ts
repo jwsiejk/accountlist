@@ -76,4 +76,21 @@ describe("generateTailoringPacket", () => {
     assert.ok(packet.tailoredSummary.includes("Profile summary"));
     assert.ok(packet.coverLetterDraft.includes("Sincerely,"));
   });
+
+  it("uses posting snapshot notes in tailored outputs", () => {
+    const job: JobPosting = {
+      id: "lever:notes",
+      title: "Partner Architect",
+      company: "Acme",
+      notes: "Lead partner workshops for cloud infrastructure adoption and storage migration.",
+      source: "company-site",
+      createdAt: "2024-01-01T00:00:00.000Z",
+      updatedAt: "2024-01-02T00:00:00.000Z",
+    };
+
+    const packet = generateTailoringPacket(job, masterResume);
+
+    assert.ok(packet.tailoredSummary.includes("Posting snapshot:"));
+    assert.ok(packet.tailoredBullets[1].includes("Context from posting:"));
+  });
 });

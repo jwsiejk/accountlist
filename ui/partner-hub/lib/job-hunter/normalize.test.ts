@@ -23,6 +23,7 @@ describe("normalizeJobPosting", () => {
     assert.equal(normalized.department, "Engineering");
     assert.equal(normalized.postedAt, "2024-10-01T00:00:00.000Z");
     assert.equal(normalized.isRemote, true);
+    assert.equal(normalized.sourceProvider, "greenhouse");
   });
 
   it("falls back to Remote / TBD and omits invalid dates", () => {
@@ -39,5 +40,22 @@ describe("normalizeJobPosting", () => {
     assert.equal(normalized.location, "Remote / TBD");
     assert.equal(normalized.postedAt, undefined);
     assert.equal(normalized.isRemote, false);
+  });
+
+  it("sanitizes and trims rich notes and optional fields", () => {
+    const normalized = normalizeJobPosting({
+      source: "greenhouse",
+      externalId: 77,
+      company: "Acme",
+      title: "Engineer",
+      url: "https://example.com/job/77",
+      notes: "<p>Build <strong>storage</strong> systems &amp; run workshops.</p>",
+      salaryRange: "  $140,000 - $180,000 / year ",
+      employmentType: " Full-time ",
+    });
+
+    assert.equal(normalized.notes, "Build storage systems & run workshops.");
+    assert.equal(normalized.salaryRange, "$140,000 - $180,000 / year");
+    assert.equal(normalized.employmentType, "Full-time");
   });
 });
