@@ -23,33 +23,26 @@ export default function JobHunterJobsPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [search, setSearch] = useState("");
-  const [remoteOnly, setRemoteOnly] = useState(Boolean(initialPreferences.remoteOnly));
   const [minScore, setMinScore] = useState(initialPreferences.minimumScore ?? 0);
   const [hideExcluded, setHideExcluded] = useState(true);
   const [minDate, setMinDate] = useState("");
 
   const jobs = useMemo(() => Object.values(jobsById), [jobsById]);
-  const activePreferences = useMemo(
-    () => ({
-      ...preferences,
-      remoteOnly,
-    }),
-    [preferences, remoteOnly],
-  );
 
   const filteredJobs = useMemo<JobListRow[]>(() => {
     const query = search.trim().toLowerCase();
 
     return jobs
       .map((job) => {
-        const fit = scoreJobFit(job, activePreferences);
-        const exclusion = jobMatchesPreferences(job, activePreferences);
+        const fit = scoreJobFit(job, preferences);
+        const exclusion = jobMatchesPreferences(job, preferences);
 
         return {
           job,
           score: fit.score,
           excluded: exclusion.excluded,
           exclusionReasons: exclusion.reasons,
+          arrangement: exclusion.arrangement,
           reasonSummary:
             fit.preferenceSignals[0] ??
             (exclusion.reasons.length > 0 ? `Excluded: ${exclusion.reasons.join(", ")}` : "No preference signal"),
@@ -75,7 +68,7 @@ export default function JobHunterJobsPage() {
 
         return b.job.updatedAt.localeCompare(a.job.updatedAt);
       });
-  }, [activePreferences, hideExcluded, jobs, minDate, minScore, search]);
+  }, [hideExcluded, jobs, minDate, minScore, preferences, search]);
 
   const selectedJobs = useMemo(
     () => selectedJobIds.map((jobId) => jobsById[jobId]).filter((job): job is JobPosting => Boolean(job)),
@@ -179,17 +172,13 @@ export default function JobHunterJobsPage() {
         )}
       </section>
 
-      <section className="grid gap-3 rounded-lg border border-border/60 p-4 md:grid-cols-3">
+      <section className="grid gap-3 rounded-lg border border-border/60 p-4 md:grid-cols-2">
         <input
           className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search title or company"
           value={search}
         />
-        <label className="flex items-center gap-2 text-sm">
-          <input checked={remoteOnly} onChange={(event) => setRemoteOnly(event.target.checked)} type="checkbox" />
-          Remote only
-        </label>
         <input
           className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
           onChange={(event) => setMinDate(event.target.value)}
@@ -215,7 +204,7 @@ export default function JobHunterJobsPage() {
           Hide excluded jobs
         </label>
         <p className="text-xs text-foreground/70 md:self-center">
-          Preference defaults: remote {String(Boolean(preferences.remoteOnly))}, min score {preferences.minimumScore ?? getDefaultPreferences().minimumScore}
+          Defaults: remote {String(preferences.allowRemoteRoles)}, hybrid {String(preferences.allowHybridRoles)}, onsite {String(preferences.allowOnsiteRoles)}, min score {preferences.minimumScore ?? getDefaultPreferences().minimumScore}
         </p>
       </section>
 

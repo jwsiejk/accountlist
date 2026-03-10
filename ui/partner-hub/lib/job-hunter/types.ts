@@ -119,10 +119,17 @@ export type TailoredResumeVariant = {
 };
 
 
+export type JobWorkArrangement = "remote" | "hybrid" | "onsite" | "unknown";
+
 export type JobHunterPreferences = {
   targetRoles: string[];
   targetKeywords: string[];
   targetLocations: string[];
+  preferredHybridLocations: string[];
+  preferredRemoteRegions: string[];
+  allowRemoteRoles: boolean;
+  allowHybridRoles: boolean;
+  allowOnsiteRoles: boolean;
   remoteOnly?: boolean;
   excludedCompanies: string[];
   excludedTitles: string[];

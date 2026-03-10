@@ -256,6 +256,11 @@ describe("job hunter storage", () => {
         targetKeywords: ["AWS"],
         targetLocations: [" Remote "],
         remoteOnly: true,
+        preferredRemoteRegions: [" US "],
+        preferredHybridLocations: [" Philadelphia "],
+        allowRemoteRoles: true,
+        allowHybridRoles: true,
+        allowOnsiteRoles: true,
         excludedCompanies: ["  BadCo "],
         excludedTitles: [" Senior Manager "],
         minimumScore: 120,
@@ -267,6 +272,11 @@ describe("job hunter storage", () => {
       targetRoles: ["Solutions Architect"],
       targetKeywords: ["AWS"],
       targetLocations: ["Remote"],
+      preferredRemoteRegions: ["US"],
+      preferredHybridLocations: ["Philadelphia"],
+      allowRemoteRoles: true,
+      allowHybridRoles: true,
+      allowOnsiteRoles: true,
       remoteOnly: true,
       excludedCompanies: ["BadCo"],
       excludedTitles: ["Senior Manager"],
@@ -280,7 +290,7 @@ describe("job hunter storage", () => {
     });
   });
 
-  it("hydrates default preferences when missing from stored payload", () => {
+  it("seeds default preferences when missing from stored payload", () => {
     const storage = new MemoryStorage();
     storage.setItem(
       JOB_HUNTER_STORAGE_KEY,
@@ -310,6 +320,48 @@ describe("job hunter storage", () => {
     });
   });
 
+
+
+  it("migrates legacy remoteOnly preferences during hydration", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(
+      JOB_HUNTER_STORAGE_KEY,
+      JSON.stringify({
+        jobsById: {},
+        jobs: [],
+        sources: [],
+        applications: [],
+        applicationsById: {},
+        preferences: {
+          targetRoles: ["Solutions Architect"],
+          targetKeywords: [],
+          targetLocations: ["Philadelphia"],
+          remoteOnly: true,
+          excludedCompanies: [],
+          excludedTitles: [],
+          minimumScore: 0,
+        },
+      }),
+    );
+
+    const previousWindow = globalThis.window;
+    Object.defineProperty(globalThis, "window", {
+      value: { localStorage: storage },
+      configurable: true,
+      writable: true,
+    });
+
+    const loaded = loadJobHunterStore();
+    assert.equal(loaded.preferences?.allowRemoteRoles, true);
+    assert.equal(loaded.preferences?.allowHybridRoles, false);
+    assert.equal(loaded.preferences?.allowOnsiteRoles, false);
+
+    Object.defineProperty(globalThis, "window", {
+      value: previousWindow,
+      configurable: true,
+      writable: true,
+    });
+  });
 
   it("hydrates selected queue safely", () => {
     const storage = new MemoryStorage();
