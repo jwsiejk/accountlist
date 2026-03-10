@@ -27,6 +27,7 @@ describe("generateTailoringPacket", () => {
     assert.ok(packet.tailoredSummary.includes(job.title));
     assert.ok(packet.markdown.includes("# Resume Tailoring Packet"));
     assert.ok(packet.markdown.includes("## Cover Letter Draft"));
+    assert.ok(packet.tailoredResumeVariant.markdown.includes("# Tailored Resume Variant"));
   });
 
 
@@ -85,6 +86,7 @@ describe("generateTailoringPacket", () => {
     assert.ok(packet.tailoredSummary.includes("Profile summary"));
     assert.ok(packet.coverLetterDraft.includes("Best regards,"));
     assert.ok(packet.coverLetterDraft.includes("James Wang"));
+    assert.ok(packet.tailoredResumeVariant.deltaSummary.some((line) => line.includes("Base resume profile remains unchanged")));
   });
 
   it("falls back to default signature and signer when resume profile identity is blank", () => {

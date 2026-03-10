@@ -1,7 +1,8 @@
 import { scoreJobFit } from "../scoring";
 import { normalizeResumeProfile } from "../resumeProfile";
-import type { JobHunterPreferences, JobPosting, ResumeProfile } from "../types";
+import type { JobHunterPreferences, JobPosting, ResumeProfile, TailoredResumeVariant } from "../types";
 import type { MasterResume } from "./masterResume";
+import { generateTailoredResumeVariant } from "./variant";
 
 export type TailoringPacket = {
   jobId: string;
@@ -13,6 +14,7 @@ export type TailoringPacket = {
   };
   tailoredSummary: string;
   tailoredBullets: string[];
+  tailoredResumeVariant: TailoredResumeVariant;
   coverLetterDraft: string;
   screenerAnswers: { question: string; answer: string }[];
   markdown: string;
@@ -33,7 +35,7 @@ const toSnapshot = (value: string | undefined, max = 220) => {
 };
 
 type TailoringResume = {
-  summary: string;
+  profile: ResumeProfile;
   achievements: string[];
   signatureLine: string;
   signer: string;
@@ -42,7 +44,25 @@ type TailoringResume = {
 const toTailoringResume = (resume: MasterResume | ResumeProfile): TailoringResume => {
   if ("name" in resume) {
     return {
-      summary: resume.summary,
+      profile: normalizeResumeProfile({
+        fullName: resume.name,
+        email: "",
+        phone: "",
+        cityState: "",
+        linkedinUrl: "",
+        websiteUrl: "",
+        workAuthorizationNote: "",
+        signatureLine: "Sincerely,",
+        headline: resume.title,
+        summary: resume.summary,
+        skills: resume.skills,
+        experience: resume.experience.map((item) => ({
+          company: item.company,
+          title: item.role,
+          bullets: item.highlights,
+        })),
+        achievements: resume.achievements,
+      }),
       achievements: resume.achievements,
       signatureLine: "Sincerely,",
       signer: resume.name,
@@ -51,7 +71,7 @@ const toTailoringResume = (resume: MasterResume | ResumeProfile): TailoringResum
 
   const normalized = normalizeResumeProfile(resume);
   return {
-    summary: normalized.summary,
+    profile: normalized,
     achievements: normalized.achievements,
     signatureLine: normalized.signatureLine || "Sincerely,",
     signer: normalized.fullName || "Candidate",
@@ -62,7 +82,7 @@ const buildCoverLetter = (resume: TailoringResume, job: JobPosting, matchedKeywo
   return [
     `Dear Hiring Team,`,
     "",
-    `I am excited to apply for the ${job.title} role at ${job.company}. ${resume.summary}`,
+    `I am excited to apply for the ${job.title} role at ${job.company}. ${resume.profile.summary}`,
     `My background aligns with your focus on ${matchedKeywords.join(", ") || "solutions architecture and customer outcomes"
     }.`,
     "",
@@ -87,7 +107,7 @@ export const generateTailoringPacket = (
 
   const jobSnapshot = toSnapshot(job.notes);
 
-  const tailoredSummary = `${tailoringResume.summary} Targeting ${job.title} at ${job.company} with emphasis on ${top(
+  const tailoredSummary = `${tailoringResume.profile.summary} Targeting ${job.title} at ${job.company} with emphasis on ${top(
     matchedKeywords,
     3,
   ).join(", ") || "partner-facing technical leadership"}.${jobSnapshot ? ` Posting snapshot: ${jobSnapshot}` : ""}`;
@@ -98,6 +118,7 @@ export const generateTailoringPacket = (
     `Address likely gaps proactively by emphasizing readiness in ${top(missingKeywords, 2).join(" and ") || "adjacent areas"}.`,
   ];
 
+  const tailoredResumeVariant = generateTailoredResumeVariant(job, tailoringResume.profile);
   const coverLetterDraft = buildCoverLetter(tailoringResume, job, top(matchedKeywords, 4));
 
   const screenerAnswers = [
@@ -138,6 +159,9 @@ export const generateTailoringPacket = (
     `## Tailored Bullets`,
     ...tailoredBullets.map((bullet) => `- ${bullet}`),
     "",
+    "## Tailored Resume Variant Delta",
+    ...tailoredResumeVariant.deltaSummary.map((line) => `- ${line}`),
+    "",
     `## Cover Letter Draft`,
     coverLetterDraft,
     "",
@@ -155,6 +179,7 @@ export const generateTailoringPacket = (
     },
     tailoredSummary,
     tailoredBullets,
+    tailoredResumeVariant,
     coverLetterDraft,
     screenerAnswers,
     markdown,

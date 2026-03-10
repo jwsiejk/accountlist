@@ -41,6 +41,7 @@ describe("buildApplyPacket", () => {
     assert.ok(packet.summaryMarkdown.includes("## Application Summary"));
     assert.ok(packet.fullPacketMarkdown.includes("# Job Hunter Apply Packet"));
     assert.ok(packet.summaryMarkdown.includes("**Candidate:** James Wang"));
+    assert.ok(packet.summaryMarkdown.includes("### Tailored Resume Delta"));
   });
 
   it("normalizes the output filename", () => {
