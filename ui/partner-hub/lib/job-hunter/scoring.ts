@@ -1,5 +1,5 @@
 import { JOB_FIT_KEYWORDS } from "./keywordConfig";
-import { getDefaultPreferences } from "./preferences";
+import { classifyWorkArrangement, getDefaultPreferences } from "./preferences";
 import type { JobHunterPreferences, JobPosting } from "./types";
 
 export type KeywordMatch = {
@@ -53,6 +53,7 @@ export const scoreJobFit = (job: JobPosting, preferences?: JobHunterPreferences)
   let score = Math.round((matchedWeight / Math.max(totalWeight, 1)) * 100);
   const appliedPreferences = preferences ?? getDefaultPreferences();
   const preferenceSignals: string[] = [];
+  const arrangement = classifyWorkArrangement(job);
 
   const matchedRole = includesAny(job.title, appliedPreferences.targetRoles);
   if (matchedRole) {
@@ -66,15 +67,26 @@ export const scoreJobFit = (job: JobPosting, preferences?: JobHunterPreferences)
     preferenceSignals.push(`Matched target keyword: ${matchedKeyword.toLowerCase()}`);
   }
 
-  const matchedLocation = includesAny(job.location, appliedPreferences.targetLocations);
-  if (matchedLocation) {
+  const matchedHybridLocation = includesAny(job.location, appliedPreferences.preferredHybridLocations);
+  if (matchedHybridLocation && arrangement === "hybrid") {
     score += 6;
-    preferenceSignals.push(`Matched preferred location: ${matchedLocation.toLowerCase()}`);
+    preferenceSignals.push(`Matched hybrid location: ${matchedHybridLocation.toLowerCase()}`);
   }
 
-  if (appliedPreferences.remoteOnly && job.isRemote) {
+  const matchedRemoteRegion = includesAny(job.location ?? job.notes, appliedPreferences.preferredRemoteRegions);
+  if (matchedRemoteRegion && arrangement === "remote") {
     score += 6;
-    preferenceSignals.push("Matched remote-only preference");
+    preferenceSignals.push(`Matched remote region: ${matchedRemoteRegion.toLowerCase()}`);
+  }
+
+  if (arrangement === "unknown") {
+    score -= 4;
+    preferenceSignals.push("Work arrangement unknown");
+  }
+
+  if (arrangement === "onsite" && !appliedPreferences.allowOnsiteRoles) {
+    score -= 20;
+    preferenceSignals.push("Onsite preference unmet");
   }
 
   if (includesAny(job.company, appliedPreferences.excludedCompanies)) {
@@ -85,11 +97,6 @@ export const scoreJobFit = (job: JobPosting, preferences?: JobHunterPreferences)
   if (includesAny(job.title, appliedPreferences.excludedTitles)) {
     score = 0;
     preferenceSignals.push("Excluded title match");
-  }
-
-  if (appliedPreferences.remoteOnly && !job.isRemote) {
-    score -= 15;
-    preferenceSignals.push("Remote-only preference unmet");
   }
 
   score = Math.max(0, Math.min(100, score));

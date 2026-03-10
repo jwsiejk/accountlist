@@ -20,19 +20,40 @@ export default function JobHunterPreferencesPage() {
 
   const [targetRolesText, setTargetRolesText] = useState(toLines(initialPreferences.targetRoles));
   const [targetKeywordsText, setTargetKeywordsText] = useState(toLines(initialPreferences.targetKeywords));
-  const [targetLocationsText, setTargetLocationsText] = useState(toLines(initialPreferences.targetLocations));
-  const [remoteOnly, setRemoteOnly] = useState(Boolean(initialPreferences.remoteOnly));
+  const [hybridLocationsText, setHybridLocationsText] = useState(toLines(initialPreferences.preferredHybridLocations));
+  const [remoteRegionsText, setRemoteRegionsText] = useState(toLines(initialPreferences.preferredRemoteRegions));
+  const [allowRemoteRoles, setAllowRemoteRoles] = useState(initialPreferences.allowRemoteRoles);
+  const [allowHybridRoles, setAllowHybridRoles] = useState(initialPreferences.allowHybridRoles);
+  const [allowOnsiteRoles, setAllowOnsiteRoles] = useState(initialPreferences.allowOnsiteRoles);
   const [excludedCompaniesText, setExcludedCompaniesText] = useState(toLines(initialPreferences.excludedCompanies));
   const [excludedTitlesText, setExcludedTitlesText] = useState(toLines(initialPreferences.excludedTitles));
   const [minimumScore, setMinimumScore] = useState(String(initialPreferences.minimumScore ?? 0));
   const [message, setMessage] = useState<string | null>(null);
 
+  const applyDefaultsToForm = () => {
+    const defaults = getDefaultPreferences();
+    setTargetRolesText(toLines(defaults.targetRoles));
+    setTargetKeywordsText(toLines(defaults.targetKeywords));
+    setHybridLocationsText(toLines(defaults.preferredHybridLocations));
+    setRemoteRegionsText(toLines(defaults.preferredRemoteRegions));
+    setAllowRemoteRoles(defaults.allowRemoteRoles);
+    setAllowHybridRoles(defaults.allowHybridRoles);
+    setAllowOnsiteRoles(defaults.allowOnsiteRoles);
+    setExcludedCompaniesText("");
+    setExcludedTitlesText("");
+    setMinimumScore(String(defaults.minimumScore ?? 0));
+  };
+
   const handleSave = () => {
     const normalized = normalizePreferences({
       targetRoles: parseLines(targetRolesText),
       targetKeywords: parseLines(targetKeywordsText),
-      targetLocations: parseLines(targetLocationsText),
-      remoteOnly,
+      preferredHybridLocations: parseLines(hybridLocationsText),
+      preferredRemoteRegions: parseLines(remoteRegionsText),
+      targetLocations: parseLines(hybridLocationsText),
+      allowRemoteRoles,
+      allowHybridRoles,
+      allowOnsiteRoles,
       excludedCompanies: parseLines(excludedCompaniesText),
       excludedTitles: parseLines(excludedTitlesText),
       minimumScore: Number(minimumScore),
@@ -45,15 +66,13 @@ export default function JobHunterPreferencesPage() {
   };
 
   const handleReset = () => {
-    const defaults = getDefaultPreferences();
-    setTargetRolesText("");
-    setTargetKeywordsText("");
-    setTargetLocationsText("");
-    setRemoteOnly(Boolean(defaults.remoteOnly));
-    setExcludedCompaniesText("");
-    setExcludedTitlesText("");
-    setMinimumScore(String(defaults.minimumScore ?? 0));
+    applyDefaultsToForm();
     setMessage("Form reset to defaults. Click Save Preferences to persist.");
+  };
+
+  const handleRestoreJamesDefaults = () => {
+    applyDefaultsToForm();
+    setMessage("James defaults restored. Click Save Preferences to persist.");
   };
 
   return (
@@ -75,8 +94,13 @@ export default function JobHunterPreferencesPage() {
         </label>
 
         <label className="space-y-2 text-sm">
-          <span className="font-medium">Preferred locations (one per line)</span>
-          <textarea className="min-h-28 w-full rounded-md border border-border/60 bg-background p-3" value={targetLocationsText} onChange={(event) => setTargetLocationsText(event.target.value)} />
+          <span className="font-medium">Preferred hybrid locations (one per line)</span>
+          <textarea className="min-h-28 w-full rounded-md border border-border/60 bg-background p-3" value={hybridLocationsText} onChange={(event) => setHybridLocationsText(event.target.value)} />
+        </label>
+
+        <label className="space-y-2 text-sm">
+          <span className="font-medium">Preferred remote regions (one per line)</span>
+          <textarea className="min-h-28 w-full rounded-md border border-border/60 bg-background p-3" value={remoteRegionsText} onChange={(event) => setRemoteRegionsText(event.target.value)} />
         </label>
 
         <label className="space-y-2 text-sm">
@@ -91,8 +115,16 @@ export default function JobHunterPreferencesPage() {
 
         <div className="space-y-4 text-sm">
           <label className="flex items-center gap-2">
-            <input checked={remoteOnly} onChange={(event) => setRemoteOnly(event.target.checked)} type="checkbox" />
-            <span className="font-medium">Remote only</span>
+            <input checked={allowRemoteRoles} onChange={(event) => setAllowRemoteRoles(event.target.checked)} type="checkbox" />
+            <span className="font-medium">Allow remote roles</span>
+          </label>
+          <label className="flex items-center gap-2">
+            <input checked={allowHybridRoles} onChange={(event) => setAllowHybridRoles(event.target.checked)} type="checkbox" />
+            <span className="font-medium">Allow hybrid roles</span>
+          </label>
+          <label className="flex items-center gap-2">
+            <input checked={allowOnsiteRoles} onChange={(event) => setAllowOnsiteRoles(event.target.checked)} type="checkbox" />
+            <span className="font-medium">Allow onsite roles</span>
           </label>
 
           <label className="space-y-2">
@@ -105,6 +137,7 @@ export default function JobHunterPreferencesPage() {
       <section className="flex flex-wrap items-center gap-3">
         <Button onClick={handleSave} type="button">Save Preferences</Button>
         <Button onClick={handleReset} type="button" variant="secondary">Reset to Defaults</Button>
+        <Button onClick={handleRestoreJamesDefaults} type="button" variant="secondary">Restore James Defaults</Button>
         {message ? <p className="text-sm text-foreground/70">{message}</p> : null}
       </section>
     </main>

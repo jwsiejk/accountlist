@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { JobPosting } from "@/lib/job-hunter/types";
+import type { JobPosting, JobWorkArrangement } from "@/lib/job-hunter/types";
 
 export type JobListRow = {
   job: JobPosting;
@@ -9,12 +9,20 @@ export type JobListRow = {
   excluded: boolean;
   exclusionReasons: string[];
   reasonSummary: string;
+  arrangement: JobWorkArrangement;
 };
 
 type JobListProps = {
   rows: JobListRow[];
   selectedJobIds: string[];
   onToggleSelectedJob: (jobId: string) => void;
+};
+
+const arrangementLabel: Record<JobWorkArrangement, string> = {
+  remote: "Remote",
+  hybrid: "Hybrid",
+  onsite: "Onsite",
+  unknown: "Unknown",
 };
 
 export function JobList({ rows, selectedJobIds, onToggleSelectedJob }: JobListProps) {
@@ -61,6 +69,7 @@ export function JobList({ rows, selectedJobIds, onToggleSelectedJob }: JobListPr
                     <td className="px-3 py-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium">{row.score}/100</span>
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">{arrangementLabel[row.arrangement]}</span>
                         {row.excluded ? (
                           <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-900" title={row.exclusionReasons.join(", ")}>
                             Excluded
