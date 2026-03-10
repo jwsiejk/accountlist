@@ -35,6 +35,7 @@ const toSnapshot = (value: string | undefined, max = 220) => {
 type TailoringResume = {
   summary: string;
   achievements: string[];
+  signatureLine: string;
   signer: string;
 };
 
@@ -43,6 +44,7 @@ const toTailoringResume = (resume: MasterResume | ResumeProfile): TailoringResum
     return {
       summary: resume.summary,
       achievements: resume.achievements,
+      signatureLine: "Sincerely,",
       signer: resume.name,
     };
   }
@@ -51,7 +53,8 @@ const toTailoringResume = (resume: MasterResume | ResumeProfile): TailoringResum
   return {
     summary: normalized.summary,
     achievements: normalized.achievements,
-    signer: "Candidate",
+    signatureLine: normalized.signatureLine || "Sincerely,",
+    signer: normalized.fullName || "Candidate",
   };
 };
 
@@ -67,7 +70,7 @@ const buildCoverLetter = (resume: TailoringResume, job: JobPosting, matchedKeywo
     "",
     "Thank you for your consideration. I would welcome the opportunity to discuss how I can help your team accelerate customer success.",
     "",
-    `Sincerely,`,
+    resume.signatureLine,
     resume.signer,
   ].join("\n");
 };
