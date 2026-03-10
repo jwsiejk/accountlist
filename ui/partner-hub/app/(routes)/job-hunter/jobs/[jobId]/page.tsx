@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { EmptyState } from "@/components/job-hunter/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { applicationReducer, createApplicationFromJob, getApplicationChecklist, getApplicationWorkflow } from "@/lib/job-hunter/applications";
+import { applicationReducer, createApplicationFromJob, getApplicationChecklist, getApplicationWorkflow, syncWorkflowSelectionWithQueue } from "@/lib/job-hunter/applications";
 import { buildApplyPacket, buildApplyPrepItems } from "@/lib/job-hunter/applyPacket";
 import { normalizePreferences } from "@/lib/job-hunter/preferences";
 import { masterResume } from "@/lib/job-hunter/resume/masterResume";
@@ -79,12 +79,11 @@ export default function JobDetailPage({ params }: PageProps) {
   }, [applicationById, job, saveApplications]);
 
   useEffect(() => {
-    if (!job || !store.selectedJobIds.includes(job.id) || workflow?.selectedForApply) {
-      return;
+    const next = syncWorkflowSelectionWithQueue(applicationById, store.selectedJobIds);
+    if (next !== applicationById) {
+      saveApplications(next);
     }
-
-    saveApplications(applicationReducer(applicationById, { type: "setWorkflowItem", jobId: job.id, item: "selectedForApply", value: true }));
-  }, [applicationById, job, saveApplications, store.selectedJobIds, workflow?.selectedForApply]);
+  }, [applicationById, saveApplications, store.selectedJobIds]);
 
   const handleDownloadMarkdown = () => {
     if (!tailoringPacket || !job) {

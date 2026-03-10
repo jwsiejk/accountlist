@@ -9,6 +9,8 @@ import {
   getApplicationQueueStage,
   getApplicationWorkflow,
   resolveApplicationJobDetails,
+  shouldShowInApplicationsPipeline,
+  syncWorkflowSelectionWithQueue,
   toJobSnapshot,
 } from "./applications";
 import type { JobPosting } from "./types";
@@ -70,6 +72,41 @@ describe("job hunter application reducer", () => {
     assert.equal(withNotes[job.id].checklist?.resumeReviewed, true);
     assert.equal(withNotes[job.id].workflow?.tailoredResumeReady, true);
     assert.equal(withNotes[job.id].notes, "Submitted tailored resume and letter.");
+  });
+
+
+  it("does not classify unselected jobs as selected", () => {
+    const initial = { [job.id]: createApplicationFromJob(job, "2024-03-01T10:00:00.000Z") };
+
+    assert.equal(getApplicationQueueStage(initial[job.id]), "untracked");
+    assert.equal(shouldShowInApplicationsPipeline(initial[job.id]), false);
+  });
+
+  it("syncs workflow selection both directions with apply queue", () => {
+    const initial = { [job.id]: createApplicationFromJob(job, "2024-03-01T10:00:00.000Z") };
+
+    const addedToQueue = syncWorkflowSelectionWithQueue(initial, [job.id], "2024-03-02T10:00:00.000Z");
+    assert.equal(getApplicationWorkflow(addedToQueue[job.id]).selectedForApply, true);
+
+    const removedFromQueue = syncWorkflowSelectionWithQueue(addedToQueue, [], "2024-03-03T10:00:00.000Z");
+    assert.equal(getApplicationWorkflow(removedFromQueue[job.id]).selectedForApply, false);
+  });
+
+  it("preserves workflow selection when removed from queue after in-progress signals", () => {
+    const initial = { [job.id]: createApplicationFromJob(job, "2024-03-01T10:00:00.000Z") };
+    const selected = syncWorkflowSelectionWithQueue(initial, [job.id], "2024-03-02T10:00:00.000Z");
+    const inProgress = applicationReducer(selected, {
+      type: "setWorkflowItem",
+      jobId: job.id,
+      item: "externalApplicationOpened",
+      value: true,
+      now: "2024-03-03T10:00:00.000Z",
+    });
+
+    const removedFromQueue = syncWorkflowSelectionWithQueue(inProgress, [], "2024-03-04T10:00:00.000Z");
+    assert.equal(getApplicationWorkflow(removedFromQueue[job.id]).selectedForApply, true);
+    assert.equal(getApplicationQueueStage(removedFromQueue[job.id]), "in-progress");
+    assert.equal(shouldShowInApplicationsPipeline(removedFromQueue[job.id]), true);
   });
 
   it("supports guided apply workflow transitions", () => {
