@@ -16,6 +16,7 @@ type JobListProps = {
   rows: JobListRow[];
   selectedJobIds: string[];
   onToggleSelectedJob: (jobId: string) => void;
+  title?: string;
 };
 
 const arrangementLabel: Record<JobWorkArrangement, string> = {
@@ -25,11 +26,11 @@ const arrangementLabel: Record<JobWorkArrangement, string> = {
   unknown: "Unknown",
 };
 
-export function JobList({ rows, selectedJobIds, onToggleSelectedJob }: JobListProps) {
+export function JobList({ rows, selectedJobIds, onToggleSelectedJob, title = "Synced jobs" }: JobListProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Synced jobs ({rows.length})</CardTitle>
+        <CardTitle>{title} ({rows.length})</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto rounded-lg border border-border/60">

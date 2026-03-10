@@ -1,6 +1,7 @@
 import * as assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { DEFAULT_AUTOMATION_SETTINGS } from "./discoveryAutomation";
 import { getDefaultPreferences } from "./preferences";
 import { JOB_HUNTER_STORAGE_KEY, isValidJobSourceConfig, loadJobHunterStore, saveJobHunterStore, validateJobSources } from "./storage";
 import { getSourceValidationMessage, truncateBoardToken } from "./sourceSettings";
@@ -48,6 +49,8 @@ describe("job hunter storage", () => {
 
     assert.ok(loaded.applicationsById["job-1"]);
     assert.equal(loaded.applications.length, 1);
+
+    assert.deepEqual(loaded.automation, DEFAULT_AUTOMATION_SETTINGS);
 
     Object.defineProperty(globalThis, "window", {
       value: previousWindow,
@@ -251,6 +254,11 @@ describe("job hunter storage", () => {
       applicationsById: {},
       selectedJobIds: [],
       sources: [],
+      automation: {
+        autoSyncOnJobsOpen: false,
+        autoSyncIfOlderThanHours: 300,
+        topMatchesLimit: 0,
+      },
       preferences: {
         targetRoles: ["  Solutions Architect  ", ""],
         targetKeywords: ["AWS"],
@@ -283,6 +291,12 @@ describe("job hunter storage", () => {
       minimumScore: 100,
     });
 
+    assert.deepEqual(loaded.automation, {
+      autoSyncOnJobsOpen: false,
+      autoSyncIfOlderThanHours: 168,
+      topMatchesLimit: 1,
+    });
+
     Object.defineProperty(globalThis, "window", {
       value: previousWindow,
       configurable: true,
@@ -312,6 +326,7 @@ describe("job hunter storage", () => {
 
     const loaded = loadJobHunterStore();
     assert.deepEqual(loaded.preferences, getDefaultPreferences());
+    assert.deepEqual(loaded.automation, DEFAULT_AUTOMATION_SETTINGS);
 
     Object.defineProperty(globalThis, "window", {
       value: previousWindow,
