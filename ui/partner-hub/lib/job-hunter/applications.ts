@@ -1,4 +1,4 @@
-import type { Application, ApplicationStatus, ApplyChecklist, ApplicationJobSnapshot, JobPosting } from "./types";
+import type { Application, ApplicationStatus, ApplyChecklist, ApplicationJobSnapshot, JobPosting, ResumeProfile } from "./types";
 
 export const APPLICATION_STATUSES: ApplicationStatus[] = ["prepared", "applied", "interview", "rejected", "offer"];
 
@@ -28,8 +28,11 @@ export type ApplicationAction =
   | { type: "setChecklistItem"; jobId: string; item: ChecklistKey; value: boolean; now?: string }
   | { type: "ensureSnapshotFromJob"; jobId: string; job: JobPosting; now?: string };
 
-export const buildFollowUpEmail = (job: JobPosting) => {
-  return `Hi ${job.company} recruiting team,\n\nI applied for the ${job.title} role and wanted to follow up on next steps. I remain very interested in the position and would be happy to share any additional information.\n\nBest regards,\n[Your Name]`;
+export const buildFollowUpEmail = (job: JobPosting, profile?: ResumeProfile) => {
+  const signatureLine = profile?.signatureLine?.trim() || "Best regards,";
+  const signerName = profile?.fullName?.trim() || "Candidate";
+
+  return `Hi ${job.company} recruiting team,\n\nI applied for the ${job.title} role and wanted to follow up on next steps. I remain very interested in the position and would be happy to share any additional information.\n\n${signatureLine}\n${signerName}`;
 };
 
 export const buildAnswerPack = (job: JobPosting) => {

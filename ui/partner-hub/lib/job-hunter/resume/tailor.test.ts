@@ -67,6 +67,15 @@ describe("generateTailoringPacket", () => {
     };
 
     const packet = generateTailoringPacket(job, {
+      fullName: "James Wang",
+      email: "james@example.com",
+      phone: "555-0101",
+      cityState: "Austin, TX",
+      linkedinUrl: "https://linkedin.com/in/james",
+      websiteUrl: "",
+      workAuthorizationNote: "US Citizen",
+      signatureLine: "Best regards,",
+      headline: "Staff Engineer",
       summary: "Profile summary",
       skills: ["Cloud"],
       experience: [{ company: "Acme", title: "Architect", bullets: ["Built platform"] }],

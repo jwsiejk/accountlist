@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import {
   applicationReducer,
+  buildFollowUpEmail,
   createApplicationFromJob,
   exportApplicationsCsv,
   resolveApplicationJobDetails,
@@ -91,6 +92,29 @@ describe("job hunter application reducer", () => {
     assert.equal(details.missingLiveJob, true);
     assert.equal(details.title, "Product Manager");
     assert.equal(details.company, "Acme");
+  });
+
+
+  it("builds follow-up email with candidate identity", () => {
+    const email = buildFollowUpEmail(job, {
+      fullName: "James Wang",
+      email: "james@example.com",
+      phone: "555-0101",
+      cityState: "Austin, TX",
+      linkedinUrl: "https://linkedin.com/in/james",
+      websiteUrl: "",
+      workAuthorizationNote: "US Citizen",
+      signatureLine: "Sincerely,",
+      headline: "Staff Engineer",
+      summary: "Summary",
+      skills: [],
+      experience: [],
+      achievements: [],
+    });
+
+    assert.ok(email.includes("Sincerely,"));
+    assert.ok(email.includes("James Wang"));
+    assert.ok(!email.includes("[Your Name]"));
   });
 
   it("exports applications as csv", () => {

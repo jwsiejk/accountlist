@@ -120,8 +120,18 @@ describe("job hunter storage", () => {
       jobsById: {},
       applications: [],
       applicationsById: {},
+      selectedJobIds: ["job-1"],
       sources: [{ company: "Acme", boardType: "greenhouse", boardToken: "acme" }],
       resumeProfile: {
+        fullName: "James Wang",
+        email: "james@example.com",
+        phone: "555-0101",
+        cityState: "Austin, TX",
+        linkedinUrl: "https://linkedin.com/in/james",
+        websiteUrl: "",
+        workAuthorizationNote: "US Citizen",
+        signatureLine: "Best regards,",
+        headline: "Staff Engineer",
         summary: "Summary",
         skills: ["Architecture"],
         experience: [{ company: "Acme", title: "SA", bullets: ["Led implementation"] }],
@@ -133,6 +143,7 @@ describe("job hunter storage", () => {
     assert.equal(loaded.sources.length, 1);
     assert.deepEqual(loaded.sources[0], { company: "Acme", boardType: "greenhouse", boardToken: "acme" });
     assert.equal(loaded.resumeProfile?.summary, "Summary");
+    assert.deepEqual(loaded.selectedJobIds, ["job-1"]);
 
     Object.defineProperty(globalThis, "window", {
       value: previousWindow,
@@ -156,6 +167,7 @@ describe("job hunter storage", () => {
       jobsById: {},
       applications: [],
       applicationsById: {},
+      selectedJobIds: [],
       sources: [],
       preferences: {
         targetRoles: ["  Solutions Architect  ", ""],
@@ -208,6 +220,38 @@ describe("job hunter storage", () => {
 
     const loaded = loadJobHunterStore();
     assert.deepEqual(loaded.preferences, getDefaultPreferences());
+
+    Object.defineProperty(globalThis, "window", {
+      value: previousWindow,
+      configurable: true,
+      writable: true,
+    });
+  });
+
+
+  it("hydrates selected queue safely", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(
+      JOB_HUNTER_STORAGE_KEY,
+      JSON.stringify({
+        jobsById: {},
+        jobs: [],
+        selectedJobIds: ["job-1", "job-1", "", 42],
+        sources: [],
+        applications: [],
+        applicationsById: {},
+      }),
+    );
+
+    const previousWindow = globalThis.window;
+    Object.defineProperty(globalThis, "window", {
+      value: { localStorage: storage },
+      configurable: true,
+      writable: true,
+    });
+
+    const loaded = loadJobHunterStore();
+    assert.deepEqual(loaded.selectedJobIds, ["job-1"]);
 
     Object.defineProperty(globalThis, "window", {
       value: previousWindow,

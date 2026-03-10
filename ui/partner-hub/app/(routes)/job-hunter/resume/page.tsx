@@ -47,6 +47,26 @@ export default function JobHunterResumePage() {
       </header>
 
       <section className="space-y-3 rounded-lg border border-border/60 p-4">
+        <h2 className="text-sm font-semibold">Candidate Identity</h2>
+        <div className="grid gap-2 md:grid-cols-2">
+          <input className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm" onChange={(e) => setProfile((p) => ({ ...p, fullName: e.target.value }))} placeholder="Full name" value={profile.fullName} />
+          <input className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm" onChange={(e) => setProfile((p) => ({ ...p, headline: e.target.value }))} placeholder="Headline (optional)" value={profile.headline ?? ""} />
+          <input className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm" onChange={(e) => setProfile((p) => ({ ...p, email: e.target.value }))} placeholder="Email" value={profile.email} />
+          <input className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm" onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))} placeholder="Phone" value={profile.phone} />
+          <input className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm" onChange={(e) => setProfile((p) => ({ ...p, cityState: e.target.value }))} placeholder="City, State" value={profile.cityState} />
+          <input className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm" onChange={(e) => setProfile((p) => ({ ...p, linkedinUrl: e.target.value }))} placeholder="LinkedIn URL" value={profile.linkedinUrl} />
+          <input className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm" onChange={(e) => setProfile((p) => ({ ...p, websiteUrl: e.target.value }))} placeholder="Website URL (optional)" value={profile.websiteUrl ?? ""} />
+          <input className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm" onChange={(e) => setProfile((p) => ({ ...p, signatureLine: e.target.value }))} placeholder="Signature line (e.g. Best regards,)" value={profile.signatureLine} />
+        </div>
+        <textarea
+          className="min-h-20 w-full rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
+          onChange={(event) => setProfile((prev) => ({ ...prev, workAuthorizationNote: event.target.value }))}
+          placeholder="Work authorization note"
+          value={profile.workAuthorizationNote}
+        />
+      </section>
+
+      <section className="space-y-3 rounded-lg border border-border/60 p-4">
         <h2 className="text-sm font-semibold">Summary</h2>
         <textarea
           className="min-h-24 w-full rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
@@ -89,125 +109,21 @@ export default function JobHunterResumePage() {
           {profile.experience.map((experience, index) => (
             <div className="space-y-2 rounded-md border border-border/60 p-3" key={`experience-${index}`}>
               <div className="grid gap-2 md:grid-cols-2">
-                <input
-                  className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
-                  onChange={(event) =>
-                    setProfile((prev) => ({
-                      ...prev,
-                      experience: prev.experience.map((item, itemIndex) =>
-                        itemIndex === index ? { ...item, company: event.target.value } : item,
-                      ),
-                    }))
-                  }
-                  placeholder="Company"
-                  value={experience.company}
-                />
-                <input
-                  className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
-                  onChange={(event) =>
-                    setProfile((prev) => ({
-                      ...prev,
-                      experience: prev.experience.map((item, itemIndex) =>
-                        itemIndex === index ? { ...item, title: event.target.value } : item,
-                      ),
-                    }))
-                  }
-                  placeholder="Title"
-                  value={experience.title}
-                />
-                <input
-                  className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
-                  onChange={(event) =>
-                    setProfile((prev) => ({
-                      ...prev,
-                      experience: prev.experience.map((item, itemIndex) =>
-                        itemIndex === index ? { ...item, start: event.target.value } : item,
-                      ),
-                    }))
-                  }
-                  placeholder="Start"
-                  value={experience.start ?? ""}
-                />
-                <input
-                  className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
-                  onChange={(event) =>
-                    setProfile((prev) => ({
-                      ...prev,
-                      experience: prev.experience.map((item, itemIndex) =>
-                        itemIndex === index ? { ...item, end: event.target.value } : item,
-                      ),
-                    }))
-                  }
-                  placeholder="End"
-                  value={experience.end ?? ""}
-                />
+                <input className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm" onChange={(event) => setProfile((prev) => ({ ...prev, experience: prev.experience.map((item, itemIndex) => itemIndex === index ? { ...item, company: event.target.value } : item) }))} placeholder="Company" value={experience.company} />
+                <input className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm" onChange={(event) => setProfile((prev) => ({ ...prev, experience: prev.experience.map((item, itemIndex) => itemIndex === index ? { ...item, title: event.target.value } : item) }))} placeholder="Title" value={experience.title} />
+                <input className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm" onChange={(event) => setProfile((prev) => ({ ...prev, experience: prev.experience.map((item, itemIndex) => itemIndex === index ? { ...item, start: event.target.value } : item) }))} placeholder="Start" value={experience.start ?? ""} />
+                <input className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm" onChange={(event) => setProfile((prev) => ({ ...prev, experience: prev.experience.map((item, itemIndex) => itemIndex === index ? { ...item, end: event.target.value } : item) }))} placeholder="End" value={experience.end ?? ""} />
               </div>
               <p className="text-xs font-medium uppercase text-foreground/70">Bullets</p>
               {experience.bullets.map((bullet, bulletIndex) => (
                 <div className="flex gap-2" key={`experience-${index}-bullet-${bulletIndex}`}>
-                  <input
-                    className="w-full rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
-                    onChange={(event) =>
-                      setProfile((prev) => ({
-                        ...prev,
-                        experience: prev.experience.map((item, itemIndex) =>
-                          itemIndex === index
-                            ? {
-                              ...item,
-                              bullets: item.bullets.map((line, lineIndex) => (lineIndex === bulletIndex ? event.target.value : line)),
-                            }
-                            : item,
-                        ),
-                      }))
-                    }
-                    value={bullet}
-                  />
-                  <Button
-                    onClick={() =>
-                      setProfile((prev) => ({
-                        ...prev,
-                        experience: prev.experience.map((item, itemIndex) =>
-                          itemIndex === index ? { ...item, bullets: item.bullets.filter((_, lineIndex) => lineIndex !== bulletIndex) } : item,
-                        ),
-                      }))
-                    }
-                    size="sm"
-                    type="button"
-                    variant="destructive"
-                  >
-                    Remove
-                  </Button>
+                  <input className="w-full rounded-md border border-border/60 bg-background px-3 py-2 text-sm" onChange={(event) => setProfile((prev) => ({ ...prev, experience: prev.experience.map((item, itemIndex) => itemIndex === index ? { ...item, bullets: item.bullets.map((line, lineIndex) => (lineIndex === bulletIndex ? event.target.value : line)) } : item) }))} value={bullet} />
+                  <Button onClick={() => setProfile((prev) => ({ ...prev, experience: prev.experience.map((item, itemIndex) => itemIndex === index ? { ...item, bullets: item.bullets.filter((_, lineIndex) => lineIndex !== bulletIndex) } : item) }))} size="sm" type="button" variant="destructive">Remove</Button>
                 </div>
               ))}
               <div className="flex gap-2">
-                <Button
-                  onClick={() =>
-                    setProfile((prev) => ({
-                      ...prev,
-                      experience: prev.experience.map((item, itemIndex) =>
-                        itemIndex === index ? { ...item, bullets: [...item.bullets, ""] } : item,
-                      ),
-                    }))
-                  }
-                  size="sm"
-                  type="button"
-                  variant="secondary"
-                >
-                  Add bullet
-                </Button>
-                <Button
-                  onClick={() =>
-                    setProfile((prev) => ({
-                      ...prev,
-                      experience: prev.experience.filter((_, itemIndex) => itemIndex !== index),
-                    }))
-                  }
-                  size="sm"
-                  type="button"
-                  variant="destructive"
-                >
-                  Remove experience
-                </Button>
+                <Button onClick={() => setProfile((prev) => ({ ...prev, experience: prev.experience.map((item, itemIndex) => itemIndex === index ? { ...item, bullets: [...item.bullets, ""] } : item) }))} size="sm" type="button" variant="secondary">Add bullet</Button>
+                <Button onClick={() => setProfile((prev) => ({ ...prev, experience: prev.experience.filter((_, itemIndex) => itemIndex !== index) }))} size="sm" type="button" variant="destructive">Remove experience</Button>
               </div>
             </div>
           ))}

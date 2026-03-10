@@ -13,9 +13,11 @@ export type JobListRow = {
 
 type JobListProps = {
   rows: JobListRow[];
+  selectedJobIds: string[];
+  onToggleSelectedJob: (jobId: string) => void;
 };
 
-export function JobList({ rows }: JobListProps) {
+export function JobList({ rows, selectedJobIds, onToggleSelectedJob }: JobListProps) {
   return (
     <Card>
       <CardHeader>
@@ -30,12 +32,15 @@ export function JobList({ rows }: JobListProps) {
                 <th className="px-3 py-2 text-left font-medium">Company</th>
                 <th className="px-3 py-2 text-left font-medium">Location</th>
                 <th className="px-3 py-2 text-left font-medium">Fit</th>
+                <th className="px-3 py-2 text-left font-medium">Queue</th>
                 <th className="px-3 py-2 text-left font-medium">Posted</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
               {rows.map((row) => {
                 const { job } = row;
+                const selected = selectedJobIds.includes(job.id);
+
                 return (
                   <tr key={job.id}>
                     <td className="px-3 py-2">
@@ -61,6 +66,16 @@ export function JobList({ rows }: JobListProps) {
                             Excluded
                           </span>
                         ) : null}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex flex-col items-start gap-2">
+                        <span className={`rounded-full px-2 py-0.5 text-xs ${selected ? "bg-blue-100 text-blue-800" : "bg-muted text-foreground/70"}`}>
+                          {selected ? "Selected" : "Not selected"}
+                        </span>
+                        <button className="text-xs text-blue-600 hover:underline" onClick={() => onToggleSelectedJob(job.id)} type="button">
+                          {selected ? "Remove from Apply Queue" : "Select for Apply"}
+                        </button>
                       </div>
                     </td>
                     <td className="px-3 py-2">{(job.postedAt ?? job.updatedAt).slice(0, 10)}</td>

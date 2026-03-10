@@ -37,8 +37,8 @@ export default function JobDetailPage({ params }: PageProps) {
     [job, preferences, store.resumeProfile],
   );
   const applyPacket = useMemo(
-    () => (job && tailoringPacket ? buildApplyPacket(job, tailoringPacket) : null),
-    [job, tailoringPacket],
+    () => (job && tailoringPacket ? buildApplyPacket(job, tailoringPacket, store.resumeProfile) : null),
+    [job, store.resumeProfile, tailoringPacket],
   );
   const application = job ? applicationById[job.id] : undefined;
   const checklist = application ? getApplicationChecklist(application) : null;

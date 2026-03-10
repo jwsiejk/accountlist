@@ -1,6 +1,6 @@
 import { buildFollowUpEmail } from "./applications";
 import type { TailoringPacket } from "./resume/tailor";
-import type { JobPosting } from "./types";
+import type { JobPosting, ResumeProfile } from "./types";
 
 export type ApplyPacket = {
   jobId: string;
@@ -25,12 +25,14 @@ const normalizeForFileName = (value: string) => {
   return normalized || "untitled";
 };
 
-const buildSummaryMarkdown = (job: JobPosting, tailoringPacket: TailoringPacket, generatedAt: string) => {
+const buildSummaryMarkdown = (job: JobPosting, tailoringPacket: TailoringPacket, generatedAt: string, profile?: ResumeProfile) => {
+  const candidateName = profile?.fullName?.trim() || "Candidate";
   return [
     "## Application Summary",
     `- **Role:** ${job.title}`,
     `- **Company:** ${job.company}`,
     `- **Job ID:** ${job.id}`,
+    `- **Candidate:** ${candidateName}`,
     `- **Generated:** ${generatedAt}`,
     "",
     "### Tailored Snapshot",
@@ -47,13 +49,13 @@ const buildScreenerAnswersText = (tailoringPacket: TailoringPacket) => {
     .join("\n\n");
 };
 
-export const buildApplyPacket = (job: JobPosting, tailoringPacket: TailoringPacket): ApplyPacket => {
+export const buildApplyPacket = (job: JobPosting, tailoringPacket: TailoringPacket, profile?: ResumeProfile): ApplyPacket => {
   const generatedAt = new Date().toISOString();
   const fileBaseName = `${normalizeForFileName(job.company)}-${normalizeForFileName(job.title)}-apply-packet`;
-  const summaryMarkdown = buildSummaryMarkdown(job, tailoringPacket, generatedAt);
+  const summaryMarkdown = buildSummaryMarkdown(job, tailoringPacket, generatedAt, profile);
   const coverLetterMarkdown = tailoringPacket.coverLetterDraft;
   const screenerAnswersText = buildScreenerAnswersText(tailoringPacket);
-  const followUpEmailText = buildFollowUpEmail(job);
+  const followUpEmailText = buildFollowUpEmail(job, profile);
 
   const fullPacketMarkdown = [
     "# Job Hunter Apply Packet",
@@ -61,6 +63,9 @@ export const buildApplyPacket = (job: JobPosting, tailoringPacket: TailoringPack
     `- **Company:** ${job.company}`,
     `- **Title:** ${job.title}`,
     `- **Job ID:** ${job.id}`,
+    `- **Candidate:** ${profile?.fullName?.trim() || "Candidate"}`,
+    `- **Email:** ${profile?.email?.trim() || "(not set)"}`,
+    `- **Phone:** ${profile?.phone?.trim() || "(not set)"}`,
     `- **Generated At:** ${generatedAt}`,
     "",
     summaryMarkdown,

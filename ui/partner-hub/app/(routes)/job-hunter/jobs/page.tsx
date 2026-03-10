@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { EmptyState } from "@/components/job-hunter/EmptyState";
@@ -7,6 +8,7 @@ import { JobList, type JobListRow } from "@/components/job-hunter/JobList";
 import { Button } from "@/components/ui/button";
 import { getDefaultPreferences, jobMatchesPreferences, normalizePreferences } from "@/lib/job-hunter/preferences";
 import { scoreJobFit } from "@/lib/job-hunter/scoring";
+import { toggleJobSelection } from "@/lib/job-hunter/queue";
 import { loadJobHunterStore, saveJobHunterStore } from "@/lib/job-hunter/storage";
 import type { JobHunterPreferences, JobPosting } from "@/lib/job-hunter/types";
 
@@ -15,6 +17,7 @@ export default function JobHunterJobsPage() {
   const initialPreferences = normalizePreferences(initialStore.preferences);
 
   const [jobsById, setJobsById] = useState<Record<string, JobPosting>>(initialStore.jobsById ?? {});
+  const [selectedJobIds, setSelectedJobIds] = useState<string[]>(initialStore.selectedJobIds ?? []);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | undefined>(initialStore.lastSyncedAt);
   const [preferences] = useState<JobHunterPreferences>(initialPreferences);
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +77,23 @@ export default function JobHunterJobsPage() {
       });
   }, [activePreferences, hideExcluded, jobs, minDate, minScore, search]);
 
+  const selectedJobs = useMemo(
+    () => selectedJobIds.map((jobId) => jobsById[jobId]).filter((job): job is JobPosting => Boolean(job)),
+    [jobsById, selectedJobIds],
+  );
+
   const excludedVisible = filteredJobs.filter((item) => item.excluded).length;
+
+  const handleToggleSelectedJob = (jobId: string) => {
+    const nextSelected = toggleJobSelection(selectedJobIds, jobId);
+    setSelectedJobIds(nextSelected);
+
+    const currentStore = loadJobHunterStore();
+    saveJobHunterStore({
+      ...currentStore,
+      selectedJobIds: nextSelected,
+    });
+  };
 
   const handleSync = async () => {
     setError(null);
@@ -140,6 +159,26 @@ export default function JobHunterJobsPage() {
         {error ? <p className="text-xs text-red-600">{error}</p> : null}
       </section>
 
+      <section className="space-y-2 rounded-lg border border-border/60 p-4">
+        <h2 className="text-sm font-semibold">Apply Queue ({selectedJobs.length})</h2>
+        {selectedJobs.length > 0 ? (
+          <ul className="space-y-1 text-sm">
+            {selectedJobs.map((job) => (
+              <li className="flex items-center justify-between gap-2" key={job.id}>
+                <Link className="text-blue-600 hover:underline" href={`/job-hunter/jobs/${encodeURIComponent(job.id)}`}>
+                  {job.title} · {job.company}
+                </Link>
+                <button className="text-xs text-blue-600 hover:underline" onClick={() => handleToggleSelectedJob(job.id)} type="button">
+                  Remove from Apply Queue
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-xs text-foreground/70">No jobs selected yet. Use “Select for Apply” in the list below.</p>
+        )}
+      </section>
+
       <section className="grid gap-3 rounded-lg border border-border/60 p-4 md:grid-cols-3">
         <input
           className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
@@ -188,7 +227,7 @@ export default function JobHunterJobsPage() {
 
       {filteredJobs.length > 0 ? (
         <>
-          <JobList rows={filteredJobs} />
+          <JobList onToggleSelectedJob={handleToggleSelectedJob} rows={filteredJobs} selectedJobIds={selectedJobIds} />
           {!hideExcluded ? (
             <section className="space-y-2 rounded-lg border border-border/60 p-4 text-xs">
               <p className="font-medium">Excluded reasons</p>

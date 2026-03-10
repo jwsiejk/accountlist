@@ -8,6 +8,7 @@ export const JOB_HUNTER_STORAGE_KEY = "partner-hub:job-hunter:v1";
 const DEFAULT_STORE: JobHunterStore = {
   jobs: [],
   jobsById: {},
+  selectedJobIds: [],
   sources: [],
   applications: [],
   applicationsById: {},
@@ -15,6 +16,14 @@ const DEFAULT_STORE: JobHunterStore = {
 };
 
 const BOARD_TYPES: BoardType[] = ["greenhouse", "lever"];
+
+const normalizeSelectedJobIds = (value: unknown): string[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(new Set(value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)));
+};
 
 const normalizeChecklist = (value: unknown): ApplyChecklist => {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -123,6 +132,7 @@ export const loadJobHunterStore = (): JobHunterStore => {
     return {
       jobs,
       jobsById,
+      selectedJobIds: normalizeSelectedJobIds(parsed.selectedJobIds),
       sources: validateJobSources(parsed.sources),
       lastSyncedAt: typeof parsed.lastSyncedAt === "string" ? parsed.lastSyncedAt : undefined,
       applications,
