@@ -50,6 +50,8 @@ describe("job hunter sync engine", () => {
         location: "Remote - US",
         source: "company-site",
         sourceUrl: "https://lever/job/abc",
+        salaryRange: "$100k-$120k",
+        notes: "Older notes",
         postedAt: "2024-01-01T00:00:00.000Z",
         createdAt: "2024-01-01T00:00:00.000Z",
         updatedAt: "2024-01-01T00:00:00.000Z",
@@ -62,6 +64,9 @@ describe("job hunter sync engine", () => {
         location: "Remote",
         source: "company-site",
         sourceUrl: "https://lever/job/abc",
+        salaryRange: "$120k-$140k",
+        employmentType: "Full-time",
+        notes: "Newer detailed notes",
         postedAt: "2024-01-02T00:00:00.000Z",
         createdAt: "2024-01-02T00:00:00.000Z",
         updatedAt: "2024-01-02T00:00:00.000Z",
@@ -74,5 +79,8 @@ describe("job hunter sync engine", () => {
     assert.equal(normalized[0].title, "Product Manager");
     assert.equal(normalized[0].location, "Remote");
     assert.equal(normalized[0].postedAt, "2024-01-02T00:00:00.000Z");
+    assert.equal(normalized[0].salaryRange, "$120k-$140k");
+    assert.equal(normalized[0].employmentType, "Full-time");
+    assert.equal(normalized[0].notes, "Newer detailed notes");
   });
 });

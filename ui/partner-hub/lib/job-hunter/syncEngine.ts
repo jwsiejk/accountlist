@@ -14,6 +14,9 @@ const normalizeJobs = (jobs: JobPosting[]) => {
       title: job.title,
       location: job.location,
       department: job.department,
+      salaryRange: job.salaryRange,
+      employmentType: job.employmentType,
+      notes: job.notes,
       url: job.sourceUrl ?? "",
       postedAt: job.postedAt,
     });

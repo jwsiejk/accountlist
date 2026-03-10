@@ -34,6 +34,8 @@ export type JobPosting = {
   company: string;
   location?: string;
   salaryRange?: string;
+  employmentType?: string;
+  sourceProvider?: BoardType;
   source: JobSource;
   sourceUrl?: string;
   externalId?: string;

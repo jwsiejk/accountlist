@@ -19,7 +19,7 @@ const normalizeText = (value: string) => value.toLowerCase().replace(/[^a-z0-9\s
 
 const buildSearchableText = (job: JobPosting) => {
   return normalizeText(
-    [job.title, job.company, job.department, job.location, job.notes]
+    [job.title, job.company, job.department, job.location, job.notes, job.employmentType, job.salaryRange]
       .filter((part): part is string => Boolean(part))
       .join(" "),
   );

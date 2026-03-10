@@ -82,4 +82,23 @@ describe("scoreJobFit", () => {
     assert.equal(result.score, 0);
     assert.ok(result.preferenceSignals.includes("Excluded title match"));
   });
+
+  it("improves scoring when relevant terms exist only in notes", () => {
+    const metadataOnlyJob: JobPosting = {
+      ...baseJob,
+      title: "Customer Architect",
+      department: "Field",
+      notes: "General customer architecture support",
+    };
+
+    const enrichedJob: JobPosting = {
+      ...metadataOnlyJob,
+      notes: "Lead partner post-sales cloud storage workshops for enterprise infrastructure teams.",
+    };
+
+    const baseScore = scoreJobFit(metadataOnlyJob).score;
+    const enrichedScore = scoreJobFit(enrichedJob).score;
+
+    assert.ok(enrichedScore > baseScore);
+  });
 });
