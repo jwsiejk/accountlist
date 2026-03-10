@@ -15,6 +15,8 @@ import {
   getApplicationQueueStage,
   getApplicationWorkflow,
   resolveApplicationJobDetails,
+  shouldShowInApplicationsPipeline,
+  syncWorkflowSelectionWithQueue,
 } from "@/lib/job-hunter/applications";
 import { loadJobHunterStore, saveJobHunterStore } from "@/lib/job-hunter/storage";
 import type { Application, ApplicationStatus, JobPosting } from "@/lib/job-hunter/types";
@@ -77,19 +79,8 @@ export default function JobHunterApplicationsPage() {
   };
 
   useEffect(() => {
-    let next = applicationsById;
-    let changed = false;
-
-    selectedJobIds.forEach((jobId) => {
-      if (!next[jobId] || getApplicationWorkflow(next[jobId]).selectedForApply) {
-        return;
-      }
-
-      next = applicationReducer(next, { type: "setWorkflowItem", jobId, item: "selectedForApply", value: true });
-      changed = true;
-    });
-
-    if (changed) {
+    const next = syncWorkflowSelectionWithQueue(applicationsById, selectedJobIds);
+    if (next !== applicationsById) {
       save(next);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -136,6 +127,7 @@ export default function JobHunterApplicationsPage() {
       <section className="grid gap-4 lg:grid-cols-7">
         {PIPELINE_COLUMNS.map((column) => {
           const items = applications
+            .filter((application) => shouldShowInApplicationsPipeline(application))
             .filter((application) => matchesColumn(application, column.key))
             .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 

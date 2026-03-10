@@ -41,7 +41,7 @@ export const DEFAULT_GUIDED_APPLY_WORKFLOW: GuidedApplyWorkflow = {
 export type ChecklistKey = keyof ApplyChecklist;
 export type WorkflowKey = keyof GuidedApplyWorkflow;
 
-export type ApplicationQueueStage = "selected" | "prepared" | "in-progress" | "applied";
+export type ApplicationQueueStage = "untracked" | "selected" | "prepared" | "in-progress" | "applied";
 
 export type ApplicationAction =
   | { type: "upsertFromJob"; job: JobPosting; now?: string }
@@ -127,7 +127,7 @@ export const getApplicationQueueStage = (application: Application): ApplicationQ
 
   const workflow = getApplicationWorkflow(application);
   if (!workflow.selectedForApply) {
-    return "selected";
+    return "untracked";
   }
 
   if (
@@ -144,6 +144,58 @@ export const getApplicationQueueStage = (application: Application): ApplicationQ
   }
 
   return "selected";
+};
+
+const hasInProgressWorkflowSignals = (workflow: GuidedApplyWorkflow) =>
+  workflow.externalApplicationOpened ||
+  workflow.tailoredResumeUploaded ||
+  workflow.customQuestionsCompleted ||
+  workflow.finalExternalSubmitConfirmed;
+
+export const shouldPreserveWorkflowSelection = (application: Application) => {
+  if (application.status === "applied" || application.status === "interview" || application.status === "offer" || application.status === "rejected") {
+    return true;
+  }
+
+  return hasInProgressWorkflowSignals(getApplicationWorkflow(application));
+};
+
+export const shouldShowInApplicationsPipeline = (application: Application) => {
+  if (application.status === "applied" || application.status === "interview" || application.status === "offer" || application.status === "rejected") {
+    return true;
+  }
+
+  const workflow = getApplicationWorkflow(application);
+  return workflow.selectedForApply || hasInProgressWorkflowSignals(workflow);
+};
+
+export const syncWorkflowSelectionWithQueue = (
+  applicationsById: Record<string, Application>,
+  selectedJobIds: string[],
+  now?: string,
+) => {
+  const selectedSet = new Set(selectedJobIds);
+  let next = applicationsById;
+
+  Object.values(applicationsById).forEach((application) => {
+    const workflow = getApplicationWorkflow(application);
+    const inQueue = selectedSet.has(application.jobId);
+    const desiredSelectedForApply = inQueue || (!inQueue && workflow.selectedForApply && shouldPreserveWorkflowSelection(application));
+
+    if (desiredSelectedForApply === workflow.selectedForApply) {
+      return;
+    }
+
+    next = applicationReducer(next, {
+      type: "setWorkflowItem",
+      jobId: application.jobId,
+      item: "selectedForApply",
+      value: desiredSelectedForApply,
+      now,
+    });
+  });
+
+  return next;
 };
 
 export const resolveApplicationJobDetails = (application: Application, jobsById: Record<string, JobPosting>) => {
