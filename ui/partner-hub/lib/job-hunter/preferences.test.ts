@@ -68,4 +68,35 @@ describe("preferences", () => {
     assert.equal(onsiteMatch.excluded, true);
     assert.ok(onsiteMatch.reasons.includes("Onsite roles disabled"));
   });
+
+  it("matches hybrid Philly and remote US when preference signal exists in notes", () => {
+    const hybridPreferences = {
+      ...getDefaultPreferences(),
+      preferredHybridLocations: ["Philadelphia"],
+    };
+    const remotePreferences = {
+      ...getDefaultPreferences(),
+      preferredRemoteRegions: ["United States"],
+    };
+
+    const hybridMatch = jobMatchesPreferences(
+      {
+        ...baseJob,
+        location: "Pennsylvania",
+        notes: "Hybrid schedule with 2 days/week in our Philadelphia office",
+      },
+      hybridPreferences,
+    );
+    const remoteMatch = jobMatchesPreferences(
+      {
+        ...baseJob,
+        location: "Remote",
+        notes: "Fully remote role; candidates must be based in the United States",
+      },
+      remotePreferences,
+    );
+
+    assert.equal(hybridMatch.excluded, false);
+    assert.equal(remoteMatch.excluded, false);
+  });
 });

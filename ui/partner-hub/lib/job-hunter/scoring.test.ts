@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
 
 import { getDefaultPreferences } from "./preferences";
-import { scoreJobFit } from "./scoring";
+import { scoreJobFit, summarizeJobReason } from "./scoring";
 import type { JobPosting } from "./types";
 
 const baseJob: JobPosting = {
@@ -23,9 +23,22 @@ describe("scoreJobFit", () => {
   });
 
   it("supports remote US and hybrid Philly preference boosts", () => {
-    const preferences = getDefaultPreferences();
-    const remoteResult = scoreJobFit({ ...baseJob, location: "Remote - United States", notes: "remote" }, preferences);
-    const hybridResult = scoreJobFit({ ...baseJob, location: "Philadelphia, PA", notes: "hybrid schedule" }, preferences);
+    const remotePreferences = {
+      ...getDefaultPreferences(),
+      preferredRemoteRegions: ["United States"],
+    };
+    const hybridPreferences = {
+      ...getDefaultPreferences(),
+      preferredHybridLocations: ["Philadelphia"],
+    };
+    const remoteResult = scoreJobFit(
+      { ...baseJob, location: "Remote", notes: "remote across the United States" },
+      remotePreferences,
+    );
+    const hybridResult = scoreJobFit(
+      { ...baseJob, location: "Pennsylvania", notes: "hybrid role with Philadelphia office days" },
+      hybridPreferences,
+    );
 
     assert.ok(remoteResult.preferenceSignals.some((signal) => signal.includes("Matched remote region")));
     assert.ok(hybridResult.preferenceSignals.some((signal) => signal.includes("Matched hybrid location")));
@@ -42,5 +55,25 @@ describe("scoreJobFit", () => {
   it("zeros score for excluded company and title", () => {
     assert.equal(scoreJobFit(baseJob, { ...getDefaultPreferences(), excludedCompanies: ["acme"] }).score, 0);
     assert.equal(scoreJobFit(baseJob, { ...getDefaultPreferences(), excludedTitles: ["architect"] }).score, 0);
+  });
+
+  it("prefers exclusion summaries for excluded rows", () => {
+    assert.equal(
+      summarizeJobReason({
+        excluded: true,
+        exclusionReasons: ["Onsite roles disabled"],
+        preferenceSignals: ["Matched target role: solutions architect"],
+      }),
+      "Excluded: Onsite roles disabled",
+    );
+
+    assert.equal(
+      summarizeJobReason({
+        excluded: false,
+        exclusionReasons: [],
+        preferenceSignals: ["Matched target role: solutions architect"],
+      }),
+      "Matched target role: solutions architect",
+    );
   });
 });

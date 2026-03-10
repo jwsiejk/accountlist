@@ -7,7 +7,7 @@ import { EmptyState } from "@/components/job-hunter/EmptyState";
 import { JobList, type JobListRow } from "@/components/job-hunter/JobList";
 import { Button } from "@/components/ui/button";
 import { getDefaultPreferences, jobMatchesPreferences, normalizePreferences } from "@/lib/job-hunter/preferences";
-import { scoreJobFit } from "@/lib/job-hunter/scoring";
+import { scoreJobFit, summarizeJobReason } from "@/lib/job-hunter/scoring";
 import { toggleJobSelection } from "@/lib/job-hunter/queue";
 import { loadJobHunterStore, saveJobHunterStore } from "@/lib/job-hunter/storage";
 import type { JobHunterPreferences, JobPosting } from "@/lib/job-hunter/types";
@@ -43,9 +43,11 @@ export default function JobHunterJobsPage() {
           excluded: exclusion.excluded,
           exclusionReasons: exclusion.reasons,
           arrangement: exclusion.arrangement,
-          reasonSummary:
-            fit.preferenceSignals[0] ??
-            (exclusion.reasons.length > 0 ? `Excluded: ${exclusion.reasons.join(", ")}` : "No preference signal"),
+          reasonSummary: summarizeJobReason({
+            excluded: exclusion.excluded,
+            exclusionReasons: exclusion.reasons,
+            preferenceSignals: fit.preferenceSignals,
+          }),
         };
       })
       .filter(({ job, score, excluded }) => {

@@ -1,5 +1,5 @@
 import { JOB_FIT_KEYWORDS } from "./keywordConfig";
-import { classifyWorkArrangement, getDefaultPreferences } from "./preferences";
+import { buildArrangementPreferenceText, classifyWorkArrangement, getDefaultPreferences } from "./preferences";
 import type { JobHunterPreferences, JobPosting } from "./types";
 
 export type KeywordMatch = {
@@ -13,6 +13,18 @@ export type JobFitScore = {
   matched: KeywordMatch[];
   missing: KeywordMatch[];
   preferenceSignals: string[];
+};
+
+export const summarizeJobReason = (params: {
+  excluded: boolean;
+  exclusionReasons: string[];
+  preferenceSignals: string[];
+}) => {
+  if (params.excluded && params.exclusionReasons.length > 0) {
+    return `Excluded: ${params.exclusionReasons.join(", ")}`;
+  }
+
+  return params.preferenceSignals[0] ?? "No preference signal";
 };
 
 const normalizeText = (value: string) => value.toLowerCase().replace(/[^a-z0-9\s-]/g, " ");
@@ -54,6 +66,7 @@ export const scoreJobFit = (job: JobPosting, preferences?: JobHunterPreferences)
   const appliedPreferences = preferences ?? getDefaultPreferences();
   const preferenceSignals: string[] = [];
   const arrangement = classifyWorkArrangement(job);
+  const arrangementText = buildArrangementPreferenceText(job);
 
   const matchedRole = includesAny(job.title, appliedPreferences.targetRoles);
   if (matchedRole) {
@@ -67,13 +80,13 @@ export const scoreJobFit = (job: JobPosting, preferences?: JobHunterPreferences)
     preferenceSignals.push(`Matched target keyword: ${matchedKeyword.toLowerCase()}`);
   }
 
-  const matchedHybridLocation = includesAny(job.location, appliedPreferences.preferredHybridLocations);
+  const matchedHybridLocation = includesAny(arrangementText, appliedPreferences.preferredHybridLocations);
   if (matchedHybridLocation && arrangement === "hybrid") {
     score += 6;
     preferenceSignals.push(`Matched hybrid location: ${matchedHybridLocation.toLowerCase()}`);
   }
 
-  const matchedRemoteRegion = includesAny(job.location ?? job.notes, appliedPreferences.preferredRemoteRegions);
+  const matchedRemoteRegion = includesAny(arrangementText, appliedPreferences.preferredRemoteRegions);
   if (matchedRemoteRegion && arrangement === "remote") {
     score += 6;
     preferenceSignals.push(`Matched remote region: ${matchedRemoteRegion.toLowerCase()}`);

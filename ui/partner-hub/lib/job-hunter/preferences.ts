@@ -139,8 +139,11 @@ const matchesLocationPreference = (value: string | undefined, terms: string[]) =
   return includesAny(value, terms);
 };
 
+export const buildArrangementPreferenceText = (job: JobPosting) =>
+  [job.location, job.notes, job.employmentType, job.title].filter(Boolean).join(" ");
+
 export const classifyWorkArrangement = (job: JobPosting): JobWorkArrangement => {
-  const combinedText = [job.location, job.notes, job.title, job.employmentType].filter(Boolean).join(" ");
+  const combinedText = buildArrangementPreferenceText(job);
 
   if (includesTerm(combinedText, HYBRID_KEYWORDS)) {
     return "hybrid";
@@ -163,6 +166,7 @@ export const jobMatchesPreferences = (
 ): { excluded: boolean; reasons: string[]; arrangement: JobWorkArrangement } => {
   const reasons: string[] = [];
   const arrangement = classifyWorkArrangement(job);
+  const arrangementText = buildArrangementPreferenceText(job);
 
   if (includesAny(job.company, preferences.excludedCompanies)) {
     reasons.push("Excluded company");
@@ -175,7 +179,7 @@ export const jobMatchesPreferences = (
   if (arrangement === "remote") {
     if (!preferences.allowRemoteRoles) {
       reasons.push("Remote roles disabled");
-    } else if (!matchesLocationPreference(job.location ?? job.notes, preferences.preferredRemoteRegions)) {
+    } else if (!matchesLocationPreference(arrangementText, preferences.preferredRemoteRegions)) {
       reasons.push("Remote region not preferred");
     }
   }
@@ -183,7 +187,7 @@ export const jobMatchesPreferences = (
   if (arrangement === "hybrid") {
     if (!preferences.allowHybridRoles) {
       reasons.push("Hybrid roles disabled");
-    } else if (!matchesLocationPreference(job.location ?? job.notes, preferences.preferredHybridLocations)) {
+    } else if (!matchesLocationPreference(arrangementText, preferences.preferredHybridLocations)) {
       reasons.push("Hybrid location not preferred");
     }
   }
