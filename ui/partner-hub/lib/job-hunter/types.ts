@@ -136,6 +136,12 @@ export type JobHunterPreferences = {
   minimumScore?: number;
 };
 
+export type JobHunterAutomationSettings = {
+  autoSyncOnJobsOpen: boolean;
+  autoSyncIfOlderThanHours: number;
+  topMatchesLimit: number;
+};
+
 export type JobHunterStore = {
   jobs: JobPosting[];
   jobsById: Record<string, JobPosting>;
@@ -146,4 +152,5 @@ export type JobHunterStore = {
   applicationsById: Record<string, Application>;
   resumeProfile?: ResumeProfile;
   preferences?: JobHunterPreferences;
+  automation?: JobHunterAutomationSettings;
 };

@@ -1,55 +1,51 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { EmptyState } from "@/components/job-hunter/EmptyState";
-import { JobList, type JobListRow } from "@/components/job-hunter/JobList";
+import { JobList } from "@/components/job-hunter/JobList";
 import { Button } from "@/components/ui/button";
-import { getDefaultPreferences, jobMatchesPreferences, normalizePreferences } from "@/lib/job-hunter/preferences";
-import { scoreJobFit, summarizeJobReason } from "@/lib/job-hunter/scoring";
+import {
+  deriveTopMatchesReviewQueue,
+  normalizeAutomationSettings,
+  rankJobsForReview,
+  shouldAutoSyncOnJobsOpen,
+} from "@/lib/job-hunter/discoveryAutomation";
+import { getDefaultPreferences, normalizePreferences } from "@/lib/job-hunter/preferences";
 import { toggleJobSelection } from "@/lib/job-hunter/queue";
 import { loadJobHunterStore, saveJobHunterStore } from "@/lib/job-hunter/storage";
-import type { JobHunterPreferences, JobPosting } from "@/lib/job-hunter/types";
+import type { JobHunterAutomationSettings, JobHunterPreferences, JobPosting } from "@/lib/job-hunter/types";
 
 export default function JobHunterJobsPage() {
   const initialStore = loadJobHunterStore();
   const initialPreferences = normalizePreferences(initialStore.preferences);
+  const initialAutomation = normalizeAutomationSettings(initialStore.automation);
 
   const [jobsById, setJobsById] = useState<Record<string, JobPosting>>(initialStore.jobsById ?? {});
   const [selectedJobIds, setSelectedJobIds] = useState<string[]>(initialStore.selectedJobIds ?? []);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | undefined>(initialStore.lastSyncedAt);
   const [preferences] = useState<JobHunterPreferences>(initialPreferences);
+  const [automation] = useState<JobHunterAutomationSettings>(initialAutomation);
   const [error, setError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [minScore, setMinScore] = useState(initialPreferences.minimumScore ?? 0);
   const [hideExcluded, setHideExcluded] = useState(true);
   const [minDate, setMinDate] = useState("");
 
+  const autoSyncAttempted = useRef(false);
+  const syncInFlight = useRef(false);
+
   const jobs = useMemo(() => Object.values(jobsById), [jobsById]);
 
-  const filteredJobs = useMemo<JobListRow[]>(() => {
+  const rankedJobs = useMemo(() => rankJobsForReview(jobs, preferences), [jobs, preferences]);
+
+  const filteredJobs = useMemo(() => {
     const query = search.trim().toLowerCase();
 
-    return jobs
-      .map((job) => {
-        const fit = scoreJobFit(job, preferences);
-        const exclusion = jobMatchesPreferences(job, preferences);
-
-        return {
-          job,
-          score: fit.score,
-          excluded: exclusion.excluded,
-          exclusionReasons: exclusion.reasons,
-          arrangement: exclusion.arrangement,
-          reasonSummary: summarizeJobReason({
-            excluded: exclusion.excluded,
-            exclusionReasons: exclusion.reasons,
-            preferenceSignals: fit.preferenceSignals,
-          }),
-        };
-      })
+    return rankedJobs
       .filter(({ job, score, excluded }) => {
         const matchesQuery =
           query.length === 0 ||
@@ -70,7 +66,17 @@ export default function JobHunterJobsPage() {
 
         return b.job.updatedAt.localeCompare(a.job.updatedAt);
       });
-  }, [hideExcluded, jobs, minDate, minScore, preferences, search]);
+  }, [hideExcluded, minDate, minScore, rankedJobs, search]);
+
+  const topMatches = useMemo(
+    () =>
+      deriveTopMatchesReviewQueue({
+        rankedJobs,
+        topMatchesLimit: automation.topMatchesLimit,
+        minimumScore: preferences.minimumScore ?? getDefaultPreferences().minimumScore ?? 0,
+      }),
+    [automation.topMatchesLimit, preferences.minimumScore, rankedJobs],
+  );
 
   const selectedJobs = useMemo(
     () => selectedJobIds.map((jobId) => jobsById[jobId]).filter((job): job is JobPosting => Boolean(job)),
@@ -90,15 +96,22 @@ export default function JobHunterJobsPage() {
     });
   };
 
-  const handleSync = async () => {
+  const handleSync = async (trigger: "manual" | "automatic" = "manual") => {
+    if (syncInFlight.current) {
+      return;
+    }
+
     setError(null);
 
     const currentStore = loadJobHunterStore();
     if (currentStore.sources.length === 0) {
-      setError("Add at least one job source in Settings before syncing.");
+      if (trigger === "manual") {
+        setError("Add at least one job source in Settings before syncing.");
+      }
       return;
     }
 
+    syncInFlight.current = true;
     setIsSyncing(true);
 
     try {
@@ -123,6 +136,7 @@ export default function JobHunterJobsPage() {
 
       setJobsById(payload.jobsById);
       setLastSyncedAt(payload.lastSyncedAt);
+      setSyncMessage(trigger === "automatic" ? "Auto-sync ran because your jobs feed was stale." : null);
 
       saveJobHunterStore({
         ...currentStore,
@@ -134,8 +148,27 @@ export default function JobHunterJobsPage() {
       setError(syncError instanceof Error ? syncError.message : "Unable to sync jobs.");
     } finally {
       setIsSyncing(false);
+      syncInFlight.current = false;
     }
   };
+
+  useEffect(() => {
+    if (autoSyncAttempted.current) {
+      return;
+    }
+
+    const currentStore = loadJobHunterStore();
+    const shouldSync = shouldAutoSyncOnJobsOpen({
+      sourcesCount: currentStore.sources.length,
+      lastSyncedAt: currentStore.lastSyncedAt,
+      automation,
+    });
+
+    autoSyncAttempted.current = true;
+    if (shouldSync) {
+      void handleSync("automatic");
+    }
+  }, [automation]);
 
   return (
     <main className="mx-auto max-w-5xl space-y-6 p-6">
@@ -147,10 +180,11 @@ export default function JobHunterJobsPage() {
       <section className="space-y-2 rounded-lg border border-border/60 p-4">
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs text-foreground/70">Last sync: {lastSyncedAt ? new Date(lastSyncedAt).toLocaleString() : "Never"}</p>
-          <Button disabled={isSyncing} onClick={handleSync} type="button">
+          <Button disabled={isSyncing} onClick={() => void handleSync()} type="button">
             {isSyncing ? "Syncing..." : "Sync Jobs"}
           </Button>
         </div>
+        {syncMessage ? <p className="text-xs text-blue-700">{syncMessage}</p> : null}
         {error ? <p className="text-xs text-red-600">{error}</p> : null}
       </section>
 
@@ -171,6 +205,18 @@ export default function JobHunterJobsPage() {
           </ul>
         ) : (
           <p className="text-xs text-foreground/70">No jobs selected yet. Use “Select for Apply” in the list below.</p>
+        )}
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="text-sm font-semibold">Top Matches Review Queue</h2>
+        <p className="text-xs text-foreground/70">
+          Automatically surfaced using your current ranking and preference rules. Jobs are not auto-selected for apply.
+        </p>
+        {topMatches.length > 0 ? (
+          <JobList onToggleSelectedJob={handleToggleSelectedJob} rows={topMatches} selectedJobIds={selectedJobIds} title="Top matches" />
+        ) : (
+          <p className="rounded-lg border border-border/60 p-3 text-xs text-foreground/70">No top matches yet for the current preference threshold.</p>
         )}
       </section>
 

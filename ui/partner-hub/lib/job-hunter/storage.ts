@@ -1,4 +1,5 @@
 import { DEFAULT_APPLY_CHECKLIST, DEFAULT_GUIDED_APPLY_WORKFLOW, getApplicationChecklist, getApplicationWorkflow } from "./applications";
+import { DEFAULT_AUTOMATION_SETTINGS, normalizeAutomationSettings } from "./discoveryAutomation";
 import { getDefaultPreferences, normalizePreferences } from "./preferences";
 import { normalizeResumeProfile } from "./resumeProfile";
 import type { Application, ApplyChecklist, BoardType, GuidedApplyWorkflow, JobHunterStore, JobSourceConfig } from "./types";
@@ -13,6 +14,7 @@ const DEFAULT_STORE: JobHunterStore = {
   applications: [],
   applicationsById: {},
   preferences: getDefaultPreferences(),
+  automation: DEFAULT_AUTOMATION_SETTINGS,
 };
 
 const BOARD_TYPES: BoardType[] = ["greenhouse", "lever"];
@@ -147,6 +149,7 @@ export const loadJobHunterStore = (): JobHunterStore => {
       applicationsById,
       resumeProfile: parsed.resumeProfile ? normalizeResumeProfile(parsed.resumeProfile) : undefined,
       preferences: parsed.preferences ? normalizePreferences(parsed.preferences) : getDefaultPreferences(),
+      automation: normalizeAutomationSettings(parsed.automation),
     };
   } catch {
     return DEFAULT_STORE;
@@ -175,6 +178,7 @@ export const saveJobHunterStore = (store: JobHunterStore) => {
       applications: Object.values(applicationsById),
       resumeProfile: store.resumeProfile ? normalizeResumeProfile(store.resumeProfile) : undefined,
       preferences: normalizePreferences(store.preferences),
+      automation: normalizeAutomationSettings(store.automation),
     }),
   );
 };
