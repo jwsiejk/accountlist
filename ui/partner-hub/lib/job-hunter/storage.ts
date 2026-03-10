@@ -1,7 +1,7 @@
-import { DEFAULT_APPLY_CHECKLIST, getApplicationChecklist } from "./applications";
+import { DEFAULT_APPLY_CHECKLIST, DEFAULT_GUIDED_APPLY_WORKFLOW, getApplicationChecklist, getApplicationWorkflow } from "./applications";
 import { getDefaultPreferences, normalizePreferences } from "./preferences";
 import { normalizeResumeProfile } from "./resumeProfile";
-import type { Application, ApplyChecklist, BoardType, JobHunterStore, JobSourceConfig } from "./types";
+import type { Application, ApplyChecklist, BoardType, GuidedApplyWorkflow, JobHunterStore, JobSourceConfig } from "./types";
 
 export const JOB_HUNTER_STORAGE_KEY = "partner-hub:job-hunter:v1";
 
@@ -43,6 +43,13 @@ const normalizeChecklist = (value: unknown): ApplyChecklist => {
 const normalizeApplication = (value: Application): Application => ({
   ...value,
   checklist: normalizeChecklist(value.checklist),
+  workflow:
+    value.workflow && typeof value.workflow === "object" && !Array.isArray(value.workflow)
+      ? {
+          ...DEFAULT_GUIDED_APPLY_WORKFLOW,
+          ...(value.workflow as Partial<GuidedApplyWorkflow>),
+        }
+      : { ...DEFAULT_GUIDED_APPLY_WORKFLOW },
   jobSnapshot:
     value.jobSnapshot && typeof value.jobSnapshot === "object"
       ? {
@@ -124,6 +131,7 @@ export const loadJobHunterStore = (): JobHunterStore => {
       acc[jobId] = {
         ...normalized,
         checklist: getApplicationChecklist(normalized),
+        workflow: getApplicationWorkflow(normalized),
       };
       return acc;
     }, {});
@@ -154,6 +162,7 @@ export const saveJobHunterStore = (store: JobHunterStore) => {
     acc[jobId] = {
       ...application,
       checklist: getApplicationChecklist(application),
+      workflow: getApplicationWorkflow(application),
     };
     return acc;
   }, {});

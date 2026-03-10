@@ -89,6 +89,88 @@ describe("job hunter storage", () => {
     assert.equal(loaded.applicationsById["job-legacy"].notes, "legacy note");
     assert.equal(loaded.applicationsById["job-legacy"].checklist?.resumeReviewed, false);
     assert.equal(loaded.applicationsById["job-legacy"].checklist?.followUpScheduled, false);
+    assert.equal(loaded.applicationsById["job-legacy"].workflow?.selectedForApply, false);
+
+    Object.defineProperty(globalThis, "window", {
+      value: previousWindow,
+      configurable: true,
+      writable: true,
+    });
+  });
+
+  it("persists guided apply workflow state", () => {
+    const storage = new MemoryStorage();
+    const previousWindow = globalThis.window;
+    Object.defineProperty(globalThis, "window", {
+      value: { localStorage: storage },
+      configurable: true,
+      writable: true,
+    });
+
+    saveJobHunterStore({
+      jobs: [],
+      jobsById: {},
+      applications: [
+        {
+          id: "job-22",
+          jobId: "job-22",
+          status: "prepared",
+          checklist: {
+            resumeReviewed: false,
+            coverLetterReviewed: false,
+            screenerAnswersReviewed: false,
+            appliedExternally: false,
+            followUpScheduled: false,
+          },
+          workflow: {
+            selectedForApply: true,
+            tailoredResumeReady: true,
+            coverLetterReady: true,
+            screenerAnswersReady: true,
+            externalApplicationOpened: true,
+            tailoredResumeUploaded: true,
+            customQuestionsCompleted: false,
+            finalExternalSubmitConfirmed: false,
+            followUpScheduled: false,
+          },
+          createdAt: "2024-03-01T10:00:00.000Z",
+          updatedAt: "2024-03-01T10:00:00.000Z",
+        },
+      ],
+      applicationsById: {
+        "job-22": {
+          id: "job-22",
+          jobId: "job-22",
+          status: "prepared",
+          checklist: {
+            resumeReviewed: false,
+            coverLetterReviewed: false,
+            screenerAnswersReviewed: false,
+            appliedExternally: false,
+            followUpScheduled: false,
+          },
+          workflow: {
+            selectedForApply: true,
+            tailoredResumeReady: true,
+            coverLetterReady: true,
+            screenerAnswersReady: true,
+            externalApplicationOpened: true,
+            tailoredResumeUploaded: true,
+            customQuestionsCompleted: false,
+            finalExternalSubmitConfirmed: false,
+            followUpScheduled: false,
+          },
+          createdAt: "2024-03-01T10:00:00.000Z",
+          updatedAt: "2024-03-01T10:00:00.000Z",
+        },
+      },
+      selectedJobIds: [],
+      sources: [],
+    });
+
+    const loaded = loadJobHunterStore();
+    assert.equal(loaded.applicationsById["job-22"].workflow?.externalApplicationOpened, true);
+    assert.equal(loaded.applicationsById["job-22"].workflow?.tailoredResumeUploaded, true);
 
     Object.defineProperty(globalThis, "window", {
       value: previousWindow,

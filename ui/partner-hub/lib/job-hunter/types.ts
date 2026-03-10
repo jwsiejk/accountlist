@@ -28,6 +28,18 @@ export type ApplyChecklist = {
   followUpScheduled: boolean;
 };
 
+export type GuidedApplyWorkflow = {
+  selectedForApply: boolean;
+  tailoredResumeReady: boolean;
+  coverLetterReady: boolean;
+  screenerAnswersReady: boolean;
+  externalApplicationOpened: boolean;
+  tailoredResumeUploaded: boolean;
+  customQuestionsCompleted: boolean;
+  finalExternalSubmitConfirmed: boolean;
+  followUpScheduled: boolean;
+};
+
 export type JobPosting = {
   id: string;
   title: string;
@@ -58,6 +70,7 @@ export type Application = {
   rejectedAt?: string;
   notes?: string;
   checklist?: ApplyChecklist;
+  workflow?: GuidedApplyWorkflow;
   jobSnapshot?: ApplicationJobSnapshot;
   createdAt: string;
   updatedAt: string;

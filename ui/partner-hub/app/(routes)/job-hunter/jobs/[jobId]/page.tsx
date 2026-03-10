@@ -6,8 +6,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { EmptyState } from "@/components/job-hunter/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { applicationReducer, createApplicationFromJob, getApplicationChecklist } from "@/lib/job-hunter/applications";
-import { buildApplyPacket } from "@/lib/job-hunter/applyPacket";
+import { applicationReducer, createApplicationFromJob, getApplicationChecklist, getApplicationWorkflow } from "@/lib/job-hunter/applications";
+import { buildApplyPacket, buildApplyPrepItems } from "@/lib/job-hunter/applyPacket";
 import { normalizePreferences } from "@/lib/job-hunter/preferences";
 import { masterResume } from "@/lib/job-hunter/resume/masterResume";
 import { generateTailoringPacket } from "@/lib/job-hunter/resume/tailor";
@@ -42,6 +42,13 @@ export default function JobDetailPage({ params }: PageProps) {
   );
   const application = job ? applicationById[job.id] : undefined;
   const checklist = application ? getApplicationChecklist(application) : null;
+  const workflow = application ? getApplicationWorkflow(application) : null;
+  const prepItems = useMemo(() => {
+    if (!job || !applyPacket || !tailoringPacket) {
+      return [];
+    }
+    return buildApplyPrepItems(job, applyPacket, tailoringPacket, store.resumeProfile);
+  }, [applyPacket, job, store.resumeProfile, tailoringPacket]);
 
   const saveApplications = useCallback((next: typeof applicationById) => {
     setApplicationById(next);
@@ -70,6 +77,14 @@ export default function JobDetailPage({ params }: PageProps) {
       [job.id]: createApplicationFromJob(job, new Date().toISOString()),
     });
   }, [applicationById, job, saveApplications]);
+
+  useEffect(() => {
+    if (!job || !store.selectedJobIds.includes(job.id) || workflow?.selectedForApply) {
+      return;
+    }
+
+    saveApplications(applicationReducer(applicationById, { type: "setWorkflowItem", jobId: job.id, item: "selectedForApply", value: true }));
+  }, [applicationById, job, saveApplications, store.selectedJobIds, workflow?.selectedForApply]);
 
   const handleDownloadMarkdown = () => {
     if (!tailoringPacket || !job) {
@@ -132,9 +147,9 @@ export default function JobDetailPage({ params }: PageProps) {
     void navigator.clipboard.writeText(text);
   };
 
-  const setChecklistItem = (item: keyof NonNullable<typeof checklist>, value: boolean) => {
+  const setWorkflowItem = (item: keyof NonNullable<typeof workflow>, value: boolean) => {
     if (!job) return;
-    saveApplications(applicationReducer(applicationById, { type: "setChecklistItem", jobId: job.id, item, value }));
+    saveApplications(applicationReducer(applicationById, { type: "setWorkflowItem", jobId: job.id, item, value }));
   };
 
   const setNotes = (notes: string) => {
@@ -144,7 +159,13 @@ export default function JobDetailPage({ params }: PageProps) {
 
   const markApplied = () => {
     if (!job) return;
-    const withSnapshot = applicationReducer(applicationById, { type: "ensureSnapshotFromJob", jobId: job.id, job });
+    const withWorkflow = applicationReducer(applicationById, {
+      type: "setWorkflowItem",
+      jobId: job.id,
+      item: "finalExternalSubmitConfirmed",
+      value: true,
+    });
+    const withSnapshot = applicationReducer(withWorkflow, { type: "ensureSnapshotFromJob", jobId: job.id, job });
     const withApplied = applicationReducer(withSnapshot, { type: "setStatus", jobId: job.id, status: "applied" });
     saveApplications(withApplied);
     setWorkspaceMessage("Application marked as applied and snapshot saved.");
@@ -271,16 +292,48 @@ export default function JobDetailPage({ params }: PageProps) {
               <Button onClick={() => copyText(applyPacket.screenerAnswersText)} size="sm" type="button" variant="secondary">Copy Screener Answers</Button>
             </div>
 
+            <section className="space-y-2 rounded-md border border-border/60 p-3">
+              <h3 className="font-medium">Quick apply prep actions</h3>
+              <div className="grid gap-2 md:grid-cols-2">
+                {prepItems.map((item) => (
+                  <Button key={item.key} onClick={() => copyText(item.value)} size="sm" type="button" variant="secondary">
+                    Copy {item.label}
+                  </Button>
+                ))}
+                {job.sourceUrl ? (
+                  <Button
+                    onClick={() => {
+                      window.open(job.sourceUrl, "_blank", "noopener,noreferrer");
+                      setWorkflowItem("externalApplicationOpened", true);
+                    }}
+                    size="sm"
+                    type="button"
+                  >
+                    Open external application
+                  </Button>
+                ) : null}
+              </div>
+            </section>
+
             <section className="space-y-3 rounded-md border border-border/60 p-3">
-              <h3 className="font-medium">Apply Checklist</h3>
-              {checklist ? (
+              <h3 className="font-medium">Guided apply workflow</h3>
+              {workflow ? (
                 <div className="grid gap-2 md:grid-cols-2">
-                  <label className="flex items-center gap-2"><input checked={checklist.resumeReviewed} onChange={(e) => setChecklistItem("resumeReviewed", e.target.checked)} type="checkbox" />Resume reviewed</label>
-                  <label className="flex items-center gap-2"><input checked={checklist.coverLetterReviewed} onChange={(e) => setChecklistItem("coverLetterReviewed", e.target.checked)} type="checkbox" />Cover letter reviewed</label>
-                  <label className="flex items-center gap-2"><input checked={checklist.screenerAnswersReviewed} onChange={(e) => setChecklistItem("screenerAnswersReviewed", e.target.checked)} type="checkbox" />Screener answers reviewed</label>
-                  <label className="flex items-center gap-2"><input checked={checklist.appliedExternally} onChange={(e) => setChecklistItem("appliedExternally", e.target.checked)} type="checkbox" />Applied externally</label>
-                  <label className="flex items-center gap-2"><input checked={checklist.followUpScheduled} onChange={(e) => setChecklistItem("followUpScheduled", e.target.checked)} type="checkbox" />Follow-up scheduled</label>
+                  <label className="flex items-center gap-2"><input checked={workflow.selectedForApply} onChange={(e) => setWorkflowItem("selectedForApply", e.target.checked)} type="checkbox" />Selected for apply</label>
+                  <label className="flex items-center gap-2"><input checked={workflow.tailoredResumeReady} onChange={(e) => setWorkflowItem("tailoredResumeReady", e.target.checked)} type="checkbox" />Tailored resume ready</label>
+                  <label className="flex items-center gap-2"><input checked={workflow.coverLetterReady} onChange={(e) => setWorkflowItem("coverLetterReady", e.target.checked)} type="checkbox" />Cover letter ready</label>
+                  <label className="flex items-center gap-2"><input checked={workflow.screenerAnswersReady} onChange={(e) => setWorkflowItem("screenerAnswersReady", e.target.checked)} type="checkbox" />Screener answers ready</label>
+                  <label className="flex items-center gap-2"><input checked={workflow.externalApplicationOpened} onChange={(e) => setWorkflowItem("externalApplicationOpened", e.target.checked)} type="checkbox" />External application opened</label>
+                  <label className="flex items-center gap-2"><input checked={workflow.tailoredResumeUploaded} onChange={(e) => setWorkflowItem("tailoredResumeUploaded", e.target.checked)} type="checkbox" />Tailored resume uploaded</label>
+                  <label className="flex items-center gap-2"><input checked={workflow.customQuestionsCompleted} onChange={(e) => setWorkflowItem("customQuestionsCompleted", e.target.checked)} type="checkbox" />Custom questions completed</label>
+                  <label className="flex items-center gap-2"><input checked={workflow.finalExternalSubmitConfirmed} onChange={(e) => setWorkflowItem("finalExternalSubmitConfirmed", e.target.checked)} type="checkbox" />Final external submit confirmed</label>
+                  <label className="flex items-center gap-2"><input checked={workflow.followUpScheduled} onChange={(e) => setWorkflowItem("followUpScheduled", e.target.checked)} type="checkbox" />Follow-up scheduled</label>
                 </div>
+              ) : null}
+              {checklist ? (
+                <p className="text-xs text-foreground/70">
+                  Legacy checklist mirror: resume {String(checklist.resumeReviewed)}, cover letter {String(checklist.coverLetterReviewed)}, screener {String(checklist.screenerAnswersReviewed)}.
+                </p>
               ) : null}
               <label className="block text-xs text-foreground/70">
                 Notes

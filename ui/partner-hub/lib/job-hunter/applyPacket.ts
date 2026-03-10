@@ -13,6 +13,21 @@ export type ApplyPacket = {
   fullPacketMarkdown: string;
 };
 
+export type ApplyPrepItem = {
+  key:
+    | "candidateContact"
+    | "linkedinUrl"
+    | "workAuthorization"
+    | "professionalSummary"
+    | "tailoredResumeMarkdown"
+    | "tailoredResumeText"
+    | "coverLetter"
+    | "screenerAnswers"
+    | "sourceApplicationLink";
+  label: string;
+  value: string;
+};
+
 const normalizeForFileName = (value: string) => {
   const normalized = value
     .normalize("NFKD")
@@ -93,4 +108,61 @@ export const buildApplyPacket = (job: JobPosting, tailoringPacket: TailoringPack
     followUpEmailText,
     fullPacketMarkdown,
   };
+};
+
+export const buildApplyPrepItems = (job: JobPosting, applyPacket: ApplyPacket, tailoringPacket: TailoringPacket, profile?: ResumeProfile): ApplyPrepItem[] => {
+  const candidateContact = [
+    profile?.fullName?.trim() || "Candidate Name",
+    profile?.email?.trim() || "candidate@example.com",
+    profile?.phone?.trim() || "(000) 000-0000",
+    profile?.cityState?.trim() || "City, ST",
+  ].join("\n");
+
+  return [
+    {
+      key: "candidateContact",
+      label: "Candidate contact block",
+      value: candidateContact,
+    },
+    {
+      key: "linkedinUrl",
+      label: "LinkedIn URL",
+      value: profile?.linkedinUrl?.trim() || "Add LinkedIn URL",
+    },
+    {
+      key: "workAuthorization",
+      label: "Work authorization note",
+      value: profile?.workAuthorizationNote?.trim() || "Add work authorization note",
+    },
+    {
+      key: "professionalSummary",
+      label: "Professional summary / headline",
+      value: [profile?.headline?.trim(), tailoringPacket.tailoredSummary].filter(Boolean).join("\n"),
+    },
+    {
+      key: "tailoredResumeMarkdown",
+      label: "Tailored resume (markdown)",
+      value: tailoringPacket.tailoredResumeVariant.markdown,
+    },
+    {
+      key: "tailoredResumeText",
+      label: "Tailored resume (plain text)",
+      value: tailoringPacket.tailoredResumeVariant.plainText,
+    },
+    {
+      key: "coverLetter",
+      label: "Cover letter",
+      value: applyPacket.coverLetterMarkdown,
+    },
+    {
+      key: "screenerAnswers",
+      label: "Screener answers",
+      value: applyPacket.screenerAnswersText,
+    },
+    {
+      key: "sourceApplicationLink",
+      label: "Source application link",
+      value: job.sourceUrl ?? "Add external application URL",
+    },
+  ];
 };

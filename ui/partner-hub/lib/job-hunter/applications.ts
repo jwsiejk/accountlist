@@ -1,4 +1,12 @@
-import type { Application, ApplicationStatus, ApplyChecklist, ApplicationJobSnapshot, JobPosting, ResumeProfile } from "./types";
+import type {
+  Application,
+  ApplicationStatus,
+  ApplyChecklist,
+  ApplicationJobSnapshot,
+  GuidedApplyWorkflow,
+  JobPosting,
+  ResumeProfile,
+} from "./types";
 
 export const APPLICATION_STATUSES: ApplicationStatus[] = ["prepared", "applied", "interview", "rejected", "offer"];
 
@@ -18,7 +26,22 @@ export const DEFAULT_APPLY_CHECKLIST: ApplyChecklist = {
   followUpScheduled: false,
 };
 
+export const DEFAULT_GUIDED_APPLY_WORKFLOW: GuidedApplyWorkflow = {
+  selectedForApply: false,
+  tailoredResumeReady: false,
+  coverLetterReady: false,
+  screenerAnswersReady: false,
+  externalApplicationOpened: false,
+  tailoredResumeUploaded: false,
+  customQuestionsCompleted: false,
+  finalExternalSubmitConfirmed: false,
+  followUpScheduled: false,
+};
+
 export type ChecklistKey = keyof ApplyChecklist;
+export type WorkflowKey = keyof GuidedApplyWorkflow;
+
+export type ApplicationQueueStage = "selected" | "prepared" | "in-progress" | "applied";
 
 export type ApplicationAction =
   | { type: "upsertFromJob"; job: JobPosting; now?: string }
@@ -26,6 +49,7 @@ export type ApplicationAction =
   | { type: "setReminder"; jobId: string; reminderAt?: string; now?: string }
   | { type: "setNotes"; jobId: string; notes?: string; now?: string }
   | { type: "setChecklistItem"; jobId: string; item: ChecklistKey; value: boolean; now?: string }
+  | { type: "setWorkflowItem"; jobId: string; item: WorkflowKey; value: boolean; now?: string }
   | { type: "ensureSnapshotFromJob"; jobId: string; job: JobPosting; now?: string };
 
 export const buildFollowUpEmail = (job: JobPosting, profile?: ResumeProfile) => {
@@ -69,6 +93,7 @@ export const createApplicationFromJob = (job: JobPosting, now: string): Applicat
   jobId: job.id,
   status: "prepared",
   checklist: { ...DEFAULT_APPLY_CHECKLIST },
+  workflow: { ...DEFAULT_GUIDED_APPLY_WORKFLOW },
   createdAt: now,
   updatedAt: now,
 });
@@ -77,6 +102,49 @@ export const getApplicationChecklist = (application: Application): ApplyChecklis
   ...DEFAULT_APPLY_CHECKLIST,
   ...(application.checklist ?? {}),
 });
+
+export const getApplicationWorkflow = (application: Application): GuidedApplyWorkflow => {
+  const checklist = getApplicationChecklist(application);
+  const workflow = {
+    ...DEFAULT_GUIDED_APPLY_WORKFLOW,
+    ...(application.workflow ?? {}),
+  };
+
+  return {
+    ...workflow,
+    tailoredResumeReady: workflow.tailoredResumeReady || checklist.resumeReviewed,
+    coverLetterReady: workflow.coverLetterReady || checklist.coverLetterReviewed,
+    screenerAnswersReady: workflow.screenerAnswersReady || checklist.screenerAnswersReviewed,
+    finalExternalSubmitConfirmed: workflow.finalExternalSubmitConfirmed || checklist.appliedExternally,
+    followUpScheduled: workflow.followUpScheduled || checklist.followUpScheduled,
+  };
+};
+
+export const getApplicationQueueStage = (application: Application): ApplicationQueueStage => {
+  if (application.status === "applied" || application.status === "interview" || application.status === "offer" || application.status === "rejected") {
+    return "applied";
+  }
+
+  const workflow = getApplicationWorkflow(application);
+  if (!workflow.selectedForApply) {
+    return "selected";
+  }
+
+  if (
+    workflow.tailoredResumeReady &&
+    workflow.coverLetterReady &&
+    workflow.screenerAnswersReady &&
+    !workflow.externalApplicationOpened
+  ) {
+    return "prepared";
+  }
+
+  if (workflow.externalApplicationOpened || workflow.tailoredResumeUploaded || workflow.customQuestionsCompleted) {
+    return "in-progress";
+  }
+
+  return "selected";
+};
 
 export const resolveApplicationJobDetails = (application: Application, jobsById: Record<string, JobPosting>) => {
   const liveJob = jobsById[application.jobId];
@@ -135,6 +203,10 @@ export const applicationReducer = (
       updatedAt: now,
       ...statusTimestampPatch(action.status, now),
       checklist: getApplicationChecklist(existing),
+      workflow: {
+        ...getApplicationWorkflow(existing),
+        finalExternalSubmitConfirmed: action.status === "applied" ? true : getApplicationWorkflow(existing).finalExternalSubmitConfirmed,
+      },
     };
 
     return {
@@ -150,6 +222,7 @@ export const applicationReducer = (
         ...existing,
         reminderAt: action.reminderAt,
         checklist: getApplicationChecklist(existing),
+        workflow: getApplicationWorkflow(existing),
         updatedAt: now,
       },
     };
@@ -162,6 +235,7 @@ export const applicationReducer = (
         ...existing,
         notes: action.notes,
         checklist: getApplicationChecklist(existing),
+        workflow: getApplicationWorkflow(existing),
         updatedAt: now,
       },
     };
@@ -174,6 +248,36 @@ export const applicationReducer = (
         ...existing,
         checklist: {
           ...getApplicationChecklist(existing),
+          [action.item]: action.value,
+        },
+        workflow: {
+          ...getApplicationWorkflow(existing),
+          ...(action.item === "resumeReviewed" ? { tailoredResumeReady: action.value } : {}),
+          ...(action.item === "coverLetterReviewed" ? { coverLetterReady: action.value } : {}),
+          ...(action.item === "screenerAnswersReviewed" ? { screenerAnswersReady: action.value } : {}),
+          ...(action.item === "appliedExternally" ? { finalExternalSubmitConfirmed: action.value } : {}),
+          ...(action.item === "followUpScheduled" ? { followUpScheduled: action.value } : {}),
+        },
+        updatedAt: now,
+      },
+    };
+  }
+
+  if (action.type === "setWorkflowItem") {
+    return {
+      ...state,
+      [action.jobId]: {
+        ...existing,
+        checklist: {
+          ...getApplicationChecklist(existing),
+          ...(action.item === "tailoredResumeReady" ? { resumeReviewed: action.value } : {}),
+          ...(action.item === "coverLetterReady" ? { coverLetterReviewed: action.value } : {}),
+          ...(action.item === "screenerAnswersReady" ? { screenerAnswersReviewed: action.value } : {}),
+          ...(action.item === "finalExternalSubmitConfirmed" ? { appliedExternally: action.value } : {}),
+          ...(action.item === "followUpScheduled" ? { followUpScheduled: action.value } : {}),
+        },
+        workflow: {
+          ...getApplicationWorkflow(existing),
           [action.item]: action.value,
         },
         updatedAt: now,
@@ -191,6 +295,7 @@ export const applicationReducer = (
       [action.jobId]: {
         ...existing,
         checklist: getApplicationChecklist(existing),
+        workflow: getApplicationWorkflow(existing),
         jobSnapshot: toJobSnapshot(action.job),
         updatedAt: now,
       },
