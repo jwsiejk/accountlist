@@ -83,7 +83,38 @@ describe("generateTailoringPacket", () => {
     });
 
     assert.ok(packet.tailoredSummary.includes("Profile summary"));
+    assert.ok(packet.coverLetterDraft.includes("Best regards,"));
+    assert.ok(packet.coverLetterDraft.includes("James Wang"));
+  });
+
+  it("falls back to default signature and signer when resume profile identity is blank", () => {
+    const job: JobPosting = {
+      id: "greenhouse:empty-profile",
+      title: "Solutions Architect",
+      company: "Acme",
+      source: "company-site",
+      createdAt: "2024-01-01T00:00:00.000Z",
+      updatedAt: "2024-01-02T00:00:00.000Z",
+    };
+
+    const packet = generateTailoringPacket(job, {
+      fullName: "   ",
+      email: "james@example.com",
+      phone: "555-0101",
+      cityState: "Austin, TX",
+      linkedinUrl: "https://linkedin.com/in/james",
+      websiteUrl: "",
+      workAuthorizationNote: "US Citizen",
+      signatureLine: "   ",
+      headline: "Staff Engineer",
+      summary: "Profile summary",
+      skills: ["Cloud"],
+      experience: [{ company: "Acme", title: "Architect", bullets: ["Built platform"] }],
+      achievements: ["Led migration"],
+    });
+
     assert.ok(packet.coverLetterDraft.includes("Sincerely,"));
+    assert.ok(packet.coverLetterDraft.includes("Candidate"));
   });
 
   it("uses posting snapshot notes in tailored outputs", () => {
