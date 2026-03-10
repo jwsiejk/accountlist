@@ -1,3 +1,4 @@
+import { buildCleanPostingSummary, cleanInlineSourceText } from "../textCleanup";
 import { normalizeJobPosting } from "../normalize";
 import type { JobPosting, JobSourceConfig } from "../types";
 
@@ -18,41 +19,9 @@ type GreenhouseResponse = {
 
 const collapse = (value: string) => value.trim().replace(/\s+/g, " ");
 
-const plainText = (value?: string) => {
-  if (!value) {
-    return undefined;
-  }
-
-  const cleaned = value
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<li[^>]*>/gi, "- ")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  return cleaned || undefined;
-};
-
-const take = (value: string | undefined, maxLength: number) => {
-  if (!value) {
-    return undefined;
-  }
-
-  if (value.length <= maxLength) {
-    return value;
-  }
-
-  return `${value.slice(0, maxLength - 1).trimEnd()}…`;
-};
-
 const findMetadataValue = (metadata: GreenhouseJob["metadata"], match: RegExp) => {
   const entry = metadata?.find((item) => match.test(item.name ?? ""));
-  return entry?.value ? collapse(entry.value) : undefined;
+  return entry?.value ? cleanInlineSourceText(entry.value, 160) : undefined;
 };
 
 const getSalaryRange = (job: GreenhouseJob) => {
@@ -61,7 +30,7 @@ const getSalaryRange = (job: GreenhouseJob) => {
     return metadataComp;
   }
 
-  const contentText = plainText(job.content);
+  const contentText = cleanInlineSourceText(job.content);
   if (!contentText) {
     return undefined;
   }
@@ -71,14 +40,19 @@ const getSalaryRange = (job: GreenhouseJob) => {
 };
 
 const buildNotes = (job: GreenhouseJob) => {
-  const summary = take(plainText(job.content), 950);
-  const highlights = [
-    findMetadataValue(job.metadata, /employment type|job type/i) ? `Employment type: ${findMetadataValue(job.metadata, /employment type|job type/i)}` : undefined,
-    findMetadataValue(job.metadata, /(experience|seniority)/i) ? `Level: ${findMetadataValue(job.metadata, /(experience|seniority)/i)}` : undefined,
-    findMetadataValue(job.metadata, /(travel|visa|clearance)/i) ? `Hiring notes: ${findMetadataValue(job.metadata, /(travel|visa|clearance)/i)}` : undefined,
-  ].filter((part): part is string => Boolean(part));
+  const employment = findMetadataValue(job.metadata, /employment type|job type/i);
+  const seniority = findMetadataValue(job.metadata, /(experience|seniority)/i);
+  const hiringNotes = findMetadataValue(job.metadata, /(travel|visa|clearance)/i);
 
-  return [summary, ...highlights].filter((part): part is string => Boolean(part)).join(" ");
+  return buildCleanPostingSummary(
+    [
+      job.content,
+      employment ? `Employment type: ${employment}` : undefined,
+      seniority ? `Level: ${seniority}` : undefined,
+      hiringNotes ? `Hiring notes: ${hiringNotes}` : undefined,
+    ],
+    { maxLength: 950 },
+  );
 };
 
 export async function fetchGreenhouseJobs(source: JobSourceConfig): Promise<JobPosting[]> {

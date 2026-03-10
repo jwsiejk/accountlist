@@ -1,4 +1,5 @@
 import type { BoardType, JobPosting } from "./types";
+import { cleanInlineSourceText } from "./textCleanup";
 
 type NormalizeJobInput = {
   source: BoardType;
@@ -18,28 +19,12 @@ const MAX_NOTES_LENGTH = 1200;
 
 const collapse = (value: string) => value.trim().replace(/\s+/g, " ");
 
-const stripHtml = (value: string) => {
-  return value
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<[^>]+>/g, " ");
-};
-
 const sanitizeText = (value?: string, maxLength?: number) => {
-  if (!value) {
-    return undefined;
-  }
-
-  const cleaned = collapse(stripHtml(value).replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&"));
+  const cleaned = cleanInlineSourceText(value, maxLength);
   if (!cleaned) {
     return undefined;
   }
-
-  if (!maxLength || cleaned.length <= maxLength) {
-    return cleaned;
-  }
-
-  return `${cleaned.slice(0, maxLength - 1).trimEnd()}…`;
+  return maxLength ? collapse(cleaned) : cleaned;
 };
 
 const normalizeLocation = (location?: string) => {
