@@ -72,6 +72,15 @@ export type ResumeExperience = {
 };
 
 export type ResumeProfile = {
+  fullName: string;
+  email: string;
+  phone: string;
+  cityState: string;
+  linkedinUrl: string;
+  websiteUrl?: string;
+  workAuthorizationNote: string;
+  signatureLine: string;
+  headline?: string;
   summary: string;
   skills: string[];
   experience: ResumeExperience[];
@@ -92,6 +101,7 @@ export type JobHunterPreferences = {
 export type JobHunterStore = {
   jobs: JobPosting[];
   jobsById: Record<string, JobPosting>;
+  selectedJobIds: string[];
   sources: JobSourceConfig[];
   lastSyncedAt?: string;
   applications: Application[];

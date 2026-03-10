@@ -1,6 +1,8 @@
 import { masterResume } from "./resume/masterResume";
 import type { ResumeExperience, ResumeProfile } from "./types";
 
+const normalizeString = (input: unknown) => (typeof input === "string" ? input.trim() : "");
+
 const normalizeStringArray = (input: unknown): string[] => {
   if (!Array.isArray(input)) {
     return [];
@@ -30,6 +32,15 @@ const normalizeResumeExperience = (input: unknown): ResumeExperience[] => {
 };
 
 export const getDefaultResumeProfile = (): ResumeProfile => ({
+  fullName: "",
+  email: "",
+  phone: "",
+  cityState: "",
+  linkedinUrl: "",
+  websiteUrl: "",
+  workAuthorizationNote: "",
+  signatureLine: "",
+  headline: "",
   summary: masterResume.summary,
   skills: [...masterResume.skills],
   experience: masterResume.experience.map((experience) => ({
@@ -50,6 +61,15 @@ export const normalizeResumeProfile = (input: unknown): ResumeProfile => {
   const partial = input as Partial<ResumeProfile>;
 
   return {
+    fullName: normalizeString(partial.fullName),
+    email: normalizeString(partial.email),
+    phone: normalizeString(partial.phone),
+    cityState: normalizeString(partial.cityState),
+    linkedinUrl: normalizeString(partial.linkedinUrl),
+    websiteUrl: normalizeString(partial.websiteUrl),
+    workAuthorizationNote: normalizeString(partial.workAuthorizationNote),
+    signatureLine: normalizeString(partial.signatureLine),
+    headline: normalizeString(partial.headline),
     summary: typeof partial.summary === "string" && partial.summary.trim().length > 0 ? partial.summary.trim() : defaults.summary,
     skills: normalizeStringArray(partial.skills),
     experience: normalizeResumeExperience(partial.experience),
@@ -64,6 +84,17 @@ export const resumeProfileToMarkdown = (profile: ResumeProfile): string => {
 
   return [
     "# Resume Profile",
+    "",
+    "## Identity",
+    `- Name: ${normalized.fullName || "(not set)"}`,
+    `- Headline: ${normalized.headline || "(not set)"}`,
+    `- Email: ${normalized.email || "(not set)"}`,
+    `- Phone: ${normalized.phone || "(not set)"}`,
+    `- Location: ${normalized.cityState || "(not set)"}`,
+    `- LinkedIn: ${normalized.linkedinUrl || "(not set)"}`,
+    `- Website: ${normalized.websiteUrl || "(not set)"}`,
+    `- Work Authorization: ${normalized.workAuthorizationNote || "(not set)"}`,
+    `- Signature Line: ${normalized.signatureLine || "(not set)"}`,
     "",
     "## Summary",
     normalized.summary,

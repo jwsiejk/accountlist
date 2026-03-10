@@ -36,6 +36,7 @@ export default function JobHunterApplicationsPage() {
 
     return seeded;
   });
+  const [selectedJobIds] = useState<string[]>(initialStore.selectedJobIds ?? []);
   const [message, setMessage] = useState<string | null>(null);
 
   const applications = useMemo(() => Object.values(applicationsById), [applicationsById]);
@@ -113,6 +114,14 @@ export default function JobHunterApplicationsPage() {
                         Open Job Workspace
                       </Link>
                     )}
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      {selectedJobIds.includes(application.jobId) ? (
+                        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-blue-800">In apply queue</span>
+                      ) : null}
+                      {application.status === "applied" ? (
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800">Applied</span>
+                      ) : null}
+                    </div>
                     {application.notes ? <p className="rounded bg-muted/40 p-2 text-xs">Notes: {application.notes}</p> : null}
 
                     <div className="flex flex-wrap gap-2">
@@ -136,7 +145,7 @@ export default function JobHunterApplicationsPage() {
                           <button
                             className="text-xs text-blue-600 hover:underline"
                             onClick={async () => {
-                              await copyText(buildFollowUpEmail(job));
+                              await copyText(buildFollowUpEmail(job, initialStore.resumeProfile));
                               setMessage(`Copied follow-up email for ${job.company}.`);
                             }}
                             type="button"
