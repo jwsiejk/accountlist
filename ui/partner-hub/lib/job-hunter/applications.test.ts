@@ -6,6 +6,8 @@ import {
   buildFollowUpEmail,
   createApplicationFromJob,
   exportApplicationsCsv,
+  getApplicationQueueStage,
+  getApplicationWorkflow,
   resolveApplicationJobDetails,
   toJobSnapshot,
 } from "./applications";
@@ -66,7 +68,56 @@ describe("job hunter application reducer", () => {
     });
 
     assert.equal(withNotes[job.id].checklist?.resumeReviewed, true);
+    assert.equal(withNotes[job.id].workflow?.tailoredResumeReady, true);
     assert.equal(withNotes[job.id].notes, "Submitted tailored resume and letter.");
+  });
+
+  it("supports guided apply workflow transitions", () => {
+    const initial = { [job.id]: createApplicationFromJob(job, "2024-03-01T10:00:00.000Z") };
+
+    const selected = applicationReducer(initial, {
+      type: "setWorkflowItem",
+      jobId: job.id,
+      item: "selectedForApply",
+      value: true,
+      now: "2024-03-02T10:00:00.000Z",
+    });
+    const prepared = applicationReducer(selected, {
+      type: "setWorkflowItem",
+      jobId: job.id,
+      item: "tailoredResumeReady",
+      value: true,
+    });
+    const ready = applicationReducer(prepared, {
+      type: "setWorkflowItem",
+      jobId: job.id,
+      item: "coverLetterReady",
+      value: true,
+    });
+    const withScreener = applicationReducer(ready, {
+      type: "setWorkflowItem",
+      jobId: job.id,
+      item: "screenerAnswersReady",
+      value: true,
+    });
+    const inProgress = applicationReducer(withScreener, {
+      type: "setWorkflowItem",
+      jobId: job.id,
+      item: "externalApplicationOpened",
+      value: true,
+    });
+    const applied = applicationReducer(inProgress, {
+      type: "setStatus",
+      jobId: job.id,
+      status: "applied",
+      now: "2024-03-03T10:00:00.000Z",
+    });
+
+    assert.equal(getApplicationQueueStage(selected[job.id]), "selected");
+    assert.equal(getApplicationQueueStage(withScreener[job.id]), "prepared");
+    assert.equal(getApplicationQueueStage(inProgress[job.id]), "in-progress");
+    assert.equal(getApplicationQueueStage(applied[job.id]), "applied");
+    assert.equal(getApplicationWorkflow(applied[job.id]).finalExternalSubmitConfirmed, true);
   });
 
   it("captures immutable snapshot when requested", () => {

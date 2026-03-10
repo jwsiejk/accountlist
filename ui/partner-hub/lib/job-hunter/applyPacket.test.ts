@@ -2,7 +2,7 @@ import * as assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { generateTailoringPacket } from "./resume/tailor";
-import { buildApplyPacket } from "./applyPacket";
+import { buildApplyPacket, buildApplyPrepItems } from "./applyPacket";
 import type { JobPosting, ResumeProfile } from "./types";
 
 const profile: ResumeProfile = {
@@ -83,5 +83,26 @@ describe("buildApplyPacket", () => {
     assert.ok(packet.fullPacketMarkdown.includes("## Cover Letter"));
     assert.ok(packet.fullPacketMarkdown.includes("## Screener Answers"));
     assert.ok(packet.fullPacketMarkdown.includes("## Follow-up Email"));
+  });
+
+  it("builds reusable prep helpers for guided apply", () => {
+    const job: JobPosting = {
+      id: "job-404",
+      title: "Solutions Architect",
+      company: "Contoso",
+      source: "company-site",
+      sourceUrl: "https://contoso.example/jobs/404",
+      createdAt: "2024-01-01T00:00:00.000Z",
+      updatedAt: "2024-01-01T00:00:00.000Z",
+    };
+
+    const tailoringPacket = generateTailoringPacket(job, profile);
+    const packet = buildApplyPacket(job, tailoringPacket, profile);
+    const prepItems = buildApplyPrepItems(job, packet, tailoringPacket, profile);
+
+    assert.equal(prepItems.length, 9);
+    assert.equal(prepItems[0].key, "candidateContact");
+    assert.ok(prepItems.find((item) => item.key === "linkedinUrl")?.value.includes("linkedin.com/in/james"));
+    assert.equal(prepItems.find((item) => item.key === "sourceApplicationLink")?.value, "https://contoso.example/jobs/404");
   });
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -12,10 +12,34 @@ import {
   buildFollowUpEmail,
   createApplicationFromJob,
   exportApplicationsCsv,
+  getApplicationQueueStage,
+  getApplicationWorkflow,
   resolveApplicationJobDetails,
 } from "@/lib/job-hunter/applications";
 import { loadJobHunterStore, saveJobHunterStore } from "@/lib/job-hunter/storage";
-import type { ApplicationStatus, JobPosting } from "@/lib/job-hunter/types";
+import type { Application, ApplicationStatus, JobPosting } from "@/lib/job-hunter/types";
+
+const PIPELINE_COLUMNS = [
+  { key: "selected", label: "Selected" },
+  { key: "prepared", label: "Ready to Apply" },
+  { key: "in-progress", label: "In Progress" },
+  { key: "applied", label: "Applied" },
+  { key: "interview", label: "Interview" },
+  { key: "offer", label: "Offer" },
+  { key: "rejected", label: "Rejected" },
+] as const;
+
+const matchesColumn = (application: Application, column: (typeof PIPELINE_COLUMNS)[number]["key"]) => {
+  if (column === "interview" || column === "offer" || column === "rejected") {
+    return application.status === column;
+  }
+
+  if (column === "applied") {
+    return application.status === "applied";
+  }
+
+  return getApplicationQueueStage(application) === column;
+};
 
 const copyText = async (value: string) => {
   await navigator.clipboard.writeText(value);
@@ -51,6 +75,25 @@ export default function JobHunterApplicationsPage() {
       applications: Object.values(next),
     });
   };
+
+  useEffect(() => {
+    let next = applicationsById;
+    let changed = false;
+
+    selectedJobIds.forEach((jobId) => {
+      if (!next[jobId] || getApplicationWorkflow(next[jobId]).selectedForApply) {
+        return;
+      }
+
+      next = applicationReducer(next, { type: "setWorkflowItem", jobId, item: "selectedForApply", value: true });
+      changed = true;
+    });
+
+    if (changed) {
+      save(next);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applicationsById, selectedJobIds]);
 
   const setStatus = (jobId: string, status: ApplicationStatus) => {
     const job = jobsById[jobId];
@@ -90,18 +133,19 @@ export default function JobHunterApplicationsPage() {
 
       {message ? <p className="text-sm text-emerald-700">{message}</p> : null}
 
-      <section className="grid gap-4 lg:grid-cols-5">
-        {APPLICATION_STATUSES.map((status) => {
+      <section className="grid gap-4 lg:grid-cols-7">
+        {PIPELINE_COLUMNS.map((column) => {
           const items = applications
-            .filter((application) => application.status === status)
+            .filter((application) => matchesColumn(application, column.key))
             .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
           return (
-            <div className="space-y-3 rounded-lg border border-border/60 bg-muted/10 p-3" key={status}>
-              <h2 className="text-sm font-semibold">{STATUS_LABELS[status]}</h2>
+            <div className="space-y-3 rounded-lg border border-border/60 bg-muted/10 p-3" key={column.key}>
+              <h2 className="text-sm font-semibold">{column.label}</h2>
               {items.map((application) => {
                 const job = jobsById[application.jobId];
                 const jobDetails = resolveApplicationJobDetails(application, jobsById);
+                const workflow = getApplicationWorkflow(application);
 
                 return (
                   <article className="space-y-2 rounded-md border border-border/60 bg-background p-3" key={application.id}>
@@ -117,6 +161,9 @@ export default function JobHunterApplicationsPage() {
                     <div className="flex flex-wrap items-center gap-2 text-xs">
                       {selectedJobIds.includes(application.jobId) ? (
                         <span className="rounded-full bg-blue-100 px-2 py-0.5 text-blue-800">In apply queue</span>
+                      ) : null}
+                      {workflow.finalExternalSubmitConfirmed ? (
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800">Submission confirmed</span>
                       ) : null}
                       {application.status === "applied" ? (
                         <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800">Applied</span>
@@ -157,10 +204,11 @@ export default function JobHunterApplicationsPage() {
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                      <Button onClick={() => setStatus(application.jobId, "applied")} size="sm" type="button" variant="ghost">Mark applied</Button>
-                      <Button onClick={() => setStatus(application.jobId, "interview")} size="sm" type="button" variant="ghost">Interview</Button>
-                      <Button onClick={() => setStatus(application.jobId, "offer")} size="sm" type="button" variant="ghost">Offer</Button>
-                      <Button onClick={() => setStatus(application.jobId, "rejected")} size="sm" type="button" variant="ghost">Reject</Button>
+                      {APPLICATION_STATUSES.map((status) => (
+                        <Button key={status} onClick={() => setStatus(application.jobId, status)} size="sm" type="button" variant="ghost">
+                          {STATUS_LABELS[status]}
+                        </Button>
+                      ))}
                     </div>
 
                     <label className="block text-xs text-foreground/70">
