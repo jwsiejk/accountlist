@@ -14,8 +14,9 @@ describe("fetchLeverJobs", () => {
           id: "abc",
           text: "Partner Solutions Architect",
           hostedUrl: "https://jobs.lever.co/acme/abc",
-          description: "<p>Drive partner architecture reviews and post-sales workshops.</p>",
-          additional: "<p>Compensation: $150,000 - $190,000 / year</p>",
+          description:
+            "<p>Drive partner architecture reviews and post-sales workshops.</p><p>Apply now</p><p>Drive partner architecture reviews and post-sales workshops.</p>",
+          additional: "<p>Compensation: $150,000 - $190,000 / year</p><p>Equal Opportunity Employer</p>",
           commitment: "Full-time",
           categories: {
             location: "Remote",
@@ -33,8 +34,10 @@ describe("fetchLeverJobs", () => {
     assert.equal(jobs[0].sourceProvider, "lever");
     assert.equal(jobs[0].employmentType, "Full-time");
     assert.equal(jobs[0].salaryRange, "$150,000 - $190,000 / year");
-    assert.ok(jobs[0].notes?.includes("Drive partner architecture reviews and post-sales workshops."));
-    assert.ok(jobs[0].notes?.includes("Workplace: Remote"));
+    assert.equal(
+      jobs[0].notes,
+      "Drive partner architecture reviews and post-sales workshops. Compensation: $150,000 - $190,000 / year Workplace: Remote Commitment: Full-time",
+    );
 
     globalThis.fetch = previousFetch;
   });
