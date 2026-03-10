@@ -40,6 +40,9 @@ const buildSummaryMarkdown = (job: JobPosting, tailoringPacket: TailoringPacket,
     "",
     "### Suggested Resume Bullets",
     ...tailoringPacket.tailoredBullets.map((bullet) => `- ${bullet}`),
+    "",
+    "### Tailored Resume Delta",
+    ...tailoringPacket.tailoredResumeVariant.deltaSummary.map((line) => `- ${line}`),
   ].join("\n");
 };
 

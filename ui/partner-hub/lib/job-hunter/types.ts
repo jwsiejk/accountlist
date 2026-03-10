@@ -87,6 +87,24 @@ export type ResumeProfile = {
   achievements: string[];
 };
 
+export type TailoredResumeExperience = ResumeExperience & {
+  selectedBullets: string[];
+  suppressedBullets: string[];
+};
+
+export type TailoredResumeVariant = {
+  jobId: string;
+  generatedAt: string;
+  baseSummary: string;
+  tailoredHeadline: string;
+  tailoredSummary: string;
+  prioritizedSkills: string[];
+  experience: TailoredResumeExperience[];
+  deltaSummary: string[];
+  markdown: string;
+  plainText: string;
+};
+
 
 export type JobHunterPreferences = {
   targetRoles: string[];

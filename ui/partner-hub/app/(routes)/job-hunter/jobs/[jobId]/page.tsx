@@ -85,6 +85,35 @@ export default function JobDetailPage({ params }: PageProps) {
     URL.revokeObjectURL(url);
   };
 
+
+  const handleDownloadTailoredResumeMarkdown = () => {
+    if (!tailoringPacket || !job) {
+      return;
+    }
+
+    const blob = new Blob([tailoringPacket.tailoredResumeVariant.markdown], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${job.company}-${job.title}-tailored-resume.md`.replace(/\s+/g, "-").toLowerCase();
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadTailoredResumeText = () => {
+    if (!tailoringPacket || !job) {
+      return;
+    }
+
+    const blob = new Blob([tailoringPacket.tailoredResumeVariant.plainText], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${job.company}-${job.title}-tailored-resume.txt`.replace(/\s+/g, "-").toLowerCase();
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleDownloadApplyPacket = () => {
     if (!applyPacket) {
       return;
@@ -208,12 +237,23 @@ export default function JobDetailPage({ params }: PageProps) {
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
             <p>{tailoringPacket.tailoredSummary}</p>
+            <p className="rounded-md border border-emerald-500/40 bg-emerald-50 p-2 text-xs text-emerald-800">
+              Base resume profile was not modified. This is a per-job minimal-delta tailored resume variant.
+            </p>
             <ul className="list-inside list-disc space-y-1">
-              {tailoringPacket.tailoredBullets.map((bullet) => (
-                <li key={bullet}>{bullet}</li>
+              {tailoringPacket.tailoredResumeVariant.deltaSummary.map((line) => (
+                <li key={line}>{line}</li>
               ))}
             </ul>
-            <Button onClick={handleDownloadMarkdown} size="sm" type="button">Download markdown packet</Button>
+            <p className="font-medium">Tailored resume variant preview</p>
+            <pre className="whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-xs">{tailoringPacket.tailoredResumeVariant.markdown}</pre>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={handleDownloadTailoredResumeMarkdown} size="sm" type="button">Download tailored resume (md)</Button>
+              <Button onClick={handleDownloadTailoredResumeText} size="sm" type="button">Download tailored resume (txt)</Button>
+              <Button onClick={() => copyText(tailoringPacket.tailoredResumeVariant.markdown)} size="sm" type="button" variant="secondary">Copy tailored resume (md)</Button>
+              <Button onClick={() => copyText(tailoringPacket.tailoredResumeVariant.plainText)} size="sm" type="button" variant="secondary">Copy tailored resume (txt)</Button>
+              <Button onClick={handleDownloadMarkdown} size="sm" type="button" variant="secondary">Download tailoring packet</Button>
+            </div>
           </CardContent>
         </Card>
       ) : null}
