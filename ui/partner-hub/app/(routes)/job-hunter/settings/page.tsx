@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { detectSourceFromUrl } from "@/lib/job-hunter/sourceDetection";
+import { parseBulkSourceInput, toUserFacingSourceError } from "@/lib/job-hunter/sourceSettings";
 import { loadJobHunterStore, saveJobHunterStore } from "@/lib/job-hunter/storage";
 import { BOARD_TYPE_OPTIONS, getSourceValidationMessage, truncateBoardToken } from "@/lib/job-hunter/sourceSettings";
 import type { BoardType, JobSourceSyncDiagnostic } from "@/lib/job-hunter/types";
@@ -18,6 +19,8 @@ export default function JobHunterSettingsPage() {
   const [store, setStore] = useState(loadJobHunterStore());
   const [form, setForm] = useState(DEFAULT_FORM);
   const [detectionUrl, setDetectionUrl] = useState("");
+  const [bulkInput, setBulkInput] = useState("");
+  const [bulkProvider, setBulkProvider] = useState<BoardType>("greenhouse");
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const [detectionMessage, setDetectionMessage] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<JobSourceSyncDiagnostic | null>(null);
@@ -37,12 +40,11 @@ export default function JobHunterSettingsPage() {
       boardToken: detected.boardToken,
       company: detected.company ?? prev.company,
     }));
-    setDetectionMessage(`Detected ${detected.boardType} source with token \"${detected.boardToken}\".`);
+    setDetectionMessage(`Detected ${detected.boardType} source with token "${detected.boardToken}".`);
     setValidationMessage(null);
     setTestResult(null);
     setTestError(null);
   };
-
 
   const testSource = async () => {
     const message = getSourceValidationMessage(form, []);
@@ -70,22 +72,22 @@ export default function JobHunterSettingsPage() {
         }),
       });
 
-      const payload = (await response.json()) as {
+      const payload = (await response.json().catch(() => ({}))) as {
         success?: boolean;
         error?: string;
         result?: JobSourceSyncDiagnostic;
       };
 
       if (!payload.result) {
-        throw new Error(payload.error ?? "Source test failed.");
+        throw new Error(toUserFacingSourceError(payload.error, "Source test failed."));
       }
 
       setTestResult(payload.result);
       if (!response.ok || !payload.success || !payload.result.success) {
-        setTestError(payload.result.error ?? payload.error ?? "Source test failed.");
+        setTestError(toUserFacingSourceError(payload.result.error ?? payload.error, "Source test failed."));
       }
     } catch (error) {
-      setTestError(error instanceof Error ? error.message : "Source test failed.");
+      setTestError(toUserFacingSourceError(error instanceof Error ? error.message : undefined, "Source test failed."));
     } finally {
       setIsTesting(false);
     }
@@ -123,6 +125,32 @@ export default function JobHunterSettingsPage() {
     setTestError(null);
   };
 
+  const addBulkSources = () => {
+    const parsedSources = parseBulkSourceInput(bulkInput, bulkProvider);
+    if (parsedSources.length === 0) {
+      setValidationMessage("No valid bulk entries found. Use one source per line in Company|token format.");
+      return;
+    }
+
+    const existingIds = new Set(store.sources.map((source) => `${source.boardType}:${source.boardToken.toLowerCase()}`));
+    const deduped = parsedSources.filter((source) => !existingIds.has(`${source.boardType}:${source.boardToken.toLowerCase()}`));
+
+    if (deduped.length === 0) {
+      setValidationMessage("All bulk entries already exist in advanced sources.");
+      return;
+    }
+
+    const nextStore = {
+      ...store,
+      sources: [...store.sources, ...deduped],
+    };
+
+    saveJobHunterStore(nextStore);
+    setStore(nextStore);
+    setBulkInput("");
+    setValidationMessage(`Added ${deduped.length} advanced source${deduped.length === 1 ? "" : "s"}.`);
+  };
+
   const deleteSource = (index: number) => {
     const nextStore = {
       ...store,
@@ -136,14 +164,20 @@ export default function JobHunterSettingsPage() {
   return (
     <main className="mx-auto max-w-5xl space-y-6 p-6">
       <header className="space-y-2">
-        <h1 className="text-2xl font-semibold">Job Source Settings</h1>
-        <p className="text-sm text-foreground/70">Manage Greenhouse, Lever, Ashby, and SmartRecruiters boards used by Sync Jobs.</p>
+        <h1 className="text-2xl font-semibold">Advanced Sources</h1>
+        <p className="text-sm text-foreground/70">Optional manual ATS setup. Most users should discover jobs from the Jobs page without configuring sources here.</p>
       </header>
 
+      <section className="rounded-lg border border-border/60 bg-muted/20 p-4 text-xs text-foreground/80">
+        <p>
+          Recommended path: set preferences → find jobs → choose jobs → tailor resume → apply. Use Advanced Sources only when you need explicit provider/token control.
+        </p>
+      </section>
+
       <section className="space-y-3 rounded-lg border border-border/60 p-4">
-        <h2 className="text-sm font-semibold">Configured Sources</h2>
+        <h2 className="text-sm font-semibold">Configured Advanced Sources</h2>
         {store.sources.length === 0 ? (
-          <p className="text-sm text-foreground/70">No sources configured yet.</p>
+          <p className="text-sm text-foreground/70">No advanced sources configured yet.</p>
         ) : (
           <ul className="space-y-2">
             {store.sources.map((source, index) => (
@@ -158,6 +192,29 @@ export default function JobHunterSettingsPage() {
             ))}
           </ul>
         )}
+      </section>
+
+      <section className="space-y-3 rounded-lg border border-border/60 p-4">
+        <h2 className="text-sm font-semibold">Bulk Add Advanced Sources</h2>
+        <p className="text-xs text-foreground/70">Paste one source per line as Company|token, then choose a provider.</p>
+        <div className="grid gap-3 md:grid-cols-[200px_1fr_auto]">
+          <select className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm" onChange={(event) => setBulkProvider(event.target.value as BoardType)} value={bulkProvider}>
+            {BOARD_TYPE_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+          <textarea
+            className="min-h-24 rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
+            onChange={(event) => setBulkInput(event.target.value)}
+            placeholder={"Acme|acme\nContoso|contoso"}
+            value={bulkInput}
+          />
+          <Button className="md:self-start" onClick={addBulkSources} type="button" variant="secondary">
+            Bulk Add
+          </Button>
+        </div>
       </section>
 
       <section className="space-y-3 rounded-lg border border-border/60 p-4">
@@ -177,7 +234,7 @@ export default function JobHunterSettingsPage() {
       </section>
 
       <section className="space-y-3 rounded-lg border border-border/60 p-4">
-        <h2 className="text-sm font-semibold">Add Source</h2>
+        <h2 className="text-sm font-semibold">Add Individual Advanced Source</h2>
         <form className="grid gap-3 md:grid-cols-3" onSubmit={addSource}>
           <input
             className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
@@ -214,7 +271,7 @@ export default function JobHunterSettingsPage() {
             {testResult ? (
               <p className={testResult.success ? "mt-2 text-sm text-emerald-700" : "mt-2 text-sm text-foreground/80"}>
                 {testResult.success ? "Success" : "Failed"} · {testResult.provider} · {testResult.token} · {testResult.jobsFetched} job(s)
-                {testResult.error ? ` · ${testResult.error}` : ""}
+                {testResult.error ? ` · ${toUserFacingSourceError(testResult.error)}` : ""}
               </p>
             ) : null}
           </div>
