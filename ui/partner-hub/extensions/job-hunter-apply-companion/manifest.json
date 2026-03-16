@@ -28,7 +28,6 @@
         "*://*.smartrecruiters.com/*"
       ],
       "js": [
-        "heuristics.js",
         "content.js"
       ],
       "run_at": "document_idle"
