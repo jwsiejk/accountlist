@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { applicationReducer, createApplicationFromJob, getApplicationChecklist, getApplicationWorkflow, syncWorkflowSelectionWithQueue } from "@/lib/job-hunter/applications";
 import { buildApplyPacket, buildApplyPrepItems } from "@/lib/job-hunter/applyPacket";
+import { buildApplyHandoffPlan, buildApplyReadinessSummary } from "@/lib/job-hunter/applyHandoff";
 import { generateCoverLetterDocxArtifact, generateTailoredResumeDocxArtifact } from "@/lib/job-hunter/docExports";
 import { normalizePreferences } from "@/lib/job-hunter/preferences";
 import { masterResume } from "@/lib/job-hunter/resume/masterResume";
@@ -51,6 +52,19 @@ export default function JobDetailPage({ params }: PageProps) {
     }
     return buildApplyPrepItems(job, applyPacket, tailoringPacket, store.resumeProfile);
   }, [applyPacket, job, store.resumeProfile, tailoringPacket]);
+
+  const handoffPlan = useMemo(() => {
+    if (!job) {
+      return null;
+    }
+    return buildApplyHandoffPlan(job, prepItems);
+  }, [job, prepItems]);
+  const readiness = useMemo(() => {
+    if (!job) {
+      return null;
+    }
+    return buildApplyReadinessSummary(job, prepItems, workflow ?? undefined);
+  }, [job, prepItems, workflow]);
 
   const saveApplications = useCallback((next: typeof applicationById) => {
     setApplicationById(next);
@@ -328,27 +342,85 @@ export default function JobDetailPage({ params }: PageProps) {
               <Button onClick={() => copyText(applyPacket.screenerAnswersText)} size="sm" type="button" variant="secondary">Copy Screener Answers</Button>
             </div>
 
-            <section className="space-y-2 rounded-md border border-border/60 p-3">
-              <h3 className="font-medium">Quick apply prep actions</h3>
-              <div className="grid gap-2 md:grid-cols-2">
-                {prepItems.map((item) => (
-                  <Button key={item.key} onClick={() => copyText(item.value)} size="sm" type="button" variant="secondary">
-                    Copy {item.label}
-                  </Button>
-                ))}
-                {job.sourceUrl ? (
-                  <Button
-                    onClick={() => {
-                      window.open(job.sourceUrl, "_blank", "noopener,noreferrer");
-                      setWorkflowItem("externalApplicationOpened", true);
-                    }}
-                    size="sm"
-                    type="button"
-                  >
-                    Open external application
-                  </Button>
-                ) : null}
-              </div>
+            <section className="space-y-3 rounded-md border border-border/60 p-3">
+              <h3 className="font-medium">Apply handoff</h3>
+              {handoffPlan ? (
+                <>
+                  <p className="text-xs text-foreground/80">Provider: <strong>{handoffPlan.providerLabel}</strong></p>
+                  {readiness ? (
+                    <div className="grid gap-2 md:grid-cols-2">
+                      <p className="rounded border border-border/60 bg-muted/30 px-2 py-1 text-xs">Resume ready: {readiness.resumeReady ? "Yes" : "Not yet"}</p>
+                      <p className="rounded border border-border/60 bg-muted/30 px-2 py-1 text-xs">Cover letter ready: {readiness.coverLetterReady ? "Yes" : "Not yet"}</p>
+                      <p className="rounded border border-border/60 bg-muted/30 px-2 py-1 text-xs">Candidate profile ready: {readiness.candidateProfileReady ? "Yes" : "Not yet"}</p>
+                      <p className="rounded border border-border/60 bg-muted/30 px-2 py-1 text-xs">Provider handoff ready: {readiness.providerHandoffReady ? "Yes" : "Not yet"}</p>
+                    </div>
+                  ) : null}
+                  <div>
+                    <p className="font-medium">Recommended steps</p>
+                    <ol className="list-inside list-decimal space-y-1 text-xs text-foreground/80">
+                      {handoffPlan.likelySteps.map((step) => (
+                        <li key={step}>{step}</li>
+                      ))}
+                    </ol>
+                  </div>
+                  <div>
+                    <p className="font-medium">Prep hints</p>
+                    <ul className="list-inside list-disc space-y-1 text-xs text-foreground/80">
+                      {handoffPlan.prepHints.map((hint) => (
+                        <li key={hint}>{hint}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="font-medium">Provider-aware prep actions</p>
+                    <div className="space-y-3">
+                      {handoffPlan.groupedPrepItems.map((group) => (
+                        <div key={group.group} className="space-y-2">
+                          <p className="text-xs font-medium text-foreground/80">{group.label}</p>
+                          <div className="grid gap-2 md:grid-cols-2">
+                            {group.items.map((item) => (
+                              <div key={item.key} className="space-y-1 rounded border border-border/60 bg-muted/20 p-2">
+                                <Button onClick={() => copyText(item.value)} size="sm" type="button" variant="secondary">
+                                  Copy {item.label}
+                                </Button>
+                                <p className="text-[11px] text-foreground/70">Priority: {item.priority === "required-first" ? "Required first" : "Recommended"}</p>
+                                {item.providerHint ? <p className="text-[11px] text-foreground/70">{item.providerHint}</p> : null}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="grid gap-2 md:grid-cols-2">
+                    {handoffPlan.recommendedArtifacts.map((artifact) => (
+                      <p key={artifact} className="rounded border border-border/60 bg-muted/30 px-2 py-1 text-xs">Artifact: {artifact}</p>
+                    ))}
+                  </div>
+                  {handoffPlan.recommendedCopyItems.length > 0 ? (
+                    <div>
+                      <p className="font-medium">Recommended copy bundles</p>
+                      <ul className="list-inside list-disc space-y-1 text-xs text-foreground/80">
+                        {handoffPlan.recommendedCopyItems.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+              {job.sourceUrl ? (
+                <Button
+                  onClick={() => {
+                    window.open(job.sourceUrl, "_blank", "noopener,noreferrer");
+                    setWorkflowItem("externalApplicationOpened", true);
+                  }}
+                  size="sm"
+                  type="button"
+                >
+                  Open external application
+                </Button>
+              ) : null}
             </section>
 
             <section className="space-y-3 rounded-md border border-border/60 p-3">

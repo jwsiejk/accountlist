@@ -105,4 +105,26 @@ describe("buildApplyPacket", () => {
     assert.ok(prepItems.find((item) => item.key === "linkedinUrl")?.value.includes("linkedin.com/in/james"));
     assert.equal(prepItems.find((item) => item.key === "sourceApplicationLink")?.value, "https://contoso.example/jobs/404");
   });
+  it("applies provider-aware prep grouping and priority", () => {
+    const job: JobPosting = {
+      id: "job-505",
+      title: "Solutions Architect",
+      company: "Contoso",
+      source: "company-site",
+      sourceProvider: "greenhouse",
+      sourceUrl: "https://contoso.example/jobs/505",
+      createdAt: "2024-01-01T00:00:00.000Z",
+      updatedAt: "2024-01-01T00:00:00.000Z",
+    };
+
+    const tailoringPacket = generateTailoringPacket(job, profile);
+    const packet = buildApplyPacket(job, tailoringPacket, profile);
+    const prepItems = buildApplyPrepItems(job, packet, tailoringPacket, profile);
+
+    assert.equal(prepItems.find((item) => item.key === "tailoredResumeMarkdown")?.group, "upload");
+    assert.equal(prepItems.find((item) => item.key === "tailoredResumeMarkdown")?.priority, "required-first");
+    assert.equal(prepItems.find((item) => item.key === "screenerAnswers")?.priority, "required-first");
+    assert.ok(prepItems.find((item) => item.key === "screenerAnswers")?.providerHint?.includes("Greenhouse"));
+  });
+
 });

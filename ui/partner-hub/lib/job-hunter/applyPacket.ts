@@ -14,6 +14,10 @@ export type ApplyPacket = {
   fullPacketMarkdown: string;
 };
 
+export type ApplyPrepGroup = "upload" | "paste" | "reference" | "final-submit-prep";
+
+export type ApplyPrepPriority = "required-first" | "recommended";
+
 export type ApplyPrepItem = {
   key:
     | "candidateContact"
@@ -27,6 +31,9 @@ export type ApplyPrepItem = {
     | "sourceApplicationLink";
   label: string;
   value: string;
+  group: ApplyPrepGroup;
+  priority: ApplyPrepPriority;
+  providerHint?: string;
 };
 
 const buildSummaryMarkdown = (job: JobPosting, tailoringPacket: TailoringPacket, generatedAt: string, profile?: ResumeProfile) => {
@@ -107,51 +114,124 @@ export const buildApplyPrepItems = (job: JobPosting, applyPacket: ApplyPacket, t
     profile?.cityState?.trim() || "City, ST",
   ].join("\n");
 
-  return [
+  const items: ApplyPrepItem[] = [
     {
       key: "candidateContact",
       label: "Candidate contact block",
       value: candidateContact,
+      group: "reference",
+      priority: "recommended",
     },
     {
       key: "linkedinUrl",
       label: "LinkedIn URL",
       value: profile?.linkedinUrl?.trim() || "Add LinkedIn URL",
+      group: "reference",
+      priority: "recommended",
     },
     {
       key: "workAuthorization",
       label: "Work authorization note",
       value: profile?.workAuthorizationNote?.trim() || "Add work authorization note",
+      group: "reference",
+      priority: "recommended",
     },
     {
       key: "professionalSummary",
       label: "Professional summary / headline",
       value: [profile?.headline?.trim(), tailoringPacket.tailoredSummary].filter(Boolean).join("\n"),
+      group: "paste",
+      priority: "recommended",
     },
     {
       key: "tailoredResumeMarkdown",
       label: "Tailored resume (markdown)",
       value: tailoringPacket.tailoredResumeVariant.markdown,
+      group: "upload",
+      priority: "required-first",
     },
     {
       key: "tailoredResumeText",
       label: "Tailored resume (plain text)",
       value: tailoringPacket.tailoredResumeVariant.plainText,
+      group: "paste",
+      priority: "recommended",
     },
     {
       key: "coverLetter",
       label: "Cover letter",
       value: applyPacket.coverLetterMarkdown,
+      group: "upload",
+      priority: "recommended",
     },
     {
       key: "screenerAnswers",
       label: "Screener answers",
       value: applyPacket.screenerAnswersText,
+      group: "paste",
+      priority: "recommended",
     },
     {
       key: "sourceApplicationLink",
       label: "Source application link",
       value: job.sourceUrl ?? "Add external application URL",
+      group: "final-submit-prep",
+      priority: "required-first",
     },
   ];
+
+  const provider = job.sourceProvider;
+
+  if (provider === "greenhouse") {
+    return items.map((item) => {
+      if (item.key === "tailoredResumeMarkdown") {
+        return { ...item, providerHint: "Upload this first in Greenhouse." };
+      }
+      if (item.key === "coverLetter") {
+        return { ...item, priority: "required-first", providerHint: "Attach when Greenhouse asks for a cover letter." };
+      }
+      if (item.key === "screenerAnswers") {
+        return { ...item, priority: "required-first", providerHint: "Paste concise responses into Greenhouse text prompts." };
+      }
+      return item;
+    });
+  }
+
+  if (provider === "lever") {
+    return items.map((item) => {
+      if (item.key === "linkedinUrl") {
+        return { ...item, group: "paste", priority: "required-first", providerHint: "Lever commonly asks for LinkedIn/profile links." };
+      }
+      if (item.key === "screenerAnswers") {
+        return { ...item, priority: "required-first", providerHint: "Use these for Lever custom questions." };
+      }
+      return item;
+    });
+  }
+
+  if (provider === "ashby") {
+    return items.map((item) => {
+      if (item.key === "candidateContact") {
+        return { ...item, group: "paste", priority: "required-first", providerHint: "Ashby often starts with profile/contact details." };
+      }
+      if (item.key === "workAuthorization") {
+        return { ...item, group: "paste", priority: "required-first", providerHint: "Keep this ready for profile-related fields." };
+      }
+      return item;
+    });
+  }
+
+  if (provider === "smartrecruiters") {
+    return items.map((item) => {
+      if (item.key === "candidateContact") {
+        return { ...item, group: "paste", priority: "required-first", providerHint: "SmartRecruiters usually asks for profile/contact info early." };
+      }
+      if (item.key === "coverLetter") {
+        return { ...item, providerHint: "Attach cover letter when the role/application requests it." };
+      }
+      return item;
+    });
+  }
+
+  return items;
 };
