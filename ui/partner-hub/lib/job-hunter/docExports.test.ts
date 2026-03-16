@@ -88,10 +88,23 @@ describe("docExports", () => {
     assert.equal(coverArtifact.fileName, "james-siejk-acme-systems-solutions-architect-cover-letter.docx");
     assert.equal(resumeArtifact.mimeType, "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
     assert.equal(coverArtifact.mimeType, "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-    assert.ok(resumeArtifact.bytes.length > 500);
-    assert.ok(coverArtifact.bytes.length > 300);
+    assert.ok(resumeArtifact.bytes.length > 2000);
+    assert.ok(coverArtifact.bytes.length > 1500);
     assert.equal(String.fromCharCode(...resumeArtifact.bytes.slice(0, 2)), "PK");
     assert.equal(String.fromCharCode(...coverArtifact.bytes.slice(0, 2)), "PK");
+
+    const resumeDocxRaw = Buffer.from(resumeArtifact.bytes).toString("latin1");
+    assert.ok(resumeDocxRaw.includes("[Content_Types].xml"));
+    assert.ok(resumeDocxRaw.includes("docProps/core.xml"));
+    assert.ok(resumeDocxRaw.includes("word/styles.xml"));
+    assert.ok(resumeDocxRaw.includes("word/fontTable.xml"));
+    assert.ok(resumeDocxRaw.includes("word/theme/theme1.xml"));
+    assert.ok(resumeDocxRaw.includes("James Siejk"));
+    assert.ok(resumeDocxRaw.includes("TAILORING DELTA (THIS JOB VARIANT ONLY)"));
+
+    const coverDocxRaw = Buffer.from(coverArtifact.bytes).toString("latin1");
+    assert.ok(coverDocxRaw.includes("Dear Hiring Team,"));
+    assert.ok(coverDocxRaw.includes("Sincerely,"));
   });
 
   it("preserves deterministic cover-letter line mapping", () => {
