@@ -2,12 +2,18 @@ import { NextResponse } from "next/server";
 
 import { testJobSource } from "@/lib/job-hunter/sourceTesting";
 import { isValidJobSourceConfig } from "@/lib/job-hunter/storage";
+import { getSourceTestStatus } from "@/lib/job-hunter/sourceTestApi";
 
 export async function POST(request: Request) {
   const payload = (await request.json().catch(() => null)) as { source?: unknown } | null;
 
   if (!isValidJobSourceConfig(payload?.source)) {
-    return NextResponse.json({ error: "Invalid source payload." }, { status: 400 });
+    const response = {
+      success: false,
+      error: "Invalid source payload.",
+    };
+
+    return NextResponse.json(response, { status: getSourceTestStatus(response) });
   }
 
   const source = {
@@ -17,5 +23,11 @@ export async function POST(request: Request) {
   };
 
   const result = await testJobSource(source);
-  return NextResponse.json({ result });
+
+  const response = {
+    success: result.success,
+    result,
+  };
+
+  return NextResponse.json(response, { status: getSourceTestStatus(response) });
 }

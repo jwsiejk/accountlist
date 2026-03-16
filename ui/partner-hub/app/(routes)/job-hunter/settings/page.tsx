@@ -70,15 +70,19 @@ export default function JobHunterSettingsPage() {
         }),
       });
 
-      const payload = (await response.json()) as { error?: string; result?: JobSourceSyncDiagnostic };
+      const payload = (await response.json()) as {
+        success?: boolean;
+        error?: string;
+        result?: JobSourceSyncDiagnostic;
+      };
 
-      if (!response.ok || !payload.result) {
+      if (!payload.result) {
         throw new Error(payload.error ?? "Source test failed.");
       }
 
       setTestResult(payload.result);
-      if (!payload.result.success && payload.result.error) {
-        setTestError(payload.result.error);
+      if (!response.ok || !payload.success || !payload.result.success) {
+        setTestError(payload.result.error ?? payload.error ?? "Source test failed.");
       }
     } catch (error) {
       setTestError(error instanceof Error ? error.message : "Source test failed.");
