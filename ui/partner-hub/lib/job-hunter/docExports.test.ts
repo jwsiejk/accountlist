@@ -97,12 +97,15 @@ describe("docExports", () => {
     const resumeArchive = await JSZip.loadAsync(Buffer.from(resumeArtifact.bytes));
     assert.ok(Boolean(resumeArchive.file("[Content_Types].xml")));
     assert.ok(Boolean(resumeArchive.file("word/document.xml")));
+    assert.ok(Boolean(resumeArchive.file("word/styles.xml")));
+    assert.ok(Boolean(resumeArchive.file("docProps/core.xml")));
     const resumeDocumentXml = await resumeArchive.file("word/document.xml")!.async("text");
     assert.ok(resumeDocumentXml.includes("James Siejk"));
     assert.ok(resumeDocumentXml.includes("TAILORING DELTA (THIS JOB VARIANT ONLY)"));
 
     const coverArchive = await JSZip.loadAsync(Buffer.from(coverArtifact.bytes));
     assert.ok(Boolean(coverArchive.file("word/document.xml")));
+    assert.ok(Boolean(coverArchive.file("_rels/.rels")));
     const coverDocumentXml = await coverArchive.file("word/document.xml")!.async("text");
     assert.ok(coverDocumentXml.includes("Dear Hiring Team,"));
     assert.ok(coverDocumentXml.includes("Sincerely,"));
