@@ -66,6 +66,23 @@ const PROVIDER_EXTRA_TOKENS: Partial<Record<SupportedApplyProvider, Partial<Reco
   },
 };
 
+
+export const selectLocationValueFromCityState = (cityState: string, signal: string): string => {
+  const source = String(cityState ?? "");
+  const loweredSignal = String(signal ?? "").toLowerCase();
+  const [city, stateRaw] = source.split(",");
+  const state = stateRaw?.trim() ?? "";
+
+  if (loweredSignal.includes("city") && !loweredSignal.includes("state")) {
+    return city?.trim() || source;
+  }
+
+  if (loweredSignal.includes("state") && !loweredSignal.includes("city")) {
+    return state || source;
+  }
+
+  return source;
+};
 export const detectApplyProviderFromUrl = (url: string): SupportedApplyProvider | null => {
   for (const [provider, patterns] of Object.entries(PROVIDER_PATTERNS) as [SupportedApplyProvider, RegExp[]][]) {
     if (patterns.some((pattern) => pattern.test(url))) {
