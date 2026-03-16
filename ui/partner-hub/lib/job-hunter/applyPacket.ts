@@ -1,4 +1,5 @@
 import { buildFollowUpEmail } from "./applications";
+import { normalizeForFileName } from "./docExports";
 import type { TailoringPacket } from "./resume/tailor";
 import type { JobPosting, ResumeProfile } from "./types";
 
@@ -26,18 +27,6 @@ export type ApplyPrepItem = {
     | "sourceApplicationLink";
   label: string;
   value: string;
-};
-
-const normalizeForFileName = (value: string) => {
-  const normalized = value
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .replace(/-{2,}/g, "-");
-
-  return normalized || "untitled";
 };
 
 const buildSummaryMarkdown = (job: JobPosting, tailoringPacket: TailoringPacket, generatedAt: string, profile?: ResumeProfile) => {
