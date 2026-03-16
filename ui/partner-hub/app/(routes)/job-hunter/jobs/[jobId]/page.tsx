@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { applicationReducer, createApplicationFromJob, getApplicationChecklist, getApplicationWorkflow, syncWorkflowSelectionWithQueue } from "@/lib/job-hunter/applications";
 import { buildApplyPacket, buildApplyPrepItems } from "@/lib/job-hunter/applyPacket";
 import type { ApplyPrepItem } from "@/lib/job-hunter/applyPacket";
+import { buildApplySessionPayload, toApplySessionJson } from "@/lib/job-hunter/applySession";
 import { buildApplyHandoffPlan, buildApplyReadinessSummary } from "@/lib/job-hunter/applyHandoff";
 import { generateCoverLetterDocxArtifact, generateTailoredResumeDocxArtifact } from "@/lib/job-hunter/docExports";
 import { normalizePreferences } from "@/lib/job-hunter/preferences";
@@ -45,6 +46,13 @@ export default function JobDetailPage({ params }: PageProps) {
     [job, store.resumeProfile, tailoringPacket],
   );
   const application = job ? applicationById[job.id] : undefined;
+  const applySession = useMemo(() => {
+    if (!job || !tailoringPacket || !applyPacket) {
+      return null;
+    }
+
+    return buildApplySessionPayload(job, tailoringPacket, applyPacket, store.resumeProfile);
+  }, [applyPacket, job, store.resumeProfile, tailoringPacket]);
   const checklist = application ? getApplicationChecklist(application) : null;
   const workflow = application ? getApplicationWorkflow(application) : null;
   const prepItems = useMemo(() => {
@@ -155,6 +163,20 @@ export default function JobDetailPage({ params }: PageProps) {
     const link = document.createElement("a");
     link.href = url;
     link.download = `${applyPacket.fileBaseName}.md`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadApplySessionJson = () => {
+    if (!applySession) {
+      return;
+    }
+
+    const blob = new Blob([toApplySessionJson(applySession)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${applySession.sessionId}.json`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -367,7 +389,9 @@ export default function JobDetailPage({ params }: PageProps) {
             <div className="flex flex-wrap gap-2">
               <Button onClick={handleDownloadCoverLetterDocx} size="sm" type="button">Download cover letter (.docx)</Button>
               <Button onClick={handleDownloadApplyPacket} size="sm" type="button">Download Apply Packet</Button>
+              <Button onClick={handleDownloadApplySessionJson} size="sm" type="button">Download Apply Session JSON</Button>
               <Button onClick={() => copyText(applyPacket.fullPacketMarkdown)} size="sm" type="button" variant="secondary">Copy Apply Packet</Button>
+              <Button onClick={() => copyText(applySession ? toApplySessionJson(applySession) : "") } size="sm" type="button" variant="secondary">Copy Apply Session JSON</Button>
               <Button onClick={() => copyText(applyPacket.coverLetterMarkdown)} size="sm" type="button" variant="secondary">Copy Cover Letter</Button>
               <Button onClick={() => copyText(applyPacket.screenerAnswersText)} size="sm" type="button" variant="secondary">Copy Screener Answers</Button>
             </div>
