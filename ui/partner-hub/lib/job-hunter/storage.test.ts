@@ -184,6 +184,8 @@ describe("job hunter storage", () => {
 
   it("validates source payloads", () => {
     assert.equal(isValidJobSourceConfig({ company: "Acme", boardType: "greenhouse", boardToken: "acme" }), true);
+    assert.equal(isValidJobSourceConfig({ company: "Acme", boardType: "ashby", boardToken: "acme" }), true);
+    assert.equal(isValidJobSourceConfig({ company: "Acme", boardType: "smartrecruiters", boardToken: "acme" }), true);
     assert.equal(isValidJobSourceConfig({ company: "", boardType: "greenhouse", boardToken: "acme" }), false);
     assert.equal(isValidJobSourceConfig({ company: "Acme", boardType: "invalid", boardToken: "acme" }), false);
     assert.deepEqual(validateJobSources([{ company: " Acme ", boardType: "lever", boardToken: " acme " }, { nope: true }]), [

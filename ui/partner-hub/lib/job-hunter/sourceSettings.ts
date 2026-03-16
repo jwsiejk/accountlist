@@ -6,6 +6,8 @@ export type SourceForm = {
   boardToken: string;
 };
 
+export const BOARD_TYPE_OPTIONS: BoardType[] = ["greenhouse", "lever", "ashby", "smartrecruiters"];
+
 export const truncateBoardToken = (token: string) => {
   if (token.length <= 10) {
     return token;

@@ -17,7 +17,7 @@ const DEFAULT_STORE: JobHunterStore = {
   automation: DEFAULT_AUTOMATION_SETTINGS,
 };
 
-const BOARD_TYPES: BoardType[] = ["greenhouse", "lever"];
+const BOARD_TYPES: BoardType[] = ["greenhouse", "lever", "ashby", "smartrecruiters"];
 
 const normalizeSelectedJobIds = (value: unknown): string[] => {
   if (!Array.isArray(value)) {
