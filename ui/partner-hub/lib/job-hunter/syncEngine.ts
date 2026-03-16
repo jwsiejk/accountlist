@@ -1,14 +1,29 @@
 import { normalizeJobPosting } from "./normalize";
+import { fetchAshbyJobs } from "./sources/ashby";
 import { fetchGreenhouseJobs } from "./sources/greenhouse";
 import { fetchLeverJobs } from "./sources/lever";
+import { fetchSmartRecruitersJobs } from "./sources/smartrecruiters";
 import type { JobPosting, JobSourceConfig } from "./types";
+
+const detectSourceProvider = (job: JobPosting): JobPosting["sourceProvider"] => {
+  if (job.sourceProvider) {
+    return job.sourceProvider;
+  }
+
+  const prefix = job.id.split(":")[0];
+  if (prefix === "greenhouse" || prefix === "lever" || prefix === "ashby" || prefix === "smartrecruiters") {
+    return prefix;
+  }
+
+  return "greenhouse";
+};
 
 const normalizeJobs = (jobs: JobPosting[]) => {
   const merged = new Map<string, JobPosting>();
 
   jobs.forEach((job) => {
     const normalized = normalizeJobPosting({
-      source: job.id.startsWith("lever:") ? "lever" : "greenhouse",
+      source: detectSourceProvider(job),
       externalId: job.externalId ?? job.id,
       company: job.company,
       title: job.title,
@@ -53,6 +68,16 @@ export const runJobSync = async (sources: JobSourceConfig[]) => {
 
     if (source.boardType === "lever") {
       const results = await fetchLeverJobs(source);
+      jobs.push(...results);
+    }
+
+    if (source.boardType === "ashby") {
+      const results = await fetchAshbyJobs(source);
+      jobs.push(...results);
+    }
+
+    if (source.boardType === "smartrecruiters") {
+      const results = await fetchSmartRecruitersJobs(source);
       jobs.push(...results);
     }
   }

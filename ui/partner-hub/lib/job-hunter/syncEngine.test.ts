@@ -21,21 +21,46 @@ describe("job hunter sync engine", () => {
         } as Response;
       }
 
+      if (url.includes("api.lever.co")) {
+        return {
+          ok: true,
+          json: async () => [{ id: "abc", text: " PM ", hostedUrl: "https://lever/job/abc", categories: { location: "NYC" } }],
+        } as Response;
+      }
+
+      if (url.includes("jobs.ashbyhq.com")) {
+        return {
+          ok: true,
+          json: async () => ({ jobs: [{ id: "ash1", title: " Architect ", jobUrl: "https://jobs.ashbyhq.com/acme/ash1" }] }),
+        } as Response;
+      }
+
+      if (url.includes("api.smartrecruiters.com") && url.includes("/postings?")) {
+        return {
+          ok: true,
+          json: async () => ({ content: [{ id: "sr1", name: "Engineer" }] }),
+        } as Response;
+      }
+
       return {
         ok: true,
-        json: async () => [{ id: "abc", text: " PM ", hostedUrl: "https://lever/job/abc", categories: { location: "NYC" } }],
+        json: async () => ({ jobAd: { sections: [] } }),
       } as Response;
     }) as typeof fetch;
 
     const jobs = await runJobSync([
       { company: "Acme", boardType: "greenhouse", boardToken: "acme-gh" },
       { company: "Acme", boardType: "lever", boardToken: "acme-lever" },
+      { company: "Acme", boardType: "ashby", boardToken: "acme-ashby" },
+      { company: "Acme", boardType: "smartrecruiters", boardToken: "Acme" },
     ]);
 
-    assert.equal(called.length, 2);
+    assert.equal(called.length, 5);
     assert.ok(called.some((url) => url.includes("boards-api.greenhouse.io/v1/boards/acme-gh/jobs")));
     assert.ok(called.some((url) => url.includes("api.lever.co/v0/postings/acme-lever")));
-    assert.equal(jobs.length, 2);
+    assert.ok(called.some((url) => url.includes("jobs.ashbyhq.com/api/non-user-portal/job-board")));
+    assert.ok(called.some((url) => url.includes("api.smartrecruiters.com/v1/companies/Acme/postings?limit=100")));
+    assert.equal(jobs.length, 4);
 
     globalThis.fetch = previousFetch;
   });

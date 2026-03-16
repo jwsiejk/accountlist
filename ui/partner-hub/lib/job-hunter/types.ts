@@ -1,6 +1,6 @@
 export type JobSource = "manual" | "linkedin" | "company-site" | "referral" | "other";
 
-export type BoardType = "greenhouse" | "lever";
+export type BoardType = "greenhouse" | "lever" | "ashby" | "smartrecruiters";
 
 export type JobSourceConfig = {
   company: string;
