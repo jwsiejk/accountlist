@@ -1,29 +1,13 @@
 (() => {
-  const detectProvider = () => {
-    const url = window.location.href;
-    if (/greenhouse\.io/i.test(url)) return "greenhouse";
-    if (/lever\.co/i.test(url)) return "lever";
-    if (/ashbyhq\.com/i.test(url)) return "ashby";
-    if (/smartrecruiters\.com/i.test(url)) return "smartrecruiters";
-    return null;
-  };
+  const heuristics = globalThis.JobHunterApplyCompanionHeuristics;
 
-  const tokensByKey = {
-    fullName: ["full name", "fullname", "candidate name", "name"],
-    firstName: ["first name", "firstname", "given name", "first_name"],
-    lastName: ["last name", "lastname", "family name", "surname", "last_name"],
-    email: ["email", "e-mail"],
-    phone: ["phone", "mobile", "telephone"],
-    location: ["city", "state", "location", "address"],
-    linkedinUrl: ["linkedin"],
-    websiteUrl: ["website", "portfolio", "github", "personal site", "url"],
-    workAuthorizationNote: ["work authorization", "authorized", "sponsorship", "visa", "employment eligibility"],
-    coverLetterText: ["cover letter", "why this role", "additional information"]
-  };
+  const detectProvider = () => heuristics?.detectProviderFromUrl(window.location.href) ?? null;
 
-  const fieldValue = (session, key) => {
+  const fieldValue = (session, key, signal) => {
     if (key === "coverLetterText") return session?.tailored?.coverLetterText || "";
-    if (key === "location") return session?.candidate?.cityState || "";
+    if (key === "location") {
+      return heuristics?.selectLocationValue({ cityState: session?.candidate?.cityState || "", signal }) || "";
+    }
     return session?.candidate?.[key] || "";
   };
 
@@ -32,32 +16,21 @@
     return [el.id, el.name, el.placeholder, el.getAttribute("aria-label"), label].filter(Boolean).join(" ").toLowerCase();
   };
 
-  const matchKey = (el) => {
-    const signal = getSignal(el);
-    if (!signal.trim()) return null;
-
-    const rank = ["firstName", "lastName", "email", "phone", "linkedinUrl", "websiteUrl", "workAuthorizationNote", "coverLetterText", "location", "fullName"];
-    for (const key of rank) {
-      if (key === "coverLetterText" && el.tagName.toLowerCase() !== "textarea") continue;
-      if (tokensByKey[key].some((token) => signal.includes(token))) {
-        if (key === "fullName" && (signal.includes("first") || signal.includes("last"))) continue;
-        if (key === "location" && signal.includes("relocation")) continue;
-        return key;
-      }
-    }
-    return null;
-  };
+  const matchKey = (el, provider) =>
+    heuristics?.matchKeyFromSignal({ signal: getSignal(el), tagName: el.tagName, provider }) ?? null;
 
   const fillBasicFields = (session) => {
     const filled = [];
     const manual = [];
     const inputs = Array.from(document.querySelectorAll("input, textarea"));
+    const provider = detectProvider();
 
     for (const el of inputs) {
       if (el.disabled || el.readOnly) continue;
-      const key = matchKey(el);
+      const signal = getSignal(el);
+      const key = matchKey(el, provider);
       if (!key) continue;
-      const value = fieldValue(session, key);
+      const value = fieldValue(session, key, signal);
       if (!value || String(value).trim() === "") {
         manual.push(`${key} (missing in session)`);
         continue;

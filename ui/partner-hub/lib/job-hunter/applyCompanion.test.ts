@@ -1,7 +1,15 @@
 import * as assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, it } from "node:test";
+import * as vm from "node:vm";
 
-import { detectApplyProviderFromUrl, getFieldValueForKey, matchBasicFieldKey } from "./applyCompanion";
+import {
+  detectApplyProviderFromUrl,
+  getFieldValueForKey,
+  matchBasicFieldKey,
+  type CompanionFieldCandidate,
+} from "./applyCompanion";
 import type { ApplySessionPayload } from "./applySession";
 
 const session: ApplySessionPayload = {
@@ -66,5 +74,47 @@ describe("apply companion field matching heuristics", () => {
     assert.equal(getFieldValueForKey("fullName", session), "James Wang");
     assert.equal(getFieldValueForKey("websiteUrl", session), "https://james.dev");
     assert.equal(getFieldValueForKey("coverLetterText", session), "Dear Hiring Team");
+  });
+
+  it("keeps extension runtime heuristics aligned with tested helper behavior", () => {
+    const scriptPath = join(process.cwd(), "extensions/job-hunter-apply-companion/heuristics.js");
+    const runtimeSource = readFileSync(scriptPath, "utf8");
+    const sandbox: { globalThis: { JobHunterApplyCompanionHeuristics?: any } } = { globalThis: {} };
+    vm.runInNewContext(runtimeSource, sandbox);
+    const runtime = sandbox.globalThis.JobHunterApplyCompanionHeuristics;
+
+    assert.ok(runtime);
+
+    const providers = ["greenhouse", "lever", "ashby", "smartrecruiters"] as const;
+    const fields: CompanionFieldCandidate[] = [
+      { tagName: "input", name: "first_name" },
+      { tagName: "input", name: "last_name" },
+      { tagName: "input", ariaLabel: "Email address" },
+      { tagName: "input", labelText: "Phone number" },
+      { tagName: "input", labelText: "LinkedIn profile" },
+      { tagName: "input", labelText: "Personal website URL" },
+      { tagName: "textarea", labelText: "Cover letter" },
+      { tagName: "input", labelText: "Relocation support needed?" },
+      { tagName: "input", labelText: "Candidate name" },
+      { tagName: "input", labelText: "City" },
+      { tagName: "input", labelText: "State" },
+    ];
+
+    for (const provider of providers) {
+      for (const field of fields) {
+        const signal = [field.id, field.name, field.placeholder, field.ariaLabel, field.labelText]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        assert.equal(
+          runtime.matchKeyFromSignal({ signal, tagName: field.tagName, provider }),
+          matchBasicFieldKey(field, provider),
+        );
+      }
+    }
+
+    assert.equal(runtime.selectLocationValue({ cityState: "Austin, TX", signal: "City" }), "Austin");
+    assert.equal(runtime.selectLocationValue({ cityState: "Austin, TX", signal: "State" }), "TX");
+    assert.equal(runtime.selectLocationValue({ cityState: "Austin, TX", signal: "Location" }), "Austin, TX");
   });
 });
