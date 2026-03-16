@@ -182,7 +182,7 @@ export default function JobHunterJobsPage() {
     <main className="mx-auto max-w-5xl space-y-6 p-6">
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold">Jobs</h1>
-        <p className="text-sm text-foreground/70">Automatically sync configured Greenhouse/Lever boards each run.</p>
+        <p className="text-sm text-foreground/70">Automatically sync configured Greenhouse, Lever, Ashby, and SmartRecruiters boards each run.</p>
       </header>
 
       <section className="space-y-2 rounded-lg border border-border/60 p-4">
