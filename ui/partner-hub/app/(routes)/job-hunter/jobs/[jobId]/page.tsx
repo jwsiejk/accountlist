@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { applicationReducer, createApplicationFromJob, getApplicationChecklist, getApplicationWorkflow, syncWorkflowSelectionWithQueue } from "@/lib/job-hunter/applications";
 import { buildApplyPacket, buildApplyPrepItems } from "@/lib/job-hunter/applyPacket";
+import type { ApplyPrepItem } from "@/lib/job-hunter/applyPacket";
 import { buildApplyHandoffPlan, buildApplyReadinessSummary } from "@/lib/job-hunter/applyHandoff";
 import { generateCoverLetterDocxArtifact, generateTailoredResumeDocxArtifact } from "@/lib/job-hunter/docExports";
 import { normalizePreferences } from "@/lib/job-hunter/preferences";
@@ -219,6 +220,35 @@ export default function JobDetailPage({ params }: PageProps) {
     setWorkspaceMessage("Application marked as applied and snapshot saved.");
   };
 
+  const handlePrepItemAction = (item: ApplyPrepItem) => {
+    if (item.actionType === "copy") {
+      copyText(item.value);
+      return;
+    }
+
+    if (item.actionType === "download") {
+      if (item.key === "tailoredResumeDocx") {
+        void handleDownloadTailoredResumeDocx();
+        return;
+      }
+      if (item.key === "coverLetterDocx") {
+        void handleDownloadCoverLetterDocx();
+      }
+      return;
+    }
+
+    if (item.actionType === "open-link" && item.value.trim()) {
+      window.open(item.value, "_blank", "noopener,noreferrer");
+      setWorkflowItem("externalApplicationOpened", true);
+    }
+  };
+
+  const prepActionLabelByType: Record<ApplyPrepItem["actionType"], string> = {
+    copy: "Copy",
+    download: "Download",
+    "open-link": "Open",
+  };
+
   if (!job) {
     return (
       <main className="mx-auto max-w-4xl space-y-6 p-6">
@@ -380,8 +410,8 @@ export default function JobDetailPage({ params }: PageProps) {
                           <div className="grid gap-2 md:grid-cols-2">
                             {group.items.map((item) => (
                               <div key={item.key} className="space-y-1 rounded border border-border/60 bg-muted/20 p-2">
-                                <Button onClick={() => copyText(item.value)} size="sm" type="button" variant="secondary">
-                                  Copy {item.label}
+                                <Button onClick={() => handlePrepItemAction(item)} size="sm" type="button" variant="secondary">
+                                  {prepActionLabelByType[item.actionType]} {item.label}
                                 </Button>
                                 <p className="text-[11px] text-foreground/70">Priority: {item.priority === "required-first" ? "Required first" : "Recommended"}</p>
                                 {item.providerHint ? <p className="text-[11px] text-foreground/70">{item.providerHint}</p> : null}

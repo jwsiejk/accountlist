@@ -48,7 +48,9 @@ describe("buildApplyHandoffPlan", () => {
       assert.ok(handoff.providerLabel.length > 0);
       assert.ok(handoff.likelySteps.length >= 3);
       assert.ok(handoff.groupedPrepItems[0]?.group === "upload");
+      assert.ok(handoff.groupedPrepItems[0]?.items.every((item) => item.actionType === "download"));
       assert.ok(handoff.recommendedArtifacts.length >= 2);
+      assert.ok(handoff.groupedPrepItems.some((group) => group.items.some((item) => item.actionType === "open-link")));
     });
   });
 
@@ -88,6 +90,24 @@ describe("buildApplyReadinessSummary", () => {
     assert.equal(readiness.coverLetterReady, true);
     assert.equal(readiness.candidateProfileReady, true);
     assert.equal(readiness.providerHandoffReady, true);
+  });
+
+  it("requires upload-ready artifacts for resume/cover-letter readiness", () => {
+    const job = buildJob("greenhouse");
+    const tailoringPacket = generateTailoringPacket(job, profile);
+    const packet = buildApplyPacket(job, tailoringPacket, profile);
+    const prepItems = buildApplyPrepItems(job, packet, tailoringPacket, profile).map((item) => {
+      if (item.key === "tailoredResumeDocx" || item.key === "coverLetterDocx") {
+        return { ...item, value: "" };
+      }
+      return item;
+    });
+
+    const readiness = buildApplyReadinessSummary(job, prepItems);
+
+    assert.equal(readiness.resumeReady, false);
+    assert.equal(readiness.coverLetterReady, false);
+    assert.equal(readiness.providerHandoffReady, false);
   });
 
   it("flags not-ready when placeholders remain", () => {
