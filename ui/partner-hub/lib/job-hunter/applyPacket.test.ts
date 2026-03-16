@@ -100,10 +100,12 @@ describe("buildApplyPacket", () => {
     const packet = buildApplyPacket(job, tailoringPacket, profile);
     const prepItems = buildApplyPrepItems(job, packet, tailoringPacket, profile);
 
-    assert.equal(prepItems.length, 9);
+    assert.equal(prepItems.length, 11);
     assert.equal(prepItems[0].key, "candidateContact");
     assert.ok(prepItems.find((item) => item.key === "linkedinUrl")?.value.includes("linkedin.com/in/james"));
     assert.equal(prepItems.find((item) => item.key === "sourceApplicationLink")?.value, "https://contoso.example/jobs/404");
+    assert.equal(prepItems.find((item) => item.key === "tailoredResumeDocx")?.actionType, "download");
+    assert.equal(prepItems.find((item) => item.key === "sourceApplicationLink")?.actionType, "open-link");
   });
   it("applies provider-aware prep grouping and priority", () => {
     const job: JobPosting = {
@@ -121,10 +123,12 @@ describe("buildApplyPacket", () => {
     const packet = buildApplyPacket(job, tailoringPacket, profile);
     const prepItems = buildApplyPrepItems(job, packet, tailoringPacket, profile);
 
-    assert.equal(prepItems.find((item) => item.key === "tailoredResumeMarkdown")?.group, "upload");
-    assert.equal(prepItems.find((item) => item.key === "tailoredResumeMarkdown")?.priority, "required-first");
+    assert.equal(prepItems.find((item) => item.key === "tailoredResumeDocx")?.group, "upload");
+    assert.equal(prepItems.find((item) => item.key === "tailoredResumeDocx")?.priority, "required-first");
     assert.equal(prepItems.find((item) => item.key === "screenerAnswers")?.priority, "required-first");
     assert.ok(prepItems.find((item) => item.key === "screenerAnswers")?.providerHint?.includes("Greenhouse"));
+    assert.equal(prepItems.find((item) => item.key === "tailoredResumeMarkdown")?.group, "paste");
+    assert.equal(prepItems.find((item) => item.key === "coverLetterDocx")?.actionType, "download");
   });
 
 });

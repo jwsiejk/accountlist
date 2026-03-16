@@ -103,11 +103,11 @@ const PROVIDER_RECOMMENDED_ARTIFACTS: Record<ApplyHandoffProvider, string[]> = {
 const PLACEHOLDER_PATTERNS = [/^add\s/i, /^candidate name$/i, /^candidate@example\.com$/i, /^\(000\) 000-0000$/i, /^city, st$/i];
 
 const PROVIDER_REQUIRED_KEYS: Record<ApplyHandoffProvider, ApplyPrepItem["key"][]> = {
-  greenhouse: ["tailoredResumeMarkdown", "screenerAnswers", "sourceApplicationLink"],
-  lever: ["tailoredResumeMarkdown", "linkedinUrl", "screenerAnswers", "sourceApplicationLink"],
-  ashby: ["candidateContact", "tailoredResumeMarkdown", "sourceApplicationLink"],
-  smartrecruiters: ["candidateContact", "tailoredResumeMarkdown", "sourceApplicationLink"],
-  generic: ["tailoredResumeMarkdown", "sourceApplicationLink"],
+  greenhouse: ["tailoredResumeDocx", "screenerAnswers", "sourceApplicationLink"],
+  lever: ["tailoredResumeDocx", "linkedinUrl", "screenerAnswers", "sourceApplicationLink"],
+  ashby: ["candidateContact", "tailoredResumeDocx", "sourceApplicationLink"],
+  smartrecruiters: ["candidateContact", "tailoredResumeDocx", "sourceApplicationLink"],
+  generic: ["tailoredResumeDocx", "sourceApplicationLink"],
 };
 
 const isPlaceholderValue = (value: string) => {
@@ -149,7 +149,7 @@ export const buildApplyHandoffPlan = (job: JobPosting, prepItems: ApplyPrepItem[
     .filter((group) => group.items.length > 0);
 
   const recommendedCopyItems = prepItems
-    .filter((item) => item.group !== "upload" && !isPlaceholderValue(item.value))
+    .filter((item) => item.actionType === "copy" && !isPlaceholderValue(item.value))
     .map((item) => item.label);
 
   return {
@@ -175,8 +175,8 @@ export const buildApplyReadinessSummary = (
     return Boolean(item && !isPlaceholderValue(item.value));
   };
 
-  const resumeReady = Boolean(workflow?.tailoredResumeReady) || hasReady("tailoredResumeMarkdown") || hasReady("tailoredResumeText");
-  const coverLetterReady = Boolean(workflow?.coverLetterReady) || hasReady("coverLetter");
+  const resumeReady = Boolean(workflow?.tailoredResumeReady) || hasReady("tailoredResumeDocx");
+  const coverLetterReady = Boolean(workflow?.coverLetterReady) || hasReady("coverLetterDocx");
   const candidateProfileReady = hasReady("candidateContact") && hasReady("linkedinUrl") && hasReady("workAuthorization");
   const providerHandoffReady = PROVIDER_REQUIRED_KEYS[provider].every((key) => hasReady(key));
 

@@ -24,8 +24,10 @@ export type ApplyPrepItem = {
     | "linkedinUrl"
     | "workAuthorization"
     | "professionalSummary"
+    | "tailoredResumeDocx"
     | "tailoredResumeMarkdown"
     | "tailoredResumeText"
+    | "coverLetterDocx"
     | "coverLetter"
     | "screenerAnswers"
     | "sourceApplicationLink";
@@ -33,6 +35,7 @@ export type ApplyPrepItem = {
   value: string;
   group: ApplyPrepGroup;
   priority: ApplyPrepPriority;
+  actionType: "copy" | "download" | "open-link";
   providerHint?: string;
 };
 
@@ -121,6 +124,7 @@ export const buildApplyPrepItems = (job: JobPosting, applyPacket: ApplyPacket, t
       value: candidateContact,
       group: "reference",
       priority: "recommended",
+      actionType: "copy",
     },
     {
       key: "linkedinUrl",
@@ -128,6 +132,7 @@ export const buildApplyPrepItems = (job: JobPosting, applyPacket: ApplyPacket, t
       value: profile?.linkedinUrl?.trim() || "Add LinkedIn URL",
       group: "reference",
       priority: "recommended",
+      actionType: "copy",
     },
     {
       key: "workAuthorization",
@@ -135,6 +140,7 @@ export const buildApplyPrepItems = (job: JobPosting, applyPacket: ApplyPacket, t
       value: profile?.workAuthorizationNote?.trim() || "Add work authorization note",
       group: "reference",
       priority: "recommended",
+      actionType: "copy",
     },
     {
       key: "professionalSummary",
@@ -142,13 +148,23 @@ export const buildApplyPrepItems = (job: JobPosting, applyPacket: ApplyPacket, t
       value: [profile?.headline?.trim(), tailoringPacket.tailoredSummary].filter(Boolean).join("\n"),
       group: "paste",
       priority: "recommended",
+      actionType: "copy",
+    },
+    {
+      key: "tailoredResumeDocx",
+      label: "Tailored resume (.docx)",
+      value: "Upload-ready tailored resume artifact",
+      group: "upload",
+      priority: "required-first",
+      actionType: "download",
     },
     {
       key: "tailoredResumeMarkdown",
       label: "Tailored resume (markdown)",
       value: tailoringPacket.tailoredResumeVariant.markdown,
-      group: "upload",
-      priority: "required-first",
+      group: "paste",
+      priority: "recommended",
+      actionType: "copy",
     },
     {
       key: "tailoredResumeText",
@@ -156,13 +172,23 @@ export const buildApplyPrepItems = (job: JobPosting, applyPacket: ApplyPacket, t
       value: tailoringPacket.tailoredResumeVariant.plainText,
       group: "paste",
       priority: "recommended",
+      actionType: "copy",
+    },
+    {
+      key: "coverLetterDocx",
+      label: "Cover letter (.docx)",
+      value: "Upload-ready cover letter artifact",
+      group: "upload",
+      priority: "recommended",
+      actionType: "download",
     },
     {
       key: "coverLetter",
       label: "Cover letter",
       value: applyPacket.coverLetterMarkdown,
-      group: "upload",
+      group: "paste",
       priority: "recommended",
+      actionType: "copy",
     },
     {
       key: "screenerAnswers",
@@ -170,6 +196,7 @@ export const buildApplyPrepItems = (job: JobPosting, applyPacket: ApplyPacket, t
       value: applyPacket.screenerAnswersText,
       group: "paste",
       priority: "recommended",
+      actionType: "copy",
     },
     {
       key: "sourceApplicationLink",
@@ -177,6 +204,7 @@ export const buildApplyPrepItems = (job: JobPosting, applyPacket: ApplyPacket, t
       value: job.sourceUrl ?? "Add external application URL",
       group: "final-submit-prep",
       priority: "required-first",
+      actionType: "open-link",
     },
   ];
 
@@ -184,10 +212,10 @@ export const buildApplyPrepItems = (job: JobPosting, applyPacket: ApplyPacket, t
 
   if (provider === "greenhouse") {
     return items.map((item) => {
-      if (item.key === "tailoredResumeMarkdown") {
+      if (item.key === "tailoredResumeDocx") {
         return { ...item, providerHint: "Upload this first in Greenhouse." };
       }
-      if (item.key === "coverLetter") {
+      if (item.key === "coverLetterDocx") {
         return { ...item, priority: "required-first", providerHint: "Attach when Greenhouse asks for a cover letter." };
       }
       if (item.key === "screenerAnswers") {
@@ -226,7 +254,7 @@ export const buildApplyPrepItems = (job: JobPosting, applyPacket: ApplyPacket, t
       if (item.key === "candidateContact") {
         return { ...item, group: "paste", priority: "required-first", providerHint: "SmartRecruiters usually asks for profile/contact info early." };
       }
-      if (item.key === "coverLetter") {
+      if (item.key === "coverLetterDocx") {
         return { ...item, providerHint: "Attach cover letter when the role/application requests it." };
       }
       return item;
