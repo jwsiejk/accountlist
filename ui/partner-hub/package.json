@@ -29,7 +29,8 @@
     "react-dom": "18.3.1",
     "reactflow": "^11.11.4",
     "worker-loader": "^3.0.8",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "jszip": "^3.7.1"
   },
   "devDependencies": {
     "@types/dagre": "^0.7.52",
