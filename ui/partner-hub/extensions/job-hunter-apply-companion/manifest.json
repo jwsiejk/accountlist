@@ -3,7 +3,12 @@
   "name": "Job Hunter Apply Companion",
   "version": "0.1.0",
   "description": "Paste a Job Hunter apply-session JSON and conservatively prefill common ATS fields.",
-  "permissions": ["activeTab", "scripting", "tabs", "storage"],
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "tabs",
+    "storage"
+  ],
   "host_permissions": [
     "*://*.greenhouse.io/*",
     "*://*.lever.co/*",
@@ -22,7 +27,10 @@
         "*://*.ashbyhq.com/*",
         "*://*.smartrecruiters.com/*"
       ],
-      "js": ["content.js"],
+      "js": [
+        "heuristics.js",
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ]
