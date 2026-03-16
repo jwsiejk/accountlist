@@ -8,6 +8,16 @@ export type JobSourceConfig = {
   boardToken: string;
 };
 
+export type JobSourceSyncDiagnostic = {
+  sourceId: string;
+  company: string;
+  provider: BoardType;
+  token: string;
+  success: boolean;
+  jobsFetched: number;
+  error?: string;
+};
+
 export type ApplicationStatus = "prepared" | "applied" | "interview" | "rejected" | "offer";
 
 export type ApplicationJobSnapshot = {

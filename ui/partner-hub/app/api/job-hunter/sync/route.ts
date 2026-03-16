@@ -11,13 +11,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid sources payload: one or more source entries are invalid." }, { status: 400 });
   }
 
-  const jobs = await runJobSync(sources);
+  const { jobs, diagnostics } = await runJobSync(sources);
   const jobsById = Object.fromEntries(jobs.map((job) => [job.id, job]));
   const lastSyncedAt = new Date().toISOString();
+
+  if (sources.length > 0 && diagnostics.every((item) => !item.success)) {
+    return NextResponse.json(
+      {
+        error: "All configured sources failed to sync.",
+        jobs,
+        jobsById,
+        diagnostics,
+        lastSyncedAt,
+      },
+      { status: 502 },
+    );
+  }
 
   return NextResponse.json({
     jobs,
     jobsById,
+    diagnostics,
     lastSyncedAt,
   });
 }
