@@ -31,3 +31,45 @@ export const getSourceValidationMessage = (form: SourceForm, sources: JobSourceC
 
   return null;
 };
+
+export const toUserFacingSourceError = (message: string | undefined, fallback = "We could not complete that source request.") => {
+  if (!message) {
+    return fallback;
+  }
+
+  const normalized = message.trim();
+  if (/Unexpected token\s*['"]?</i.test(normalized)) {
+    return "The source response was not readable. Please verify the URL or try another source.";
+  }
+
+  return normalized;
+};
+
+export const parseBulkSourceInput = (value: string, boardType: BoardType): JobSourceConfig[] => {
+  const lines = value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const deduped = new Map<string, JobSourceConfig>();
+
+  lines.forEach((line) => {
+    const parts = line.split("|").map((part) => part.trim());
+    if (parts.length < 2) {
+      return;
+    }
+
+    const [company, token] = parts;
+    if (!company || !token) {
+      return;
+    }
+
+    deduped.set(`${boardType}:${token.toLowerCase()}`, {
+      company,
+      boardType,
+      boardToken: token,
+    });
+  });
+
+  return Array.from(deduped.values());
+};

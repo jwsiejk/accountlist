@@ -4,9 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const sections = [
   {
-    title: "Jobs",
-    description: "Track saved roles and opportunities in one place.",
+    title: "Find Jobs",
+    description: "Run discovery from your preferences and review top matches.",
     href: "/job-hunter/jobs",
+  },
+  {
+    title: "Preferences",
+    description: "Set targeting rules that drive discovery and ranking.",
+    href: "/job-hunter/preferences",
   },
   {
     title: "Applications",
@@ -15,17 +20,12 @@ const sections = [
   },
   {
     title: "Resume",
-    description: "Edit resume profile data used for tailoring output.",
+    description: "Edit resume profile data used for minimal-delta tailoring output.",
     href: "/job-hunter/resume",
   },
   {
-    title: "Preferences",
-    description: "Set personalized targeting rules for scoring and filtering.",
-    href: "/job-hunter/preferences",
-  },
-  {
-    title: "Settings",
-    description: "Manage source boards for job syncing.",
+    title: "Advanced Sources",
+    description: "Optional manual provider/token setup for power users.",
     href: "/job-hunter/settings",
   },
 ];
@@ -35,8 +35,18 @@ export default function JobHunterPage() {
     <main className="mx-auto max-w-5xl space-y-6 p-6">
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold">Job Hunter</h1>
-        <p className="text-sm text-foreground/70">Manage saved jobs and applications.</p>
+        <p className="text-sm text-foreground/70">Use preferences-first discovery to find jobs, then choose, tailor, and apply.</p>
       </header>
+
+      <section className="rounded-lg border border-border/60 bg-muted/20 p-4 text-sm">
+        <ol className="list-decimal space-y-1 pl-5 text-foreground/80">
+          <li>Set preferences</li>
+          <li>Find jobs from preferences</li>
+          <li>Select jobs to pursue</li>
+          <li>Tailor resume variants minimally</li>
+          <li>Complete guided apply workflow</li>
+        </ol>
+      </section>
 
       <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         {sections.map((section) => (

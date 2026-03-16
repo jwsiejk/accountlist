@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { EmptyState } from "@/components/job-hunter/EmptyState";
 import { JobList } from "@/components/job-hunter/JobList";
@@ -14,6 +14,8 @@ import {
 } from "@/lib/job-hunter/discoveryAutomation";
 import { getDefaultPreferences, normalizePreferences } from "@/lib/job-hunter/preferences";
 import { toggleJobSelection } from "@/lib/job-hunter/queue";
+import { buildDiscoverySourcesFromPreferences } from "@/lib/job-hunter/sourceCatalog";
+import { toUserFacingSourceError } from "@/lib/job-hunter/sourceSettings";
 import { loadJobHunterStore, saveJobHunterStore } from "@/lib/job-hunter/storage";
 import type { JobHunterAutomationSettings, JobHunterPreferences, JobPosting, JobSourceSyncDiagnostic } from "@/lib/job-hunter/types";
 
@@ -40,7 +42,6 @@ export default function JobHunterJobsPage() {
   const syncInFlight = useRef(false);
 
   const jobs = useMemo(() => Object.values(jobsById), [jobsById]);
-
   const rankedJobs = useMemo(() => rankJobsForReview(jobs, preferences), [jobs, preferences]);
 
   const filteredJobs = useMemo(() => {
@@ -48,10 +49,7 @@ export default function JobHunterJobsPage() {
 
     return rankedJobs
       .filter(({ job, score, excluded }) => {
-        const matchesQuery =
-          query.length === 0 ||
-          job.title.toLowerCase().includes(query) ||
-          job.company.toLowerCase().includes(query);
+        const matchesQuery = query.length === 0 || job.title.toLowerCase().includes(query) || job.company.toLowerCase().includes(query);
         const minScoreThreshold = Math.max(0, Math.min(100, minScore));
         const matchesScore = excluded && !hideExcluded ? true : score >= minScoreThreshold;
         const jobDate = (job.postedAt ?? job.updatedAt).slice(0, 10);
@@ -97,17 +95,19 @@ export default function JobHunterJobsPage() {
     });
   };
 
-  const handleSync = async (trigger: "manual" | "automatic" = "manual") => {
+  const handleSync = useCallback(async (trigger: "manual" | "automatic" | "discovery" = "manual") => {
     if (syncInFlight.current) {
       return;
     }
 
     setError(null);
-
     const currentStore = loadJobHunterStore();
-    if (currentStore.sources.length === 0) {
+    const discovery = buildDiscoverySourcesFromPreferences(preferences, currentStore.sources);
+    const sourcesForSync = trigger === "manual" ? currentStore.sources : discovery.sources;
+
+    if (sourcesForSync.length === 0) {
       if (trigger === "manual") {
-        setError("Add at least one job source in Settings before syncing.");
+        setError("No advanced sources configured. Use Find jobs from my preferences for discovery-first results.");
       }
       return;
     }
@@ -122,10 +122,11 @@ export default function JobHunterJobsPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          sources: currentStore.sources,
+          sources: sourcesForSync,
         }),
       });
-      const payload = (await response.json()) as {
+
+      const payload = (await response.json().catch(() => ({}))) as {
         error?: string;
         jobsById?: Record<string, JobPosting>;
         diagnostics?: JobSourceSyncDiagnostic[];
@@ -135,16 +136,25 @@ export default function JobHunterJobsPage() {
       setSyncDiagnostics(payload.diagnostics ?? []);
 
       if (!payload.jobsById) {
-        throw new Error(payload.error ?? "Sync failed.");
+        throw new Error(toUserFacingSourceError(payload.error, "Discovery refresh failed."));
       }
 
       if (!response.ok && Object.keys(payload.jobsById).length === 0) {
-        throw new Error(payload.error ?? "Sync failed.");
+        throw new Error(toUserFacingSourceError(payload.error, "Discovery refresh failed."));
       }
 
       setJobsById(payload.jobsById);
       setLastSyncedAt(payload.lastSyncedAt);
-      setSyncMessage(trigger === "automatic" ? "Auto-sync ran because your jobs feed was stale." : null);
+
+      if (trigger === "automatic") {
+        setSyncMessage("Auto-discovery ran because your jobs feed was stale.");
+      } else if (trigger === "discovery") {
+        setSyncMessage(
+          `Discovery refreshed using a maintained ATS source catalog (${discovery.packIds.length} pack${discovery.packIds.length === 1 ? "" : "s"}; ${discovery.addedCount} source${discovery.addedCount === 1 ? "" : "s"} added).`,
+        );
+      } else {
+        setSyncMessage("Advanced source sync completed.");
+      }
 
       saveJobHunterStore({
         ...currentStore,
@@ -153,12 +163,12 @@ export default function JobHunterJobsPage() {
         lastSyncedAt: payload.lastSyncedAt,
       });
     } catch (syncError) {
-      setError(syncError instanceof Error ? syncError.message : "Unable to sync jobs.");
+      setError(toUserFacingSourceError(syncError instanceof Error ? syncError.message : undefined, "Unable to refresh jobs."));
     } finally {
       setIsSyncing(false);
       syncInFlight.current = false;
     }
-  };
+  }, [preferences]);
 
   useEffect(() => {
     if (autoSyncAttempted.current) {
@@ -166,8 +176,9 @@ export default function JobHunterJobsPage() {
     }
 
     const currentStore = loadJobHunterStore();
+    const discovery = buildDiscoverySourcesFromPreferences(preferences, currentStore.sources);
     const shouldSync = shouldAutoSyncOnJobsOpen({
-      sourcesCount: currentStore.sources.length,
+      sourcesCount: discovery.sources.length,
       lastSyncedAt: currentStore.lastSyncedAt,
       automation,
     });
@@ -176,27 +187,38 @@ export default function JobHunterJobsPage() {
     if (shouldSync) {
       void handleSync("automatic");
     }
-  }, [automation]);
+  }, [automation, handleSync, preferences]);
 
   return (
     <main className="mx-auto max-w-5xl space-y-6 p-6">
       <header className="space-y-2">
-        <h1 className="text-2xl font-semibold">Jobs</h1>
-        <p className="text-sm text-foreground/70">Automatically sync configured Greenhouse, Lever, Ashby, and SmartRecruiters boards each run.</p>
+        <h1 className="text-2xl font-semibold">Jobs Discovery</h1>
+        <p className="text-sm text-foreground/70">Primary workflow: preferences → discover → choose jobs → tailor resume → apply.</p>
       </header>
 
-      <section className="space-y-2 rounded-lg border border-border/60 p-4">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-foreground/70">Last sync: {lastSyncedAt ? new Date(lastSyncedAt).toLocaleString() : "Never"}</p>
-          <Button disabled={isSyncing} onClick={() => void handleSync()} type="button">
-            {isSyncing ? "Syncing..." : "Sync Jobs"}
-          </Button>
+      <section className="space-y-3 rounded-lg border border-border/60 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs text-foreground/70">Last discovery refresh: {lastSyncedAt ? new Date(lastSyncedAt).toLocaleString() : "Never"}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button disabled={isSyncing} onClick={() => void handleSync("discovery")} type="button">
+              {isSyncing ? "Refreshing..." : "Find jobs from my preferences"}
+            </Button>
+            <Button disabled={isSyncing} onClick={() => void handleSync()} type="button" variant="secondary">
+              Refresh advanced sources
+            </Button>
+          </div>
         </div>
+        <p className="text-xs text-foreground/70">
+          Discovery uses a maintained ATS source catalog matched to your preferences. Advanced source setup is optional.
+          <Link className="ml-1 text-blue-600 hover:underline" href="/job-hunter/settings">
+            Open Advanced Sources
+          </Link>
+        </p>
         {syncMessage ? <p className="text-xs text-blue-700">{syncMessage}</p> : null}
         {error ? <p className="text-xs text-red-600">{error}</p> : null}
         {syncDiagnostics.length > 0 ? (
           <div className="space-y-1 rounded-md border border-border/40 bg-muted/20 p-2 text-xs">
-            <p className="font-medium">Source sync results</p>
+            <p className="font-medium">Discovery/source refresh results</p>
             <ul className="space-y-1">
               {syncDiagnostics.map((item) => (
                 <li key={item.sourceId}>
@@ -208,7 +230,6 @@ export default function JobHunterJobsPage() {
             </ul>
           </div>
         ) : null}
-
       </section>
 
       <section className="space-y-2 rounded-lg border border-border/60 p-4">
@@ -233,9 +254,7 @@ export default function JobHunterJobsPage() {
 
       <section className="space-y-2">
         <h2 className="text-sm font-semibold">Top Matches Review Queue</h2>
-        <p className="text-xs text-foreground/70">
-          Automatically surfaced using your current ranking and preference rules. Jobs are not auto-selected for apply.
-        </p>
+        <p className="text-xs text-foreground/70">Automatically surfaced using your current ranking and preference rules. Jobs are not auto-selected for apply.</p>
         {topMatches.length > 0 ? (
           <JobList onToggleSelectedJob={handleToggleSelectedJob} rows={topMatches} selectedJobIds={selectedJobIds} title="Top matches" />
         ) : (
@@ -244,31 +263,14 @@ export default function JobHunterJobsPage() {
       </section>
 
       <section className="grid gap-3 rounded-lg border border-border/60 p-4 md:grid-cols-2">
-        <input
-          className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search title or company"
-          value={search}
-        />
-        <input
-          className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
-          onChange={(event) => setMinDate(event.target.value)}
-          type="date"
-          value={minDate}
-        />
+        <input className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm" onChange={(event) => setSearch(event.target.value)} placeholder="Search title or company" value={search} />
+        <input className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm" onChange={(event) => setMinDate(event.target.value)} type="date" value={minDate} />
       </section>
 
       <section className="grid gap-3 rounded-lg border border-border/60 p-4 md:grid-cols-3">
         <label className="space-y-1 text-sm">
           <span className="text-xs text-foreground/70">Minimum score</span>
-          <input
-            className="w-full rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
-            max={100}
-            min={0}
-            onChange={(event) => setMinScore(Number(event.target.value))}
-            type="number"
-            value={minScore}
-          />
+          <input className="w-full rounded-md border border-border/60 bg-background px-3 py-2 text-sm" max={100} min={0} onChange={(event) => setMinScore(Number(event.target.value))} type="number" value={minScore} />
         </label>
         <label className="flex items-center gap-2 text-sm">
           <input checked={hideExcluded} onChange={(event) => setHideExcluded(event.target.checked)} type="checkbox" />
@@ -280,9 +282,7 @@ export default function JobHunterJobsPage() {
       </section>
 
       {!hideExcluded && excludedVisible > 0 ? (
-        <section className="rounded-lg border border-amber-500/30 bg-amber-50/40 p-3 text-xs text-amber-900">
-          Showing {excludedVisible} excluded job(s). Reasons are based on your targeting preferences.
-        </section>
+        <section className="rounded-lg border border-amber-500/30 bg-amber-50/40 p-3 text-xs text-amber-900">Showing {excludedVisible} excluded job(s). Reasons are based on your targeting preferences.</section>
       ) : null}
 
       {filteredJobs.length > 0 ? (
@@ -302,7 +302,7 @@ export default function JobHunterJobsPage() {
           ) : null}
         </>
       ) : (
-        <EmptyState title="No jobs yet" description="Configure sources and click Sync Jobs to pull postings." />
+        <EmptyState title="No jobs yet" description="Use “Find jobs from my preferences” to run discovery without manual source setup." />
       )}
     </main>
   );
