@@ -4,6 +4,11 @@ import type { JobPosting, ResumeProfile, TailoredResumeVariant } from "./types";
 
 const DOCX_MIME_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
+// Base DOCX package generated from a standards-compliant blank document template.
+// We only replace word/document.xml content at export time.
+const DOCX_TEMPLATE_BASE64 =
+  "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";
+
 type ArtifactType = "resume" | "cover-letter";
 
 export type DocExportArtifact = {
@@ -62,100 +67,8 @@ const toDocxBytes = async (lines: string[]) => {
     "</w:document>",
   ].join("");
 
-  const ZipCtor = JSZip as unknown as { new (): JSZip };
-  const zip = new ZipCtor();
-  zip.file(
-    "[Content_Types].xml",
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-      '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
-      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
-      '<Default Extension="xml" ContentType="application/xml"/>' +
-      '<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>' +
-      '<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>' +
-      '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
-      '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>' +
-      '<Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/>' +
-      '<Override PartName="/word/fontTable.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.fontTable+xml"/>' +
-      '<Override PartName="/word/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>' +
-      "</Types>",
-  );
-  zip.file(
-    "_rels/.rels",
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
-      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>' +
-      '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>' +
-      '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>' +
-      "</Relationships>",
-  );
-  zip.file(
-    "docProps/core.xml",
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-      '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">' +
-      "<dc:title>Job Hunter Export</dc:title>" +
-      "<dc:creator>Partner Hub Job Hunter</dc:creator>" +
-      "<cp:lastModifiedBy>Partner Hub Job Hunter</cp:lastModifiedBy>" +
-      '<dcterms:created xsi:type="dcterms:W3CDTF">2024-01-01T00:00:00Z</dcterms:created>' +
-      '<dcterms:modified xsi:type="dcterms:W3CDTF">2024-01-01T00:00:00Z</dcterms:modified>' +
-      "</cp:coreProperties>",
-  );
-  zip.file(
-    "docProps/app.xml",
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-      '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">' +
-      "<Application>Partner Hub Job Hunter</Application>" +
-      "<DocSecurity>0</DocSecurity>" +
-      "<ScaleCrop>false</ScaleCrop>" +
-      "<Company></Company>" +
-      "<LinksUpToDate>false</LinksUpToDate>" +
-      "<SharedDoc>false</SharedDoc>" +
-      "<HyperlinksChanged>false</HyperlinksChanged>" +
-      "<AppVersion>1.0</AppVersion>" +
-      "</Properties>",
-  );
+  const zip = await JSZip.loadAsync(DOCX_TEMPLATE_BASE64, { base64: true });
   zip.file("word/document.xml", documentXml);
-  zip.file(
-    "word/_rels/document.xml.rels",
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
-      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
-      '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/>' +
-      '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/fontTable" Target="fontTable.xml"/>' +
-      '<Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>' +
-      "</Relationships>",
-  );
-  zip.file(
-    "word/styles.xml",
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-      '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
-      '<w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:eastAsia="Calibri" w:cs="Calibri"/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr></w:rPrDefault><w:pPrDefault/></w:docDefaults>' +
-      '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style>' +
-      "</w:styles>",
-  );
-  zip.file(
-    "word/settings.xml",
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-      '<w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
-      '<w:zoom w:percent="100"/>' +
-      '<w:defaultTabStop w:val="720"/>' +
-      '<w:compat><w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/></w:compat>' +
-      "</w:settings>",
-  );
-  zip.file(
-    "word/fontTable.xml",
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-      '<w:fonts xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
-      '<w:font w:name="Calibri"><w:panose1 w:val="020F0502020204030204"/><w:charset w:val="00"/><w:family w:val="swiss"/><w:pitch w:val="variable"/></w:font>' +
-      "</w:fonts>",
-  );
-  zip.file(
-    "word/theme/theme1.xml",
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-      '<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="Office Theme">' +
-      '<a:themeElements><a:clrScheme name="Office"><a:dk1><a:sysClr val="windowText" lastClr="000000"/></a:dk1><a:lt1><a:sysClr val="window" lastClr="FFFFFF"/></a:lt1></a:clrScheme><a:fontScheme name="Office"><a:majorFont><a:latin typeface="Calibri"/></a:majorFont><a:minorFont><a:latin typeface="Calibri"/></a:minorFont></a:fontScheme><a:fmtScheme name="Office"><a:fillStyleLst/><a:lnStyleLst/><a:effectStyleLst/><a:bgFillStyleLst/></a:fmtScheme></a:themeElements>' +
-      "</a:theme>",
-  );
-
   return zip.generateAsync({ type: "uint8array", compression: "DEFLATE", compressionOptions: { level: 6 } });
 };
 
