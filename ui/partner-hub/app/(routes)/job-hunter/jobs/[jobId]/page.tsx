@@ -157,23 +157,23 @@ export default function JobDetailPage({ params }: PageProps) {
     URL.revokeObjectURL(url);
   };
 
-  const handleDownloadTailoredResumeDocx = () => {
+  const handleDownloadTailoredResumeDocx = async () => {
     if (!job || !tailoringPacket) {
       return;
     }
 
     const profile = normalizeResumeProfile(store.resumeProfile ?? masterResume);
-    const artifact = generateTailoredResumeDocxArtifact(job, profile, tailoringPacket.tailoredResumeVariant);
+    const artifact = await generateTailoredResumeDocxArtifact(job, profile, tailoringPacket.tailoredResumeVariant);
     downloadBlob(artifact.bytes, artifact.mimeType, artifact.fileName);
   };
 
-  const handleDownloadCoverLetterDocx = () => {
+  const handleDownloadCoverLetterDocx = async () => {
     if (!job || !tailoringPacket) {
       return;
     }
 
     const profile = normalizeResumeProfile(store.resumeProfile ?? masterResume);
-    const artifact = generateCoverLetterDocxArtifact(job, profile, tailoringPacket.coverLetterDraft);
+    const artifact = await generateCoverLetterDocxArtifact(job, profile, tailoringPacket.coverLetterDraft);
     downloadBlob(artifact.bytes, artifact.mimeType, artifact.fileName);
   };
 
