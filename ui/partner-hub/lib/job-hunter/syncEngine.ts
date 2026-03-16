@@ -3,11 +3,11 @@ import { fetchAshbyJobs } from "./sources/ashby";
 import { fetchGreenhouseJobs } from "./sources/greenhouse";
 import { fetchLeverJobs } from "./sources/lever";
 import { fetchSmartRecruitersJobs } from "./sources/smartrecruiters";
-import type { JobPosting, JobSourceConfig } from "./types";
+import type { BoardType, JobPosting, JobSourceConfig, JobSourceSyncDiagnostic } from "./types";
 
-const detectSourceProvider = (job: JobPosting): JobPosting["sourceProvider"] => {
+const detectSourceProvider = (job: JobPosting): BoardType => {
   if (job.sourceProvider) {
-    return job.sourceProvider;
+    return job.sourceProvider as BoardType;
   }
 
   const prefix = job.id.split(":")[0];
@@ -57,32 +57,63 @@ const normalizeJobs = (jobs: JobPosting[]) => {
   });
 };
 
-export const runJobSync = async (sources: JobSourceConfig[]) => {
+export const fetchJobsForSource = async (source: JobSourceConfig): Promise<JobPosting[]> => {
+  if (source.boardType === "greenhouse") {
+    return fetchGreenhouseJobs(source);
+  }
+
+  if (source.boardType === "lever") {
+    return fetchLeverJobs(source);
+  }
+
+  if (source.boardType === "ashby") {
+    return fetchAshbyJobs(source);
+  }
+
+  if (source.boardType === "smartrecruiters") {
+    return fetchSmartRecruitersJobs(source);
+  }
+
+  return [];
+};
+
+const toSourceId = (source: JobSourceConfig) => `${source.boardType}:${source.boardToken}`;
+
+export const runJobSync = async (
+  sources: JobSourceConfig[],
+): Promise<{ jobs: JobPosting[]; diagnostics: JobSourceSyncDiagnostic[] }> => {
   const jobs: JobPosting[] = [];
+  const diagnostics: JobSourceSyncDiagnostic[] = [];
 
   for (const source of sources) {
-    if (source.boardType === "greenhouse") {
-      const results = await fetchGreenhouseJobs(source);
+    try {
+      const results = await fetchJobsForSource(source);
       jobs.push(...results);
-    }
-
-    if (source.boardType === "lever") {
-      const results = await fetchLeverJobs(source);
-      jobs.push(...results);
-    }
-
-    if (source.boardType === "ashby") {
-      const results = await fetchAshbyJobs(source);
-      jobs.push(...results);
-    }
-
-    if (source.boardType === "smartrecruiters") {
-      const results = await fetchSmartRecruitersJobs(source);
-      jobs.push(...results);
+      diagnostics.push({
+        sourceId: toSourceId(source),
+        company: source.company,
+        provider: source.boardType,
+        token: source.boardToken,
+        success: true,
+        jobsFetched: results.length,
+      });
+    } catch (error) {
+      diagnostics.push({
+        sourceId: toSourceId(source),
+        company: source.company,
+        provider: source.boardType,
+        token: source.boardToken,
+        success: false,
+        jobsFetched: 0,
+        error: error instanceof Error ? error.message : "Unknown sync error",
+      });
     }
   }
 
-  return normalizeJobs(jobs);
+  return {
+    jobs: normalizeJobs(jobs),
+    diagnostics,
+  };
 };
 
 export const __private__ = {

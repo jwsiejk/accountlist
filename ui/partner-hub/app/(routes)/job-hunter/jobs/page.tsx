@@ -15,7 +15,7 @@ import {
 import { getDefaultPreferences, normalizePreferences } from "@/lib/job-hunter/preferences";
 import { toggleJobSelection } from "@/lib/job-hunter/queue";
 import { loadJobHunterStore, saveJobHunterStore } from "@/lib/job-hunter/storage";
-import type { JobHunterAutomationSettings, JobHunterPreferences, JobPosting } from "@/lib/job-hunter/types";
+import type { JobHunterAutomationSettings, JobHunterPreferences, JobPosting, JobSourceSyncDiagnostic } from "@/lib/job-hunter/types";
 
 export default function JobHunterJobsPage() {
   const initialStore = loadJobHunterStore();
@@ -30,6 +30,7 @@ export default function JobHunterJobsPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [syncDiagnostics, setSyncDiagnostics] = useState<JobSourceSyncDiagnostic[]>([]);
   const [search, setSearch] = useState("");
   const [minScore, setMinScore] = useState(initialPreferences.minimumScore ?? 0);
   const [hideExcluded, setHideExcluded] = useState(true);
@@ -127,10 +128,17 @@ export default function JobHunterJobsPage() {
       const payload = (await response.json()) as {
         error?: string;
         jobsById?: Record<string, JobPosting>;
+        diagnostics?: JobSourceSyncDiagnostic[];
         lastSyncedAt?: string;
       };
 
-      if (!response.ok || !payload.jobsById) {
+      setSyncDiagnostics(payload.diagnostics ?? []);
+
+      if (!payload.jobsById) {
+        throw new Error(payload.error ?? "Sync failed.");
+      }
+
+      if (!response.ok && Object.keys(payload.jobsById).length === 0) {
         throw new Error(payload.error ?? "Sync failed.");
       }
 
@@ -186,6 +194,21 @@ export default function JobHunterJobsPage() {
         </div>
         {syncMessage ? <p className="text-xs text-blue-700">{syncMessage}</p> : null}
         {error ? <p className="text-xs text-red-600">{error}</p> : null}
+        {syncDiagnostics.length > 0 ? (
+          <div className="space-y-1 rounded-md border border-border/40 bg-muted/20 p-2 text-xs">
+            <p className="font-medium">Source sync results</p>
+            <ul className="space-y-1">
+              {syncDiagnostics.map((item) => (
+                <li key={item.sourceId}>
+                  <span className={item.success ? "text-emerald-700" : "text-red-600"}>{item.success ? "✓" : "✕"}</span>{" "}
+                  {item.company} · {item.provider} · {item.token} · {item.jobsFetched} job(s)
+                  {item.error ? ` · ${item.error}` : ""}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
       </section>
 
       <section className="space-y-2 rounded-lg border border-border/60 p-4">

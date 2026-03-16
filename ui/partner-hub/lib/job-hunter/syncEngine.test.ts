@@ -1,12 +1,16 @@
 import * as assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { afterEach, describe, it } from "node:test";
 
 import { __private__, runJobSync } from "./syncEngine";
 
-describe("job hunter sync engine", () => {
-  it("runs board adapters and syncs jobs", async () => {
-    const previousFetch = globalThis.fetch;
+const previousFetch = globalThis.fetch;
 
+afterEach(() => {
+  globalThis.fetch = previousFetch;
+});
+
+describe("job hunter sync engine", () => {
+  it("runs board adapters and syncs jobs with diagnostics", async () => {
     const called: string[] = [];
     globalThis.fetch = (async (input: URL | RequestInfo) => {
       const url = String(input);
@@ -48,7 +52,7 @@ describe("job hunter sync engine", () => {
       } as Response;
     }) as typeof fetch;
 
-    const jobs = await runJobSync([
+    const result = await runJobSync([
       { company: "Acme", boardType: "greenhouse", boardToken: "acme-gh" },
       { company: "Acme", boardType: "lever", boardToken: "acme-lever" },
       { company: "Acme", boardType: "ashby", boardToken: "acme-ashby" },
@@ -60,9 +64,60 @@ describe("job hunter sync engine", () => {
     assert.ok(called.some((url) => url.includes("api.lever.co/v0/postings/acme-lever")));
     assert.ok(called.some((url) => url.includes("jobs.ashbyhq.com/api/non-user-portal/job-board")));
     assert.ok(called.some((url) => url.includes("api.smartrecruiters.com/v1/companies/Acme/postings?limit=100")));
-    assert.equal(jobs.length, 4);
+    assert.equal(result.jobs.length, 4);
+    assert.equal(result.diagnostics.length, 4);
+    assert.ok(result.diagnostics.every((item) => item.success));
+  });
 
-    globalThis.fetch = previousFetch;
+  it("isolates source failures so one provider does not fail the whole sync", async () => {
+    globalThis.fetch = (async (input: URL | RequestInfo) => {
+      const url = String(input);
+
+      if (url.includes("boards-api.greenhouse.io")) {
+        throw new Error("network exploded");
+      }
+
+      if (url.includes("api.lever.co")) {
+        return {
+          ok: true,
+          json: async () => [{ id: "abc", text: "PM", hostedUrl: "https://lever/job/abc" }],
+        } as Response;
+      }
+
+      return {
+        ok: true,
+        json: async () => ({ content: [], jobAd: { sections: [] } }),
+      } as Response;
+    }) as typeof fetch;
+
+    const result = await runJobSync([
+      { company: "Acme", boardType: "greenhouse", boardToken: "acme-gh" },
+      { company: "Acme", boardType: "lever", boardToken: "acme-lever" },
+    ]);
+
+    assert.equal(result.jobs.length, 1);
+    assert.equal(result.diagnostics.length, 2);
+    const greenhouse = result.diagnostics.find((item) => item.provider === "greenhouse");
+    const lever = result.diagnostics.find((item) => item.provider === "lever");
+    assert.equal(greenhouse?.success, false);
+    assert.match(greenhouse?.error ?? "", /network exploded/i);
+    assert.equal(lever?.success, true);
+    assert.equal(lever?.jobsFetched, 1);
+  });
+
+  it("returns failure diagnostics when all sources fail", async () => {
+    globalThis.fetch = (async () => {
+      throw new Error("provider unavailable");
+    }) as typeof fetch;
+
+    const result = await runJobSync([
+      { company: "Acme", boardType: "greenhouse", boardToken: "acme-gh" },
+      { company: "Acme", boardType: "lever", boardToken: "acme-lever" },
+    ]);
+
+    assert.equal(result.jobs.length, 0);
+    assert.equal(result.diagnostics.length, 2);
+    assert.ok(result.diagnostics.every((item) => !item.success));
   });
 
   it("normalizes jobs and deduplicates by stable id", () => {

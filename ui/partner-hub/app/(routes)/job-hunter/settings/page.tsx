@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { detectSourceFromUrl } from "@/lib/job-hunter/sourceDetection";
 import { loadJobHunterStore, saveJobHunterStore } from "@/lib/job-hunter/storage";
 import { BOARD_TYPE_OPTIONS, getSourceValidationMessage, truncateBoardToken } from "@/lib/job-hunter/sourceSettings";
-import type { BoardType } from "@/lib/job-hunter/types";
+import type { BoardType, JobSourceSyncDiagnostic } from "@/lib/job-hunter/types";
 
 const DEFAULT_FORM = {
   company: "",
@@ -20,6 +20,9 @@ export default function JobHunterSettingsPage() {
   const [detectionUrl, setDetectionUrl] = useState("");
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const [detectionMessage, setDetectionMessage] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<JobSourceSyncDiagnostic | null>(null);
+  const [testError, setTestError] = useState<string | null>(null);
+  const [isTesting, setIsTesting] = useState(false);
 
   const detectSource = () => {
     const detected = detectSourceFromUrl(detectionUrl);
@@ -36,6 +39,52 @@ export default function JobHunterSettingsPage() {
     }));
     setDetectionMessage(`Detected ${detected.boardType} source with token \"${detected.boardToken}\".`);
     setValidationMessage(null);
+    setTestResult(null);
+    setTestError(null);
+  };
+
+
+  const testSource = async () => {
+    const message = getSourceValidationMessage(form, []);
+    if (message) {
+      setValidationMessage(message);
+      return;
+    }
+
+    setIsTesting(true);
+    setTestError(null);
+    setTestResult(null);
+
+    try {
+      const response = await fetch("/api/job-hunter/source-test", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          source: {
+            company: form.company.trim(),
+            boardType: form.boardType,
+            boardToken: form.boardToken.trim(),
+          },
+        }),
+      });
+
+      const payload = (await response.json()) as { error?: string; result?: JobSourceSyncDiagnostic };
+
+      if (!response.ok || !payload.result) {
+        throw new Error(payload.error ?? "Source test failed.");
+      }
+
+      setTestResult(payload.result);
+      if (!payload.result.success && payload.result.error) {
+        setTestError(payload.result.error);
+      }
+    } catch (error) {
+      setTestError(error instanceof Error ? error.message : "Source test failed.");
+    } finally {
+      setIsTesting(false);
+    }
   };
 
   const addSource = (event: FormEvent<HTMLFormElement>) => {
@@ -66,6 +115,8 @@ export default function JobHunterSettingsPage() {
     setStore(nextStore);
     setForm(DEFAULT_FORM);
     setValidationMessage(null);
+    setTestResult(null);
+    setTestError(null);
   };
 
   const deleteSource = (index: number) => {
@@ -147,9 +198,21 @@ export default function JobHunterSettingsPage() {
             placeholder="Board token / slug"
             value={form.boardToken}
           />
+          <div className="flex items-center gap-2 md:col-span-3">
+            <Button disabled={isTesting} type="submit">Add source</Button>
+            <Button disabled={isTesting} onClick={() => void testSource()} type="button" variant="secondary">
+              {isTesting ? "Testing..." : "Test Source"}
+            </Button>
+          </div>
           <div className="md:col-span-3">
-            <Button type="submit">Add source</Button>
             {validationMessage ? <p className="mt-2 text-sm text-red-600">{validationMessage}</p> : null}
+            {testError ? <p className="mt-2 text-sm text-red-600">{testError}</p> : null}
+            {testResult ? (
+              <p className={testResult.success ? "mt-2 text-sm text-emerald-700" : "mt-2 text-sm text-foreground/80"}>
+                {testResult.success ? "Success" : "Failed"} · {testResult.provider} · {testResult.token} · {testResult.jobsFetched} job(s)
+                {testResult.error ? ` · ${testResult.error}` : ""}
+              </p>
+            ) : null}
           </div>
         </form>
       </section>
