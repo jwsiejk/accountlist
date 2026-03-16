@@ -8,11 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { applicationReducer, createApplicationFromJob, getApplicationChecklist, getApplicationWorkflow, syncWorkflowSelectionWithQueue } from "@/lib/job-hunter/applications";
 import { buildApplyPacket, buildApplyPrepItems } from "@/lib/job-hunter/applyPacket";
+import { generateCoverLetterDocxArtifact, generateTailoredResumeDocxArtifact } from "@/lib/job-hunter/docExports";
 import { normalizePreferences } from "@/lib/job-hunter/preferences";
 import { masterResume } from "@/lib/job-hunter/resume/masterResume";
 import { generateTailoringPacket } from "@/lib/job-hunter/resume/tailor";
 import { scoreJobFit } from "@/lib/job-hunter/scoring";
 import { loadJobHunterStore, saveJobHunterStore } from "@/lib/job-hunter/storage";
+import { normalizeResumeProfile } from "@/lib/job-hunter/resumeProfile";
 
 type PageProps = {
   params: {
@@ -142,6 +144,39 @@ export default function JobDetailPage({ params }: PageProps) {
     URL.revokeObjectURL(url);
   };
 
+  const downloadBlob = (content: BlobPart | Uint8Array, type: string, filename: string) => {
+    const blobContent = content instanceof Uint8Array
+      ? (content.buffer.slice(content.byteOffset, content.byteOffset + content.byteLength) as ArrayBuffer)
+      : content;
+    const blob = new Blob([blobContent], { type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadTailoredResumeDocx = () => {
+    if (!job || !tailoringPacket) {
+      return;
+    }
+
+    const profile = normalizeResumeProfile(store.resumeProfile ?? masterResume);
+    const artifact = generateTailoredResumeDocxArtifact(job, profile, tailoringPacket.tailoredResumeVariant);
+    downloadBlob(artifact.bytes, artifact.mimeType, artifact.fileName);
+  };
+
+  const handleDownloadCoverLetterDocx = () => {
+    if (!job || !tailoringPacket) {
+      return;
+    }
+
+    const profile = normalizeResumeProfile(store.resumeProfile ?? masterResume);
+    const artifact = generateCoverLetterDocxArtifact(job, profile, tailoringPacket.coverLetterDraft);
+    downloadBlob(artifact.bytes, artifact.mimeType, artifact.fileName);
+  };
+
   const copyText = (text: string) => {
     void navigator.clipboard.writeText(text);
   };
@@ -268,6 +303,7 @@ export default function JobDetailPage({ params }: PageProps) {
             <p className="font-medium">Tailored resume variant preview</p>
             <pre className="whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-xs">{tailoringPacket.tailoredResumeVariant.markdown}</pre>
             <div className="flex flex-wrap gap-2">
+              <Button onClick={handleDownloadTailoredResumeDocx} size="sm" type="button">Download tailored resume (.docx)</Button>
               <Button onClick={handleDownloadTailoredResumeMarkdown} size="sm" type="button">Download tailored resume (md)</Button>
               <Button onClick={handleDownloadTailoredResumeText} size="sm" type="button">Download tailored resume (txt)</Button>
               <Button onClick={() => copyText(tailoringPacket.tailoredResumeVariant.markdown)} size="sm" type="button" variant="secondary">Copy tailored resume (md)</Button>
@@ -285,6 +321,7 @@ export default function JobDetailPage({ params }: PageProps) {
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
             <div className="flex flex-wrap gap-2">
+              <Button onClick={handleDownloadCoverLetterDocx} size="sm" type="button">Download cover letter (.docx)</Button>
               <Button onClick={handleDownloadApplyPacket} size="sm" type="button">Download Apply Packet</Button>
               <Button onClick={() => copyText(applyPacket.fullPacketMarkdown)} size="sm" type="button" variant="secondary">Copy Apply Packet</Button>
               <Button onClick={() => copyText(applyPacket.coverLetterMarkdown)} size="sm" type="button" variant="secondary">Copy Cover Letter</Button>
