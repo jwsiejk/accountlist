@@ -8,6 +8,8 @@ export type JobSourceConfig = {
   boardToken: string;
 };
 
+export type JobSourceOrigin = "catalog" | "manual" | "catalog+manual";
+
 export type JobSourceSyncDiagnostic = {
   sourceId: string;
   company: string;
@@ -16,6 +18,7 @@ export type JobSourceSyncDiagnostic = {
   success: boolean;
   jobsFetched: number;
   error?: string;
+  sourceOrigin?: JobSourceOrigin;
 };
 
 export type ApplicationStatus = "prepared" | "applied" | "interview" | "rejected" | "offer";
