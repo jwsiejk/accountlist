@@ -14,7 +14,7 @@ import {
 } from "@/lib/job-hunter/discoveryAutomation";
 import { getDefaultPreferences, normalizePreferences } from "@/lib/job-hunter/preferences";
 import { toggleJobSelection } from "@/lib/job-hunter/queue";
-import { buildDiscoverySourcesFromPreferences } from "@/lib/job-hunter/sourceCatalog";
+import { buildDiscoveryPlanFromPreferences, getCompactDiscoverySummary, getSourceOriginMap } from "@/lib/job-hunter/sourceCatalog";
 import { toUserFacingSourceError } from "@/lib/job-hunter/sourceSettings";
 import { loadJobHunterStore, saveJobHunterStore } from "@/lib/job-hunter/storage";
 import type { JobHunterAutomationSettings, JobHunterPreferences, JobPosting, JobSourceSyncDiagnostic } from "@/lib/job-hunter/types";
@@ -102,12 +102,12 @@ export default function JobHunterJobsPage() {
 
     setError(null);
     const currentStore = loadJobHunterStore();
-    const discovery = buildDiscoverySourcesFromPreferences(preferences, currentStore.sources);
-    const sourcesForSync = trigger === "manual" ? currentStore.sources : discovery.sources;
+    const discoveryPlan = buildDiscoveryPlanFromPreferences(preferences, currentStore.sources);
+    const sourcesForSync = trigger === "manual" ? discoveryPlan.manualSources : discoveryPlan.mergedSources;
 
     if (sourcesForSync.length === 0) {
       if (trigger === "manual") {
-        setError("No advanced sources configured. Use Find jobs from my preferences for discovery-first results.");
+        setError("No advanced sources configured yet. Primary discovery already works from your maintained preference-driven catalog.");
       }
       return;
     }
@@ -133,7 +133,13 @@ export default function JobHunterJobsPage() {
         lastSyncedAt?: string;
       };
 
-      setSyncDiagnostics(payload.diagnostics ?? []);
+      const originMap = getSourceOriginMap(discoveryPlan);
+      const diagnosticsWithOrigins: JobSourceSyncDiagnostic[] = (payload.diagnostics ?? []).map((item) => ({
+        ...item,
+        sourceOrigin: originMap.get(`${item.provider}:${item.token.toLowerCase()}`) ?? (trigger === "manual" ? "manual" : "catalog"),
+      }));
+
+      setSyncDiagnostics(diagnosticsWithOrigins);
 
       if (!payload.jobsById) {
         throw new Error(toUserFacingSourceError(payload.error, "Discovery refresh failed."));
@@ -150,10 +156,10 @@ export default function JobHunterJobsPage() {
         setSyncMessage("Auto-discovery ran because your jobs feed was stale.");
       } else if (trigger === "discovery") {
         setSyncMessage(
-          `Discovery refreshed using a maintained ATS source catalog (${discovery.packIds.length} pack${discovery.packIds.length === 1 ? "" : "s"}; ${discovery.addedCount} source${discovery.addedCount === 1 ? "" : "s"} added).`,
+          `Discovery refreshed from your preferences using ${getCompactDiscoverySummary(discoveryPlan)}.`,
         );
       } else {
-        setSyncMessage("Advanced source sync completed.");
+        setSyncMessage(`Advanced source sync completed for ${discoveryPlan.manualSources.length} configured source${discoveryPlan.manualSources.length === 1 ? "" : "s"}.`);
       }
 
       saveJobHunterStore({
@@ -176,9 +182,9 @@ export default function JobHunterJobsPage() {
     }
 
     const currentStore = loadJobHunterStore();
-    const discovery = buildDiscoverySourcesFromPreferences(preferences, currentStore.sources);
+    const discoveryPlan = buildDiscoveryPlanFromPreferences(preferences, currentStore.sources);
     const shouldSync = shouldAutoSyncOnJobsOpen({
-      sourcesCount: discovery.sources.length,
+      sourcesCount: discoveryPlan.mergedSources.length,
       lastSyncedAt: currentStore.lastSyncedAt,
       automation,
     });
@@ -209,7 +215,7 @@ export default function JobHunterJobsPage() {
           </div>
         </div>
         <p className="text-xs text-foreground/70">
-          Discovery uses a maintained ATS source catalog matched to your preferences. Advanced source setup is optional.
+          Discovery uses maintained ATS source packs selected from your existing preferences. Advanced/manual sources can supplement the catalog but are not required.
           <Link className="ml-1 text-blue-600 hover:underline" href="/job-hunter/settings">
             Open Advanced Sources
           </Link>
@@ -224,6 +230,7 @@ export default function JobHunterJobsPage() {
                 <li key={item.sourceId}>
                   <span className={item.success ? "text-emerald-700" : "text-red-600"}>{item.success ? "✓" : "✕"}</span>{" "}
                   {item.company} · {item.provider} · {item.token} · {item.jobsFetched} job(s)
+                  {item.sourceOrigin ? ` · ${item.sourceOrigin}` : ""}
                   {item.error ? ` · ${item.error}` : ""}
                 </li>
               ))}
