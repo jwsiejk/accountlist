@@ -2,13 +2,16 @@ import * as assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { getDefaultPreferences } from "./preferences";
+import { DEFAULT_PACK_ORDER, RAW_CATALOG_SOURCE_PACKS } from "./sourceCatalogData";
 import {
   buildDiscoveryPlanFromPreferences,
   buildDiscoverySourcesFromPreferences,
   getCompactDiscoverySummary,
   getSourceOriginMap,
   selectCatalogPacksForPreferences,
+  JOB_SOURCE_PACKS,
 } from "./sourceCatalog";
+import { dedupeSourcesByProviderToken, validateCatalogDefinition } from "./sourceCatalogValidation";
 
 describe("job hunter source catalog discovery", () => {
   it("selects James-aligned packs from default preferences", () => {
@@ -25,6 +28,7 @@ describe("job hunter source catalog discovery", () => {
         "storage-data-protection",
       ],
     );
+    assert.equal(JOB_SOURCE_PACKS.reduce((count, pack) => count + pack.sources.length, 0) >= 60, true);
   });
 
   it("selects multiple packs when preferences span role families", () => {
@@ -57,10 +61,31 @@ describe("job hunter source catalog discovery", () => {
     assert.equal(plan.manualSources.length, 2);
     assert.equal(plan.mergedSources.filter((source) => source.boardToken === "snowflake").length, 1);
     assert.equal(plan.mergedSources.some((source) => source.boardToken === "customco"), true);
+    assert.equal(plan.manualSources.some((source) => source.boardToken === "snowflake"), true);
 
     const originMap = getSourceOriginMap(plan);
     assert.equal(originMap.get("lever:snowflake"), "catalog+manual");
     assert.equal(originMap.get("lever:customco"), "manual");
+  });
+
+
+  it("validates and normalizes externalized catalog data", () => {
+    const { errors, packs } = validateCatalogDefinition(RAW_CATALOG_SOURCE_PACKS, DEFAULT_PACK_ORDER);
+
+    assert.deepEqual(errors, []);
+    assert.equal(packs.length, DEFAULT_PACK_ORDER.length);
+    assert.equal(packs.every((pack) => pack.sources.every((source) => source.boardToken === source.boardToken.toLowerCase())), true);
+  });
+
+  it("dedupes by provider/token after normalizing source fields", () => {
+    const deduped = dedupeSourcesByProviderToken([
+      { company: "Snowflake", boardType: "lever", boardToken: "SnowFlake" },
+      { company: "Snowflake, Inc.", boardType: "lever", boardToken: "snowflake" },
+      { company: "Rubrik", boardType: "greenhouse", boardToken: "rubrik" },
+    ]);
+
+    assert.equal(deduped.length, 2);
+    assert.deepEqual(deduped[0], { company: "Snowflake, Inc.", boardType: "lever", boardToken: "snowflake" });
   });
 
   it("supports discovery when no manual sources exist", () => {
