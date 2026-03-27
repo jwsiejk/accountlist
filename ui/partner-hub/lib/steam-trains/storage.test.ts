@@ -5,10 +5,15 @@ import {
   DEFAULT_STEAM_TRAIN_ID,
   STEAM_TRAIN_CATALOG,
 } from "./trainCatalog";
+import { getDefaultTrainBuilderSelection } from "./builder";
 import {
+  STEAM_TRAINS_CUSTOM_STORAGE_KEY,
   STEAM_TRAINS_STORAGE_KEY,
+  createSavedCustomTrain,
   getDefaultSteamTrainsPreferences,
+  loadSavedCustomTrains,
   loadSteamTrainsPreferences,
+  saveCustomTrains,
   saveSteamTrainsPreferences,
   sanitizePreferences,
 } from "./storage";
@@ -77,5 +82,34 @@ describe("steam trains storage", () => {
     assert.equal(loaded.helperMode, true);
     assert.equal(loaded.lastMode, "levels");
     assert.equal(loaded.selectedTrainId, DEFAULT_STEAM_TRAIN_ID);
+  });
+
+
+  it("stores and loads multiple custom trains", () => {
+    const storage = new MemoryStorage();
+    const selection = getDefaultTrainBuilderSelection();
+    const first = createSavedCustomTrain({ ...selection, trainName: "Comet" }, 1000);
+    const second = createSavedCustomTrain({ ...selection, trainName: "River" }, 2000);
+
+    saveCustomTrains(storage, [first, second]);
+
+    const loaded = loadSavedCustomTrains(storage);
+    assert.equal(loaded.length, 2);
+    assert.equal(loaded[0]?.id, first.id);
+    assert.equal(loaded[1]?.id, second.id);
+    assert.equal(loaded[0]?.train.displayName.includes("Comet"), true);
+    assert.notEqual(storage.getItem(STEAM_TRAINS_CUSTOM_STORAGE_KEY), null);
+  });
+
+  it("drops malformed custom train payloads", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(
+      STEAM_TRAINS_CUSTOM_STORAGE_KEY,
+      JSON.stringify([{ id: "ok", selection: { wheelArrangementId: "missing" } }, { nope: true }]),
+    );
+
+    const loaded = loadSavedCustomTrains(storage);
+    assert.equal(loaded.length, 1);
+    assert.equal(loaded[0]?.train.id, "ok");
   });
 });

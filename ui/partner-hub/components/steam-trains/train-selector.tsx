@@ -1,7 +1,8 @@
-import { STEAM_TRAIN_CATALOG } from "@/lib/steam-trains/trainCatalog";
+import type { TrainDefinition } from "@/lib/steam-trains/types";
 
 type TrainSelectorProps = {
   selectedTrainId: string;
+  trains: TrainDefinition[];
   onSelectTrain: (trainId: string) => void;
 };
 
@@ -12,24 +13,19 @@ const locomotiveToTenderGap = 20;
 const carGap = 10;
 
 const getTrainRole = (trainId: string): string => {
-  if (trainId.includes("switcher")) {
-    return "Switcher";
-  }
-  if (trainId.includes("passenger")) {
-    return "Passenger";
-  }
-  if (trainId.includes("freight")) {
-    return "Freight";
-  }
+  if (trainId.includes("switcher")) return "Switcher";
+  if (trainId.includes("passenger")) return "Passenger";
+  if (trainId.includes("freight")) return "Freight";
+  if (trainId.startsWith("custom-train-")) return "Custom";
   return "Steam";
 };
 
-export function TrainSelector({ selectedTrainId, onSelectTrain }: TrainSelectorProps) {
+export function TrainSelector({ selectedTrainId, trains, onSelectTrain }: TrainSelectorProps) {
   return (
     <section className="space-y-2" aria-label="Train selection">
       <h2 className="text-lg font-bold">Choose your train</h2>
       <div className="grid gap-3 md:grid-cols-3">
-        {STEAM_TRAIN_CATALOG.map((train) => {
+        {trains.map((train) => {
           const selected = train.id === selectedTrainId;
           const loco = train.locomotive;
           const tenderLength = train.tender?.length ?? 0;
@@ -46,8 +42,7 @@ export function TrainSelector({ selectedTrainId, onSelectTrain }: TrainSelectorP
           const scale = Math.min(0.65, usablePreviewWidth / Math.max(1, fullConsistLength));
           const locomotiveStart = previewPadding;
           const tenderStart = locomotiveStart + (loco.bodyLength + locomotiveToTenderGap) * scale;
-          const rollingStockStart =
-            tenderStart + (train.tender ? train.tender.length + locomotiveToTenderGap : 0) * scale;
+          const rollingStockStart = tenderStart + (train.tender ? train.tender.length + locomotiveToTenderGap : 0) * scale;
 
           return (
             <button
@@ -107,10 +102,7 @@ export function TrainSelector({ selectedTrainId, onSelectTrain }: TrainSelectorP
                   {Array.from({ length: loco.wheelSet.count }).map((_, wheelIndex) => (
                     <circle
                       key={`${train.id}-wheel-${wheelIndex}`}
-                      cx={
-                        locomotiveStart +
-                        (loco.wheelSet.offsetX + wheelIndex * loco.wheelSet.spacing) * scale
-                      }
+                      cx={locomotiveStart + (loco.wheelSet.offsetX + wheelIndex * loco.wheelSet.spacing) * scale}
                       cy={baseY}
                       r={loco.wheelSet.radius * scale}
                       fill="#111827"
@@ -127,16 +119,7 @@ export function TrainSelector({ selectedTrainId, onSelectTrain }: TrainSelectorP
                   )}
                   {train.rollingStock.map((car, carIndex) => {
                     const x = rollingStockStart + carIndex * (car.length + carGap) * scale;
-                    return (
-                      <rect
-                        key={car.id}
-                        x={x}
-                        y={baseY - car.height * scale}
-                        width={car.length * scale}
-                        height={car.height * scale}
-                        fill={car.color}
-                      />
-                    );
+                    return <rect key={car.id} x={x} y={baseY - car.height * scale} width={car.length * scale} height={car.height * scale} fill={car.color} />;
                   })}
                 </svg>
               </div>
