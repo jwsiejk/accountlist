@@ -13,6 +13,7 @@ export function LeftNav() {
   const toolLinks = [
     { name: "Energy Tool", href: "/tools/energy" },
     { name: "CHIP-8", href: "/tools/chip8" },
+    { name: "Steam Trains", href: "/tools/steam-trains" },
     ...(aiInterviewEnabled ? [{ name: "AI Interview", href: "/tools/interview" }] : []),
   ];
   const links = [

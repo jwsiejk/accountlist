@@ -1,0 +1,115 @@
+export type WheelSetDefinition = {
+  id: string;
+  count: number;
+  radius: number;
+  spacing: number;
+  offsetX: number;
+};
+
+export type DrivingRodDefinition = {
+  id: string;
+  wheelIndex: number;
+  crankRadius: number;
+  rodLength: number;
+  anchorOffsetY: number;
+  thickness: number;
+};
+
+export type SteamEmitterDefinition = {
+  id: string;
+  offsetX: number;
+  offsetY: number;
+  ambientRate: number;
+  ambientVelocity: number;
+  puffRate: number;
+  puffVelocity: number;
+  maxLifetimeMs: number;
+};
+
+export type LocomotiveDefinition = {
+  id: string;
+  name: string;
+  bodyLength: number;
+  bodyHeight: number;
+  color: string;
+  trimColor: string;
+  wheelSet: WheelSetDefinition;
+  drivingRod: DrivingRodDefinition;
+  steamEmitter: SteamEmitterDefinition;
+};
+
+export type TenderDefinition = {
+  id: string;
+  length: number;
+  height: number;
+  color: string;
+};
+
+export type RollingStockDefinition = {
+  id: string;
+  type: "tender" | "car";
+  length: number;
+  height: number;
+  color: string;
+};
+
+export type TrainDefinition = {
+  id: string;
+  displayName: string;
+  locomotive: LocomotiveDefinition;
+  tender?: TenderDefinition;
+  rollingStock: RollingStockDefinition[];
+  baseSpeed: number;
+};
+
+export type LevelDefinition = {
+  id: string;
+  name: string;
+  width: number;
+  startX: number;
+  switchX: number;
+  forkLength: number;
+  destinationX: number;
+  safeBranch: "main" | "siding";
+  crashResetDelayMs: number;
+};
+
+export type TrackSwitchState = "main" | "siding";
+export type PlayState = "running" | "crashed" | "completed";
+
+export type SteamParticle = {
+  id: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  lifeMs: number;
+  maxLifeMs: number;
+  alpha: number;
+};
+
+export type SimulationFrame = {
+  elapsedMs: number;
+  dtMs: number;
+};
+
+export type TrainRuntimeState = {
+  definition: TrainDefinition;
+  x: number;
+  y: number;
+  speed: number;
+  wheelRotationRad: number;
+};
+
+export type SteamTrainsSimulationState = {
+  train: TrainRuntimeState;
+  level: LevelDefinition;
+  switchState: TrackSwitchState;
+  playState: PlayState;
+  elapsedMs: number;
+  crashAtMs: number | null;
+  whistleAtMs: number | null;
+  particles: SteamParticle[];
+  nextParticleId: number;
+};
