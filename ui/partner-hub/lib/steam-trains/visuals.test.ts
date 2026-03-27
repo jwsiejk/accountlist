@@ -2,7 +2,7 @@ import * as assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { STEAM_TRAIN_CATALOG } from "./trainCatalog";
-import { countChuffPulses, getLocomotiveSilhouette, getTrainLayout } from "./visuals";
+import { countChuffPulses, getCarWindowColor, getLocomotiveSilhouette, getPreviewPalette, getTrainLayout } from "./visuals";
 
 describe("steam train visual helpers", () => {
   it("builds positive layouts for every stock train", () => {
@@ -28,5 +28,17 @@ describe("steam train visual helpers", () => {
     assert.equal(countChuffPulses(0, Math.PI / 4), 0);
     assert.equal(countChuffPulses(0, Math.PI / 2 + 0.01), 1);
     assert.equal(countChuffPulses(0, Math.PI * 2 + 0.01), 4);
+  });
+
+  it("provides stable preview palette colors", () => {
+    const palette = getPreviewPalette();
+    assert.equal(typeof palette.railBed, "string");
+    assert.equal(typeof palette.wheelFill, "string");
+    assert.equal(typeof palette.runningBoard, "string");
+  });
+
+  it("maps window color by train role", () => {
+    assert.equal(getCarWindowColor("starter-passenger"), "#fef3c7");
+    assert.equal(getCarWindowColor("starter-freight"), "#334155");
   });
 });
