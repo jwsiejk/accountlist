@@ -9,10 +9,10 @@ import {
   triggerSteamPuff,
 } from "./engine";
 import { getLevelDefinition } from "./levels";
-import { getTrainDefinition } from "./trainCatalog";
+import { DEFAULT_STEAM_TRAIN_ID, getTrainDefinition } from "./trainCatalog";
 
 const createLevelState = (levelId: string, mode: "levels" | "free-play" = "levels") =>
-  createSimulation(getTrainDefinition("big-boy-junior"), getLevelDefinition(levelId), mode);
+  createSimulation(getTrainDefinition(DEFAULT_STEAM_TRAIN_ID), getLevelDefinition(levelId), mode);
 
 describe("steam trains engine", () => {
   it("advances position and wheel rotation while running", () => {

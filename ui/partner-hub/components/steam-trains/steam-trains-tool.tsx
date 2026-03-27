@@ -28,16 +28,17 @@ import {
   saveSteamTrainsPreferences,
   type SteamTrainsPreferences,
 } from "@/lib/steam-trains/storage";
-import { getTrainDefinition } from "@/lib/steam-trains/trainCatalog";
+import { DEFAULT_STEAM_TRAIN_ID, getTrainDefinition } from "@/lib/steam-trains/trainCatalog";
 import type { GameMode, SteamTrainsSimulationState, TrackSwitchState } from "@/lib/steam-trains/types";
 
-const TRAIN_ID = "big-boy-junior";
+import { TrainSelector } from "./train-selector";
+
 const INACTIVITY_HELPER_MS = 2600;
 
-const createState = (mode: GameMode, levelOrder: number) => {
+const createState = (mode: GameMode, levelOrder: number, trainId: string) => {
   const fallback = STEAM_TRAINS_LEVELS[0];
   const level = getLevelByOrder(levelOrder) ?? fallback;
-  return createSimulation(getTrainDefinition(TRAIN_ID), level, mode);
+  return createSimulation(getTrainDefinition(trainId), level, mode);
 };
 
 export function SteamTrainsTool() {
@@ -50,7 +51,7 @@ export function SteamTrainsTool() {
   const [preferences, setPreferences] = useState<SteamTrainsPreferences>(getDefaultSteamTrainsPreferences());
   const [selectedLevelOrder, setSelectedLevelOrder] = useState<number>(1);
   const [mode, setMode] = useState<GameMode>("levels");
-  const [state, setState] = useState<SteamTrainsSimulationState>(() => createState("levels", 1));
+  const [state, setState] = useState<SteamTrainsSimulationState>(() => createState("levels", 1, DEFAULT_STEAM_TRAIN_ID));
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -65,7 +66,7 @@ export function SteamTrainsTool() {
     setPreferences(normalizedPreferences);
     setMode(nextMode);
     setSelectedLevelOrder(nextSelectedLevel);
-    setState(createState(nextMode, nextSelectedLevel));
+    setState(createState(nextMode, nextSelectedLevel, normalizedPreferences.selectedTrainId));
     lastInteractionRef.current = performance.now();
   }, []);
 
@@ -188,14 +189,14 @@ export function SteamTrainsTool() {
     setMode(nextMode);
     setPreferences((prev) => ({ ...prev, lastMode: nextMode }));
     setSelectedLevelOrder(nextSelectedLevel);
-    setState(createState(nextMode, nextSelectedLevel));
+    setState(createState(nextMode, nextSelectedLevel, preferences.selectedTrainId));
   };
 
   const changeLevel = (order: number) => {
     bumpInteraction();
     const nextSelectedLevel = getValidSelectedLevelOrder(order, mode, preferences.highestUnlockedLevel);
     setSelectedLevelOrder(nextSelectedLevel);
-    setState(createState(mode, nextSelectedLevel));
+    setState(createState(mode, nextSelectedLevel, preferences.selectedTrainId));
   };
 
   const handleNextLevel = () => {
@@ -206,17 +207,22 @@ export function SteamTrainsTool() {
       preferences.highestUnlockedLevel,
     );
     setSelectedLevelOrder(nextLevelOrder);
-    setState(createState(mode, nextLevelOrder));
+    setState(createState(mode, nextLevelOrder, preferences.selectedTrainId));
   };
 
   useEffect(() => {
     const nextSelectedLevel = getValidSelectedLevelOrder(selectedLevelOrder, mode, preferences.highestUnlockedLevel);
     if (nextSelectedLevel !== selectedLevelOrder) {
       setSelectedLevelOrder(nextSelectedLevel);
-      setState(createState(mode, nextSelectedLevel));
+      setState(createState(mode, nextSelectedLevel, preferences.selectedTrainId));
     }
-  }, [mode, preferences.highestUnlockedLevel, selectedLevelOrder]);
+  }, [mode, preferences.highestUnlockedLevel, preferences.selectedTrainId, selectedLevelOrder]);
 
+  const handleTrainSelection = (trainId: string) => {
+    bumpInteraction();
+    setPreferences((prev) => ({ ...prev, selectedTrainId: trainId }));
+    setState(createState(mode, selectedLevelOrder, trainId));
+  };
   const isSwitchDisabled = state.playState !== "running";
 
   return (
@@ -274,6 +280,8 @@ export function SteamTrainsTool() {
             })}
           </div>
         )}
+
+        <TrainSelector selectedTrainId={preferences.selectedTrainId} onSelectTrain={handleTrainSelection} />
 
         <canvas
           ref={canvasRef}
