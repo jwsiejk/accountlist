@@ -67,4 +67,31 @@ describe("steam trains engine", () => {
     assert.equal(restarted.train.x, restarted.level.startX);
     assert.equal(restarted.particles.length, 0);
   });
+
+  it("ignores switch updates after turnout decision is locked", () => {
+    let state = setSwitchState(buildState(), "main");
+
+    for (let i = 0; i < 260 && state.turnoutDecision === null; i += 1) {
+      state = advanceSimulation(state, 40);
+    }
+
+    assert.equal(state.turnoutDecision, "main");
+
+    const afterLockedTap = setSwitchState(state, "siding");
+    assert.equal(afterLockedTap.switchState, state.switchState);
+    assert.equal(afterLockedTap.turnoutDecision, "main");
+  });
+
+  it("ignores switch updates once run is no longer running", () => {
+    let state = setSwitchState(buildState(), "siding");
+    for (let i = 0; i < 220 && state.playState === "running"; i += 1) {
+      state = advanceSimulation(state, 40);
+    }
+
+    assert.equal(state.playState, "crashed");
+    assert.equal(state.switchState, "siding");
+
+    const afterCrashTap = setSwitchState(state, "main");
+    assert.equal(afterCrashTap.switchState, "siding");
+  });
 });

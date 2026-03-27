@@ -48,10 +48,16 @@ export const createSimulation = (
 export const setSwitchState = (
   state: SteamTrainsSimulationState,
   switchState: TrackSwitchState,
-): SteamTrainsSimulationState => ({
-  ...state,
-  switchState,
-});
+): SteamTrainsSimulationState => {
+  if (state.turnoutDecision !== null || state.playState !== "running") {
+    return state;
+  }
+
+  return {
+    ...state,
+    switchState,
+  };
+};
 
 export const triggerWhistle = (state: SteamTrainsSimulationState): SteamTrainsSimulationState => ({
   ...state,
