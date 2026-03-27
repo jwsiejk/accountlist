@@ -1,9 +1,50 @@
-import type { AxleWheelDefinition, SteamTrainsSimulationState } from "./types";
+import type { AxleWheelDefinition, LevelCheckpoint, SteamTrainsSimulationState } from "./types";
 
 const SKY = "#c4e9ff";
 const GROUND = "#6b8e23";
 
-const drawTrack = (ctx: CanvasRenderingContext2D, state: SteamTrainsSimulationState, width: number, height: number) => {
+type RenderOptions = {
+  helperCheckpointIndex?: number | null;
+  showCelebration?: boolean;
+};
+
+const checkpointToScreenX = (checkpoint: LevelCheckpoint, state: SteamTrainsSimulationState, width: number) =>
+  checkpoint.x - state.train.x + width * 0.34;
+
+const drawSceneDecor = (ctx: CanvasRenderingContext2D, state: SteamTrainsSimulationState, width: number, height: number) => {
+  const railY = state.train.y + 34;
+  if (state.level.scene === "station") {
+    ctx.fillStyle = "#e2e8f0";
+    ctx.fillRect(width * 0.56, railY - 120, 180, 84);
+    ctx.fillStyle = "#475569";
+    ctx.fillRect(width * 0.55, railY - 130, 200, 16);
+  }
+
+  if (state.level.scene === "bridge") {
+    ctx.strokeStyle = "#334155";
+    ctx.lineWidth = 10;
+    ctx.beginPath();
+    ctx.moveTo(width * 0.3, railY + 18);
+    ctx.lineTo(width * 0.7, railY + 18);
+    ctx.stroke();
+    ctx.strokeStyle = "#1d4ed8";
+    ctx.lineWidth = 30;
+    ctx.beginPath();
+    ctx.moveTo(width * 0.15, railY + 80);
+    ctx.lineTo(width * 0.85, railY + 80);
+    ctx.stroke();
+  }
+
+  if (state.level.scene === "tunnel") {
+    ctx.fillStyle = "#374151";
+    ctx.beginPath();
+    ctx.arc(width * 0.72, railY - 16, 92, Math.PI, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(width * 0.72 - 92, railY - 16, 184, 80);
+  }
+};
+
+const drawTrack = (ctx: CanvasRenderingContext2D, state: SteamTrainsSimulationState, width: number) => {
   const railY = state.train.y + 40;
   ctx.strokeStyle = "#4b5563";
   ctx.lineWidth = 6;
@@ -27,14 +68,37 @@ const drawTrack = (ctx: CanvasRenderingContext2D, state: SteamTrainsSimulationSt
     ctx.stroke();
   }
 
-  const switchX = state.level.switchX - state.train.x + width * 0.34;
-  const activeSwitch = state.turnoutDecision ?? state.switchState;
-  ctx.strokeStyle = activeSwitch === state.level.safeBranch ? "#22c55e" : "#f97316";
-  ctx.lineWidth = 8;
+  state.level.checkpoints.forEach((checkpoint, index) => {
+    const switchX = checkpointToScreenX(checkpoint, state, width);
+    const chosen = state.checkpointDecisions[index] ?? state.switchState;
+    ctx.strokeStyle = chosen === checkpoint.safeBranch ? "#22c55e" : "#f97316";
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(switchX, railY + 2);
+    ctx.lineTo(switchX + state.level.forkLength, railY + (chosen === "main" ? 2 : 54));
+    ctx.stroke();
+  });
+};
+
+const drawHelperGlow = (
+  ctx: CanvasRenderingContext2D,
+  state: SteamTrainsSimulationState,
+  width: number,
+  helperCheckpointIndex: number,
+) => {
+  const checkpoint = state.level.checkpoints[helperCheckpointIndex];
+  if (!checkpoint) {
+    return;
+  }
+
+  const railY = state.train.y + 48;
+  const x = checkpointToScreenX(checkpoint, state, width);
+  const y = checkpoint.safeBranch === "main" ? railY - 20 : railY + 30;
+
+  ctx.fillStyle = "rgba(250, 204, 21, 0.35)";
   ctx.beginPath();
-  ctx.moveTo(switchX, railY + 2);
-  ctx.lineTo(switchX + state.level.forkLength, railY + (activeSwitch === "main" ? 2 : 54));
-  ctx.stroke();
+  ctx.ellipse(x + 44, y, 62, 26, 0, 0, Math.PI * 2);
+  ctx.fill();
 };
 
 const drawSteam = (ctx: CanvasRenderingContext2D, state: SteamTrainsSimulationState, cameraX: number) => {
@@ -141,12 +205,7 @@ const drawLocomotive = (ctx: CanvasRenderingContext2D, state: SteamTrainsSimulat
   const stackY = originY + stack.offsetY;
   ctx.fillStyle = "#111827";
   ctx.fillRect(stackX, stackY, stack.width, stack.height);
-  ctx.fillRect(
-    stackX - (stack.flareWidth - stack.width) / 2,
-    stackY - stack.flareHeight,
-    stack.flareWidth,
-    stack.flareHeight,
-  );
+  ctx.fillRect(stackX - (stack.flareWidth - stack.width) / 2, stackY - stack.flareHeight, stack.flareWidth, stack.flareHeight);
 
   const cab = loco.cab ?? {
     width: 82,
@@ -273,7 +332,18 @@ const drawLocomotive = (ctx: CanvasRenderingContext2D, state: SteamTrainsSimulat
   }
 };
 
-export const renderScene = (ctx: CanvasRenderingContext2D, state: SteamTrainsSimulationState) => {
+const drawCelebration = (ctx: CanvasRenderingContext2D, width: number) => {
+  const colors = ["#34d399", "#fbbf24", "#60a5fa", "#f472b6"];
+  for (let i = 0; i < 16; i += 1) {
+    ctx.fillStyle = colors[i % colors.length];
+    ctx.fillRect(20 + i * 60, 20 + (i % 4) * 14, 18, 18);
+  }
+  ctx.fillStyle = "#052e16";
+  ctx.font = "700 34px sans-serif";
+  ctx.fillText("Great job!", Math.max(26, width * 0.04), 112);
+};
+
+export const renderScene = (ctx: CanvasRenderingContext2D, state: SteamTrainsSimulationState, options: RenderOptions = {}) => {
   const width = ctx.canvas.width;
   const height = ctx.canvas.height;
   const cameraX = state.train.x - width * 0.34;
@@ -285,15 +355,25 @@ export const renderScene = (ctx: CanvasRenderingContext2D, state: SteamTrainsSim
   ctx.fillStyle = GROUND;
   ctx.fillRect(0, height * 0.75, width, height * 0.25);
 
-  drawTrack(ctx, state, width, height);
+  drawSceneDecor(ctx, state, width, height);
+  drawTrack(ctx, state, width);
+  if (options.helperCheckpointIndex !== undefined && options.helperCheckpointIndex !== null) {
+    drawHelperGlow(ctx, state, width, options.helperCheckpointIndex);
+  }
   drawLocomotive(ctx, state, cameraX);
   drawSteam(ctx, state, cameraX);
 
   if (state.playState === "crashed") {
-    ctx.fillStyle = "rgba(15, 23, 42, 0.55)";
+    ctx.fillStyle = "rgba(15, 23, 42, 0.4)";
     ctx.fillRect(0, 0, width, height);
-    ctx.fillStyle = "#fff7ed";
-    ctx.font = "700 34px sans-serif";
-    ctx.fillText("Oops! Switch was wrong", 40, 130);
+  }
+
+  if (state.playState === "rewinding") {
+    ctx.fillStyle = "rgba(30, 41, 59, 0.28)";
+    ctx.fillRect(0, 0, width, height);
+  }
+
+  if (options.showCelebration) {
+    drawCelebration(ctx, width);
   }
 };
