@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import { STEAM_TRAINS_LEVELS } from "./levels";
 import {
   clampUnlockedLevel,
+  getValidSelectedLevelOrder,
   getHighestUnlockedAfterCompletion,
   getLevelByOrder,
   getNextLevelOrder,
@@ -31,5 +32,11 @@ describe("steam trains progression", () => {
     assert.equal(getLevelByOrder(3)?.id, "level-3-station-stop");
     assert.equal(getNextLevelOrder(1), 2);
     assert.equal(getNextLevelOrder(STEAM_TRAINS_LEVELS.length), STEAM_TRAINS_LEVELS.length);
+  });
+
+  it("clamps selected level order based on mode and unlocks", () => {
+    assert.equal(getValidSelectedLevelOrder(0, "levels", 3), 1);
+    assert.equal(getValidSelectedLevelOrder(5, "levels", 2), 2);
+    assert.equal(getValidSelectedLevelOrder(5, "free-play", 2), 5);
   });
 });

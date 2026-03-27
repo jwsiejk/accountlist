@@ -39,6 +39,8 @@ const createRunningState = (
   whistleAtMs: null,
   particles: [],
   nextParticleId: 1,
+  stationStopCompleted: false,
+  stationStopUntilMs: null,
 });
 
 export const createSimulation = (
@@ -190,6 +192,27 @@ export const advanceSimulation = (
     return nextState;
   }
 
+  if (nextState.stationStopUntilMs !== null) {
+    if (elapsedMs < nextState.stationStopUntilMs) {
+      return {
+        ...nextState,
+        train: {
+          ...nextState.train,
+          speed: 0,
+        },
+      };
+    }
+
+    nextState = {
+      ...nextState,
+      stationStopUntilMs: null,
+      train: {
+        ...nextState.train,
+        speed: getSpeed(nextState.train.definition, nextState.level),
+      },
+    };
+  }
+
   const movement = (nextState.train.speed * dtMs) / 1000;
   const wheelRadius = nextState.train.definition.locomotive.wheelSet.radius;
   const wheelRotationDelta = movement / Math.max(8, wheelRadius);
@@ -203,6 +226,20 @@ export const advanceSimulation = (
       wheelRotationRad: nextState.train.wheelRotationRad + wheelRotationDelta,
     },
   };
+
+  const stationStop = resolvedState.level.stationStop;
+  if (stationStop && !resolvedState.stationStopCompleted && resolvedState.train.x >= stationStop.x) {
+    return {
+      ...resolvedState,
+      stationStopCompleted: true,
+      stationStopUntilMs: elapsedMs + stationStop.pauseMs,
+      train: {
+        ...resolvedState.train,
+        x: stationStop.x,
+        speed: 0,
+      },
+    };
+  }
 
   while (resolvedState.nextCheckpointIndex < resolvedState.level.checkpoints.length) {
     const checkpoint = resolvedState.level.checkpoints[resolvedState.nextCheckpointIndex];

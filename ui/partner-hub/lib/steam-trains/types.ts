@@ -137,6 +137,10 @@ export type LevelDefinition = {
   scene: LevelScene;
   crashPauseMs: number;
   rewindDurationMs: number;
+  stationStop?: {
+    x: number;
+    pauseMs: number;
+  };
 };
 
 export type SteamParticle = {
@@ -178,4 +182,6 @@ export type SteamTrainsSimulationState = {
   whistleAtMs: number | null;
   particles: SteamParticle[];
   nextParticleId: number;
+  stationStopCompleted: boolean;
+  stationStopUntilMs: number | null;
 };

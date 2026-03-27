@@ -82,6 +82,45 @@ describe("steam trains engine", () => {
     assert.equal(restarted.particles.length, 0);
   });
 
+  it("stops briefly at the level 3 station, then resumes automatically", () => {
+    let state = createLevelState("level-3-station-stop");
+
+    for (let i = 0; i < 280 && !state.stationStopCompleted; i += 1) {
+      state = advanceSimulation(state, 40);
+    }
+
+    assert.equal(state.stationStopCompleted, true);
+    assert.equal(state.train.speed, 0);
+    assert.equal(state.stationStopUntilMs !== null, true);
+
+    const pausedX = state.train.x;
+    for (let i = 0; i < 10; i += 1) {
+      state = advanceSimulation(state, 40);
+    }
+    assert.equal(state.train.x, pausedX);
+
+    for (let i = 0; i < 60 && state.train.speed === 0; i += 1) {
+      state = advanceSimulation(state, 40);
+    }
+
+    assert.equal(state.train.speed > 0, true);
+    assert.equal(state.stationStopUntilMs, null);
+  });
+
+  it("requires the correct post-station switch choice on level 3", () => {
+    let state = setSwitchState(createLevelState("level-3-station-stop"), "siding");
+    let stopped = false;
+
+    for (let i = 0; i < 420 && state.playState === "running"; i += 1) {
+      state = advanceSimulation(state, 40);
+      stopped ||= state.stationStopCompleted;
+    }
+
+    assert.equal(stopped, true);
+    assert.equal(state.playState, "crashed");
+    assert.deepEqual(state.checkpointDecisions, ["siding"]);
+  });
+
   it("handles multiple switches in level 5", () => {
     let state = createLevelState("level-5-fast-switches");
     state = setSwitchState(state, "main");
@@ -98,5 +137,19 @@ describe("steam trains engine", () => {
 
     assert.equal(state.playState, "completed");
     assert.deepEqual(state.checkpointDecisions, ["main", "siding"]);
+  });
+
+  it("ignores switch changes when run is not running", () => {
+    const crashedState = {
+      ...createLevelState("level-1-switch-start"),
+      playState: "crashed" as const,
+      switchState: "main" as const,
+    };
+    const rewindingState = { ...crashedState, playState: "rewinding" as const };
+    const completedState = { ...crashedState, playState: "completed" as const };
+
+    assert.equal(setSwitchState(crashedState, "siding").switchState, "main");
+    assert.equal(setSwitchState(rewindingState, "siding").switchState, "main");
+    assert.equal(setSwitchState(completedState, "siding").switchState, "main");
   });
 });
