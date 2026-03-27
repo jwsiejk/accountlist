@@ -27,20 +27,21 @@ export function TrainPreviewCanvas({ train, width, height, className, animated =
     }
 
     let frame: number | null = null;
-    let start = performance.now();
+    const start = performance.now();
 
-    const draw = (timestamp: number) => {
+    const drawFrame = (timestamp: number) => {
       const elapsed = (timestamp - start) / 1000;
       const wheelRotation = elapsed * 1.6;
       renderTrainPreviewCard(context, train, width, height, wheelRotation);
       if (animated) {
-        frame = window.requestAnimationFrame(draw);
+        frame = window.requestAnimationFrame(drawFrame);
       }
     };
 
-    draw(start);
     if (animated) {
-      frame = window.requestAnimationFrame(draw);
+      frame = window.requestAnimationFrame(drawFrame);
+    } else {
+      drawFrame(start);
     }
 
     return () => {

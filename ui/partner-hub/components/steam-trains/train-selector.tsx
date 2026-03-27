@@ -38,7 +38,7 @@ export function TrainSelector({ selectedTrainId, trains, onSelectTrain }: TrainS
               aria-pressed={selected}
             >
               <div className="rounded-xl bg-gradient-to-b from-sky-100 via-sky-50 to-green-100 p-2">
-                <TrainPreviewCanvas train={train} width={previewWidth} height={previewHeight} className="h-28 w-full" />
+                <TrainPreviewCanvas train={train} width={previewWidth} height={previewHeight} className="h-28 w-full" animated={selected} />
               </div>
               <p className="mt-2 text-lg font-semibold">{train.displayName}</p>
               <p className="text-sm text-muted-foreground">

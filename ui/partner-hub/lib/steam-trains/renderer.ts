@@ -1,5 +1,12 @@
 import type { LevelCheckpoint, SteamParticle, SteamTrainsSimulationState } from "./types";
-import { drawPreviewBackdrop, drawSteamParticleRich, drawTrackAndBallast, drawTrainConsist, getPreviewPalette } from "./visuals";
+import {
+  drawPreviewBackdrop,
+  drawSteamParticleRich,
+  drawTrackAndBallast,
+  drawTrackTurnout,
+  drawTrainConsist,
+  getPreviewPalette,
+} from "./visuals";
 
 const checkpointToScreenX = (checkpoint: LevelCheckpoint, state: SteamTrainsSimulationState, width: number) =>
   checkpoint.x - state.train.x + width * 0.35;
@@ -110,8 +117,7 @@ const drawTrack = (ctx: CanvasRenderingContext2D, state: SteamTrainsSimulationSt
   state.level.checkpoints.forEach((checkpoint, index) => {
     const switchX = checkpointToScreenX(checkpoint, state, width);
     const chosen = state.checkpointDecisions[index] ?? state.switchState;
-    drawTrackAndBallast(ctx, 0, railY, palette, {
-      includeSwitchStand: true,
+    drawTrackTurnout(ctx, railY, {
       switchX,
       switchToSiding: chosen !== "main",
     });
