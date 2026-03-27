@@ -1,9 +1,27 @@
 import { stepSteamParticles, emitSteamParticles } from "./particles";
-import type { LevelDefinition, SteamTrainsSimulationState, TrainDefinition } from "./types";
+import type {
+  LevelDefinition,
+  SteamTrainsSimulationState,
+  TrackSwitchState,
+  TrainDefinition,
+} from "./types";
 
 const TRACK_Y = 320;
 
 const clampDeltaMs = (dtMs: number) => Math.min(Math.max(dtMs, 0), 64);
+
+const resolveTurnoutDecision = (
+  state: SteamTrainsSimulationState,
+  trainX: number,
+): TrackSwitchState | null => {
+  if (state.turnoutDecision) {
+    return state.turnoutDecision;
+  }
+  if (trainX >= state.level.switchX) {
+    return state.switchState;
+  }
+  return null;
+};
 
 export const createSimulation = (
   train: TrainDefinition,
@@ -18,6 +36,7 @@ export const createSimulation = (
   },
   level,
   switchState: "main",
+  turnoutDecision: null,
   playState: "running",
   elapsedMs: 0,
   crashAtMs: null,
@@ -28,7 +47,7 @@ export const createSimulation = (
 
 export const setSwitchState = (
   state: SteamTrainsSimulationState,
-  switchState: "main" | "siding",
+  switchState: TrackSwitchState,
 ): SteamTrainsSimulationState => ({
   ...state,
   switchState,
@@ -63,9 +82,25 @@ export const restartAfterCrash = (state: SteamTrainsSimulationState): SteamTrain
   switchState: "main",
 });
 
-export const advanceSimulation = (state: SteamTrainsSimulationState, dtInputMs: number): SteamTrainsSimulationState => {
+export const advanceSimulation = (
+  state: SteamTrainsSimulationState,
+  dtInputMs: number,
+): SteamTrainsSimulationState => {
   const dtMs = clampDeltaMs(dtInputMs);
   const elapsedMs = state.elapsedMs + dtMs;
+
+  if (
+    state.playState === "crashed" &&
+    state.crashAtMs !== null &&
+    elapsedMs - state.crashAtMs >= state.level.crashResetDelayMs
+  ) {
+    return restartAfterCrash({
+      ...state,
+      elapsedMs,
+      particles: stepSteamParticles(state.particles, dtMs),
+    });
+  }
+
   let nextState: SteamTrainsSimulationState = {
     ...state,
     elapsedMs,
@@ -97,12 +132,14 @@ export const advanceSimulation = (state: SteamTrainsSimulationState, dtInputMs: 
   const wheelRadius = state.train.definition.locomotive.wheelSet.radius;
   const wheelRotationDelta = movement / Math.max(8, wheelRadius);
   const trainX = state.train.x + movement;
+  const turnoutDecision = resolveTurnoutDecision(state, trainX);
 
-  if (trainX >= state.level.switchX && state.switchState !== state.level.safeBranch) {
+  if (trainX >= state.level.switchX && turnoutDecision !== state.level.safeBranch) {
     return {
       ...nextState,
       playState: "crashed",
       crashAtMs: elapsedMs,
+      turnoutDecision,
       train: {
         ...state.train,
         x: state.level.switchX,
@@ -116,6 +153,7 @@ export const advanceSimulation = (state: SteamTrainsSimulationState, dtInputMs: 
     return {
       ...nextState,
       playState: "completed",
+      turnoutDecision,
       train: {
         ...state.train,
         x: state.level.destinationX,
@@ -127,6 +165,7 @@ export const advanceSimulation = (state: SteamTrainsSimulationState, dtInputMs: 
 
   return {
     ...nextState,
+    turnoutDecision,
     train: {
       ...state.train,
       x: trainX,

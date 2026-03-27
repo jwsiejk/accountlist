@@ -133,7 +133,7 @@ export function SteamTrainsTool() {
           <Button
             type="button"
             className="h-20 text-lg font-bold"
-            variant={state.switchState === "main" ? "default" : "outline"}
+            variant={state.switchState === "main" ? "primary" : "secondary"}
             onClick={() => handleSwitch("main")}
           >
             Main Track
@@ -141,12 +141,18 @@ export function SteamTrainsTool() {
           <Button
             type="button"
             className="h-20 text-lg font-bold"
-            variant={state.switchState === "siding" ? "default" : "outline"}
+            variant={state.switchState === "siding" ? "primary" : "secondary"}
             onClick={() => handleSwitch("siding")}
           >
             Side Track
           </Button>
         </div>
+
+        {state.turnoutDecision && (
+          <p className="text-sm font-medium text-muted-foreground">
+            Switch locked to {state.turnoutDecision === "main" ? "Main Track" : "Side Track"} for this run.
+          </p>
+        )}
 
         {(state.playState === "crashed" || state.playState === "completed") && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/80 bg-muted/40 p-4">

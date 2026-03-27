@@ -6,6 +6,48 @@ export type WheelSetDefinition = {
   offsetX: number;
 };
 
+export type AxleWheelDefinition = {
+  count: number;
+  radius: number;
+  spacing: number;
+  offsetX: number;
+  yOffset?: number;
+};
+
+export type HeadlampDefinition = {
+  radius: number;
+  offsetX: number;
+  offsetY: number;
+  rimColor: string;
+  glowColor: string;
+};
+
+export type PilotDefinition = {
+  length: number;
+  height: number;
+  color: string;
+  ribCount: number;
+};
+
+export type StackDefinition = {
+  width: number;
+  height: number;
+  flareWidth: number;
+  flareHeight: number;
+  offsetX: number;
+  offsetY: number;
+};
+
+export type CabDefinition = {
+  width: number;
+  height: number;
+  roofOverhang: number;
+  roofHeight: number;
+  offsetX: number;
+  windowWidth: number;
+  windowHeight: number;
+};
+
 export type DrivingRodDefinition = {
   id: string;
   wheelIndex: number;
@@ -34,6 +76,12 @@ export type LocomotiveDefinition = {
   color: string;
   trimColor: string;
   wheelSet: WheelSetDefinition;
+  pilotWheels?: AxleWheelDefinition;
+  trailingWheels?: AxleWheelDefinition;
+  stack?: StackDefinition;
+  cab?: CabDefinition;
+  headlamp?: HeadlampDefinition;
+  pilot?: PilotDefinition;
   drivingRod: DrivingRodDefinition;
   steamEmitter: SteamEmitterDefinition;
 };
@@ -106,6 +154,7 @@ export type SteamTrainsSimulationState = {
   train: TrainRuntimeState;
   level: LevelDefinition;
   switchState: TrackSwitchState;
+  turnoutDecision: TrackSwitchState | null;
   playState: PlayState;
   elapsedMs: number;
   crashAtMs: number | null;
