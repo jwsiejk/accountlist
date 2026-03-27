@@ -1,4 +1,4 @@
-import { getLocomotiveSilhouette, getTrainLayout } from "@/lib/steam-trains/visuals";
+import { getCarWindowColor, getLocomotiveSilhouette, getPreviewPalette, getTrainLayout } from "@/lib/steam-trains/visuals";
 import type { TrainDefinition } from "@/lib/steam-trains/types";
 
 type TrainSelectorProps = {
@@ -11,6 +11,7 @@ const previewWidth = 220;
 const baseY = 98;
 const previewPadding = 8;
 const carGap = 10;
+const previewPalette = getPreviewPalette();
 
 const getTrainRole = (trainId: string): string => {
   if (trainId.includes("switcher")) return "Switcher";
@@ -27,9 +28,9 @@ const renderLocoPreview = (train: TrainDefinition, locomotiveStart: number, scal
 
   return (
     <g>
-      <rect x="0" y="95" width={previewWidth} height="15" fill="#7c6450" />
-      <rect x="0" y="93" width={previewWidth} height="3" fill="#d1d5db" />
-      <rect x="0" y="101" width={previewWidth} height="3" fill="#9ca3af" />
+      <rect x="0" y="95" width={previewWidth} height="15" fill={previewPalette.railBed} />
+      <rect x="0" y="93" width={previewWidth} height="3" fill={previewPalette.railTop} />
+      <rect x="0" y="101" width={previewWidth} height="3" fill={previewPalette.railBottom} />
 
       <polygon
         points={`${locomotiveStart - pilot.length * scale},${baseY} ${locomotiveStart + 4},${baseY} ${locomotiveStart + 4},${baseY - pilot.height * scale}`}
@@ -41,7 +42,7 @@ const renderLocoPreview = (train: TrainDefinition, locomotiveStart: number, scal
         y={baseY + silhouette.runningBoardY * scale}
         width={(silhouette.boilerLength + 50) * scale}
         height={loco.bodyHeight * 0.34 * scale}
-        fill="#0f172a"
+        fill={previewPalette.runningBoard}
       />
 
       <rect
@@ -57,7 +58,7 @@ const renderLocoPreview = (train: TrainDefinition, locomotiveStart: number, scal
         cx={locomotiveStart + silhouette.smokeboxCenterX * scale}
         cy={baseY + (silhouette.boilerTop + silhouette.boilerHeight / 2) * scale}
         r={silhouette.smokeboxRadius * scale}
-        fill="#111827"
+        fill={previewPalette.smokebox}
       />
 
       <rect
@@ -76,7 +77,7 @@ const renderLocoPreview = (train: TrainDefinition, locomotiveStart: number, scal
             width={loco.stack.width * scale}
             height={loco.stack.height * scale}
             rx={2 * scale}
-            fill="#0f172a"
+            fill={previewPalette.stack}
           />
           <rect
             x={locomotiveStart + (loco.stack.offsetX - (loco.stack.flareWidth - loco.stack.width) / 2) * scale}
@@ -84,7 +85,7 @@ const renderLocoPreview = (train: TrainDefinition, locomotiveStart: number, scal
             width={loco.stack.flareWidth * scale}
             height={loco.stack.flareHeight * scale}
             rx={2 * scale}
-            fill="#0f172a"
+            fill={previewPalette.stack}
           />
         </>
       )}
@@ -102,15 +103,23 @@ const renderLocoPreview = (train: TrainDefinition, locomotiveStart: number, scal
             cx={locomotiveStart + (loco.wheelSet.offsetX + wheelIndex * loco.wheelSet.spacing) * scale}
             cy={baseY}
             r={loco.wheelSet.radius * scale}
-            fill="#0f172a"
+            fill={previewPalette.wheelFill}
           />
           <circle
             cx={locomotiveStart + (loco.wheelSet.offsetX + wheelIndex * loco.wheelSet.spacing) * scale}
             cy={baseY}
             r={(loco.wheelSet.radius - 4) * scale}
             fill="none"
-            stroke="#cbd5e1"
+            stroke={previewPalette.wheelRim}
             strokeWidth={1.6 * scale}
+          />
+          <line
+            x1={locomotiveStart + (loco.wheelSet.offsetX + wheelIndex * loco.wheelSet.spacing - loco.wheelSet.radius + 4) * scale}
+            y1={baseY}
+            x2={locomotiveStart + (loco.wheelSet.offsetX + wheelIndex * loco.wheelSet.spacing + loco.wheelSet.radius - 4) * scale}
+            y2={baseY}
+            stroke={previewPalette.wheelSpoke}
+            strokeWidth={1.2 * scale}
           />
         </g>
       ))}
@@ -168,7 +177,7 @@ export function TrainSelector({ selectedTrainId, trains, onSelectTrain }: TrainS
                           y={baseY - (car.height - 10) * layout.scale}
                           width={(car.length - 16) * layout.scale}
                           height={Math.min(16, car.height * 0.4) * layout.scale}
-                          fill={train.id.includes("passenger") ? "#fef3c7" : "#334155"}
+                          fill={getCarWindowColor(train.id)}
                         />
                       </g>
                     );

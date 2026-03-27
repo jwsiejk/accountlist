@@ -8,6 +8,7 @@ import {
   type TrainBuilderSelection,
   validateTrainBuilderSelection,
 } from "@/lib/steam-trains/builder";
+import { getCarWindowColor, getLocomotiveSilhouette, getPreviewPalette, getTrainLayout } from "@/lib/steam-trains/visuals";
 import type { TrainDefinition } from "@/lib/steam-trains/types";
 
 type TrainBuilderProps = {
@@ -39,6 +40,107 @@ const cycleOption = (options: BuilderSlotOption[], currentId: string, direction:
   return options[nextIndex]?.id ?? options[0]?.id ?? currentId;
 };
 
+const previewWidth = 320;
+const previewBaseY = 96;
+const previewPadding = 10;
+const previewCarGap = 10;
+const previewPalette = getPreviewPalette();
+
+const renderPreviewLocomotive = (train: TrainDefinition, locomotiveStart: number, scale: number) => {
+  const loco = train.locomotive;
+  const silhouette = getLocomotiveSilhouette(loco);
+  const pilot = loco.pilot ?? { length: 40, height: 24, color: "#374151", ribCount: 5 };
+
+  return (
+    <g>
+      <polygon
+        points={`${locomotiveStart - pilot.length * scale},${previewBaseY} ${locomotiveStart + 4},${previewBaseY} ${locomotiveStart + 4},${previewBaseY - pilot.height * scale}`}
+        fill={pilot.color}
+      />
+      <rect
+        x={locomotiveStart + 10 * scale}
+        y={previewBaseY + silhouette.runningBoardY * scale}
+        width={(silhouette.boilerLength + 50) * scale}
+        height={train.locomotive.bodyHeight * 0.34 * scale}
+        fill={previewPalette.runningBoard}
+      />
+      <rect
+        x={locomotiveStart + 18 * scale}
+        y={previewBaseY + silhouette.boilerTop * scale}
+        width={silhouette.boilerLength * scale}
+        height={silhouette.boilerHeight * scale}
+        rx={10 * scale}
+        fill={loco.color}
+      />
+      <circle
+        cx={locomotiveStart + silhouette.smokeboxCenterX * scale}
+        cy={previewBaseY + (silhouette.boilerTop + silhouette.boilerHeight / 2) * scale}
+        r={silhouette.smokeboxRadius * scale}
+        fill={previewPalette.smokebox}
+      />
+      <rect
+        x={locomotiveStart + 22 * scale}
+        y={previewBaseY + (silhouette.boilerTop - 9) * scale}
+        width={silhouette.boilerLength * 0.58 * scale}
+        height={6 * scale}
+        fill={loco.trimColor}
+      />
+      {loco.stack && (
+        <>
+          <rect
+            x={locomotiveStart + loco.stack.offsetX * scale}
+            y={previewBaseY + loco.stack.offsetY * scale}
+            width={loco.stack.width * scale}
+            height={loco.stack.height * scale}
+            rx={2 * scale}
+            fill={previewPalette.stack}
+          />
+          <rect
+            x={locomotiveStart + (loco.stack.offsetX - (loco.stack.flareWidth - loco.stack.width) / 2) * scale}
+            y={previewBaseY + (loco.stack.offsetY - loco.stack.flareHeight) * scale}
+            width={loco.stack.flareWidth * scale}
+            height={loco.stack.flareHeight * scale}
+            rx={2 * scale}
+            fill={previewPalette.stack}
+          />
+        </>
+      )}
+      {loco.cab && (
+        <polygon
+          points={`${locomotiveStart + loco.cab.offsetX * scale},${previewBaseY - (loco.cab.height - 2) * scale} ${locomotiveStart + (loco.cab.offsetX + loco.cab.width) * scale},${previewBaseY - (loco.cab.height - 2) * scale} ${locomotiveStart + (loco.cab.offsetX + loco.cab.width) * scale},${previewBaseY - 8 * scale} ${locomotiveStart + (loco.cab.offsetX + 10) * scale},${previewBaseY - 8 * scale}`}
+          fill={loco.color}
+        />
+      )}
+      {Array.from({ length: loco.wheelSet.count }).map((_, wheelIndex) => (
+        <g key={`${train.id}-wheel-${wheelIndex}`}>
+          <circle
+            cx={locomotiveStart + (loco.wheelSet.offsetX + wheelIndex * loco.wheelSet.spacing) * scale}
+            cy={previewBaseY}
+            r={loco.wheelSet.radius * scale}
+            fill={previewPalette.wheelFill}
+          />
+          <circle
+            cx={locomotiveStart + (loco.wheelSet.offsetX + wheelIndex * loco.wheelSet.spacing) * scale}
+            cy={previewBaseY}
+            r={(loco.wheelSet.radius - 4) * scale}
+            fill="none"
+            stroke={previewPalette.wheelRim}
+            strokeWidth={1.6 * scale}
+          />
+          <line
+            x1={locomotiveStart + (loco.wheelSet.offsetX + wheelIndex * loco.wheelSet.spacing - loco.wheelSet.radius + 4) * scale}
+            y1={previewBaseY}
+            x2={locomotiveStart + (loco.wheelSet.offsetX + wheelIndex * loco.wheelSet.spacing + loco.wheelSet.radius - 4) * scale}
+            y2={previewBaseY}
+            stroke={previewPalette.wheelSpoke}
+            strokeWidth={1.2 * scale}
+          />
+        </g>
+      ))}
+    </g>
+  );
+};
+
 export function TrainBuilder({
   selection,
   onChange,
@@ -51,7 +153,10 @@ export function TrainBuilder({
 }: TrainBuilderProps) {
   const issues = validateTrainBuilderSelection(selection);
   const previewTrain = buildTrainDefinitionFromSelection(selection, "preview-custom");
-  const loco = previewTrain.locomotive;
+  const previewLayout = getTrainLayout(previewTrain, previewWidth, previewPadding, 0.62, {
+    locomotiveToTender: 18,
+    carGap: previewCarGap,
+  });
 
   return (
     <section className="space-y-4" aria-label="Train workshop">
@@ -81,17 +186,51 @@ export function TrainBuilder({
             </label>
           </div>
 
-          <div className="rounded-2xl border bg-sky-50 p-3">
+          <div className="rounded-2xl border bg-gradient-to-b from-sky-100 via-sky-50 to-green-100 p-3">
             <svg viewBox="0 0 320 128" className="h-36 w-full" role="img" aria-label="Custom train preview">
-              <rect x="0" y="108" width="320" height="8" fill="#64748b" />
-              <rect x="0" y="114" width="320" height="4" fill="#475569" />
-              <rect x="14" y={96 - loco.bodyHeight * 0.34} width={loco.bodyLength * 0.52} height={loco.bodyHeight * 0.34} fill={loco.color} />
-              <ellipse cx={94} cy={96 - loco.bodyHeight * 0.48} rx={loco.bodyLength * 0.26} ry={loco.bodyHeight * 0.28} fill={loco.color} />
-              {loco.stack && <rect x={20 + loco.stack.offsetX * 0.56} y={96 + loco.stack.offsetY * 0.56} width={loco.stack.width * 0.56} height={loco.stack.height * 0.56} fill="#0f172a" />}
-              {loco.cab && <rect x={16 + loco.cab.offsetX * 0.56} y={96 - (loco.cab.height + 8) * 0.56} width={loco.cab.width * 0.56} height={loco.cab.height * 0.56} fill={loco.color} />}
-              {Array.from({ length: loco.wheelSet.count }).map((_, index) => (
-                <circle key={index} cx={18 + (loco.wheelSet.offsetX + index * loco.wheelSet.spacing) * 0.56} cy={96} r={loco.wheelSet.radius * 0.56} fill="#111827" />
-              ))}
+              <rect x="0" y="95" width={previewWidth} height="15" fill={previewPalette.railBed} />
+              <rect x="0" y="93" width={previewWidth} height="3" fill={previewPalette.railTop} />
+              <rect x="0" y="101" width={previewWidth} height="3" fill={previewPalette.railBottom} />
+              {renderPreviewLocomotive(previewTrain, previewLayout.locomotiveStart, previewLayout.scale)}
+              {previewTrain.tender && (
+                <g>
+                  <rect
+                    x={previewLayout.tenderStart}
+                    y={previewBaseY - previewTrain.tender.height * previewLayout.scale}
+                    width={previewTrain.tender.length * previewLayout.scale}
+                    height={previewTrain.tender.height * previewLayout.scale}
+                    fill={previewTrain.tender.color}
+                  />
+                  <rect
+                    x={previewLayout.tenderStart + 8 * previewLayout.scale}
+                    y={previewBaseY - (previewTrain.tender.height + 12) * previewLayout.scale}
+                    width={(previewTrain.tender.length - 16) * previewLayout.scale}
+                    height={12 * previewLayout.scale}
+                    fill={previewPalette.runningBoard}
+                  />
+                </g>
+              )}
+              {previewTrain.rollingStock.map((car, carIndex) => {
+                const x = previewLayout.rollingStockStart + carIndex * (car.length + previewCarGap) * previewLayout.scale;
+                return (
+                  <g key={car.id}>
+                    <rect
+                      x={x}
+                      y={previewBaseY - car.height * previewLayout.scale}
+                      width={car.length * previewLayout.scale}
+                      height={car.height * previewLayout.scale}
+                      fill={car.color}
+                    />
+                    <rect
+                      x={x + 8 * previewLayout.scale}
+                      y={previewBaseY - (car.height - 10) * previewLayout.scale}
+                      width={(car.length - 16) * previewLayout.scale}
+                      height={Math.min(16, car.height * 0.4) * previewLayout.scale}
+                      fill={getCarWindowColor(previewTrain.id)}
+                    />
+                  </g>
+                );
+              })}
               <text x="12" y="22" fontSize="15" fill="#0f172a" fontWeight="700">
                 {previewTrain.displayName}
               </text>
@@ -152,8 +291,15 @@ export function TrainBuilder({
           ) : (
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {savedTrains.map((train) => (
-                <Button key={train.id} type="button" className="h-14 justify-start px-4 text-left text-base" variant="secondary" onClick={() => onLoadSaved(train.id)}>
-                  {train.displayName}
+                <Button
+                  key={train.id}
+                  type="button"
+                  className="h-auto min-h-14 justify-start px-3 py-2 text-left text-base"
+                  variant="secondary"
+                  onClick={() => onLoadSaved(train.id)}
+                >
+                  <span className="mr-2 inline-block h-3 w-8 rounded-full" style={{ backgroundColor: train.locomotive.trimColor }} />
+                  <span className="truncate">{train.displayName}</span>
                 </Button>
               ))}
             </div>

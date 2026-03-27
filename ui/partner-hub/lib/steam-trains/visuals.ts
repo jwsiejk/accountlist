@@ -21,6 +21,30 @@ export type LocomotiveSilhouette = {
   smokeboxCenterX: number;
 };
 
+export type TrainPreviewPalette = {
+  railBed: string;
+  railTop: string;
+  railBottom: string;
+  wheelFill: string;
+  wheelRim: string;
+  wheelSpoke: string;
+  runningBoard: string;
+  stack: string;
+  smokebox: string;
+};
+
+const DEFAULT_PREVIEW_PALETTE: TrainPreviewPalette = {
+  railBed: "#7c6450",
+  railTop: "#d1d5db",
+  railBottom: "#9ca3af",
+  wheelFill: "#0f172a",
+  wheelRim: "#cbd5e1",
+  wheelSpoke: "#94a3b8",
+  runningBoard: "#0f172a",
+  stack: "#0f172a",
+  smokebox: "#111827",
+};
+
 export const getTrainConsistLength = (train: TrainDefinition, gaps = { locomotiveToTender: LOCOMOTIVE_TO_TENDER_GAP, carGap: CAR_GAP }) => {
   const tenderLength = train.tender?.length ?? 0;
   const rollingStockLength = train.rollingStock.reduce((total, car) => total + car.length, 0);
@@ -34,6 +58,10 @@ export const getTrainConsistLength = (train: TrainDefinition, gaps = { locomotiv
     rollingStockSpacing
   );
 };
+
+export const getPreviewPalette = (): TrainPreviewPalette => DEFAULT_PREVIEW_PALETTE;
+
+export const getCarWindowColor = (trainId: string): string => (trainId.includes("passenger") ? "#fef3c7" : "#334155");
 
 export const getTrainLayout = (
   train: TrainDefinition,
