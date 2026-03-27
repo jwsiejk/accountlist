@@ -1,7 +1,8 @@
 import * as assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { getTrainDefinition, STEAM_TRAIN_CATALOG } from "./trainCatalog";
+import { clearCustomTrainDefinitions, getAllTrainDefinitions, getTrainDefinition, registerCustomTrainDefinitions, STEAM_TRAIN_CATALOG } from "./trainCatalog";
+import { buildTrainDefinitionFromSelection, getDefaultTrainBuilderSelection } from "./builder";
 
 describe("steam train catalog", () => {
   it("ships with child-friendly switcher, passenger, and freight locomotives", () => {
@@ -49,6 +50,17 @@ describe("steam train catalog", () => {
         assert.equal(car.height >= 40, true, `${train.id}: car height`);
       });
     });
+  });
+
+  it("registers custom trains in the same catalog path as stock trains", () => {
+    const custom = buildTrainDefinitionFromSelection(getDefaultTrainBuilderSelection(), "custom-train-spec");
+    registerCustomTrainDefinitions([custom]);
+
+    const all = getAllTrainDefinitions();
+    assert.equal(all.some((train) => train.id === custom.id), true);
+    assert.equal(getTrainDefinition(custom.id).id, custom.id);
+
+    clearCustomTrainDefinitions();
   });
 
   it("throws for unknown train ids", () => {

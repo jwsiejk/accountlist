@@ -271,12 +271,29 @@ export const STEAM_TRAIN_CATALOG: TrainDefinition[] = [
 
 export const DEFAULT_STEAM_TRAIN_ID = STEAM_TRAIN_CATALOG[0]?.id ?? "copper-creek-switcher";
 
-const catalogById = new Map(STEAM_TRAIN_CATALOG.map((train) => [train.id, train]));
+const stockCatalogById = new Map(STEAM_TRAIN_CATALOG.map((train) => [train.id, train]));
+const customCatalogById = new Map<string, TrainDefinition>();
 
-export const hasTrainDefinition = (id: string): boolean => catalogById.has(id);
+export const registerCustomTrainDefinitions = (trains: TrainDefinition[]) => {
+  customCatalogById.clear();
+  trains.forEach((train) => {
+    customCatalogById.set(train.id, train);
+  });
+};
+
+export const clearCustomTrainDefinitions = () => {
+  customCatalogById.clear();
+};
+
+export const getAllTrainDefinitions = (): TrainDefinition[] => [
+  ...STEAM_TRAIN_CATALOG,
+  ...Array.from(customCatalogById.values()),
+];
+
+export const hasTrainDefinition = (id: string): boolean => stockCatalogById.has(id) || customCatalogById.has(id);
 
 export const getTrainDefinition = (id: string): TrainDefinition => {
-  const train = catalogById.get(id);
+  const train = customCatalogById.get(id) ?? stockCatalogById.get(id);
   if (!train) {
     throw new Error(`Unknown train definition: ${id}`);
   }
