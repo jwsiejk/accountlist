@@ -48,6 +48,14 @@ export function SteamTrainsTool() {
   }, []);
 
   useEffect(() => {
+    return () => {
+      if (audioContextRef.current) {
+        void audioContextRef.current.close();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) {
       return;
@@ -99,6 +107,9 @@ export function SteamTrainsTool() {
     setState((prev) => restartAfterCrash(prev));
   };
 
+  const effectiveSwitchState = state.turnoutDecision ?? state.switchState;
+  const isSwitchLocked = state.turnoutDecision !== null;
+
   return (
     <Card className="mx-auto w-full max-w-6xl">
       <CardHeader>
@@ -133,16 +144,18 @@ export function SteamTrainsTool() {
           <Button
             type="button"
             className="h-20 text-lg font-bold"
-            variant={state.switchState === "main" ? "primary" : "secondary"}
+            variant={effectiveSwitchState === "main" ? "primary" : "secondary"}
             onClick={() => handleSwitch("main")}
+            disabled={isSwitchLocked}
           >
             Main Track
           </Button>
           <Button
             type="button"
             className="h-20 text-lg font-bold"
-            variant={state.switchState === "siding" ? "primary" : "secondary"}
+            variant={effectiveSwitchState === "siding" ? "primary" : "secondary"}
             onClick={() => handleSwitch("siding")}
+            disabled={isSwitchLocked}
           >
             Side Track
           </Button>
