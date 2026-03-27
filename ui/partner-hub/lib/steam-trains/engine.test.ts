@@ -9,7 +9,7 @@ import {
   triggerSteamPuff,
 } from "./engine";
 import { getLevelDefinition } from "./levels";
-import { DEFAULT_STEAM_TRAIN_ID, getTrainDefinition } from "./trainCatalog";
+import { DEFAULT_STEAM_TRAIN_ID, STEAM_TRAIN_CATALOG, getTrainDefinition } from "./trainCatalog";
 
 const createLevelState = (levelId: string, mode: "levels" | "free-play" = "levels") =>
   createSimulation(getTrainDefinition(DEFAULT_STEAM_TRAIN_ID), getLevelDefinition(levelId), mode);
@@ -68,6 +68,34 @@ describe("steam trains engine", () => {
 
     assert.equal(state.playState, "running");
     assert.equal(state.mode, "free-play");
+  });
+
+  it("supports every stock train across create/advance/puff/restart in both modes", () => {
+    const level = getLevelDefinition("level-1-switch-start");
+
+    STEAM_TRAIN_CATALOG.forEach((train) => {
+      (["levels", "free-play"] as const).forEach((mode) => {
+        const created = createSimulation(train, level, mode);
+
+        assert.equal(created.train.definition.id, train.id);
+        assert.equal(created.mode, mode);
+
+        const advanced = advanceSimulation(created, 32);
+        assert.equal(advanced.train.x > created.train.x, true, `${train.id}:${mode} x movement`);
+        assert.equal(
+          advanced.train.wheelRotationRad > created.train.wheelRotationRad,
+          true,
+          `${train.id}:${mode} wheel rotation`,
+        );
+
+        const puffed = triggerSteamPuff(advanced);
+        assert.equal(puffed.particles.length > advanced.particles.length, true, `${train.id}:${mode} puff`);
+
+        const restarted = restartSimulation({ ...puffed, playState: "completed" });
+        assert.equal(restarted.train.definition.id, train.id, `${train.id}:${mode} restart train`);
+        assert.equal(restarted.mode, mode, `${train.id}:${mode} restart mode`);
+      });
+    });
   });
 
   it("supports steam puff bursts and manual restart", () => {

@@ -2,10 +2,15 @@ import * as assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  DEFAULT_STEAM_TRAIN_ID,
+  STEAM_TRAIN_CATALOG,
+} from "./trainCatalog";
+import {
   STEAM_TRAINS_STORAGE_KEY,
   getDefaultSteamTrainsPreferences,
   loadSteamTrainsPreferences,
   saveSteamTrainsPreferences,
+  sanitizePreferences,
 } from "./storage";
 
 class MemoryStorage {
@@ -43,6 +48,23 @@ describe("steam trains storage", () => {
     assert.notEqual(storage.getItem(STEAM_TRAINS_STORAGE_KEY), null);
   });
 
+  it("round-trips every stock train id through sanitize/load/save", () => {
+    STEAM_TRAIN_CATALOG.forEach((train) => {
+      const storage = new MemoryStorage();
+      const sanitized = sanitizePreferences({ selectedTrainId: train.id });
+
+      assert.equal(sanitized.selectedTrainId, train.id, `${train.id}: sanitize`);
+
+      saveSteamTrainsPreferences(storage, {
+        ...getDefaultSteamTrainsPreferences(),
+        selectedTrainId: train.id,
+      });
+
+      const loaded = loadSteamTrainsPreferences(storage);
+      assert.equal(loaded.selectedTrainId, train.id, `${train.id}: load/save`);
+    });
+  });
+
   it("falls back for malformed stored values", () => {
     const storage = new MemoryStorage();
     storage.setItem(
@@ -54,6 +76,6 @@ describe("steam trains storage", () => {
     assert.equal(loaded.highestUnlockedLevel, 1);
     assert.equal(loaded.helperMode, true);
     assert.equal(loaded.lastMode, "levels");
-    assert.equal(loaded.selectedTrainId, "copper-creek-switcher");
+    assert.equal(loaded.selectedTrainId, DEFAULT_STEAM_TRAIN_ID);
   });
 });

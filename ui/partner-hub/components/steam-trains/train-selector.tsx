@@ -7,6 +7,22 @@ type TrainSelectorProps = {
 
 const previewWidth = 220;
 const baseY = 98;
+const previewPadding = 8;
+const locomotiveToTenderGap = 20;
+const carGap = 10;
+
+const getTrainRole = (trainId: string): string => {
+  if (trainId.includes("switcher")) {
+    return "Switcher";
+  }
+  if (trainId.includes("passenger")) {
+    return "Passenger";
+  }
+  if (trainId.includes("freight")) {
+    return "Freight";
+  }
+  return "Steam";
+};
 
 export function TrainSelector({ selectedTrainId, onSelectTrain }: TrainSelectorProps) {
   return (
@@ -16,8 +32,22 @@ export function TrainSelector({ selectedTrainId, onSelectTrain }: TrainSelectorP
         {STEAM_TRAIN_CATALOG.map((train) => {
           const selected = train.id === selectedTrainId;
           const loco = train.locomotive;
-          const scale = Math.min(0.65, previewWidth / (loco.bodyLength + (train.tender?.length ?? 0) + 100));
-          const tenderStart = (loco.bodyLength + 20) * scale;
+          const tenderLength = train.tender?.length ?? 0;
+          const rollingStockLength = train.rollingStock.reduce((total, car) => total + car.length, 0);
+          const rollingStockSpacing = Math.max(0, train.rollingStock.length - 1) * carGap;
+          const fullConsistLength =
+            loco.bodyLength +
+            (train.tender ? locomotiveToTenderGap + tenderLength : 0) +
+            (train.rollingStock.length > 0 ? locomotiveToTenderGap : 0) +
+            rollingStockLength +
+            rollingStockSpacing;
+
+          const usablePreviewWidth = previewWidth - previewPadding * 2;
+          const scale = Math.min(0.65, usablePreviewWidth / Math.max(1, fullConsistLength));
+          const locomotiveStart = previewPadding;
+          const tenderStart = locomotiveStart + (loco.bodyLength + locomotiveToTenderGap) * scale;
+          const rollingStockStart =
+            tenderStart + (train.tender ? train.tender.length + locomotiveToTenderGap : 0) * scale;
 
           return (
             <button
@@ -33,9 +63,15 @@ export function TrainSelector({ selectedTrainId, onSelectTrain }: TrainSelectorP
                 <svg viewBox={`0 0 ${previewWidth} 110`} role="img" aria-label={train.displayName} className="h-28 w-full">
                   <rect x="0" y="96" width={previewWidth} height="8" fill="#64748b" />
                   <rect x="0" y="102" width={previewWidth} height="4" fill="#475569" />
-                  <rect x="8" y={baseY - loco.bodyHeight * 0.35 * scale} width={loco.bodyLength * 0.66 * scale} height={loco.bodyHeight * 0.35 * scale} fill={loco.color} />
+                  <rect
+                    x={locomotiveStart}
+                    y={baseY - loco.bodyHeight * 0.35 * scale}
+                    width={loco.bodyLength * 0.66 * scale}
+                    height={loco.bodyHeight * 0.35 * scale}
+                    fill={loco.color}
+                  />
                   <ellipse
-                    cx={18 + loco.bodyLength * 0.38 * scale}
+                    cx={locomotiveStart + 10 + loco.bodyLength * 0.38 * scale}
                     cy={baseY - loco.bodyHeight * 0.52 * scale}
                     rx={loco.bodyLength * 0.35 * scale}
                     ry={loco.bodyHeight * 0.32 * scale}
@@ -44,14 +80,14 @@ export function TrainSelector({ selectedTrainId, onSelectTrain }: TrainSelectorP
                   {loco.stack && (
                     <>
                       <rect
-                        x={8 + loco.stack.offsetX * scale}
+                        x={locomotiveStart + loco.stack.offsetX * scale}
                         y={baseY + loco.stack.offsetY * scale}
                         width={loco.stack.width * scale}
                         height={loco.stack.height * scale}
                         fill="#0f172a"
                       />
                       <rect
-                        x={8 + (loco.stack.offsetX - (loco.stack.flareWidth - loco.stack.width) / 2) * scale}
+                        x={locomotiveStart + (loco.stack.offsetX - (loco.stack.flareWidth - loco.stack.width) / 2) * scale}
                         y={baseY + (loco.stack.offsetY - loco.stack.flareHeight) * scale}
                         width={loco.stack.flareWidth * scale}
                         height={loco.stack.flareHeight * scale}
@@ -61,7 +97,7 @@ export function TrainSelector({ selectedTrainId, onSelectTrain }: TrainSelectorP
                   )}
                   {loco.cab && (
                     <rect
-                      x={8 + loco.cab.offsetX * scale}
+                      x={locomotiveStart + loco.cab.offsetX * scale}
                       y={baseY - (loco.cab.height + 8) * scale}
                       width={loco.cab.width * scale}
                       height={loco.cab.height * scale}
@@ -71,7 +107,10 @@ export function TrainSelector({ selectedTrainId, onSelectTrain }: TrainSelectorP
                   {Array.from({ length: loco.wheelSet.count }).map((_, wheelIndex) => (
                     <circle
                       key={`${train.id}-wheel-${wheelIndex}`}
-                      cx={8 + (loco.wheelSet.offsetX + wheelIndex * loco.wheelSet.spacing) * scale}
+                      cx={
+                        locomotiveStart +
+                        (loco.wheelSet.offsetX + wheelIndex * loco.wheelSet.spacing) * scale
+                      }
                       cy={baseY}
                       r={loco.wheelSet.radius * scale}
                       fill="#111827"
@@ -79,7 +118,7 @@ export function TrainSelector({ selectedTrainId, onSelectTrain }: TrainSelectorP
                   ))}
                   {train.tender && (
                     <rect
-                      x={8 + tenderStart}
+                      x={tenderStart}
                       y={baseY - train.tender.height * scale}
                       width={train.tender.length * scale}
                       height={train.tender.height * scale}
@@ -87,7 +126,7 @@ export function TrainSelector({ selectedTrainId, onSelectTrain }: TrainSelectorP
                     />
                   )}
                   {train.rollingStock.map((car, carIndex) => {
-                    const x = 8 + tenderStart + ((train.tender?.length ?? 0) + 14 + carIndex * (car.length + 10)) * scale;
+                    const x = rollingStockStart + carIndex * (car.length + carGap) * scale;
                     return (
                       <rect
                         key={car.id}
@@ -102,6 +141,9 @@ export function TrainSelector({ selectedTrainId, onSelectTrain }: TrainSelectorP
                 </svg>
               </div>
               <p className="mt-2 text-lg font-semibold">{train.displayName}</p>
+              <p className="text-sm text-muted-foreground">
+                {getTrainRole(train.id)} • {train.locomotive.wheelArrangement}
+              </p>
             </button>
           );
         })}
