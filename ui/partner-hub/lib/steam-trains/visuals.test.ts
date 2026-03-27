@@ -2,7 +2,14 @@ import * as assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { STEAM_TRAIN_CATALOG } from "./trainCatalog";
-import { countChuffPulses, getCarWindowColor, getLocomotiveSilhouette, getPreviewPalette, getTrainLayout } from "./visuals";
+import {
+  countChuffPulses,
+  getCarWindowColor,
+  getLocomotiveSilhouette,
+  getPreviewPalette,
+  getTrainConsistLength,
+  getTrainLayout,
+} from "./visuals";
 
 describe("steam train visual helpers", () => {
   it("builds positive layouts for every stock train", () => {
@@ -12,6 +19,14 @@ describe("steam train visual helpers", () => {
       assert.equal(layout.scale > 0, true, `${train.id}: scale`);
       assert.equal(layout.tenderStart > layout.locomotiveStart, true, `${train.id}: tender start`);
       assert.equal(layout.rollingStockStart >= layout.tenderStart, true, `${train.id}: rolling stock start`);
+    });
+  });
+
+  it("keeps consist lengths stable and positive", () => {
+    STEAM_TRAIN_CATALOG.forEach((train) => {
+      const length = getTrainConsistLength(train);
+      assert.equal(length > 100, true, `${train.id}: minimum length`);
+      assert.equal(length >= train.locomotive.bodyLength, true, `${train.id}: locomotive not clipped`);
     });
   });
 
@@ -35,6 +50,8 @@ describe("steam train visual helpers", () => {
     assert.equal(typeof palette.railBed, "string");
     assert.equal(typeof palette.wheelFill, "string");
     assert.equal(typeof palette.runningBoard, "string");
+    assert.equal(typeof palette.skyTop, "string");
+    assert.equal(typeof palette.brass, "string");
   });
 
   it("maps window color by train role", () => {
