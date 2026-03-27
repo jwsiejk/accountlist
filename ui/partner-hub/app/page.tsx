@@ -87,6 +87,11 @@ const toolCards = [
     href: "/tools/energy",
   },
   {
+    title: "Steam Trains",
+    description: "Play a touch-first steam locomotive scene with switch control.",
+    href: "/tools/steam-trains",
+  },
+  {
     title: "Office Schedule",
     description: "Browse offices and book time slots.",
     href: "/offices/schedule",
