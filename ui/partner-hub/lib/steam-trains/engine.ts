@@ -1,4 +1,5 @@
 import { stepSteamParticles, emitSteamParticles } from "./particles";
+import { countChuffPulses } from "./visuals";
 import type {
   GameMode,
   LevelCheckpoint,
@@ -216,6 +217,7 @@ export const advanceSimulation = (
   const movement = (nextState.train.speed * dtMs) / 1000;
   const wheelRadius = nextState.train.definition.locomotive.wheelSet.radius;
   const wheelRotationDelta = movement / Math.max(8, wheelRadius);
+  const nextWheelRotationRad = nextState.train.wheelRotationRad + wheelRotationDelta;
   const trainX = nextState.train.x + movement;
 
   let resolvedState: SteamTrainsSimulationState = {
@@ -223,9 +225,31 @@ export const advanceSimulation = (
     train: {
       ...nextState.train,
       x: trainX,
-      wheelRotationRad: nextState.train.wheelRotationRad + wheelRotationDelta,
+      wheelRotationRad: nextWheelRotationRad,
     },
   };
+
+  const chuffPulses = countChuffPulses(nextState.train.wheelRotationRad, nextWheelRotationRad);
+  if (chuffPulses > 0) {
+    let puffState = resolvedState;
+    for (let pulse = 0; pulse < chuffPulses; pulse += 1) {
+      const pulseCloud = emitSteamParticles(
+        puffState.particles,
+        emitter,
+        puffState.train.x + emitter.offsetX + (Math.random() - 0.5) * 4,
+        puffState.train.y + emitter.offsetY,
+        120,
+        "puff",
+        puffState.nextParticleId,
+      );
+      puffState = {
+        ...puffState,
+        particles: pulseCloud.particles,
+        nextParticleId: pulseCloud.nextParticleId,
+      };
+    }
+    resolvedState = puffState;
+  }
 
   const stationStop = resolvedState.level.stationStop;
   if (stationStop && !resolvedState.stationStopCompleted && resolvedState.train.x >= stationStop.x) {
