@@ -139,18 +139,23 @@ export function TrainBuilder({
           {savedTrains.length === 0 ? (
             <p className="text-sm text-muted-foreground">Save your first train to use it in Levels and Free Play.</p>
           ) : (
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {savedTrains.map((train) => (
-                <Button
+                <button
                   key={train.id}
                   type="button"
-                  className="h-auto min-h-14 justify-start px-3 py-2 text-left text-base"
-                  variant="secondary"
+                  className="rounded-2xl border bg-card p-2 text-left transition hover:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                   onClick={() => onLoadSaved(train.id)}
                 >
-                  <span className="mr-2 inline-block h-3 w-8 rounded-full" style={{ backgroundColor: train.locomotive.trimColor }} />
-                  <span className="truncate">{train.displayName}</span>
-                </Button>
+                  <div className="rounded-xl bg-gradient-to-b from-sky-100 via-sky-50 to-green-100 p-2">
+                    <TrainPreviewCanvas train={train} width={220} height={110} className="h-24 w-full" animated={false} />
+                  </div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="inline-block h-3 w-8 rounded-full" style={{ backgroundColor: train.locomotive.trimColor }} />
+                    <p className="truncate text-sm font-semibold">{train.displayName}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Load this train</p>
+                </button>
               ))}
             </div>
           )}

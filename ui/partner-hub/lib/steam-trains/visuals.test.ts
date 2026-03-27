@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import { STEAM_TRAIN_CATALOG } from "./trainCatalog";
 import {
   countChuffPulses,
+  drawTrackTurnout,
   getCarWindowColor,
   getLocomotiveSilhouette,
   getPreviewPalette,
@@ -57,5 +58,29 @@ describe("steam train visual helpers", () => {
   it("maps window color by train role", () => {
     assert.equal(getCarWindowColor("starter-passenger"), "#fef3c7");
     assert.equal(getCarWindowColor("starter-freight"), "#334155");
+  });
+
+  it("draws turnout geometry only when switch position is provided", () => {
+    const calls: string[] = [];
+    const ctx = {
+      beginPath: () => calls.push("beginPath"),
+      moveTo: (_x: number, _y: number) => calls.push("moveTo"),
+      lineTo: (_x: number, _y: number) => calls.push("lineTo"),
+      stroke: () => calls.push("stroke"),
+      fillRect: (_x: number, _y: number, _w: number, _h: number) => calls.push("fillRect"),
+      closePath: () => calls.push("closePath"),
+      fill: () => calls.push("fill"),
+      set strokeStyle(_value: string) {},
+      set lineWidth(_value: number) {},
+      set fillStyle(_value: string) {},
+    } as unknown as CanvasRenderingContext2D;
+
+    drawTrackTurnout(ctx, 100, {});
+    assert.equal(calls.length, 0);
+
+    drawTrackTurnout(ctx, 100, { switchX: 120, switchToSiding: true });
+    assert.equal(calls.includes("fillRect"), true);
+    assert.equal(calls.filter((call) => call === "stroke").length, 2);
+    assert.equal(calls.filter((call) => call === "lineTo").length >= 3, true);
   });
 });

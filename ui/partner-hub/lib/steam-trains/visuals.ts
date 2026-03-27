@@ -71,6 +71,42 @@ export type TrackRenderOptions = {
   switchToSiding?: boolean;
 };
 
+export const drawTrackTurnout = (
+  ctx: CanvasRenderingContext2D,
+  railY: number,
+  options: Pick<TrackRenderOptions, "switchX" | "switchToSiding">,
+) => {
+  if (options.switchX === undefined) {
+    return;
+  }
+
+  const switchX = options.switchX;
+  const branchY = options.switchToSiding ? railY + 58 : railY + 2;
+  ctx.strokeStyle = "#67717f";
+  ctx.lineWidth = 8;
+  ctx.beginPath();
+  ctx.moveTo(switchX - 6, railY + 2);
+  ctx.lineTo(switchX + 90, branchY);
+  ctx.stroke();
+
+  ctx.strokeStyle = "#d0d7e2";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(switchX - 6, railY + 2);
+  ctx.lineTo(switchX + 90, branchY - 2);
+  ctx.stroke();
+
+  ctx.fillStyle = "#364152";
+  ctx.fillRect(switchX - 8, railY - 26, 8, 22);
+  ctx.fillStyle = options.switchToSiding ? "#f97316" : "#22c55e";
+  ctx.beginPath();
+  ctx.moveTo(switchX, railY - 23);
+  ctx.lineTo(switchX + 20, railY - 18);
+  ctx.lineTo(switchX, railY - 13);
+  ctx.closePath();
+  ctx.fill();
+};
+
 export type TrainArtRenderOptions = {
   baseX: number;
   baseY: number;
@@ -242,32 +278,11 @@ export const drawTrackAndBallast = (
   ctx.fillRect(0, railY - 4, width, 7);
   ctx.fillRect(0, railY + 13, width, 7);
 
-  if (options.includeSwitchStand && options.switchX !== undefined) {
-    const switchX = options.switchX;
-    const branchY = options.switchToSiding ? railY + 58 : railY + 2;
-    ctx.strokeStyle = "#67717f";
-    ctx.lineWidth = 8;
-    ctx.beginPath();
-    ctx.moveTo(switchX - 6, railY + 2);
-    ctx.lineTo(switchX + 90, branchY);
-    ctx.stroke();
-
-    ctx.strokeStyle = "#d0d7e2";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(switchX - 6, railY + 2);
-    ctx.lineTo(switchX + 90, branchY - 2);
-    ctx.stroke();
-
-    ctx.fillStyle = "#364152";
-    ctx.fillRect(switchX - 8, railY - 26, 8, 22);
-    ctx.fillStyle = options.switchToSiding ? "#f97316" : "#22c55e";
-    ctx.beginPath();
-    ctx.moveTo(switchX, railY - 23);
-    ctx.lineTo(switchX + 20, railY - 18);
-    ctx.lineTo(switchX, railY - 13);
-    ctx.closePath();
-    ctx.fill();
+  if (options.includeSwitchStand) {
+    drawTrackTurnout(ctx, railY, {
+      switchX: options.switchX,
+      switchToSiding: options.switchToSiding,
+    });
   }
 };
 
