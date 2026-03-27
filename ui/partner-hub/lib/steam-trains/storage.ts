@@ -1,9 +1,11 @@
+import { DEFAULT_STEAM_TRAIN_ID, hasTrainDefinition } from "./trainCatalog";
 import type { GameMode } from "./types";
 
 export type SteamTrainsPreferences = {
   highestUnlockedLevel: number;
   helperMode: boolean;
   lastMode: GameMode;
+  selectedTrainId: string;
 };
 
 export type StorageLike = Pick<Storage, "getItem" | "setItem">;
@@ -14,6 +16,7 @@ const DEFAULT_PREFERENCES: SteamTrainsPreferences = {
   highestUnlockedLevel: 1,
   helperMode: true,
   lastMode: "levels",
+  selectedTrainId: DEFAULT_STEAM_TRAIN_ID,
 };
 
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
@@ -26,11 +29,16 @@ export const sanitizePreferences = (input: unknown): SteamTrainsPreferences => {
   const highestUnlockedLevel = Number(input.highestUnlockedLevel);
   const helperMode = Boolean(input.helperMode);
   const lastMode = input.lastMode === "free-play" ? "free-play" : "levels";
+  const selectedTrainId =
+    typeof input.selectedTrainId === "string" && hasTrainDefinition(input.selectedTrainId)
+      ? input.selectedTrainId
+      : DEFAULT_STEAM_TRAIN_ID;
 
   return {
     highestUnlockedLevel: Number.isFinite(highestUnlockedLevel) && highestUnlockedLevel > 0 ? highestUnlockedLevel : 1,
     helperMode,
     lastMode,
+    selectedTrainId,
   };
 };
 

@@ -71,6 +71,7 @@ export type SteamEmitterDefinition = {
 export type LocomotiveDefinition = {
   id: string;
   name: string;
+  wheelArrangement: string;
   bodyLength: number;
   bodyHeight: number;
   color: string;

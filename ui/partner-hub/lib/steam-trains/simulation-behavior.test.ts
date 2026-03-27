@@ -3,10 +3,10 @@ import { describe, it } from "node:test";
 
 import { advanceSimulation, createSimulation, setSwitchState } from "./engine";
 import { getLevelDefinition } from "./levels";
-import { getTrainDefinition } from "./trainCatalog";
+import { DEFAULT_STEAM_TRAIN_ID, getTrainDefinition } from "./trainCatalog";
 
 const buildState = (levelId: string) =>
-  createSimulation(getTrainDefinition("big-boy-junior"), getLevelDefinition(levelId), "levels");
+  createSimulation(getTrainDefinition(DEFAULT_STEAM_TRAIN_ID), getLevelDefinition(levelId), "levels");
 
 describe("steam trains simulation behavior", () => {
   it("records each checkpoint decision only once", () => {

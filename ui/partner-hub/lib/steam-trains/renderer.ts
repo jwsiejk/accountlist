@@ -309,9 +309,11 @@ const drawLocomotive = (ctx: CanvasRenderingContext2D, state: SteamTrainsSimulat
   ctx.arc(crankX, crankY, 6, 0, Math.PI * 2);
   ctx.fill();
 
+  let rollingX = originX + loco.bodyLength + 20;
+
   if (state.train.definition.tender) {
     const tender = state.train.definition.tender;
-    const tenderX = originX + loco.bodyLength + 20;
+    const tenderX = rollingX;
     const tenderY = originY - tender.height;
 
     ctx.fillStyle = tender.color;
@@ -329,7 +331,27 @@ const drawLocomotive = (ctx: CanvasRenderingContext2D, state: SteamTrainsSimulat
       ctx.arc(x, y, tenderWheelRadius, 0, Math.PI * 2);
       ctx.fill();
     });
+
+    rollingX += tender.length + 18;
   }
+
+  state.train.definition.rollingStock.forEach((car) => {
+    const carY = originY - car.height;
+    ctx.fillStyle = car.color;
+    ctx.fillRect(rollingX, carY, car.length, car.height);
+
+    ctx.fillStyle = "#0f172a";
+    ctx.fillRect(rollingX + 6, carY + 8, Math.max(20, car.length - 12), Math.min(16, car.height * 0.4));
+
+    [24, car.length - 26].forEach((offset) => {
+      ctx.fillStyle = "#111827";
+      ctx.beginPath();
+      ctx.arc(rollingX + offset, originY - 2, 14, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    rollingX += car.length + 16;
+  });
 };
 
 const drawCelebration = (ctx: CanvasRenderingContext2D, width: number) => {
