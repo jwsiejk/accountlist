@@ -14,9 +14,11 @@ import {
 } from "@/lib/steam-trains/engine";
 import { STEAM_TRAINS_LEVELS } from "@/lib/steam-trains/levels";
 import {
+  clampUnlockedLevel,
   getHighestUnlockedAfterCompletion,
   getLevelByOrder,
   getNextLevelOrder,
+  getValidSelectedLevelOrder,
   isLevelUnlocked,
 } from "@/lib/steam-trains/progression";
 import { renderScene } from "@/lib/steam-trains/renderer";
@@ -55,10 +57,15 @@ export function SteamTrainsTool() {
       return;
     }
     const loaded = loadSteamTrainsPreferences(window.localStorage);
-    setPreferences(loaded);
-    setMode(loaded.lastMode);
-    setSelectedLevelOrder(Math.min(loaded.highestUnlockedLevel, STEAM_TRAINS_LEVELS.length));
-    setState(createState(loaded.lastMode, Math.min(loaded.highestUnlockedLevel, STEAM_TRAINS_LEVELS.length)));
+    const highestUnlockedLevel = clampUnlockedLevel(loaded.highestUnlockedLevel);
+    const normalizedPreferences = { ...loaded, highestUnlockedLevel };
+    const nextMode = loaded.lastMode;
+    const nextSelectedLevel = getValidSelectedLevelOrder(highestUnlockedLevel, nextMode, highestUnlockedLevel);
+
+    setPreferences(normalizedPreferences);
+    setMode(nextMode);
+    setSelectedLevelOrder(nextSelectedLevel);
+    setState(createState(nextMode, nextSelectedLevel));
     lastInteractionRef.current = performance.now();
   }, []);
 
@@ -177,22 +184,40 @@ export function SteamTrainsTool() {
 
   const changeMode = (nextMode: GameMode) => {
     bumpInteraction();
+    const nextSelectedLevel = getValidSelectedLevelOrder(selectedLevelOrder, nextMode, preferences.highestUnlockedLevel);
     setMode(nextMode);
     setPreferences((prev) => ({ ...prev, lastMode: nextMode }));
-    setState(createState(nextMode, selectedLevelOrder));
+    setSelectedLevelOrder(nextSelectedLevel);
+    setState(createState(nextMode, nextSelectedLevel));
   };
 
   const changeLevel = (order: number) => {
     bumpInteraction();
-    setSelectedLevelOrder(order);
-    setState(createState(mode, order));
+    const nextSelectedLevel = getValidSelectedLevelOrder(order, mode, preferences.highestUnlockedLevel);
+    setSelectedLevelOrder(nextSelectedLevel);
+    setState(createState(mode, nextSelectedLevel));
   };
 
   const handleNextLevel = () => {
-    const nextLevelOrder = getNextLevelOrder(selectedLevelOrder);
+    bumpInteraction();
+    const nextLevelOrder = getValidSelectedLevelOrder(
+      getNextLevelOrder(selectedLevelOrder),
+      mode,
+      preferences.highestUnlockedLevel,
+    );
     setSelectedLevelOrder(nextLevelOrder);
     setState(createState(mode, nextLevelOrder));
   };
+
+  useEffect(() => {
+    const nextSelectedLevel = getValidSelectedLevelOrder(selectedLevelOrder, mode, preferences.highestUnlockedLevel);
+    if (nextSelectedLevel !== selectedLevelOrder) {
+      setSelectedLevelOrder(nextSelectedLevel);
+      setState(createState(mode, nextSelectedLevel));
+    }
+  }, [mode, preferences.highestUnlockedLevel, selectedLevelOrder]);
+
+  const isSwitchDisabled = state.playState !== "running";
 
   return (
     <Card className="mx-auto w-full max-w-6xl">
@@ -221,7 +246,10 @@ export function SteamTrainsTool() {
             type="button"
             className="h-14 text-lg font-bold"
             variant={preferences.helperMode ? "primary" : "secondary"}
-            onClick={() => setPreferences((prev) => ({ ...prev, helperMode: !prev.helperMode }))}
+            onClick={() => {
+              bumpInteraction();
+              setPreferences((prev) => ({ ...prev, helperMode: !prev.helperMode }));
+            }}
           >
             Helper {preferences.helperMode ? "On" : "Off"}
           </Button>
@@ -272,16 +300,18 @@ export function SteamTrainsTool() {
           <Button
             type="button"
             className="h-24 text-2xl font-bold"
-            variant={state.switchState === "main" ? "primary" : "secondary"}
+            variant={state.switchState === "main" && !isSwitchDisabled ? "primary" : "secondary"}
             onClick={() => handleSwitch("main")}
+            disabled={isSwitchDisabled}
           >
             Main Track
           </Button>
           <Button
             type="button"
             className="h-24 text-2xl font-bold"
-            variant={state.switchState === "siding" ? "primary" : "secondary"}
+            variant={state.switchState === "siding" && !isSwitchDisabled ? "primary" : "secondary"}
             onClick={() => handleSwitch("siding")}
+            disabled={isSwitchDisabled}
           >
             Side Track
           </Button>

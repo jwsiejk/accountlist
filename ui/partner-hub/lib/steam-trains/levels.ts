@@ -39,12 +39,16 @@ export const STEAM_TRAINS_LEVELS: LevelDefinition[] = [
     startX: 110,
     destinationX: 1030,
     forkLength: 200,
-    checkpoints: [{ id: "station-switch", x: 530, safeBranch: "main", promptIcon: "station" }],
+    checkpoints: [{ id: "station-switch", x: 700, safeBranch: "main", promptIcon: "switch" }],
     baseSpeedMultiplier: 1,
-    tutorialCue: "Pass the station and pick the right track.",
+    tutorialCue: "Stop at the station, then pick the right track.",
     scene: "station",
     crashPauseMs: 330,
     rewindDurationMs: 380,
+    stationStop: {
+      x: 530,
+      pauseMs: 1200,
+    },
   },
   {
     id: "level-4-bridge-tunnel",
