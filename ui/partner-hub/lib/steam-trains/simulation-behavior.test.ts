@@ -5,60 +5,48 @@ import { advanceSimulation, createSimulation, setSwitchState } from "./engine";
 import { getLevelDefinition } from "./levels";
 import { getTrainDefinition } from "./trainCatalog";
 
-const buildState = () => createSimulation(getTrainDefinition("big-boy-junior"), getLevelDefinition("yard-switch-intro"));
+const buildState = (levelId: string) =>
+  createSimulation(getTrainDefinition("big-boy-junior"), getLevelDefinition(levelId), "levels");
 
 describe("steam trains simulation behavior", () => {
-  it("locks turnout choice once the train reaches the switch", () => {
-    let state = setSwitchState(buildState(), "main");
+  it("records each checkpoint decision only once", () => {
+    let state = setSwitchState(buildState("level-5-fast-switches"), "main");
 
-    for (let i = 0; i < 260 && state.turnoutDecision === null; i += 1) {
+    for (let i = 0; i < 260 && state.nextCheckpointIndex < 1; i += 1) {
       state = advanceSimulation(state, 40);
     }
 
-    assert.equal(state.turnoutDecision, "main");
+    assert.equal(state.nextCheckpointIndex, 1);
+    assert.deepEqual(state.checkpointDecisions, ["main"]);
 
     state = setSwitchState(state, "siding");
+    state = setSwitchState(state, "main");
 
-    for (let i = 0; i < 180; i += 1) {
+    for (let i = 0; i < 280 && state.playState === "running"; i += 1) {
       state = advanceSimulation(state, 40);
-      if (state.train.x > state.level.switchX + 200 || state.playState === "completed") {
-        break;
-      }
-    }
-
-    assert.equal(state.turnoutDecision, "main");
-    assert.notEqual(state.playState, "crashed");
-  });
-
-  it("auto-resets after crashResetDelayMs while still allowing visible crash state", () => {
-    let state = setSwitchState(buildState(), "siding");
-
-    for (let i = 0; i < 240; i += 1) {
-      state = advanceSimulation(state, 40);
-      if (state.playState === "crashed") {
-        break;
-      }
     }
 
     assert.equal(state.playState, "crashed");
-    assert.notEqual(state.crashAtMs, null);
+    assert.deepEqual(state.checkpointDecisions, ["main", "main"]);
+  });
 
-    let beforeDelay = state;
-    for (let elapsed = 0; elapsed < state.level.crashResetDelayMs - 50; elapsed += 40) {
-      beforeDelay = advanceSimulation(beforeDelay, 40);
-    }
-    assert.equal(beforeDelay.playState, "crashed");
+  it("quickly transitions from crash to rewind to restart", () => {
+    let state = setSwitchState(buildState("level-1-switch-start"), "siding");
 
-    let afterDelay = state;
-    for (let elapsed = 0; elapsed < state.level.crashResetDelayMs + 80; elapsed += 40) {
-      afterDelay = advanceSimulation(afterDelay, 40);
-      if (afterDelay.playState === "running") {
-        break;
-      }
+    for (let i = 0; i < 240 && state.playState === "running"; i += 1) {
+      state = advanceSimulation(state, 40);
     }
 
-    assert.equal(afterDelay.playState, "running");
-    assert.equal(afterDelay.train.x, afterDelay.level.startX);
-    assert.equal(afterDelay.turnoutDecision, null);
+    assert.equal(state.playState, "crashed");
+
+    let rewindingSeen = false;
+    for (let i = 0; i < 50 && state.playState !== "running"; i += 1) {
+      state = advanceSimulation(state, 40);
+      rewindingSeen ||= state.playState === "rewinding";
+    }
+
+    assert.equal(rewindingSeen, true);
+    assert.equal(state.playState, "running");
+    assert.equal(state.train.x, state.level.startX);
   });
 });

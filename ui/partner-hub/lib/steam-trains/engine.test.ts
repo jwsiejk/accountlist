@@ -4,18 +4,19 @@ import { describe, it } from "node:test";
 import {
   advanceSimulation,
   createSimulation,
-  restartAfterCrash,
+  restartSimulation,
   setSwitchState,
   triggerSteamPuff,
 } from "./engine";
 import { getLevelDefinition } from "./levels";
 import { getTrainDefinition } from "./trainCatalog";
 
-const buildState = () => createSimulation(getTrainDefinition("big-boy-junior"), getLevelDefinition("yard-switch-intro"));
+const createLevelState = (levelId: string, mode: "levels" | "free-play" = "levels") =>
+  createSimulation(getTrainDefinition("big-boy-junior"), getLevelDefinition(levelId), mode);
 
 describe("steam trains engine", () => {
   it("advances position and wheel rotation while running", () => {
-    const start = buildState();
+    const start = createLevelState("level-1-switch-start");
     const next = advanceSimulation(start, 100);
 
     assert.equal(next.train.x > start.train.x, true);
@@ -23,23 +24,32 @@ describe("steam trains engine", () => {
     assert.equal(next.playState, "running");
   });
 
-  it("switches into a gentle crash state on wrong track", () => {
-    let state = setSwitchState(buildState(), "siding");
-    for (let i = 0; i < 220; i += 1) {
+  it("creates a gentle crash, rewind, and restart flow for wrong track", () => {
+    let state = setSwitchState(createLevelState("level-1-switch-start"), "siding");
+
+    for (let i = 0; i < 220 && state.playState === "running"; i += 1) {
       state = advanceSimulation(state, 40);
-      if (state.playState === "crashed") {
-        break;
-      }
     }
 
     assert.equal(state.playState, "crashed");
-    assert.equal(state.train.speed, 0);
-    assert.equal(state.crashAtMs !== null, true);
+
+    for (let i = 0; i < 40 && state.playState === "crashed"; i += 1) {
+      state = advanceSimulation(state, 40);
+    }
+    assert.equal(state.playState, "rewinding");
+
+    for (let i = 0; i < 40 && state.playState !== "running"; i += 1) {
+      state = advanceSimulation(state, 40);
+    }
+
+    assert.equal(state.playState, "running");
+    assert.equal(state.train.x, state.level.startX);
+    assert.equal(state.nextCheckpointIndex, 0);
   });
 
-  it("completes when switch is set to safe branch", () => {
-    let state = buildState();
-    for (let i = 0; i < 400; i += 1) {
+  it("completes a level run when switch choices are correct", () => {
+    let state = createLevelState("level-1-switch-start");
+    for (let i = 0; i < 360; i += 1) {
       state = advanceSimulation(state, 40);
       if (state.playState === "completed") {
         break;
@@ -50,48 +60,43 @@ describe("steam trains engine", () => {
     assert.equal(state.train.speed, 0);
   });
 
-  it("supports steam puff bursts and fast restart", () => {
-    const initial = buildState();
+  it("keeps free play mode non-losing even on wrong switches", () => {
+    let state = setSwitchState(createLevelState("level-2-two-routes", "free-play"), "main");
+    for (let i = 0; i < 420; i += 1) {
+      state = advanceSimulation(state, 40);
+    }
+
+    assert.equal(state.playState, "running");
+    assert.equal(state.mode, "free-play");
+  });
+
+  it("supports steam puff bursts and manual restart", () => {
+    const initial = createLevelState("level-3-station-stop");
     const puffed = triggerSteamPuff(initial);
 
     assert.equal(puffed.particles.length > initial.particles.length, true);
 
-    const crashed = {
-      ...puffed,
-      playState: "crashed" as const,
-      crashAtMs: puffed.elapsedMs,
-    };
-    const restarted = restartAfterCrash(crashed);
-
+    const restarted = restartSimulation({ ...puffed, playState: "completed" });
     assert.equal(restarted.playState, "running");
     assert.equal(restarted.train.x, restarted.level.startX);
     assert.equal(restarted.particles.length, 0);
   });
 
-  it("ignores switch updates after turnout decision is locked", () => {
-    let state = setSwitchState(buildState(), "main");
+  it("handles multiple switches in level 5", () => {
+    let state = createLevelState("level-5-fast-switches");
+    state = setSwitchState(state, "main");
 
-    for (let i = 0; i < 260 && state.turnoutDecision === null; i += 1) {
+    for (let i = 0; i < 260 && state.nextCheckpointIndex < 1; i += 1) {
+      state = advanceSimulation(state, 40);
+    }
+    assert.equal(state.nextCheckpointIndex, 1);
+
+    state = setSwitchState(state, "siding");
+    for (let i = 0; i < 260 && state.playState === "running"; i += 1) {
       state = advanceSimulation(state, 40);
     }
 
-    assert.equal(state.turnoutDecision, "main");
-
-    const afterLockedTap = setSwitchState(state, "siding");
-    assert.equal(afterLockedTap.switchState, state.switchState);
-    assert.equal(afterLockedTap.turnoutDecision, "main");
-  });
-
-  it("ignores switch updates once run is no longer running", () => {
-    let state = setSwitchState(buildState(), "siding");
-    for (let i = 0; i < 220 && state.playState === "running"; i += 1) {
-      state = advanceSimulation(state, 40);
-    }
-
-    assert.equal(state.playState, "crashed");
-    assert.equal(state.switchState, "siding");
-
-    const afterCrashTap = setSwitchState(state, "main");
-    assert.equal(afterCrashTap.switchState, "siding");
+    assert.equal(state.playState, "completed");
+    assert.deepEqual(state.checkpointDecisions, ["main", "siding"]);
   });
 });

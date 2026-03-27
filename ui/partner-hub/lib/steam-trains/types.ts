@@ -110,20 +110,34 @@ export type TrainDefinition = {
   baseSpeed: number;
 };
 
+export type TrackSwitchState = "main" | "siding";
+export type GameMode = "levels" | "free-play";
+export type PlayState = "running" | "crashed" | "rewinding" | "completed";
+
+export type LevelCheckpoint = {
+  id: string;
+  x: number;
+  safeBranch: TrackSwitchState;
+  promptIcon?: "switch" | "station" | "bridge" | "tunnel";
+};
+
+export type LevelScene = "yard" | "station" | "bridge" | "tunnel";
+
 export type LevelDefinition = {
   id: string;
+  order: number;
   name: string;
   width: number;
   startX: number;
-  switchX: number;
-  forkLength: number;
   destinationX: number;
-  safeBranch: "main" | "siding";
-  crashResetDelayMs: number;
+  forkLength: number;
+  checkpoints: LevelCheckpoint[];
+  baseSpeedMultiplier: number;
+  tutorialCue: string;
+  scene: LevelScene;
+  crashPauseMs: number;
+  rewindDurationMs: number;
 };
-
-export type TrackSwitchState = "main" | "siding";
-export type PlayState = "running" | "crashed" | "completed";
 
 export type SteamParticle = {
   id: number;
@@ -153,11 +167,14 @@ export type TrainRuntimeState = {
 export type SteamTrainsSimulationState = {
   train: TrainRuntimeState;
   level: LevelDefinition;
+  mode: GameMode;
   switchState: TrackSwitchState;
-  turnoutDecision: TrackSwitchState | null;
+  checkpointDecisions: TrackSwitchState[];
+  nextCheckpointIndex: number;
   playState: PlayState;
   elapsedMs: number;
   crashAtMs: number | null;
+  rewindStartMs: number | null;
   whistleAtMs: number | null;
   particles: SteamParticle[];
   nextParticleId: number;
