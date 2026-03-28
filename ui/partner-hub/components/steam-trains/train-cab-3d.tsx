@@ -8,7 +8,15 @@ import type { GroupProps } from "@react-three/fiber";
 import type { Group } from "three";
 
 import { buildCabTheme, buildScene3dModel } from "@/lib/steam-trains/scene3d";
-import type { Scene3dLandmarkCue, Scene3dModel, Scene3dTrackPreview } from "@/lib/steam-trains/scene3d";
+import type {
+  Scene3dBuilding,
+  Scene3dCloud,
+  Scene3dLandmarkCue,
+  Scene3dModel,
+  Scene3dRidge,
+  Scene3dRouteCue,
+  Scene3dTrackPreview,
+} from "@/lib/steam-trains/scene3d";
 import type { SteamTrainsSimulationState } from "@/lib/steam-trains/types";
 
 type TrainCab3DProps = {
@@ -61,6 +69,59 @@ function RepeaterField({ model }: { model: Scene3dModel }) {
             <coneGeometry args={[0.95, 2.2, 10]} />
             <meshStandardMaterial color="#2f7d3e" />
           </mesh>
+          <mesh position={[0.2, 3.5, 0]}>
+            <sphereGeometry args={[0.44, 8, 8]} />
+            <meshStandardMaterial color="#3f9a4c" />
+          </mesh>
+        </group>
+      ))}
+    </>
+  );
+}
+
+function SkyLayers({ clouds, ridges }: { clouds: Scene3dCloud[]; ridges: Scene3dRidge[] }) {
+  return (
+    <>
+      {clouds.map((cloud) => (
+        <group key={cloud.id} position={[cloud.x, cloud.y, toWorldZ(cloud.z)]} scale={cloud.scale}>
+          <mesh>
+            <sphereGeometry args={[cloud.depth === "near" ? 1.25 : 1.55, 14, 14]} />
+            <meshStandardMaterial color={cloud.depth === "near" ? "#f8fdff" : "#dbeafe"} transparent opacity={cloud.depth === "near" ? 0.88 : 0.64} />
+          </mesh>
+          <mesh position={[0.9, -0.15, 0.12]}>
+            <sphereGeometry args={[0.9, 12, 12]} />
+            <meshStandardMaterial color="#f1f5f9" transparent opacity={0.8} />
+          </mesh>
+          <mesh position={[-0.75, -0.2, -0.12]}>
+            <sphereGeometry args={[0.82, 12, 12]} />
+            <meshStandardMaterial color="#eff6ff" transparent opacity={0.75} />
+          </mesh>
+        </group>
+      ))}
+
+      {ridges.map((ridge) => (
+        <mesh key={ridge.id} position={[ridge.x, ridge.y, toWorldZ(ridge.z)]}>
+          <coneGeometry args={[ridge.width * 0.5, ridge.height, 9]} />
+          <meshStandardMaterial color={ridge.depth === "near" ? "#4d7c0f" : "#64748b"} transparent opacity={ridge.depth === "near" ? 0.86 : 0.6} />
+        </mesh>
+      ))}
+    </>
+  );
+}
+
+function BuildingField({ buildings }: { buildings: Scene3dBuilding[] }) {
+  return (
+    <>
+      {buildings.map((building) => (
+        <group key={building.id} position={[building.x, 0, toWorldZ(building.z)]}>
+          <mesh position={[0, building.height / 2, 0]}>
+            <boxGeometry args={[building.width, building.height, building.depth]} />
+            <meshStandardMaterial color={building.color} />
+          </mesh>
+          <mesh position={[0, building.height + 0.28, 0]}>
+            <boxGeometry args={[building.width + 0.2, 0.34, building.depth + 0.2]} />
+            <meshStandardMaterial color={building.roofColor} />
+          </mesh>
         </group>
       ))}
     </>
@@ -98,12 +159,20 @@ function TrackGeometry({ model }: { model: Scene3dModel }) {
     <>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.04, centerZ]}>
         <planeGeometry args={[48, length]} />
-        <meshStandardMaterial color="#76a95f" />
+        <meshStandardMaterial color="#6fa857" />
       </mesh>
 
       <mesh position={[0, 0, centerZ]}>
         <boxGeometry args={[5.6, 0.18, length]} />
         <meshStandardMaterial color="#6d5a45" />
+      </mesh>
+      <mesh position={[-3.6, -0.01, centerZ]}>
+        <boxGeometry args={[1.5, 0.1, length]} />
+        <meshStandardMaterial color="#a3c973" />
+      </mesh>
+      <mesh position={[3.6, -0.01, centerZ]}>
+        <boxGeometry args={[1.5, 0.1, length]} />
+        <meshStandardMaterial color="#a3c973" />
       </mesh>
 
       <mesh position={[-0.72, 0.19, centerZ]}>
@@ -207,13 +276,49 @@ function CheckpointSignals({ model }: { model: Scene3dModel }) {
       })}
 
       {model.stationCue && model.stationCue.endZ > -45 && model.stationCue.startZ < model.horizonDistance && (
-        <group position={[-4.2, 0, toWorldZ((model.stationCue.startZ + model.stationCue.endZ) / 2)]}>
-          <mesh position={[0, 0.85, 0]}>
-            <boxGeometry args={[0.14, 1.7, Math.max(5, model.stationCue.endZ - model.stationCue.startZ)]} />
-            <meshStandardMaterial color={model.stationCue.completed ? "#10b981" : "#fb923c"} emissive={model.stationCue.completed ? "#064e3b" : "#7c2d12"} />
+        <>
+          <group position={[-4.2, 0, toWorldZ((model.stationCue.startZ + model.stationCue.endZ) / 2)]}>
+            <mesh position={[0, 0.85, 0]}>
+              <boxGeometry args={[0.14, 1.7, Math.max(5, model.stationCue.endZ - model.stationCue.startZ)]} />
+              <meshStandardMaterial color={model.stationCue.completed ? "#10b981" : "#fb923c"} emissive={model.stationCue.completed ? "#064e3b" : "#7c2d12"} />
+            </mesh>
+          </group>
+          <mesh
+            rotation={[-Math.PI / 2, 0, 0]}
+            position={[0, 0.02, toWorldZ((model.stationCue.startZ + model.stationCue.endZ) / 2)]}
+          >
+            <planeGeometry args={[6, Math.max(8, model.stationCue.endZ - model.stationCue.startZ)]} />
+            <meshStandardMaterial
+              color={model.stationCue.completed ? "#4ade80" : "#fdba74"}
+              transparent
+              opacity={model.stationCue.completed ? 0.28 : 0.42}
+              emissive={model.stationCue.completed ? "#14532d" : "#7c2d12"}
+            />
           </mesh>
-        </group>
+        </>
       )}
+    </>
+  );
+}
+
+function RouteCueBoards({ routeCues }: { routeCues: Scene3dRouteCue[] }) {
+  return (
+    <>
+      {routeCues.map((cue) => {
+        const x = cue.safeBranch === "main" ? -6.2 : 6.2;
+        return (
+          <group key={cue.id} position={[x, 0, toWorldZ(cue.z)]}>
+            <mesh position={[0, 2.1, 0]}>
+              <boxGeometry args={[1.9, 0.9, 0.15]} />
+              <meshStandardMaterial color={cue.urgency === "now" ? "#facc15" : "#93c5fd"} emissive={cue.urgency === "now" ? "#713f12" : "#1e3a8a"} />
+            </mesh>
+            <mesh position={[0, 1.2, 0]}>
+              <cylinderGeometry args={[0.08, 0.08, 2.3, 10]} />
+              <meshStandardMaterial color="#4b5563" />
+            </mesh>
+          </group>
+        );
+      })}
     </>
   );
 }
@@ -268,14 +373,17 @@ function CabShell({ model, helperMode, state }: { model: Scene3dModel; helperMod
     <>
       <PerspectiveCamera makeDefault fov={56} position={[0, 2.45, 10.6]} rotation={[-0.05, 0, 0]} />
       <color attach="background" args={["#87ceeb"]} />
-      <fog attach="fog" args={["#a9cfe8", 38, 220]} />
+      <fog attach="fog" args={["#9fc8e4", 36, 250]} />
       <ambientLight intensity={0.8} />
       <directionalLight intensity={0.9} position={[8, 14, 14]} castShadow={false} />
       <hemisphereLight args={["#e0f2fe", "#5b7b42", 0.7]} />
 
+      <SkyLayers clouds={model.clouds} ridges={model.ridges} />
       <TrackGeometry model={model} />
+      <BuildingField buildings={model.buildings} />
       <RepeaterField model={model} />
       <CheckpointSignals model={model} />
+      <RouteCueBoards routeCues={model.routeCues} />
       {model.landmarks.map((landmark) => (
         <LandmarkMesh key={landmark.id} landmark={landmark} />
       ))}
@@ -298,6 +406,14 @@ function CabShell({ model, helperMode, state }: { model: Scene3dModel; helperMod
           <boxGeometry args={[1.8, 0.3, 0.3]} />
           <meshStandardMaterial color={theme.noseColor} />
         </mesh>
+        <mesh position={[0, 2, 8.1]}>
+          <boxGeometry args={[7.4, 2.7, 0.4]} />
+          <meshStandardMaterial color={theme.trimColor} metalness={0.12} roughness={0.55} />
+        </mesh>
+        <mesh position={[0, 1.95, 7.92]}>
+          <boxGeometry args={[4.7, 1.8, 0.1]} />
+          <meshStandardMaterial color="#dbeafe" transparent opacity={0.24} />
+        </mesh>
         <mesh position={[-2.95, 0.2, 8.95]}>
           <boxGeometry args={[0.35, 1.2, 1.2]} />
           <meshStandardMaterial color={theme.trimColor} />
@@ -305,6 +421,14 @@ function CabShell({ model, helperMode, state }: { model: Scene3dModel; helperMod
         <mesh position={[2.95, 0.2, 8.95]}>
           <boxGeometry args={[0.35, 1.2, 1.2]} />
           <meshStandardMaterial color={theme.trimColor} />
+        </mesh>
+        <mesh position={[-1.1, 0.95, 8.15]}>
+          <cylinderGeometry args={[0.1, 0.1, 0.42, 12]} />
+          <meshStandardMaterial color="#334155" />
+        </mesh>
+        <mesh position={[1.1, 0.95, 8.15]}>
+          <cylinderGeometry args={[0.1, 0.1, 0.42, 12]} />
+          <meshStandardMaterial color="#334155" />
         </mesh>
       </MovingCabRig>
     </>

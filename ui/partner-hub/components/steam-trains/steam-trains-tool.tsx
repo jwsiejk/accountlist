@@ -297,6 +297,9 @@ export function SteamTrainsTool() {
 
   const cabModel = buildScene3dModel(state);
   const cabTheme = buildCabTheme(state.train.definition);
+  const routeHint = cabModel.routeCues[0]?.hintText ?? "Keep straight and enjoy the ride";
+  const stationDistance =
+    cabModel.stationCue && cabModel.stationCue.startZ > 0 ? `${Math.round(cabModel.stationCue.startZ)}m` : cabModel.stationCue ? "At station" : null;
 
   return (
     <Card className="mx-auto w-full max-w-6xl">
@@ -378,10 +381,12 @@ export function SteamTrainsTool() {
 
             <TrainCab3D state={state} helperMode={shouldShowHelper} />
 
-            <div className="grid gap-3 rounded-xl bg-muted/50 p-4 sm:grid-cols-4">
+            <div className="grid gap-3 rounded-xl bg-muted/50 p-4 sm:grid-cols-2 lg:grid-cols-6">
               <p className="text-center text-base font-semibold">Goal: {state.statusText}</p>
               <p className="text-center text-base font-semibold">Next route: {nextRouteLabel}</p>
               <p className="text-center text-base font-semibold">Speed: {cabModel.speedMph} mph</p>
+              <p className="text-center text-base font-semibold">Route hint: {routeHint}</p>
+              <p className="text-center text-base font-semibold">{stationDistance ? `Station: ${stationDistance}` : "Station: none"}</p>
               <p className="text-center text-base font-semibold" style={{ color: cabTheme.trimColor }}>
                 Cab Trim: {cabTheme.handlingLabel}
               </p>
