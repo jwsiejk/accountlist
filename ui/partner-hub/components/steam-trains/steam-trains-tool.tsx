@@ -29,7 +29,7 @@ import {
   mergeLevelProgress,
   scoreLevelRun,
 } from "@/lib/steam-trains/progression";
-import { renderScene } from "@/lib/steam-trains/renderer";
+import { buildCabTheme, buildScene3dModel } from "@/lib/steam-trains/scene3d";
 import {
   createSavedCustomTrain,
   getDefaultSteamTrainsPreferences,
@@ -49,7 +49,8 @@ import {
 import type { GameMode, SteamTrainsSimulationState, TrackSwitchState } from "@/lib/steam-trains/types";
 
 import { TrainBuilder } from "./train-builder";
-import { TrainSelector } from "./train-selector";
+import { TrainCab3D } from "./train-cab-3d";
+import { TrainShowroom } from "./train-showroom";
 
 const INACTIVITY_HELPER_MS = 2600;
 
@@ -65,7 +66,6 @@ const starsForLevel = (preferences: SteamTrainsPreferences, levelId: string) =>
   preferences.levelProgress[levelId]?.stars ?? 0;
 
 export function SteamTrainsTool() {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number>(0);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -142,32 +142,6 @@ export function SteamTrainsTool() {
       }
     };
   }, []);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || view === "workshop") {
-      return;
-    }
-    const context = canvas.getContext("2d");
-    if (!context) {
-      return;
-    }
-
-    const now = performance.now();
-    const checkpoint = state.level.checkpoints[state.nextCheckpointIndex];
-    const helperDistance = checkpoint ? checkpoint.x - state.train.x : Number.POSITIVE_INFINITY;
-    const shouldShowIdleHelper = now - lastInteractionRef.current >= INACTIVITY_HELPER_MS;
-    const shouldShowProximityHelper = helperDistance <= (checkpoint?.anticipationDistance ?? 180) * 0.72;
-    const helperCheckpointIndex =
-      preferences.helperMode && state.playState === "running" && (shouldShowIdleHelper || shouldShowProximityHelper)
-        ? state.nextCheckpointIndex
-        : null;
-
-    renderScene(context, state, {
-      helperCheckpointIndex,
-      showCelebration: state.playState === "completed" && mode === "levels",
-    });
-  }, [mode, preferences.helperMode, state, view]);
 
   useEffect(() => {
     if (mode !== "levels" || state.playState !== "completed") {
@@ -311,7 +285,6 @@ export function SteamTrainsTool() {
     setBuilderSelection(saved.selection);
     setPreferences((prev) => ({ ...prev, selectedTrainId: trainId }));
     setState(createState(mode, selectedLevelOrder, trainId));
-    setView("play");
   };
 
   const isSwitchDisabled = state.playState !== "running";
@@ -319,6 +292,11 @@ export function SteamTrainsTool() {
   const nextRouteLabel = nextCheckpoint
     ? `${nextCheckpoint.safeBranch === "main" ? "Top track" : "Side track"} (${Math.max(0, Math.round(nextCheckpoint.x - state.train.x))}m)`
     : "Keep going";
+  const shouldShowHelper =
+    preferences.helperMode && state.playState === "running" && performance.now() - lastInteractionRef.current >= INACTIVITY_HELPER_MS;
+
+  const cabModel = buildScene3dModel(state);
+  const cabTheme = buildCabTheme(state.train.definition);
 
   return (
     <Card className="mx-auto w-full max-w-6xl">
@@ -343,17 +321,20 @@ export function SteamTrainsTool() {
         </div>
 
         {view === "workshop" ? (
-          <TrainBuilder
-            selection={builderSelection}
-            onChange={setBuilderSelection}
-            onSave={handleSaveCustomTrain}
-            onPlay={handlePlayCustomPreview}
-            onReset={() => {
-              registerCustomTrainDefinitions(savedCustomTrains.map((item) => item.train));
-            }}
-            savedTrains={savedCustomTrains.map((item) => item.train)}
-            onLoadSaved={handleLoadSavedTrainInBuilder}
-          />
+          <>
+            <TrainShowroom selectedTrainId={preferences.selectedTrainId} trains={allTrains} onSelectTrain={handleTrainSelection} />
+            <TrainBuilder
+              selection={builderSelection}
+              onChange={setBuilderSelection}
+              onSave={handleSaveCustomTrain}
+              onPlay={handlePlayCustomPreview}
+              onReset={() => {
+                registerCustomTrainDefinitions(savedCustomTrains.map((item) => item.train));
+              }}
+              savedTrains={savedCustomTrains.map((item) => item.train)}
+              onLoadSaved={handleLoadSavedTrainInBuilder}
+            />
+          </>
         ) : (
           <>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -395,14 +376,15 @@ export function SteamTrainsTool() {
               </div>
             )}
 
-            <TrainSelector selectedTrainId={preferences.selectedTrainId} trains={allTrains} onSelectTrain={handleTrainSelection} />
+            <TrainCab3D state={state} helperMode={shouldShowHelper} />
 
-            <canvas ref={canvasRef} width={1000} height={480} className="w-full rounded-2xl border border-border bg-slate-100" />
-
-            <div className="grid gap-3 rounded-xl bg-muted/50 p-4 sm:grid-cols-3">
+            <div className="grid gap-3 rounded-xl bg-muted/50 p-4 sm:grid-cols-4">
               <p className="text-center text-base font-semibold">Goal: {state.statusText}</p>
               <p className="text-center text-base font-semibold">Next route: {nextRouteLabel}</p>
-              <p className="text-center text-base font-semibold">Speed: {Math.round(state.train.speed)}</p>
+              <p className="text-center text-base font-semibold">Speed: {cabModel.speedMph} mph</p>
+              <p className="text-center text-base font-semibold" style={{ color: cabTheme.trimColor }}>
+                Cab Trim: {cabTheme.handlingLabel}
+              </p>
             </div>
 
             <p className="rounded-xl bg-muted/40 p-3 text-center text-base font-semibold">{state.level.tutorialCue}</p>
