@@ -34,6 +34,35 @@ describe("steam trains scene3d model", () => {
     assert.equal(model.landmarks.some((landmark) => landmark.type === "station"), true);
   });
 
+
+  it("models route branches and landmark cue geometry for real 3d placement", () => {
+    const train = getTrainDefinition("copper-creek-switcher");
+    const level = getLevelDefinition("level-4-bridge-tunnel");
+    const initial = createSimulation(train, level, "levels");
+    const state = {
+      ...initial,
+      train: {
+        ...initial.train,
+        x: level.startX + 180,
+      },
+    };
+
+    const model = buildScene3dModel(state);
+    assert.equal(model.routePreviews.length > 0, true);
+
+    const firstRoute = model.routePreviews[0];
+    assert.equal(Boolean(firstRoute), true);
+    if (!firstRoute) {
+      return;
+    }
+
+    assert.equal(firstRoute.endZ > firstRoute.splitZ, true);
+    assert.equal(Math.abs(firstRoute.branchOffset) > 0, true);
+
+    const hasBridgeOrTunnel = model.landmarks.some((landmark) => landmark.type === "bridge" || landmark.type === "tunnel");
+    assert.equal(hasBridgeOrTunnel, true);
+  });
+
   it("moves repeaters toward and past the camera as train progresses", () => {
     const train = getTrainDefinition("copper-creek-switcher");
     const level = getLevelDefinition("level-2-two-routes");
