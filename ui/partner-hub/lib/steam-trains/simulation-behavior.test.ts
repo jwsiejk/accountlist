@@ -55,4 +55,13 @@ describe("steam trains simulation behavior", () => {
     assert.equal(afterOneFrame.train.speed > afterTwoFrames.train.speed, true);
     assert.equal(afterOneFrame.train.speed > 0, true);
   });
+
+  it("keeps level pacing toddler-readable with generous anticipation and fast retries", () => {
+    const levelWithMostDecisions = getLevelDefinition("level-5-fast-switches");
+    const smallestAnticipation = Math.min(...levelWithMostDecisions.checkpoints.map((checkpoint) => checkpoint.anticipationDistance ?? 0));
+
+    assert.equal(smallestAnticipation >= 240, true);
+    assert.equal(levelWithMostDecisions.crashPauseMs <= 320, true);
+    assert.equal(levelWithMostDecisions.rewindDurationMs <= 380, true);
+  });
 });

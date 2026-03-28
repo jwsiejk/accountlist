@@ -304,15 +304,20 @@ export const getTrainDefinition = (id: string): TrainDefinition => {
 export const deriveTrainHandlingProfile = (train: TrainDefinition) => {
   const driverCount = train.locomotive.wheelSet.count;
   const totalCars = train.rollingStock.length + (train.tender ? 1 : 0);
-  const consistWeight = train.locomotive.bodyLength + totalCars * 120;
+  const consistWeight = train.locomotive.bodyLength + totalCars * 108;
+  const bodyHeightFactor = Math.max(0.9, Math.min(1.12, 86 / Math.max(60, train.locomotive.bodyHeight)));
+  const tractionBonus = Math.max(0, (driverCount - 2) * 0.9);
 
-  const rawTopSpeed = train.baseSpeed + Math.max(0, 4 - totalCars * 1.5);
-  const topSpeed = Math.max(48, Math.min(88, rawTopSpeed));
-  const slowSpeed = Math.max(18, topSpeed * 0.52);
+  const rawTopSpeed = train.baseSpeed + 2.4 - totalCars * 1.8 + tractionBonus;
+  const topSpeed = Math.max(52, Math.min(82, rawTopSpeed));
+  const slowSpeed = Math.max(20, Math.min(topSpeed - 8, topSpeed * 0.56));
 
-  const acceleration = Math.max(18, 54 - driverCount * 4 - totalCars * 5);
-  const braking = Math.max(24, 82 - consistWeight / 14);
-  const rollingDrag = Math.max(8, 18 - driverCount * 1.1);
+  const accelerationBase = 50 - driverCount * 3.5 - totalCars * 4.4;
+  const acceleration = Math.max(19, Math.min(46, accelerationBase * bodyHeightFactor));
+
+  const brakingBase = 70 - consistWeight / 20 + driverCount * 1.25;
+  const braking = Math.max(26, Math.min(42, brakingBase));
+  const rollingDrag = Math.max(8.4, Math.min(14, 15 - driverCount * 0.75 + totalCars * 0.4));
 
   const haulingClass = consistWeight >= 540 ? "heavy" : consistWeight >= 380 ? "medium" : "light";
 

@@ -56,6 +56,20 @@ const drawTrack = (ctx: CanvasRenderingContext2D, state: SteamTrainsSimulationSt
       if (distance <= (checkpoint.anticipationDistance ?? 150)) {
         ctx.fillStyle = "rgba(59,130,246,0.28)";
         ctx.fillRect(switchX - 28, railY - 76, 56, 112);
+        ctx.fillStyle = "rgba(37, 99, 235, 0.9)";
+        ctx.beginPath();
+        ctx.moveTo(switchX - 16, railY - 92);
+        ctx.lineTo(switchX + 16, railY - 92);
+        ctx.lineTo(switchX, railY - 114);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = "rgba(15, 23, 42, 0.72)";
+        ctx.fillRect(switchX - 62, railY - 144, 124, 28);
+        ctx.fillStyle = "#f8fafc";
+        ctx.font = "700 15px sans-serif";
+        const decision = checkpoint.safeBranch === "main" ? "TOP TRACK" : "SIDE TRACK";
+        ctx.fillText(decision, switchX - 49, railY - 124);
       }
     }
   });
@@ -77,6 +91,12 @@ const drawStationZone = (ctx: CanvasRenderingContext2D, state: SteamTrainsSimula
   ctx.lineWidth = 3;
   ctx.strokeRect(startX, railY - 62, zoneWidth, 88);
   ctx.setLineDash([]);
+
+  const progress = Math.max(0, Math.min(1, state.stationStopProgressMs / state.level.stationStop.requiredStopMs));
+  ctx.fillStyle = "rgba(15, 23, 42, 0.72)";
+  ctx.fillRect(startX, railY - 84, zoneWidth, 14);
+  ctx.fillStyle = "rgba(16, 185, 129, 0.95)";
+  ctx.fillRect(startX + 2, railY - 82, Math.max(0, (zoneWidth - 4) * progress), 10);
 };
 
 const drawHelperGlow = (ctx: CanvasRenderingContext2D, state: SteamTrainsSimulationState, width: number, helperCheckpointIndex: number) => {
@@ -153,8 +173,11 @@ export const renderScene = (ctx: CanvasRenderingContext2D, state: SteamTrainsSim
   drawSteam(ctx, state, cameraX);
 
   if (state.playState === "crashed") {
-    ctx.fillStyle = "rgba(15, 23, 42, 0.4)";
+    ctx.fillStyle = "rgba(15, 23, 42, 0.32)";
     ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = "#fef3c7";
+    ctx.font = "700 28px sans-serif";
+    ctx.fillText("That was okay! Let's try again.", 22, 58);
   }
 
   if (state.playState === "rewinding") {
