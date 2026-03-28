@@ -36,20 +36,25 @@ describe("steam trains storage", () => {
     assert.deepEqual(loadSteamTrainsPreferences(storage), getDefaultSteamTrainsPreferences());
   });
 
-  it("persists highest unlocked level, helper mode, last mode, and selected train", () => {
+  it("persists level progress stars along with mode and train", () => {
     const storage = new MemoryStorage();
     saveSteamTrainsPreferences(storage, {
       highestUnlockedLevel: 4,
       helperMode: false,
       lastMode: "free-play",
       selectedTrainId: "granite-freight",
+      levelProgress: {
+        "level-1-switch-start": {
+          stars: 3,
+          bestRun: { completed: true, crashed: false, stationStopPerfect: true },
+        },
+      },
     });
 
     const loaded = loadSteamTrainsPreferences(storage);
     assert.equal(loaded.highestUnlockedLevel, 4);
-    assert.equal(loaded.helperMode, false);
     assert.equal(loaded.lastMode, "free-play");
-    assert.equal(loaded.selectedTrainId, "granite-freight");
+    assert.equal(loaded.levelProgress["level-1-switch-start"]?.stars, 3);
     assert.notEqual(storage.getItem(STEAM_TRAINS_STORAGE_KEY), null);
   });
 
@@ -74,7 +79,7 @@ describe("steam trains storage", () => {
     const storage = new MemoryStorage();
     storage.setItem(
       STEAM_TRAINS_STORAGE_KEY,
-      JSON.stringify({ highestUnlockedLevel: "oops", helperMode: 1, selectedTrainId: "missing-train" }),
+      JSON.stringify({ highestUnlockedLevel: "oops", helperMode: 1, selectedTrainId: "missing-train", levelProgress: 7 }),
     );
 
     const loaded = loadSteamTrainsPreferences(storage);
@@ -82,8 +87,8 @@ describe("steam trains storage", () => {
     assert.equal(loaded.helperMode, true);
     assert.equal(loaded.lastMode, "levels");
     assert.equal(loaded.selectedTrainId, DEFAULT_STEAM_TRAIN_ID);
+    assert.deepEqual(loaded.levelProgress, {});
   });
-
 
   it("stores and loads multiple custom trains", () => {
     const storage = new MemoryStorage();

@@ -11,6 +11,8 @@ import {
 const checkpointToScreenX = (checkpoint: LevelCheckpoint, state: SteamTrainsSimulationState, width: number) =>
   checkpoint.x - state.train.x + width * 0.35;
 
+const worldToScreenX = (x: number, state: SteamTrainsSimulationState, width: number) => x - state.train.x + width * 0.35;
+
 const drawCloudBands = (ctx: CanvasRenderingContext2D, width: number, elapsedMs: number) => {
   const scrollA = (elapsedMs * 0.01) % (width + 340);
   const scrollB = (elapsedMs * 0.018) % (width + 380);
@@ -48,7 +50,33 @@ const drawTrack = (ctx: CanvasRenderingContext2D, state: SteamTrainsSimulationSt
       switchX,
       switchToSiding: chosen !== "main",
     });
+
+    if (index === state.nextCheckpointIndex) {
+      const distance = checkpoint.x - state.train.x;
+      if (distance <= (checkpoint.anticipationDistance ?? 150)) {
+        ctx.fillStyle = "rgba(59,130,246,0.28)";
+        ctx.fillRect(switchX - 28, railY - 76, 56, 112);
+      }
+    }
   });
+};
+
+const drawStationZone = (ctx: CanvasRenderingContext2D, state: SteamTrainsSimulationState, width: number) => {
+  if (!state.level.stationStop || state.stationStopCompleted) {
+    return;
+  }
+
+  const railY = state.train.y + 56;
+  const startX = worldToScreenX(state.level.stationStop.startX, state, width);
+  const endX = worldToScreenX(state.level.stationStop.endX, state, width);
+  const zoneWidth = endX - startX;
+  ctx.fillStyle = "rgba(16, 185, 129, 0.18)";
+  ctx.fillRect(startX, railY - 62, zoneWidth, 88);
+  ctx.strokeStyle = "rgba(5, 150, 105, 0.9)";
+  ctx.setLineDash([10, 8]);
+  ctx.lineWidth = 3;
+  ctx.strokeRect(startX, railY - 62, zoneWidth, 88);
+  ctx.setLineDash([]);
 };
 
 const drawHelperGlow = (ctx: CanvasRenderingContext2D, state: SteamTrainsSimulationState, width: number, helperCheckpointIndex: number) => {
@@ -115,6 +143,7 @@ export const renderScene = (ctx: CanvasRenderingContext2D, state: SteamTrainsSim
   drawCloudBands(ctx, width, state.elapsedMs);
   drawSceneDecor(ctx, state, width);
   drawTrack(ctx, state, width);
+  drawStationZone(ctx, state, width);
 
   if (options.helperCheckpointIndex !== undefined && options.helperCheckpointIndex !== null) {
     drawHelperGlow(ctx, state, width, options.helperCheckpointIndex);

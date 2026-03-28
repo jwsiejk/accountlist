@@ -1,7 +1,7 @@
 import * as assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { clearCustomTrainDefinitions, getAllTrainDefinitions, getTrainDefinition, registerCustomTrainDefinitions, STEAM_TRAIN_CATALOG } from "./trainCatalog";
+import { clearCustomTrainDefinitions, deriveTrainHandlingProfile, getAllTrainDefinitions, getTrainDefinition, registerCustomTrainDefinitions, STEAM_TRAIN_CATALOG } from "./trainCatalog";
 import { buildTrainDefinitionFromSelection, getDefaultTrainBuilderSelection } from "./builder";
 
 describe("steam train catalog", () => {
@@ -50,6 +50,15 @@ describe("steam train catalog", () => {
         assert.equal(car.height >= 40, true, `${train.id}: car height`);
       });
     });
+  });
+
+  it("derives toddler-friendly handling stats from train geometry", () => {
+    const switcher = deriveTrainHandlingProfile(getTrainDefinition("copper-creek-switcher"));
+    const passenger = deriveTrainHandlingProfile(getTrainDefinition("sunset-passenger"));
+
+    assert.equal(switcher.topSpeed > 0, true);
+    assert.equal(passenger.slowSpeed < passenger.topSpeed, true);
+    assert.equal(["light", "medium", "heavy"].includes(passenger.haulingClass), true);
   });
 
   it("registers custom trains in the same catalog path as stock trains", () => {

@@ -1,6 +1,8 @@
 import { stepSteamParticles, emitSteamParticles } from "./particles";
+import { deriveTrainHandlingProfile } from "./trainCatalog";
 import { countChuffPulses } from "./visuals";
 import type {
+  DriveCommand,
   GameMode,
   LevelCheckpoint,
   LevelDefinition,
@@ -13,7 +15,58 @@ const TRACK_Y = 320;
 
 const clampDeltaMs = (dtMs: number) => Math.min(Math.max(dtMs, 0), 64);
 
-const getSpeed = (train: TrainDefinition, level: LevelDefinition) => train.baseSpeed * level.baseSpeedMultiplier;
+const getTargetSpeed = (state: SteamTrainsSimulationState): number => {
+  const { driveCommand } = state;
+  const { topSpeed, slowSpeed } = state.train.profile;
+  const levelBoost = state.level.baseSpeedMultiplier;
+
+  if (driveCommand === "stop") {
+    return 0;
+  }
+  if (driveCommand === "slow") {
+    return slowSpeed * levelBoost;
+  }
+  return topSpeed * levelBoost;
+};
+
+const getStatusText = (state: SteamTrainsSimulationState) => {
+  if (state.playState === "crashed") {
+    return "Gentle bump! Rewinding...";
+  }
+  if (state.playState === "rewinding") {
+    return "Rolling back to try again";
+  }
+  if (state.playState === "completed") {
+    return state.mode === "free-play" ? "Keep driving!" : "Level complete!";
+  }
+
+  if (state.level.stationStop && !state.stationStopCompleted) {
+    const zone = state.level.stationStop;
+    if (state.train.x < zone.startX - 36) {
+      return "Get ready to stop at the station";
+    }
+    if (state.train.x >= zone.startX - 36 && state.train.x <= zone.endX + 18) {
+      return "Stop in the station zone";
+    }
+  }
+
+  const nextCheckpoint = state.level.checkpoints[state.nextCheckpointIndex];
+  if (nextCheckpoint) {
+    const remaining = nextCheckpoint.x - state.train.x;
+    const warnDistance = nextCheckpoint.anticipationDistance ?? 150;
+    if (remaining <= warnDistance) {
+      return nextCheckpoint.promptText ?? "Track choice now";
+    }
+  }
+
+  if (state.driveCommand === "stop") {
+    return "Train stopped";
+  }
+  if (state.driveCommand === "slow") {
+    return "Cruising slow";
+  }
+  return "Full steam ahead";
+};
 
 const createRunningState = (
   train: TrainDefinition,
@@ -23,9 +76,10 @@ const createRunningState = (
 ): SteamTrainsSimulationState => ({
   train: {
     definition: train,
+    profile: deriveTrainHandlingProfile(train),
     x: level.startX,
     y: TRACK_Y,
-    speed: getSpeed(train, level),
+    speed: 0,
     wheelRotationRad: 0,
   },
   level,
@@ -34,6 +88,7 @@ const createRunningState = (
   checkpointDecisions: [],
   nextCheckpointIndex: 0,
   playState: "running",
+  driveCommand: "go",
   elapsedMs,
   crashAtMs: null,
   rewindStartMs: null,
@@ -41,7 +96,10 @@ const createRunningState = (
   particles: [],
   nextParticleId: 1,
   stationStopCompleted: false,
-  stationStopUntilMs: null,
+  stationStopProgressMs: 0,
+  stationStopPerfect: false,
+  crashedThisRun: false,
+  statusText: "Tap GO to start moving",
 });
 
 export const createSimulation = (
@@ -49,6 +107,16 @@ export const createSimulation = (
   level: LevelDefinition,
   mode: GameMode = "levels",
 ): SteamTrainsSimulationState => createRunningState(train, level, mode, 0);
+
+export const setDriveCommand = (
+  state: SteamTrainsSimulationState,
+  driveCommand: DriveCommand,
+): SteamTrainsSimulationState => {
+  if (state.playState !== "running") {
+    return state;
+  }
+  return { ...state, driveCommand };
+};
 
 export const setSwitchState = (
   state: SteamTrainsSimulationState,
@@ -106,6 +174,7 @@ const resolveCheckpoint = (
       ...state,
       playState: "crashed",
       crashAtMs: elapsedMs,
+      crashedThisRun: true,
       nextCheckpointIndex: state.nextCheckpointIndex + 1,
       checkpointDecisions: nextDecisions,
       train: {
@@ -152,6 +221,22 @@ const processRewind = (state: SteamTrainsSimulationState, elapsedMs: number) => 
   return state;
 };
 
+const stepSpeed = (speed: number, targetSpeed: number, dtMs: number, accel: number, brake: number, drag: number) => {
+  const dtSeconds = dtMs / 1000;
+  const difference = targetSpeed - speed;
+
+  if (Math.abs(difference) < 0.001) {
+    return targetSpeed;
+  }
+
+  if (difference > 0) {
+    return Math.min(targetSpeed, speed + accel * dtSeconds);
+  }
+
+  const decel = (brake + drag) * dtSeconds;
+  return Math.max(targetSpeed, speed - decel);
+};
+
 export const advanceSimulation = (
   state: SteamTrainsSimulationState,
   dtInputMs: number,
@@ -183,38 +268,30 @@ export const advanceSimulation = (
   };
 
   if (nextState.playState === "crashed" || nextState.playState === "rewinding") {
-    return processRewind(nextState, elapsedMs);
+    return {
+      ...processRewind(nextState, elapsedMs),
+      statusText: getStatusText(nextState),
+    };
   }
 
   if (nextState.playState === "completed") {
     if (nextState.mode === "free-play") {
       return restartSimulation(nextState, elapsedMs);
     }
-    return nextState;
+    return { ...nextState, statusText: getStatusText(nextState) };
   }
 
-  if (nextState.stationStopUntilMs !== null) {
-    if (elapsedMs < nextState.stationStopUntilMs) {
-      return {
-        ...nextState,
-        train: {
-          ...nextState.train,
-          speed: 0,
-        },
-      };
-    }
+  const targetSpeed = getTargetSpeed(nextState);
+  const nextSpeed = stepSpeed(
+    nextState.train.speed,
+    targetSpeed,
+    dtMs,
+    nextState.train.profile.acceleration,
+    nextState.train.profile.braking,
+    nextState.train.profile.rollingDrag,
+  );
 
-    nextState = {
-      ...nextState,
-      stationStopUntilMs: null,
-      train: {
-        ...nextState.train,
-        speed: getSpeed(nextState.train.definition, nextState.level),
-      },
-    };
-  }
-
-  const movement = (nextState.train.speed * dtMs) / 1000;
+  const movement = (nextSpeed * dtMs) / 1000;
   const wheelRadius = nextState.train.definition.locomotive.wheelSet.radius;
   const wheelRotationDelta = movement / Math.max(8, wheelRadius);
   const nextWheelRotationRad = nextState.train.wheelRotationRad + wheelRotationDelta;
@@ -225,9 +302,50 @@ export const advanceSimulation = (
     train: {
       ...nextState.train,
       x: trainX,
+      speed: nextSpeed,
       wheelRotationRad: nextWheelRotationRad,
     },
   };
+
+  const stationStop = resolvedState.level.stationStop;
+  if (stationStop && !resolvedState.stationStopCompleted) {
+    const inZone = resolvedState.train.x >= stationStop.startX && resolvedState.train.x <= stationStop.endX;
+    const stoppedInZone = inZone && resolvedState.train.speed <= stationStop.maxEntrySpeed;
+
+    if (stoppedInZone) {
+      const progress = resolvedState.stationStopProgressMs + dtMs;
+      const complete = progress >= stationStop.requiredStopMs;
+      resolvedState = {
+        ...resolvedState,
+        stationStopProgressMs: progress,
+        stationStopCompleted: complete,
+        stationStopPerfect: complete,
+      };
+    } else if (!inZone && resolvedState.stationStopProgressMs > 0 && resolvedState.mode === "levels") {
+      resolvedState = {
+        ...resolvedState,
+        stationStopProgressMs: 0,
+      };
+    }
+
+    if (
+      resolvedState.mode === "levels" &&
+      !resolvedState.stationStopCompleted &&
+      resolvedState.train.x > stationStop.endX + 20
+    ) {
+      return {
+        ...resolvedState,
+        playState: "crashed",
+        crashAtMs: elapsedMs,
+        crashedThisRun: true,
+        train: {
+          ...resolvedState.train,
+          speed: 0,
+        },
+        statusText: "Try stopping inside the station zone",
+      };
+    }
+  }
 
   const chuffPulses = countChuffPulses(nextState.train.wheelRotationRad, nextWheelRotationRad);
   if (chuffPulses > 0) {
@@ -251,20 +369,6 @@ export const advanceSimulation = (
     resolvedState = puffState;
   }
 
-  const stationStop = resolvedState.level.stationStop;
-  if (stationStop && !resolvedState.stationStopCompleted && resolvedState.train.x >= stationStop.x) {
-    return {
-      ...resolvedState,
-      stationStopCompleted: true,
-      stationStopUntilMs: elapsedMs + stationStop.pauseMs,
-      train: {
-        ...resolvedState.train,
-        x: stationStop.x,
-        speed: 0,
-      },
-    };
-  }
-
   while (resolvedState.nextCheckpointIndex < resolvedState.level.checkpoints.length) {
     const checkpoint = resolvedState.level.checkpoints[resolvedState.nextCheckpointIndex];
     if (resolvedState.train.x < checkpoint.x) {
@@ -273,7 +377,10 @@ export const advanceSimulation = (
 
     resolvedState = resolveCheckpoint(resolvedState, checkpoint, elapsedMs);
     if (resolvedState.playState === "crashed") {
-      return resolvedState;
+      return {
+        ...resolvedState,
+        statusText: getStatusText(resolvedState),
+      };
     }
   }
 
@@ -288,10 +395,13 @@ export const advanceSimulation = (
       train: {
         ...resolvedState.train,
         x: resolvedState.level.destinationX,
-        speed: 0,
       },
+      statusText: "Level complete!",
     };
   }
 
-  return resolvedState;
+  return {
+    ...resolvedState,
+    statusText: getStatusText(resolvedState),
+  };
 };
