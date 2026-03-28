@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getTrainDefinition = exports.hasTrainDefinition = exports.DEFAULT_STEAM_TRAIN_ID = exports.STEAM_TRAIN_CATALOG = void 0;
+exports.deriveTrainHandlingProfile = exports.getTrainDefinition = exports.hasTrainDefinition = exports.getAllTrainDefinitions = exports.clearCustomTrainDefinitions = exports.registerCustomTrainDefinitions = exports.DEFAULT_STEAM_TRAIN_ID = exports.STEAM_TRAIN_CATALOG = void 0;
 exports.STEAM_TRAIN_CATALOG = [
     {
         id: "copper-creek-switcher",
@@ -270,14 +270,56 @@ exports.STEAM_TRAIN_CATALOG = [
     },
 ];
 exports.DEFAULT_STEAM_TRAIN_ID = exports.STEAM_TRAIN_CATALOG[0]?.id ?? "copper-creek-switcher";
-const catalogById = new Map(exports.STEAM_TRAIN_CATALOG.map((train) => [train.id, train]));
-const hasTrainDefinition = (id) => catalogById.has(id);
+const stockCatalogById = new Map(exports.STEAM_TRAIN_CATALOG.map((train) => [train.id, train]));
+const customCatalogById = new Map();
+const registerCustomTrainDefinitions = (trains) => {
+    customCatalogById.clear();
+    trains.forEach((train) => {
+        customCatalogById.set(train.id, train);
+    });
+};
+exports.registerCustomTrainDefinitions = registerCustomTrainDefinitions;
+const clearCustomTrainDefinitions = () => {
+    customCatalogById.clear();
+};
+exports.clearCustomTrainDefinitions = clearCustomTrainDefinitions;
+const getAllTrainDefinitions = () => [
+    ...exports.STEAM_TRAIN_CATALOG,
+    ...Array.from(customCatalogById.values()),
+];
+exports.getAllTrainDefinitions = getAllTrainDefinitions;
+const hasTrainDefinition = (id) => stockCatalogById.has(id) || customCatalogById.has(id);
 exports.hasTrainDefinition = hasTrainDefinition;
 const getTrainDefinition = (id) => {
-    const train = catalogById.get(id);
+    const train = customCatalogById.get(id) ?? stockCatalogById.get(id);
     if (!train) {
         throw new Error(`Unknown train definition: ${id}`);
     }
     return train;
 };
 exports.getTrainDefinition = getTrainDefinition;
+const deriveTrainHandlingProfile = (train) => {
+    const driverCount = train.locomotive.wheelSet.count;
+    const totalCars = train.rollingStock.length + (train.tender ? 1 : 0);
+    const consistWeight = train.locomotive.bodyLength + totalCars * 108;
+    const bodyHeightFactor = Math.max(0.9, Math.min(1.12, 86 / Math.max(60, train.locomotive.bodyHeight)));
+    const tractionBonus = Math.max(0, (driverCount - 2) * 0.9);
+    const rawTopSpeed = train.baseSpeed + 2.4 - totalCars * 1.8 + tractionBonus;
+    const topSpeed = Math.max(52, Math.min(82, rawTopSpeed));
+    const slowSpeed = Math.max(20, Math.min(topSpeed - 8, topSpeed * 0.56));
+    const accelerationBase = 50 - driverCount * 3.5 - totalCars * 4.4;
+    const acceleration = Math.max(19, Math.min(46, accelerationBase * bodyHeightFactor));
+    const brakingBase = 70 - consistWeight / 20 + driverCount * 1.25;
+    const braking = Math.max(26, Math.min(42, brakingBase));
+    const rollingDrag = Math.max(8.4, Math.min(14, 15 - driverCount * 0.75 + totalCars * 0.4));
+    const haulingClass = consistWeight >= 540 ? "heavy" : consistWeight >= 380 ? "medium" : "light";
+    return {
+        topSpeed,
+        slowSpeed,
+        acceleration,
+        braking,
+        rollingDrag,
+        haulingClass,
+    };
+};
+exports.deriveTrainHandlingProfile = deriveTrainHandlingProfile;

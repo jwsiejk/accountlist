@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const assert = require("node:assert/strict");
 const node_test_1 = require("node:test");
 const trainCatalog_1 = require("./trainCatalog");
+const builder_1 = require("./builder");
 (0, node_test_1.describe)("steam train catalog", () => {
     (0, node_test_1.it)("ships with child-friendly switcher, passenger, and freight locomotives", () => {
         assert.equal(trainCatalog_1.STEAM_TRAIN_CATALOG.length >= 3, true);
@@ -40,6 +41,49 @@ const trainCatalog_1 = require("./trainCatalog");
                 assert.equal(car.height >= 40, true, `${train.id}: car height`);
             });
         });
+    });
+    (0, node_test_1.it)("derives toddler-friendly handling stats from train geometry", () => {
+        const switcher = (0, trainCatalog_1.deriveTrainHandlingProfile)((0, trainCatalog_1.getTrainDefinition)("copper-creek-switcher"));
+        const passenger = (0, trainCatalog_1.deriveTrainHandlingProfile)((0, trainCatalog_1.getTrainDefinition)("sunset-passenger"));
+        assert.equal(switcher.topSpeed > 0, true);
+        assert.equal(passenger.slowSpeed < passenger.topSpeed, true);
+        assert.equal(["light", "medium", "heavy"].includes(passenger.haulingClass), true);
+    });
+    (0, node_test_1.it)("keeps handling profile bounds child-friendly for every stock train", () => {
+        trainCatalog_1.STEAM_TRAIN_CATALOG.forEach((train) => {
+            const profile = (0, trainCatalog_1.deriveTrainHandlingProfile)(train);
+            assert.equal(profile.topSpeed >= 52 && profile.topSpeed <= 82, true);
+            assert.equal(profile.slowSpeed >= 20 && profile.slowSpeed < profile.topSpeed, true);
+            assert.equal(profile.acceleration >= 19 && profile.acceleration <= 46, true);
+            assert.equal(profile.braking >= 26 && profile.braking <= 42, true);
+        });
+    });
+    (0, node_test_1.it)("registers custom trains in the same catalog path as stock trains", () => {
+        const custom = (0, builder_1.buildTrainDefinitionFromSelection)((0, builder_1.getDefaultTrainBuilderSelection)(), "custom-train-spec");
+        (0, trainCatalog_1.registerCustomTrainDefinitions)([custom]);
+        const all = (0, trainCatalog_1.getAllTrainDefinitions)();
+        assert.equal(all.some((train) => train.id === custom.id), true);
+        assert.equal((0, trainCatalog_1.getTrainDefinition)(custom.id).id, custom.id);
+        (0, trainCatalog_1.clearCustomTrainDefinitions)();
+    });
+    (0, node_test_1.it)("keeps custom builder variants playable after profile derivation", () => {
+        const speedyCustom = (0, builder_1.buildTrainDefinitionFromSelection)({
+            ...(0, builder_1.getDefaultTrainBuilderSelection)(),
+            wheelArrangementId: "arrangement-passenger",
+            tenderStyleId: "tender-short",
+        }, "custom-train-fast");
+        const heavyCustom = (0, builder_1.buildTrainDefinitionFromSelection)({
+            ...(0, builder_1.getDefaultTrainBuilderSelection)(),
+            wheelArrangementId: "arrangement-freight",
+            drivingRodStyleId: "rod-stout",
+            tenderStyleId: "tender-long",
+            carSetId: "cars-freight",
+        }, "custom-train-heavy");
+        const fastProfile = (0, trainCatalog_1.deriveTrainHandlingProfile)(speedyCustom);
+        const heavyProfile = (0, trainCatalog_1.deriveTrainHandlingProfile)(heavyCustom);
+        assert.equal(fastProfile.topSpeed > heavyProfile.topSpeed, true);
+        assert.equal(fastProfile.acceleration >= heavyProfile.acceleration, true);
+        assert.equal(heavyProfile.braking >= 26, true);
     });
     (0, node_test_1.it)("throws for unknown train ids", () => {
         assert.throws(() => (0, trainCatalog_1.getTrainDefinition)("missing"), /Unknown train definition/);
