@@ -196,10 +196,10 @@ export const renderTrainPreviewCard = (
   wheelRotationRad = 0,
 ) => {
   const palette = getPreviewPalette();
-  const layout = getTrainLayout(train, width, 10, 0.56);
+  const layout = getTrainLayout(train, width, 8, 0.68);
   drawPreviewBackdrop(ctx, width, height, palette);
 
-  const railY = Math.round(height * 0.72);
+  const railY = Math.round(height * 0.76);
   drawTrackAndBallast(ctx, width, railY, palette);
   drawTrainConsist(ctx, train, {
     baseX: layout.locomotiveStart,

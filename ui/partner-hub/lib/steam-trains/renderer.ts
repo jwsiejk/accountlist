@@ -9,9 +9,9 @@ import {
 } from "./visuals";
 
 const checkpointToScreenX = (checkpoint: LevelCheckpoint, state: SteamTrainsSimulationState, width: number) =>
-  checkpoint.x - state.train.x + width * 0.35;
+  checkpoint.x - state.train.x + width * 0.28;
 
-const worldToScreenX = (x: number, state: SteamTrainsSimulationState, width: number) => x - state.train.x + width * 0.35;
+const worldToScreenX = (x: number, state: SteamTrainsSimulationState, width: number) => x - state.train.x + width * 0.28;
 
 const drawCloudBands = (ctx: CanvasRenderingContext2D, width: number, elapsedMs: number) => {
   const scrollA = (elapsedMs * 0.01) % (width + 340);
@@ -127,12 +127,13 @@ const drawSteamParticle = (ctx: CanvasRenderingContext2D, particle: SteamParticl
 const drawLocomotive = (ctx: CanvasRenderingContext2D, state: SteamTrainsSimulationState, cameraX: number) => {
   const palette = getPreviewPalette();
   const originX = state.train.x - cameraX;
-  const originY = state.train.y + 4;
+  const originY = state.train.y + 8;
   drawTrainConsist(ctx, state.train.definition, {
     baseX: originX,
     baseY: originY,
     wheelRotationRad: state.train.wheelRotationRad,
     palette,
+    scale: 1.08,
   });
 };
 
@@ -155,7 +156,7 @@ type RenderOptions = {
 export const renderScene = (ctx: CanvasRenderingContext2D, state: SteamTrainsSimulationState, options: RenderOptions = {}) => {
   const width = ctx.canvas.width;
   const height = ctx.canvas.height;
-  const cameraX = state.train.x - width * 0.35;
+  const cameraX = state.train.x - width * 0.28;
 
   ctx.clearRect(0, 0, width, height);
 
