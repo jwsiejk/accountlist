@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,12 +50,40 @@ import {
 import type { GameMode, SteamTrainsSimulationState, TrackSwitchState } from "@/lib/steam-trains/types";
 
 import { TrainBuilder } from "./train-builder";
-import { TrainCab3D } from "./train-cab-3d";
 import { TrainShowroom } from "./train-showroom";
 
 const INACTIVITY_HELPER_MS = 2600;
 
 type ToolView = "play" | "workshop";
+
+function TrainCabLoadingShell() {
+  return (
+    <div
+      className="overflow-hidden rounded-2xl border bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 p-5 text-slate-100 shadow-inner"
+      role="status"
+      aria-live="polite"
+      aria-label="Loading train cab"
+    >
+      <div className="space-y-3">
+        <p className="text-lg font-bold">Loading cab controls…</p>
+        <div className="h-3 w-2/3 animate-pulse rounded-full bg-slate-600/70" />
+        <div className="h-40 animate-pulse rounded-xl border border-slate-700/80 bg-slate-800/60" />
+        <p className="text-sm font-semibold text-slate-300">Preparing the 3D driving view.</p>
+      </div>
+    </div>
+  );
+}
+
+const TrainCab3D = dynamic<{
+  state: SteamTrainsSimulationState;
+  helperMode: boolean;
+}>(
+  () => import("./train-cab-3d").then((mod) => mod.TrainCab3D),
+  {
+    ssr: false,
+    loading: () => <TrainCabLoadingShell />,
+  },
+);
 
 const createState = (mode: GameMode, levelOrder: number, trainId: string) => {
   const fallback = STEAM_TRAINS_LEVELS[0];
