@@ -13,10 +13,11 @@ describe("steam trains scene3d model", () => {
 
     assert.equal(lightTheme.trimColor, "#d97706");
     assert.equal(lightTheme.handlingLabel, "Light");
+    assert.equal(lightTheme.dashColor.startsWith("#"), true);
     assert.equal(heavyTheme.handlingLabel, "Heavy");
   });
 
-  it("exposes forward cues for switches and station zone", () => {
+  it("exposes forward cues for switches, route geometry, and station zone", () => {
     const train = getTrainDefinition("copper-creek-switcher");
     let state = createSimulation(train, getLevelDefinition("level-3-station-stop"), "levels");
 
@@ -27,7 +28,32 @@ describe("steam trains scene3d model", () => {
 
     const model = buildScene3dModel(state);
     assert.equal(model.checkpointCues.length > 0, true);
+    assert.equal(model.routePreviews.length > 0, true);
     assert.equal(Boolean(model.stationCue), true);
     assert.equal(model.stationCue ? model.stationCue.endZ > model.stationCue.startZ : false, true);
+    assert.equal(model.landmarks.some((landmark) => landmark.type === "station"), true);
+  });
+
+  it("moves repeaters toward and past the camera as train progresses", () => {
+    const train = getTrainDefinition("copper-creek-switcher");
+    const level = getLevelDefinition("level-2-two-routes");
+    const stateA = createSimulation(train, level, "levels");
+    const stateB = {
+      ...stateA,
+      train: {
+        ...stateA.train,
+        x: stateA.train.x + 40,
+      },
+    };
+
+    const modelA = buildScene3dModel(stateA);
+    const modelB = buildScene3dModel(stateB);
+
+    const sleeperA = modelA.repeaters.find((item) => item.id === "sleeper-0");
+    const sleeperB = modelB.repeaters.find((item) => item.id === "sleeper-0");
+
+    assert.equal(Boolean(sleeperA), true);
+    assert.equal(Boolean(sleeperB), true);
+    assert.notEqual(sleeperA?.z, sleeperB?.z);
   });
 });

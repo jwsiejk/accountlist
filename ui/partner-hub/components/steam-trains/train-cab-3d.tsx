@@ -2,10 +2,8 @@
 
 import { useMemo } from "react";
 
-import { Sky } from "@react-three/drei";
-import { Canvas } from "@react-three/fiber";
-
 import { buildCabTheme, buildScene3dModel } from "@/lib/steam-trains/scene3d";
+import type { Scene3dLandmarkCue, Scene3dRepeater, Scene3dTrackPreview } from "@/lib/steam-trains/scene3d";
 import type { SteamTrainsSimulationState } from "@/lib/steam-trains/types";
 
 type TrainCab3DProps = {
@@ -13,200 +11,152 @@ type TrainCab3DProps = {
   helperMode: boolean;
 };
 
-const TRACK_HALF_WIDTH = 1.65;
+const TRACK_WIDTH = 170;
+const ROADBED_WIDTH = 300;
 
-function GroundAndDistantScenery() {
+const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
+
+const perspectiveY = (z: number, horizon: number) => {
+  const ratio = 1 - clamp01(z / horizon);
+  return Math.round(460 - ratio * 430);
+};
+
+const perspectiveScale = (z: number, horizon: number) => 0.35 + (1 - clamp01(z / horizon)) * 1.55;
+
+const perspectiveX = (x: number, z: number, horizon: number) => {
+  const spread = 0.35 + (1 - clamp01(z / horizon)) * 0.9;
+  return 400 + x * 9 * spread;
+};
+
+function RepeaterSprite({ item, horizon }: { item: Scene3dRepeater; horizon: number }) {
+  const y = perspectiveY(item.z, horizon);
+  const scale = perspectiveScale(item.z, horizon) * item.scale;
+  const x = perspectiveX(item.x, item.z, horizon);
+
+  if (item.kind === "sleeper") {
+    return (
+      <div
+        className="absolute rounded-sm bg-amber-950/95"
+        style={{ left: x - 20 * scale, top: y, width: 40 * scale, height: Math.max(2, 6 * scale) }}
+      />
+    );
+  }
+
+  if (item.kind === "pole") {
+    return (
+      <div className="absolute" style={{ left: x, top: y - 46 * scale, width: 4 * scale, height: 46 * scale }}>
+        <div className="h-full w-full rounded bg-stone-600" />
+        <div className="absolute left-0 top-1 h-[3px] w-[20px] rounded bg-stone-500" style={{ width: 20 * scale }} />
+      </div>
+    );
+  }
+
   return (
-    <>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.22, 120]} receiveShadow>
-        <planeGeometry args={[420, 860]} />
-        <meshStandardMaterial color="#6a8c58" />
-      </mesh>
-      <mesh position={[-42, 12, 240]}>
-        <coneGeometry args={[34, 34, 10]} />
-        <meshStandardMaterial color="#6d7f8e" />
-      </mesh>
-      <mesh position={[56, 15, 290]}>
-        <coneGeometry args={[44, 40, 10]} />
-        <meshStandardMaterial color="#697d88" />
-      </mesh>
-      <mesh position={[-65, 1.7, 160]}>
-        <boxGeometry args={[13, 3.3, 7]} />
-        <meshStandardMaterial color="#c4b5a4" />
-      </mesh>
-      <mesh position={[64, 1.4, 180]}>
-        <boxGeometry args={[10, 2.6, 6]} />
-        <meshStandardMaterial color="#bfa989" />
-      </mesh>
-    </>
+    <div className="absolute" style={{ left: x - 11 * scale, top: y - 40 * scale, width: 22 * scale, height: 40 * scale }}>
+      <div className="absolute bottom-0 left-1/2 h-[35%] w-[12%] -translate-x-1/2 rounded bg-amber-900" />
+      <div className="absolute bottom-[26%] left-1/2 h-[74%] w-full -translate-x-1/2 rounded-[50%] bg-green-700" />
+    </div>
   );
 }
 
-function ProceduralTreeLine() {
-  const trees = useMemo(
-    () =>
-      Array.from({ length: 44 }, (_, index) => {
-        const z = index * 18 - 70;
-        const side = index % 2 === 0 ? -1 : 1;
-        const laneOffset = 16 + (index % 5) * 2.4;
-        const x = side * laneOffset;
-        const scale = 0.8 + (index % 4) * 0.16;
-        return { x, z, scale };
-      }),
-    [],
-  );
+function RoutePreview({ route, horizon }: { route: Scene3dTrackPreview; horizon: number }) {
+  const yStart = perspectiveY(route.splitZ, horizon);
+  const yEnd = perspectiveY(route.endZ, horizon);
+  const startX = perspectiveX(0, route.splitZ, horizon);
+  const endX = perspectiveX(route.branchOffset, route.endZ, horizon);
+  const color = route.safeBranch === "main" ? "#93c5fd" : "#fcd34d";
+  const width = Math.hypot(endX - startX, yEnd - yStart);
+  const angle = Math.atan2(yEnd - yStart, endX - startX);
 
   return (
-    <group>
-      {trees.map((tree) => (
-        <group key={`${tree.x}-${tree.z}`} position={[tree.x, 0, tree.z]} scale={tree.scale}>
-          <mesh position={[0, 0.8, 0]}>
-            <cylinderGeometry args={[0.18, 0.22, 1.6, 6]} />
-            <meshStandardMaterial color="#5f4633" />
-          </mesh>
-          <mesh position={[0, 2, 0]}>
-            <coneGeometry args={[0.9, 2.3, 8]} />
-            <meshStandardMaterial color="#2f6d3f" />
-          </mesh>
-        </group>
-      ))}
-    </group>
+    <div
+      className="absolute origin-left rounded"
+      style={{ left: startX, top: yStart, width, height: 3, transform: `rotate(${angle}rad)`, backgroundColor: color, opacity: 0.92 }}
+    />
   );
 }
 
-function TrackAndSignals({ state, helperMode }: { state: SteamTrainsSimulationState; helperMode: boolean }) {
-  const model = useMemo(() => buildScene3dModel(state), [state]);
+function Landmark({ landmark, horizon }: { landmark: Scene3dLandmarkCue; horizon: number }) {
+  const y = perspectiveY(landmark.z, horizon);
+  const scale = perspectiveScale(landmark.z, horizon);
+  const x = perspectiveX(landmark.side === "left" ? -7 : 7, landmark.z, horizon);
 
-  const sleepers = useMemo(
-    () =>
-      Array.from({ length: 72 }, (_, index) => ({
-        z: -50 + index * 8,
-      })),
-    [],
-  );
+  if (landmark.type === "bridge") {
+    return <div className="absolute rounded-md bg-slate-500/90" style={{ left: 290, top: y - 30 * scale, width: 220, height: 16 * scale }} />;
+  }
 
-  const poles = useMemo(
-    () =>
-      Array.from({ length: 24 }, (_, index) => ({
-        z: -20 + index * 24,
-      })),
-    [],
-  );
+  if (landmark.type === "tunnel") {
+    return (
+      <div className="absolute rounded-t-[35px] border-8 border-slate-700 bg-slate-900/80" style={{ left: 270, top: y - 70 * scale, width: 260, height: 88 * scale }} />
+    );
+  }
 
-  return (
-    <group>
-      <mesh position={[-TRACK_HALF_WIDTH, 0.02, 130]}>
-        <boxGeometry args={[0.2, 0.1, 360]} />
-        <meshStandardMaterial color="#7a6f64" metalness={0.2} roughness={0.5} />
-      </mesh>
-      <mesh position={[TRACK_HALF_WIDTH, 0.02, 130]}>
-        <boxGeometry args={[0.2, 0.1, 360]} />
-        <meshStandardMaterial color="#7a6f64" metalness={0.2} roughness={0.5} />
-      </mesh>
-      <mesh position={[4.4, 0.0, 190]} rotation={[0, 0.22, 0]}>
-        <boxGeometry args={[0.2, 0.08, 86]} />
-        <meshStandardMaterial color="#7a6f64" metalness={0.2} roughness={0.5} />
-      </mesh>
-      {sleepers.map((sleeper) => (
-        <mesh key={`sleeper-${sleeper.z}`} position={[0, -0.02, sleeper.z]}>
-          <boxGeometry args={[4.3, 0.1, 0.65]} />
-          <meshStandardMaterial color="#6f513a" />
-        </mesh>
-      ))}
-      {poles.map((pole) => (
-        <group key={`pole-${pole.z}`} position={[-9.8, 0, pole.z]}>
-          <mesh position={[0, 1.9, 0]}>
-            <cylinderGeometry args={[0.09, 0.12, 3.8, 7]} />
-            <meshStandardMaterial color="#8b715a" />
-          </mesh>
-          <mesh position={[0.35, 3.6, 0]}>
-            <boxGeometry args={[1.2, 0.08, 0.08]} />
-            <meshStandardMaterial color="#8b715a" />
-          </mesh>
-        </group>
-      ))}
-      {model.checkpointCues.map((cue) => (
-        <group key={cue.id} position={[cue.safeBranch === "main" ? -3.5 : 3.5, 0, cue.z]}>
-          <mesh position={[0, 2.3, 0]}>
-            <boxGeometry args={[0.2, 4.6, 0.2]} />
-            <meshStandardMaterial color="#4b5563" />
-          </mesh>
-          <mesh position={[0, 3.7, 0.1]}>
-            <boxGeometry args={[1.25, 0.9, 0.2]} />
-            <meshStandardMaterial color={cue.safeBranch === "main" ? "#34d399" : "#f59e0b"} emissive="#111827" />
-          </mesh>
-        </group>
-      ))}
-      {model.stationCue && model.stationCue.endZ > -40 && model.stationCue.startZ < 360 && (
-        <>
-          <mesh position={[-7.2, 0.06, (model.stationCue.startZ + model.stationCue.endZ) / 2]}>
-            <boxGeometry args={[5.8, 0.18, Math.max(6, model.stationCue.endZ - model.stationCue.startZ)]} />
-            <meshStandardMaterial color="#9ca3af" />
-          </mesh>
-          <mesh position={[-8.8, 1.7, model.stationCue.startZ + 10]}>
-            <boxGeometry args={[1.6, 3, 6]} />
-            <meshStandardMaterial color="#d6c6b0" />
-          </mesh>
-          <mesh position={[-8.8, 3.5, model.stationCue.startZ + 10]}>
-            <boxGeometry args={[2.3, 0.25, 6.4]} />
-            <meshStandardMaterial color="#7f1d1d" />
-          </mesh>
-        </>
-      )}
-
-      {helperMode && model.checkpointCues[0] && (
-        <mesh position={[0, 2.9, model.checkpointCues[0].z]}>
-          <torusGeometry args={[2.3, 0.08, 10, 40]} />
-          <meshStandardMaterial color="#fbbf24" emissive="#451a03" />
-        </mesh>
-      )}
-    </group>
-  );
-}
-
-function CabInterior({ state }: { state: SteamTrainsSimulationState }) {
-  const theme = useMemo(() => buildCabTheme(state.train.definition), [state.train.definition]);
-  return (
-    <group>
-      <mesh position={[0, 1.15, -0.8]}>
-        <boxGeometry args={[5.5, 2.4, 0.2]} />
-        <meshStandardMaterial color={theme.bodyColor} />
-      </mesh>
-      <mesh position={[0, 0.3, 0.4]}>
-        <boxGeometry args={[5.7, 0.28, 3]} />
-        <meshStandardMaterial color="#262626" />
-      </mesh>
-      <mesh position={[0, 0.95, 0.36]}>
-        <boxGeometry args={[3.4, 0.3, 1.2]} />
-        <meshStandardMaterial color={theme.trimColor} emissive="#111827" emissiveIntensity={0.22} />
-      </mesh>
-      <mesh position={[-1.2, 1.14, 0.94]} rotation={[0.34, 0, 0]}>
-        <boxGeometry args={[0.42, 0.5, 0.12]} />
-        <meshStandardMaterial color="#111827" />
-      </mesh>
-      <mesh position={[1.2, 1.14, 0.94]} rotation={[0.34, 0, 0]}>
-        <boxGeometry args={[0.42, 0.5, 0.12]} />
-        <meshStandardMaterial color="#111827" />
-      </mesh>
-    </group>
-  );
+  return <div className="absolute rounded bg-stone-300" style={{ left: x - 28 * scale, top: y - 20 * scale, width: 56 * scale, height: 20 * scale }} />;
 }
 
 export function TrainCab3D({ state, helperMode }: TrainCab3DProps) {
-  return (
-    <div className="relative overflow-hidden rounded-2xl border border-border bg-slate-950">
-      <Canvas shadows camera={{ position: [0, 2.6, -1.8], fov: 62 }} className="h-[500px] w-full">
-        <color attach="background" args={["#8fc5ff"]} />
-        <fog attach="fog" args={["#b9daff", 80, 420]} />
-        <ambientLight intensity={0.7} />
-        <directionalLight position={[12, 16, 10]} intensity={1.2} castShadow />
-        <Sky distance={450000} turbidity={6} rayleigh={1} inclination={0.52} azimuth={0.14} />
+  const model = useMemo(() => buildScene3dModel(state), [state]);
+  const theme = useMemo(() => buildCabTheme(state.train.definition), [state.train.definition]);
 
-        <GroundAndDistantScenery />
-        <ProceduralTreeLine />
-        <TrackAndSignals state={state} helperMode={helperMode} />
-        <CabInterior state={state} />
-      </Canvas>
+  return (
+    <div className="relative h-[500px] overflow-hidden rounded-2xl border border-border bg-sky-200">
+      <div className="absolute inset-x-0 top-0 h-52 bg-gradient-to-b from-sky-300 to-sky-100" />
+      <div className="absolute inset-x-0 bottom-0 h-80 bg-gradient-to-t from-green-900 via-green-700 to-green-600" />
+
+      <div className="absolute left-1/2 top-16 h-[410px] -translate-x-1/2" style={{ width: ROADBED_WIDTH, background: "linear-gradient(to top, #5b4637, #6b5a45 45%, #806c52 100%)", clipPath: "polygon(0 100%, 100% 100%, 58% 0, 42% 0)" }} />
+      <div className="absolute left-1/2 top-16 h-[410px] -translate-x-1/2" style={{ width: TRACK_WIDTH, background: "linear-gradient(to top, #4b5563, #9ca3af 60%, #d1d5db)", clipPath: "polygon(0 100%, 100% 100%, 58% 0, 42% 0)" }} />
+
+      {model.repeaters.map((item) => (
+        <RepeaterSprite key={item.id} item={item} horizon={model.horizonDistance} />
+      ))}
+
+      {model.routePreviews.map((route) => (
+        <RoutePreview key={route.id} route={route} horizon={model.horizonDistance} />
+      ))}
+
+      {model.landmarks.map((landmark) => (
+        <Landmark key={landmark.id} landmark={landmark} horizon={model.horizonDistance} />
+      ))}
+
+      {model.checkpointCues.map((cue) => {
+        const y = perspectiveY(cue.z, model.horizonDistance);
+        const x = perspectiveX(cue.safeBranch === "main" ? -4.5 : 4.5, cue.z, model.horizonDistance);
+        return (
+          <div key={cue.id} className="absolute" style={{ left: x - 6, top: y - 48 }}>
+            <div className="h-11 w-1 rounded bg-zinc-700" />
+            <div className="mt-1 h-4 w-12 -translate-x-6 rounded border border-zinc-900" style={{ backgroundColor: cue.safeBranch === "main" ? "#34d399" : "#f59e0b" }} />
+          </div>
+        );
+      })}
+
+      {model.stationCue && model.stationCue.endZ > -40 && model.stationCue.startZ < 360 && (
+        <div
+          className="absolute rounded-full"
+          style={{
+            left: perspectiveX(-3.8, model.stationCue.startZ, model.horizonDistance),
+            top: perspectiveY((model.stationCue.startZ + model.stationCue.endZ) / 2, model.horizonDistance),
+            width: 12,
+            height: 12,
+            backgroundColor: model.stationCue.completed ? "#34d399" : "#f97316",
+          }}
+        />
+      )}
+
+      {helperMode && model.checkpointCues[0] && (
+        <div
+          className="absolute h-10 w-10 rounded-full border-4 border-amber-300"
+          style={{ left: perspectiveX(0, model.checkpointCues[0].z, model.horizonDistance) - 20, top: perspectiveY(model.checkpointCues[0].z, model.horizonDistance) - 30 }}
+        />
+      )}
+
+      <div className="absolute inset-x-0 bottom-0 h-44 border-t-4" style={{ backgroundColor: theme.bodyColor, borderColor: theme.trimColor }}>
+        <div className="mx-auto mt-6 flex w-[74%] items-end justify-between rounded-t-xl border-t-4 px-8 pb-6 pt-5" style={{ backgroundColor: theme.sillColor, borderColor: theme.trimColor }}>
+          <div className="h-16 w-12 rounded bg-zinc-900/90" />
+          <div className="h-20 w-[44%] rounded-t-lg border-t-4" style={{ backgroundColor: theme.dashColor, borderColor: theme.trimColor }} />
+          <div className="h-16 w-12 rounded bg-zinc-900/90" />
+        </div>
+        <div className="absolute left-1/2 top-6 h-8 w-24 -translate-x-1/2 rounded-md border" style={{ backgroundColor: theme.noseColor, borderColor: theme.trimColor }} />
+      </div>
     </div>
   );
 }
