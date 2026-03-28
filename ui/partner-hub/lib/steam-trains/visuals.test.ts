@@ -48,15 +48,15 @@ describe("steam train visual helpers", () => {
 
   it("provides stable preview palette colors", () => {
     const palette = getPreviewPalette();
-    assert.equal(typeof palette.railBed, "string");
-    assert.equal(typeof palette.wheelFill, "string");
-    assert.equal(typeof palette.runningBoard, "string");
+    assert.equal(typeof palette.railBedTop, "string");
+    assert.equal(typeof palette.railSide, "string");
+    assert.equal(typeof palette.sleeperTop, "string");
     assert.equal(typeof palette.skyTop, "string");
-    assert.equal(typeof palette.brass, "string");
+    assert.equal(typeof palette.sceneBrick, "string");
   });
 
   it("maps window color by train role", () => {
-    assert.equal(getCarWindowColor("starter-passenger"), "#fef3c7");
+    assert.equal(getCarWindowColor("starter-passenger"), "#ffefb5");
     assert.equal(getCarWindowColor("starter-freight"), "#334155");
   });
 
