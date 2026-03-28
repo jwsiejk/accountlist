@@ -114,8 +114,8 @@ const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 
 const toForwardZ = (trainX: number, worldX: number) => worldX - trainX;
 
-const repeatForwardZ = (offset: number, spacing: number) => {
-  const wrapped = ((offset % spacing) + spacing) % spacing;
+const repeatForwardZ = (offset: number, cycleLength: number) => {
+  const wrapped = ((offset % cycleLength) + cycleLength) % cycleLength;
   return WORLD_NEAR_Z + wrapped;
 };
 
@@ -150,28 +150,34 @@ export const buildCabTheme = (train: TrainDefinition): CabTheme => {
 
 const buildRepeaters = (state: SteamTrainsSimulationState): Scene3dRepeater[] => {
   const motion = state.train.x - state.level.startX;
+  const sleeperSpacing = 7.8;
+  const sleeperCycleLength = sleeperSpacing * 56;
 
   const sleepers = Array.from({ length: 56 }, (_, index) => ({
     id: `sleeper-${index}`,
     kind: "sleeper" as const,
     x: 0,
-    z: repeatForwardZ(motion + index * 7.8, 7.8),
+    z: repeatForwardZ(motion + index * sleeperSpacing, sleeperCycleLength),
     scale: 1,
     variant: index % 4,
   }));
 
+  const poleSpacing = 20;
+  const poleCycleLength = poleSpacing * 30;
   const poles = Array.from({ length: 30 }, (_, index) => {
     const side = index % 2 === 0 ? -1 : 1;
     return {
       id: `pole-${index}`,
       kind: "pole" as const,
       x: side * 10.8,
-      z: repeatForwardZ(motion * 0.96 + index * 20, 20),
+      z: repeatForwardZ(motion * 0.96 + index * poleSpacing, poleCycleLength),
       scale: side === -1 ? 1 : 0.94,
       variant: index % 3,
     };
   });
 
+  const treeSpacing = 9.5;
+  const treeCycleLength = treeSpacing * 84;
   const trees = Array.from({ length: 84 }, (_, index) => {
     const side = index % 2 === 0 ? -1 : 1;
     const laneOffset = 14 + (index % 9) * 1.9 + (index % 3) * 0.7;
@@ -179,7 +185,7 @@ const buildRepeaters = (state: SteamTrainsSimulationState): Scene3dRepeater[] =>
       id: `tree-${index}`,
       kind: "tree" as const,
       x: side * laneOffset,
-      z: repeatForwardZ(motion * 0.86 + index * 9.5, 9.5),
+      z: repeatForwardZ(motion * 0.86 + index * treeSpacing, treeCycleLength),
       scale: 0.72 + (index % 6) * 0.11,
       variant: index % 5,
     };
@@ -190,16 +196,19 @@ const buildRepeaters = (state: SteamTrainsSimulationState): Scene3dRepeater[] =>
 
 const buildClouds = (state: SteamTrainsSimulationState): Scene3dCloud[] => {
   const motion = state.train.x - state.level.startX;
+  const cloudsPerDepth = 8;
   return Array.from({ length: 16 }, (_, index) => {
     const near = index % 2 === 0;
     const spacing = near ? 96 : 128;
     const drift = near ? motion * 0.09 : motion * 0.05;
+    const layerIndex = Math.floor(index / 2);
+    const cycleLength = spacing * cloudsPerDepth;
     const side = index % 3 === 0 ? -1 : 1;
     return {
       id: `cloud-${index}`,
       x: side * (6 + (index % 5) * 4.2),
       y: near ? 11 + (index % 4) * 0.9 : 13 + (index % 3) * 1.2,
-      z: repeatForwardZ(drift + index * spacing, spacing),
+      z: repeatForwardZ(drift + layerIndex * spacing, cycleLength),
       scale: near ? 1 + (index % 3) * 0.26 : 1.4 + (index % 4) * 0.18,
       depth: near ? "near" : "far",
     };
@@ -208,15 +217,18 @@ const buildClouds = (state: SteamTrainsSimulationState): Scene3dCloud[] => {
 
 const buildRidges = (state: SteamTrainsSimulationState): Scene3dRidge[] => {
   const motion = state.train.x - state.level.startX;
+  const ridgesPerDepth = 7;
   return Array.from({ length: 14 }, (_, index) => {
     const near = index % 2 === 0;
     const spacing = near ? 72 : 110;
     const side = index % 3 === 0 ? -1 : 1;
+    const layerIndex = Math.floor(index / 2);
+    const cycleLength = spacing * ridgesPerDepth;
     return {
       id: `ridge-${index}`,
       x: side * (20 + (index % 4) * 7),
       y: near ? 4.8 : 5.8,
-      z: repeatForwardZ((near ? motion * 0.34 : motion * 0.2) + index * spacing, spacing),
+      z: repeatForwardZ((near ? motion * 0.34 : motion * 0.2) + layerIndex * spacing, cycleLength),
       width: near ? 30 + (index % 4) * 5 : 40 + (index % 3) * 6,
       height: near ? 9 + (index % 4) * 1.7 : 12 + (index % 4) * 2,
       depth: near ? "near" : "far",
@@ -229,6 +241,8 @@ const buildRidges = (state: SteamTrainsSimulationState): Scene3dRidge[] => {
 const buildBuildings = (state: SteamTrainsSimulationState): Scene3dBuilding[] => {
   const motion = state.train.x - state.level.startX;
   const density = state.level.scene === "station" || state.level.scene === "yard" ? 10 : 6;
+  const buildingSpacing = 62;
+  const buildingCycleLength = buildingSpacing * density;
   return Array.from({ length: density }, (_, index) => {
     const side = index % 2 === 0 ? -1 : 1;
     const palette =
@@ -241,7 +255,7 @@ const buildBuildings = (state: SteamTrainsSimulationState): Scene3dBuilding[] =>
     return {
       id: `building-${index}`,
       x: side * (14 + (index % 4) * 4),
-      z: repeatForwardZ(motion * 0.5 + index * 62, 62),
+      z: repeatForwardZ(motion * 0.5 + index * buildingSpacing, buildingCycleLength),
       width: 4 + (index % 3) * 1.3,
       height: 2.2 + (index % 4) * 0.6,
       depth: 3.6 + (index % 2) * 1.8,

@@ -6,6 +6,12 @@ import { getLevelDefinition } from "./levels";
 import { buildCabTheme, buildScene3dModel } from "./scene3d";
 import { getTrainDefinition } from "./trainCatalog";
 
+const getZSpread = (values: number[]) => {
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  return { min, max, span: max - min };
+};
+
 describe("steam trains scene3d model", () => {
   it("builds cab theme using selected train colors and consist weight", () => {
     const lightTheme = buildCabTheme(getTrainDefinition("copper-creek-switcher"));
@@ -63,7 +69,7 @@ describe("steam trains scene3d model", () => {
     assert.equal(hasBridgeOrTunnel, true);
   });
 
-  it("moves repeaters toward and past the camera as train progresses", () => {
+  it("distributes repeater families across depth and moves stable ids with progress", () => {
     const train = getTrainDefinition("copper-creek-switcher");
     const level = getLevelDefinition("level-2-two-routes");
     const stateA = createSimulation(train, level, "levels");
@@ -78,24 +84,31 @@ describe("steam trains scene3d model", () => {
     const modelA = buildScene3dModel(stateA);
     const modelB = buildScene3dModel(stateB);
 
-    const sleeperA = modelA.repeaters.find((item) => item.id === "sleeper-0");
-    const sleeperB = modelB.repeaters.find((item) => item.id === "sleeper-0");
+    const families = ["sleeper", "pole", "tree"] as const;
+    families.forEach((kind) => {
+      const zValues = modelA.repeaters.filter((item) => item.kind === kind).map((item) => item.z);
+      const distinct = new Set(zValues.map((value) => value.toFixed(2)));
+      const spread = getZSpread(zValues);
+      assert.equal(distinct.size > 4, true);
+      assert.equal(spread.min <= -80, true);
+      assert.equal(spread.max >= 260, true);
+    });
 
-    assert.equal(Boolean(sleeperA), true);
-    assert.equal(Boolean(sleeperB), true);
-    assert.notEqual(sleeperA?.z, sleeperB?.z);
+    const stableIds = ["sleeper-0", "pole-0", "tree-0"];
+    stableIds.forEach((id) => {
+      const repeaterA = modelA.repeaters.find((item) => item.id === id);
+      const repeaterB = modelB.repeaters.find((item) => item.id === id);
+      assert.equal(Boolean(repeaterA), true);
+      assert.equal(Boolean(repeaterB), true);
+      assert.notEqual(repeaterA?.z, repeaterB?.z);
+    });
   });
 
-  it("builds layered sky, terrain, and route hints for immersive driving", () => {
+  it("spreads clouds, ridges, and buildings across near/far forward depth", () => {
     const train = getTrainDefinition("sunset-passenger");
     const level = getLevelDefinition("level-5-fast-switches");
-    const state = {
-      ...createSimulation(train, level, "levels"),
-      train: {
-        ...createSimulation(train, level, "levels").train,
-        x: level.startX + 200,
-      },
-    };
+    const initial = createSimulation(train, level, "levels");
+    const state = { ...initial, train: { ...initial.train, x: level.startX + 200 } };
 
     const model = buildScene3dModel(state);
     assert.equal(model.clouds.length > 0, true);
@@ -103,5 +116,24 @@ describe("steam trains scene3d model", () => {
     assert.equal(model.buildings.length > 0, true);
     assert.equal(model.routeCues.length > 0, true);
     assert.equal(model.routeCues[0]?.hintText.includes("track"), true);
+
+    const cloudSpread = getZSpread(model.clouds.map((cloud) => cloud.z));
+    const ridgeSpread = getZSpread(model.ridges.map((ridge) => ridge.z));
+    const buildingSpread = getZSpread(model.buildings.map((building) => building.z));
+    assert.equal(cloudSpread.span >= 250, true);
+    assert.equal(ridgeSpread.span >= 250, true);
+    assert.equal(buildingSpread.span >= 250, true);
+
+    const cloudDepths = new Set(model.clouds.map((cloud) => cloud.depth));
+    const ridgeDepths = new Set(model.ridges.map((ridge) => ridge.depth));
+    assert.deepEqual(cloudDepths, new Set(["near", "far"]));
+    assert.deepEqual(ridgeDepths, new Set(["near", "far"]));
+
+    assert.equal(model.clouds.some((cloud) => cloud.z <= -50), true);
+    assert.equal(model.clouds.some((cloud) => cloud.z >= 220), true);
+    assert.equal(model.ridges.some((ridge) => ridge.z <= -50), true);
+    assert.equal(model.ridges.some((ridge) => ridge.z >= 220), true);
+    assert.equal(model.buildings.some((building) => building.z <= -50), true);
+    assert.equal(model.buildings.some((building) => building.z >= 220), true);
   });
 });
