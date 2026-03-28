@@ -13,6 +13,7 @@ import {
   advanceSimulation,
   createSimulation,
   restartSimulation,
+  setDriveCommand,
   setSwitchState,
   triggerSteamPuff,
   triggerWhistle,
@@ -25,6 +26,8 @@ import {
   getNextLevelOrder,
   getValidSelectedLevelOrder,
   isLevelUnlocked,
+  mergeLevelProgress,
+  scoreLevelRun,
 } from "@/lib/steam-trains/progression";
 import { renderScene } from "@/lib/steam-trains/renderer";
 import {
@@ -58,12 +61,16 @@ const createState = (mode: GameMode, levelOrder: number, trainId: string) => {
   return createSimulation(getTrainDefinition(trainId), level, mode);
 };
 
+const starsForLevel = (preferences: SteamTrainsPreferences, levelId: string) =>
+  preferences.levelProgress[levelId]?.stars ?? 0;
+
 export function SteamTrainsTool() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number>(0);
   const audioContextRef = useRef<AudioContext | null>(null);
   const lastInteractionRef = useRef<number>(0);
+  const lastCompletionRef = useRef<string>("");
 
   const [preferences, setPreferences] = useState<SteamTrainsPreferences>(getDefaultSteamTrainsPreferences());
   const [selectedLevelOrder, setSelectedLevelOrder] = useState<number>(1);
@@ -163,11 +170,28 @@ export function SteamTrainsTool() {
       return;
     }
 
-    const nextUnlocked = getHighestUnlockedAfterCompletion(state.level.order, preferences.highestUnlockedLevel);
-    if (nextUnlocked !== preferences.highestUnlockedLevel) {
-      setPreferences((prev) => ({ ...prev, highestUnlockedLevel: nextUnlocked }));
+    const completionKey = `${state.level.id}:${state.elapsedMs}`;
+    if (lastCompletionRef.current === completionKey) {
+      return;
     }
-  }, [mode, preferences.highestUnlockedLevel, state.level.order, state.playState]);
+    lastCompletionRef.current = completionKey;
+
+    const nextUnlocked = getHighestUnlockedAfterCompletion(state.level.order, preferences.highestUnlockedLevel);
+    const runScore = scoreLevelRun(
+      {
+        completed: true,
+        crashed: state.crashedThisRun,
+        stationStopPerfect: state.stationStopPerfect,
+      },
+      Boolean(state.level.stationStop),
+    );
+
+    setPreferences((prev) => ({
+      ...prev,
+      highestUnlockedLevel: nextUnlocked,
+      levelProgress: mergeLevelProgress(prev.levelProgress, state.level.id, runScore),
+    }));
+  }, [mode, preferences.highestUnlockedLevel, state]);
 
   const bumpInteraction = () => {
     lastInteractionRef.current = performance.now();
@@ -215,6 +239,11 @@ export function SteamTrainsTool() {
   const handleRestart = () => {
     bumpInteraction();
     setState((prev) => restartSimulation(prev));
+  };
+
+  const handleDriveCommand = (command: "go" | "slow" | "stop") => {
+    bumpInteraction();
+    setState((prev) => setDriveCommand(prev, command));
   };
 
   const changeMode = (nextMode: GameMode) => {
@@ -282,6 +311,8 @@ export function SteamTrainsTool() {
   };
 
   const isSwitchDisabled = state.playState !== "running";
+  const nextCheckpoint = state.level.checkpoints[state.nextCheckpointIndex];
+  const nextRouteLabel = nextCheckpoint ? (nextCheckpoint.safeBranch === "main" ? "Top track" : "Side track") : "Keep going";
 
   return (
     <Card className="mx-auto w-full max-w-6xl">
@@ -351,7 +382,7 @@ export function SteamTrainsTool() {
                       disabled={!unlocked}
                       onClick={() => changeLevel(level.order)}
                     >
-                      {level.name}
+                      {level.name} {"⭐".repeat(starsForLevel(preferences, level.id))}
                     </Button>
                   );
                 })}
@@ -362,7 +393,40 @@ export function SteamTrainsTool() {
 
             <canvas ref={canvasRef} width={1000} height={480} className="w-full rounded-2xl border border-border bg-slate-100" />
 
-            <p className="rounded-xl bg-muted/50 p-3 text-center text-base font-semibold">{state.level.tutorialCue}</p>
+            <div className="grid gap-3 rounded-xl bg-muted/50 p-4 sm:grid-cols-3">
+              <p className="text-center text-base font-semibold">Goal: {state.statusText}</p>
+              <p className="text-center text-base font-semibold">Next route: {nextRouteLabel}</p>
+              <p className="text-center text-base font-semibold">Speed: {Math.round(state.train.speed)}</p>
+            </div>
+
+            <p className="rounded-xl bg-muted/40 p-3 text-center text-base font-semibold">{state.level.tutorialCue}</p>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Button
+                type="button"
+                onClick={() => handleDriveCommand("go")}
+                className="h-28 text-3xl font-black"
+                variant={state.driveCommand === "go" ? "primary" : "secondary"}
+              >
+                GO
+              </Button>
+              <Button
+                type="button"
+                onClick={() => handleDriveCommand("slow")}
+                className="h-28 text-3xl font-black"
+                variant={state.driveCommand === "slow" ? "primary" : "secondary"}
+              >
+                SLOW
+              </Button>
+              <Button
+                type="button"
+                onClick={() => handleDriveCommand("stop")}
+                className="h-28 text-3xl font-black"
+                variant={state.driveCommand === "stop" ? "primary" : "secondary"}
+              >
+                STOP
+              </Button>
+            </div>
 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Button type="button" onClick={handleSteamPuff} className="h-24 text-2xl font-bold" aria-label="Steam puff">
@@ -378,7 +442,7 @@ export function SteamTrainsTool() {
                 onClick={() => handleSwitch("main")}
                 disabled={isSwitchDisabled}
               >
-                Main Track
+                Top Track
               </Button>
               <Button
                 type="button"
@@ -393,11 +457,7 @@ export function SteamTrainsTool() {
 
             {(state.playState === "crashed" || state.playState === "rewinding" || state.playState === "completed") && (
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/80 bg-muted/40 p-4">
-                <p className="text-lg font-semibold">
-                  {state.playState === "crashed" && "Gentle bump — now rewinding..."}
-                  {state.playState === "rewinding" && "Rewinding to start..."}
-                  {state.playState === "completed" && "Yay! Level complete!"}
-                </p>
+                <p className="text-lg font-semibold">{state.statusText}</p>
                 <div className="flex gap-2">
                   {state.playState === "completed" && mode === "levels" && (
                     <Button type="button" className="h-14 px-6 text-xl" onClick={handleNextLevel}>

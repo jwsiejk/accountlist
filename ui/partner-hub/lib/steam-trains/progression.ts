@@ -1,5 +1,5 @@
 import { STEAM_TRAINS_LEVELS } from "./levels";
-import type { GameMode } from "./types";
+import type { GameMode, LevelProgressRecord, LevelRunSummary } from "./types";
 
 export const clampUnlockedLevel = (highestUnlockedLevel: number) =>
   Math.min(Math.max(highestUnlockedLevel, 1), STEAM_TRAINS_LEVELS.length);
@@ -30,4 +30,37 @@ export const getValidSelectedLevelOrder = (
   }
 
   return Math.min(clampedOrder, clampUnlockedLevel(highestUnlockedLevel));
+};
+
+export const scoreLevelRun = (summary: LevelRunSummary, requiresStationStop: boolean): LevelProgressRecord => {
+  if (!summary.completed) {
+    return {
+      stars: 0,
+      bestRun: summary,
+    };
+  }
+
+  const completionStar = 1;
+  const noCrashStar = summary.crashed ? 0 : 1;
+  const stationStar = requiresStationStop ? (summary.stationStopPerfect ? 1 : 0) : 1;
+
+  return {
+    stars: completionStar + noCrashStar + stationStar,
+    bestRun: summary,
+  };
+};
+
+export const mergeLevelProgress = (
+  previous: Record<string, LevelProgressRecord>,
+  levelId: string,
+  incoming: LevelProgressRecord,
+) => {
+  const existing = previous[levelId];
+  if (!existing || incoming.stars >= existing.stars) {
+    return {
+      ...previous,
+      [levelId]: incoming,
+    };
+  }
+  return previous;
 };

@@ -5,13 +5,14 @@ import {
   type TrainBuilderSelection,
 } from "./builder";
 import { DEFAULT_STEAM_TRAIN_ID, hasTrainDefinition } from "./trainCatalog";
-import type { GameMode, TrainDefinition } from "./types";
+import type { GameMode, LevelProgressRecord, TrainDefinition } from "./types";
 
 export type SteamTrainsPreferences = {
   highestUnlockedLevel: number;
   helperMode: boolean;
   lastMode: GameMode;
   selectedTrainId: string;
+  levelProgress: Record<string, LevelProgressRecord>;
 };
 
 export type SavedCustomTrain = {
@@ -24,7 +25,7 @@ export type SavedCustomTrain = {
 
 export type StorageLike = Pick<Storage, "getItem" | "setItem">;
 
-export const STEAM_TRAINS_STORAGE_KEY = "steam-trains.preferences.v1";
+export const STEAM_TRAINS_STORAGE_KEY = "steam-trains.preferences.v2";
 export const STEAM_TRAINS_CUSTOM_STORAGE_KEY = "steam-trains.custom.v1";
 
 const DEFAULT_PREFERENCES: SteamTrainsPreferences = {
@@ -32,9 +33,35 @@ const DEFAULT_PREFERENCES: SteamTrainsPreferences = {
   helperMode: true,
   lastMode: "levels",
   selectedTrainId: DEFAULT_STEAM_TRAIN_ID,
+  levelProgress: {},
 };
 
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
+
+const sanitizeLevelProgress = (input: unknown): Record<string, LevelProgressRecord> => {
+  if (!isObject(input)) {
+    return {};
+  }
+
+  return Object.entries(input).reduce<Record<string, LevelProgressRecord>>((acc, [key, value]) => {
+    if (!isObject(value)) {
+      return acc;
+    }
+
+    const stars = Number(value.stars);
+    const bestRunRaw = isObject(value.bestRun) ? value.bestRun : {};
+
+    acc[key] = {
+      stars: Number.isFinite(stars) ? Math.min(3, Math.max(0, Math.floor(stars))) : 0,
+      bestRun: {
+        completed: Boolean(bestRunRaw.completed),
+        crashed: Boolean(bestRunRaw.crashed),
+        stationStopPerfect: Boolean(bestRunRaw.stationStopPerfect),
+      },
+    };
+    return acc;
+  }, {});
+};
 
 export const sanitizePreferences = (
   input: unknown,
@@ -56,6 +83,7 @@ export const sanitizePreferences = (
     helperMode,
     lastMode,
     selectedTrainId,
+    levelProgress: sanitizeLevelProgress(input.levelProgress),
   };
 };
 

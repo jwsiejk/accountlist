@@ -299,3 +299,29 @@ export const getTrainDefinition = (id: string): TrainDefinition => {
   }
   return train;
 };
+
+
+export const deriveTrainHandlingProfile = (train: TrainDefinition) => {
+  const driverCount = train.locomotive.wheelSet.count;
+  const totalCars = train.rollingStock.length + (train.tender ? 1 : 0);
+  const consistWeight = train.locomotive.bodyLength + totalCars * 120;
+
+  const rawTopSpeed = train.baseSpeed + Math.max(0, 4 - totalCars * 1.5);
+  const topSpeed = Math.max(48, Math.min(88, rawTopSpeed));
+  const slowSpeed = Math.max(18, topSpeed * 0.52);
+
+  const acceleration = Math.max(18, 54 - driverCount * 4 - totalCars * 5);
+  const braking = Math.max(24, 82 - consistWeight / 14);
+  const rollingDrag = Math.max(8, 18 - driverCount * 1.1);
+
+  const haulingClass = consistWeight >= 540 ? "heavy" : consistWeight >= 380 ? "medium" : "light";
+
+  return {
+    topSpeed,
+    slowSpeed,
+    acceleration,
+    braking,
+    rollingDrag,
+    haulingClass,
+  } as const;
+};

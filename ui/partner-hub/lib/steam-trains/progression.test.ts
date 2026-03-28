@@ -9,6 +9,8 @@ import {
   getLevelByOrder,
   getNextLevelOrder,
   isLevelUnlocked,
+  mergeLevelProgress,
+  scoreLevelRun,
 } from "./progression";
 
 describe("steam trains progression", () => {
@@ -32,6 +34,26 @@ describe("steam trains progression", () => {
     assert.equal(getLevelByOrder(3)?.id, "level-3-station-stop");
     assert.equal(getNextLevelOrder(1), 2);
     assert.equal(getNextLevelOrder(STEAM_TRAINS_LEVELS.length), STEAM_TRAINS_LEVELS.length);
+  });
+
+  it("scores stars for completion / no crash / station stop", () => {
+    const perfect = scoreLevelRun({ completed: true, crashed: false, stationStopPerfect: true }, true);
+    const crashRun = scoreLevelRun({ completed: true, crashed: true, stationStopPerfect: true }, true);
+    const noStation = scoreLevelRun({ completed: true, crashed: false, stationStopPerfect: false }, false);
+
+    assert.equal(perfect.stars, 3);
+    assert.equal(crashRun.stars, 2);
+    assert.equal(noStation.stars, 3);
+  });
+
+  it("merges progress only when new star score is better", () => {
+    const initial = mergeLevelProgress({}, "level-1-switch-start", scoreLevelRun({ completed: true, crashed: true, stationStopPerfect: false }, false));
+    const unchanged = mergeLevelProgress(initial, "level-1-switch-start", scoreLevelRun({ completed: true, crashed: true, stationStopPerfect: false }, false));
+    const improved = mergeLevelProgress(unchanged, "level-1-switch-start", scoreLevelRun({ completed: true, crashed: false, stationStopPerfect: true }, false));
+
+    assert.equal(initial["level-1-switch-start"]?.stars, 2);
+    assert.equal(unchanged["level-1-switch-start"]?.stars, 2);
+    assert.equal(improved["level-1-switch-start"]?.stars, 3);
   });
 
   it("clamps selected level order based on mode and unlocks", () => {

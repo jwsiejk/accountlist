@@ -114,15 +114,31 @@ export type TrainDefinition = {
 export type TrackSwitchState = "main" | "siding";
 export type GameMode = "levels" | "free-play";
 export type PlayState = "running" | "crashed" | "rewinding" | "completed";
+export type DriveCommand = "go" | "slow" | "stop";
 
 export type LevelCheckpoint = {
   id: string;
   x: number;
   safeBranch: TrackSwitchState;
   promptIcon?: "switch" | "station" | "bridge" | "tunnel";
+  promptText?: string;
+  anticipationDistance?: number;
 };
 
 export type LevelScene = "yard" | "station" | "bridge" | "tunnel";
+
+export type LevelGoalStep = {
+  id: string;
+  icon: "go" | "switch" | "station" | "finish";
+  label: string;
+};
+
+export type StationStopRule = {
+  startX: number;
+  endX: number;
+  requiredStopMs: number;
+  maxEntrySpeed: number;
+};
 
 export type LevelDefinition = {
   id: string;
@@ -138,10 +154,8 @@ export type LevelDefinition = {
   scene: LevelScene;
   crashPauseMs: number;
   rewindDurationMs: number;
-  stationStop?: {
-    x: number;
-    pauseMs: number;
-  };
+  goals: LevelGoalStep[];
+  stationStop?: StationStopRule;
 };
 
 export type SteamParticle = {
@@ -161,8 +175,18 @@ export type SimulationFrame = {
   dtMs: number;
 };
 
+export type TrainHandlingProfile = {
+  topSpeed: number;
+  slowSpeed: number;
+  acceleration: number;
+  braking: number;
+  rollingDrag: number;
+  haulingClass: "light" | "medium" | "heavy";
+};
+
 export type TrainRuntimeState = {
   definition: TrainDefinition;
+  profile: TrainHandlingProfile;
   x: number;
   y: number;
   speed: number;
@@ -177,6 +201,7 @@ export type SteamTrainsSimulationState = {
   checkpointDecisions: TrackSwitchState[];
   nextCheckpointIndex: number;
   playState: PlayState;
+  driveCommand: DriveCommand;
   elapsedMs: number;
   crashAtMs: number | null;
   rewindStartMs: number | null;
@@ -184,5 +209,19 @@ export type SteamTrainsSimulationState = {
   particles: SteamParticle[];
   nextParticleId: number;
   stationStopCompleted: boolean;
-  stationStopUntilMs: number | null;
+  stationStopProgressMs: number;
+  stationStopPerfect: boolean;
+  crashedThisRun: boolean;
+  statusText: string;
+};
+
+export type LevelRunSummary = {
+  completed: boolean;
+  crashed: boolean;
+  stationStopPerfect: boolean;
+};
+
+export type LevelProgressRecord = {
+  stars: number;
+  bestRun: LevelRunSummary;
 };
