@@ -5,7 +5,7 @@ import { useMemo, useRef } from "react";
 import { PerspectiveCamera } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
 import type { GroupProps } from "@react-three/fiber";
-import type { Group } from "three";
+import { Color, type Group } from "three";
 
 import { buildCabTheme, buildScene3dModel } from "@/lib/steam-trains/scene3d";
 import type {
@@ -40,21 +40,31 @@ function RepeaterField({ model }: { model: Scene3dModel }) {
   return (
     <>
       {sleepers.map((item) => (
-        <mesh key={item.id} position={[0, 0.04, toWorldZ(item.z)]}>
-          <boxGeometry args={[1.95, 0.06, 0.26]} />
-          <meshStandardMaterial color="#6e4f2f" />
-        </mesh>
+        <group key={item.id} position={[0, 0.04, toWorldZ(item.z)]}>
+          <mesh>
+            <boxGeometry args={[1.95, 0.06, 0.26]} />
+            <meshStandardMaterial color={item.variant % 2 === 0 ? "#6e4f2f" : "#7b5934"} roughness={0.92} />
+          </mesh>
+          <mesh position={[0, 0.04, 0]}>
+            <boxGeometry args={[1.8, 0.01, 0.21]} />
+            <meshStandardMaterial color="#4b3622" roughness={0.8} />
+          </mesh>
+        </group>
       ))}
 
       {poles.map((item) => (
         <group key={item.id} position={[item.x, 0, toWorldZ(item.z)]}>
           <mesh position={[0, 1.8, 0]}>
             <cylinderGeometry args={[0.09, 0.11, 3.6, 8]} />
-            <meshStandardMaterial color="#7b7065" />
+            <meshStandardMaterial color={item.variant === 0 ? "#7b7065" : "#6b645b"} roughness={0.9} />
           </mesh>
           <mesh position={[0.45, 2.9, 0]}>
             <boxGeometry args={[0.95, 0.08, 0.08]} />
-            <meshStandardMaterial color="#8e8176" />
+            <meshStandardMaterial color="#8e8176" roughness={0.78} />
+          </mesh>
+          <mesh position={[0, 2.45, 0]}>
+            <boxGeometry args={[0.08, 0.08, 0.75]} />
+            <meshStandardMaterial color="#4b5563" metalness={0.4} roughness={0.45} />
           </mesh>
         </group>
       ))}
@@ -63,15 +73,23 @@ function RepeaterField({ model }: { model: Scene3dModel }) {
         <group key={item.id} position={[item.x, 0, toWorldZ(item.z)]} scale={item.scale}>
           <mesh position={[0, 1.15, 0]}>
             <cylinderGeometry args={[0.16, 0.2, 2.3, 10]} />
-            <meshStandardMaterial color="#5a3f2a" />
+            <meshStandardMaterial color="#5a3f2a" roughness={0.95} />
           </mesh>
-          <mesh position={[0, 2.85, 0]}>
-            <coneGeometry args={[0.95, 2.2, 10]} />
-            <meshStandardMaterial color="#2f7d3e" />
+          <mesh position={[0, 2.65, 0]}>
+            <coneGeometry args={[0.95, 1.8, 11]} />
+            <meshStandardMaterial color={item.variant % 2 === 0 ? "#2f7d3e" : "#2f6f37"} roughness={0.9} />
           </mesh>
-          <mesh position={[0.2, 3.5, 0]}>
-            <sphereGeometry args={[0.44, 8, 8]} />
-            <meshStandardMaterial color="#3f9a4c" />
+          <mesh position={[0.2, 3.4, 0.1]}>
+            <dodecahedronGeometry args={[0.52, 0]} />
+            <meshStandardMaterial color="#3f9a4c" roughness={0.88} />
+          </mesh>
+          <mesh position={[-0.38, 3.1, -0.2]}>
+            <dodecahedronGeometry args={[0.4, 0]} />
+            <meshStandardMaterial color="#357d40" roughness={0.9} />
+          </mesh>
+          <mesh position={[0.42, 2.95, -0.18]}>
+            <dodecahedronGeometry args={[0.38, 0]} />
+            <meshStandardMaterial color="#2f6f37" roughness={0.92} />
           </mesh>
         </group>
       ))}
@@ -99,12 +117,24 @@ function SkyLayers({ clouds, ridges }: { clouds: Scene3dCloud[]; ridges: Scene3d
         </group>
       ))}
 
-      {ridges.map((ridge) => (
-        <mesh key={ridge.id} position={[ridge.x, ridge.y, toWorldZ(ridge.z)]}>
-          <coneGeometry args={[ridge.width * 0.5, ridge.height, 9]} />
-          <meshStandardMaterial color={ridge.depth === "near" ? "#4d7c0f" : "#64748b"} transparent opacity={ridge.depth === "near" ? 0.86 : 0.6} />
-        </mesh>
-      ))}
+      {ridges.map((ridge) => {
+        const baseColor = ridge.depth === "near" ? "#3f6212" : "#475569";
+        const ridgeColor = new Color(baseColor).offsetHSL(0, -0.05, ridge.profile === "crag" ? -0.05 : 0.04).getStyle();
+        return (
+          <group key={ridge.id} position={[ridge.x, ridge.y, toWorldZ(ridge.z)]}>
+            <mesh>
+              <coneGeometry args={[ridge.width * 0.5, ridge.height, ridge.profile === "crag" ? 5 : 9]} />
+              <meshStandardMaterial color={ridgeColor} transparent opacity={ridge.depth === "near" ? 0.9 : 0.68} roughness={0.95} />
+            </mesh>
+            {ridge.snowCap && (
+              <mesh position={[0, ridge.height * 0.32, 0]}>
+                <coneGeometry args={[ridge.width * 0.22, ridge.height * 0.26, 9]} />
+                <meshStandardMaterial color="#e2e8f0" transparent opacity={0.75} roughness={0.85} />
+              </mesh>
+            )}
+          </group>
+        );
+      })}
     </>
   );
 }
@@ -116,11 +146,19 @@ function BuildingField({ buildings }: { buildings: Scene3dBuilding[] }) {
         <group key={building.id} position={[building.x, 0, toWorldZ(building.z)]}>
           <mesh position={[0, building.height / 2, 0]}>
             <boxGeometry args={[building.width, building.height, building.depth]} />
-            <meshStandardMaterial color={building.color} />
+            <meshStandardMaterial color={building.color} roughness={0.88} />
           </mesh>
           <mesh position={[0, building.height + 0.28, 0]}>
             <boxGeometry args={[building.width + 0.2, 0.34, building.depth + 0.2]} />
-            <meshStandardMaterial color={building.roofColor} />
+            <meshStandardMaterial color={building.roofColor} roughness={0.74} metalness={building.style === "warehouse" ? 0.25 : 0.08} />
+          </mesh>
+          <mesh position={[0, building.height * 0.52, building.depth / 2 + 0.02]}>
+            <boxGeometry args={[building.width * 0.85, building.height * 0.56, 0.06]} />
+            <meshStandardMaterial color={building.accentColor} roughness={0.7} />
+          </mesh>
+          <mesh position={[0, building.height * 0.55, building.depth / 2 + 0.07]}>
+            <boxGeometry args={[building.width * 0.18, building.height * 0.34, 0.08]} />
+            <meshStandardMaterial color="#dbeafe" emissive="#0f172a" emissiveIntensity={0.08} roughness={0.2} metalness={0.1} />
           </mesh>
         </group>
       ))}
@@ -159,12 +197,12 @@ function TrackGeometry({ model }: { model: Scene3dModel }) {
     <>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.04, centerZ]}>
         <planeGeometry args={[48, length]} />
-        <meshStandardMaterial color="#6fa857" />
+        <meshStandardMaterial color="#5f8b4a" roughness={0.98} />
       </mesh>
 
       <mesh position={[0, 0, centerZ]}>
         <boxGeometry args={[5.6, 0.18, length]} />
-        <meshStandardMaterial color="#6d5a45" />
+        <meshStandardMaterial color="#6d5a45" roughness={0.94} />
       </mesh>
       <mesh position={[-3.6, -0.01, centerZ]}>
         <boxGeometry args={[1.5, 0.1, length]} />
@@ -188,7 +226,7 @@ function TrackGeometry({ model }: { model: Scene3dModel }) {
         <group key={segment.id} position={[segment.x, 0, segment.z]}>
           <mesh position={[-0.72, 0.2, 0]}>
             <boxGeometry args={[0.12, 0.12, segment.len]} />
-            <meshStandardMaterial color={segment.safeBranch === "main" ? "#8fbef0" : "#f7cb73"} metalness={0.2} roughness={0.45} />
+            <meshStandardMaterial color={segment.safeBranch === "main" ? "#8fbef0" : "#f7cb73"} metalness={0.38} roughness={0.32} />
           </mesh>
           <mesh position={[0.72, 0.2, 0]}>
             <boxGeometry args={[0.12, 0.12, segment.len]} />
@@ -209,15 +247,19 @@ function LandmarkMesh({ landmark }: { landmark: Scene3dLandmarkCue }) {
       <group position={[0, 0, zCenter]}>
         <mesh position={[0, 1.9, 0]}>
           <boxGeometry args={[13, 0.45, landmark.length]} />
-          <meshStandardMaterial color="#6b7280" />
+          <meshStandardMaterial color="#64748b" metalness={0.45} roughness={0.4} />
         </mesh>
         <mesh position={[-6.1, 1, 0]}>
           <boxGeometry args={[0.4, 2, landmark.length]} />
-          <meshStandardMaterial color="#4b5563" />
+          <meshStandardMaterial color="#475569" metalness={0.35} roughness={0.5} />
         </mesh>
         <mesh position={[6.1, 1, 0]}>
           <boxGeometry args={[0.4, 2, landmark.length]} />
-          <meshStandardMaterial color="#4b5563" />
+          <meshStandardMaterial color="#475569" metalness={0.35} roughness={0.5} />
+        </mesh>
+        <mesh position={[0, 2.45, 0]}>
+          <boxGeometry args={[12.8, 0.14, landmark.length]} />
+          <meshStandardMaterial color="#94a3b8" roughness={0.45} metalness={0.22} />
         </mesh>
       </group>
     );
@@ -227,12 +269,20 @@ function LandmarkMesh({ landmark }: { landmark: Scene3dLandmarkCue }) {
     return (
       <group position={[0, 0, zCenter]}>
         <mesh position={[0, 2.2, 0]}>
-          <boxGeometry args={[8.5, 4.4, landmark.length]} />
-          <meshStandardMaterial color="#374151" />
+          <boxGeometry args={[8.7, 4.5, landmark.length]} />
+          <meshStandardMaterial color="#334155" roughness={0.9} />
         </mesh>
         <mesh position={[0, 1.6, landmark.length / 2 - 0.45]}>
           <boxGeometry args={[4.8, 2.8, 0.5]} />
-          <meshStandardMaterial color="#111827" />
+          <meshStandardMaterial color="#0f172a" roughness={0.7} />
+        </mesh>
+        <mesh position={[-2.45, 1.2, landmark.length / 2 - 0.3]}>
+          <cylinderGeometry args={[0.2, 0.25, 1.4, 10]} />
+          <meshStandardMaterial color="#1f2937" />
+        </mesh>
+        <mesh position={[2.45, 1.2, landmark.length / 2 - 0.3]}>
+          <cylinderGeometry args={[0.2, 0.25, 1.4, 10]} />
+          <meshStandardMaterial color="#1f2937" />
         </mesh>
       </group>
     );
@@ -242,7 +292,7 @@ function LandmarkMesh({ landmark }: { landmark: Scene3dLandmarkCue }) {
     <group position={[x, 0, zCenter]}>
       <mesh position={[0, 0.45, 0]}>
         <boxGeometry args={[4.8, 0.9, landmark.length]} />
-        <meshStandardMaterial color="#d6d3d1" />
+        <meshStandardMaterial color="#d6d3d1" roughness={0.9} />
       </mesh>
       <mesh position={[0, 1.75, 0]}>
         <boxGeometry args={[2.8, 1.2, 5.8]} />
@@ -250,7 +300,11 @@ function LandmarkMesh({ landmark }: { landmark: Scene3dLandmarkCue }) {
       </mesh>
       <mesh position={[0, 2.45, 0]}>
         <boxGeometry args={[3.4, 0.2, 6.2]} />
-        <meshStandardMaterial color="#57534e" />
+        <meshStandardMaterial color="#57534e" roughness={0.75} />
+      </mesh>
+      <mesh position={[0, 1.6, 2.8]}>
+        <boxGeometry args={[2, 0.95, 0.08]} />
+        <meshStandardMaterial color="#e2e8f0" emissive="#0f172a" emissiveIntensity={0.08} />
       </mesh>
     </group>
   );
@@ -372,11 +426,12 @@ function CabShell({ model, helperMode, state }: { model: Scene3dModel; helperMod
   return (
     <>
       <PerspectiveCamera makeDefault fov={56} position={[0, 2.45, 10.6]} rotation={[-0.05, 0, 0]} />
-      <color attach="background" args={["#87ceeb"]} />
-      <fog attach="fog" args={["#9fc8e4", 36, 250]} />
-      <ambientLight intensity={0.8} />
-      <directionalLight intensity={0.9} position={[8, 14, 14]} castShadow={false} />
-      <hemisphereLight args={["#e0f2fe", "#5b7b42", 0.7]} />
+      <color attach="background" args={["#7fa7c8"]} />
+      <fog attach="fog" args={["#b7cde0", 28, 238]} />
+      <ambientLight intensity={0.5} color="#f1f5f9" />
+      <directionalLight intensity={1.1} position={[14, 15, 10]} color="#ffe8c4" castShadow={false} />
+      <directionalLight intensity={0.35} position={[-18, 9, -8]} color="#cbd5e1" />
+      <hemisphereLight args={["#fef3c7", "#334155", 0.62]} />
 
       <SkyLayers clouds={model.clouds} ridges={model.ridges} />
       <TrackGeometry model={model} />
@@ -392,19 +447,19 @@ function CabShell({ model, helperMode, state }: { model: Scene3dModel; helperMod
       <MovingCabRig speedFactor={Math.max(0.45, state.train.speed * 0.03)}>
         <mesh position={[0, -0.62, 13.2]}>
           <boxGeometry args={[18, 1.15, 9]} />
-          <meshStandardMaterial color={theme.bodyColor} />
+          <meshStandardMaterial color={theme.bodyColor} metalness={0.25} roughness={0.52} />
         </mesh>
         <mesh position={[0, -0.1, 8.9]}>
           <boxGeometry args={[6.4, 0.8, 1.6]} />
-          <meshStandardMaterial color={theme.sillColor} />
+          <meshStandardMaterial color={theme.sillColor} metalness={0.15} roughness={0.5} />
         </mesh>
         <mesh position={[0, 0.45, 8.35]}>
           <boxGeometry args={[3.9, 0.9, 0.6]} />
-          <meshStandardMaterial color={theme.dashColor} />
+          <meshStandardMaterial color={theme.dashColor} roughness={0.72} />
         </mesh>
         <mesh position={[0, 0.75, 7.85]}>
           <boxGeometry args={[1.8, 0.3, 0.3]} />
-          <meshStandardMaterial color={theme.noseColor} />
+          <meshStandardMaterial color={theme.noseColor} metalness={0.2} roughness={0.45} />
         </mesh>
         <mesh position={[0, 2, 8.1]}>
           <boxGeometry args={[7.4, 2.7, 0.4]} />
@@ -412,7 +467,7 @@ function CabShell({ model, helperMode, state }: { model: Scene3dModel; helperMod
         </mesh>
         <mesh position={[0, 1.95, 7.92]}>
           <boxGeometry args={[4.7, 1.8, 0.1]} />
-          <meshStandardMaterial color="#dbeafe" transparent opacity={0.24} />
+          <meshStandardMaterial color="#dbeafe" transparent opacity={0.2} roughness={0.05} metalness={0.2} />
         </mesh>
         <mesh position={[-2.95, 0.2, 8.95]}>
           <boxGeometry args={[0.35, 1.2, 1.2]} />
@@ -429,6 +484,18 @@ function CabShell({ model, helperMode, state }: { model: Scene3dModel; helperMod
         <mesh position={[1.1, 0.95, 8.15]}>
           <cylinderGeometry args={[0.1, 0.1, 0.42, 12]} />
           <meshStandardMaterial color="#334155" />
+        </mesh>
+        <mesh position={[0, 0.1, 8.38]}>
+          <boxGeometry args={[0.95, 0.55, 0.3]} />
+          <meshStandardMaterial color="#111827" roughness={0.45} metalness={0.38} />
+        </mesh>
+        <mesh position={[-1.9, 0.45, 8.3]}>
+          <torusGeometry args={[0.27, 0.04, 14, 28]} />
+          <meshStandardMaterial color="#1f2937" metalness={0.65} roughness={0.28} />
+        </mesh>
+        <mesh position={[1.9, 0.45, 8.3]}>
+          <torusGeometry args={[0.27, 0.04, 14, 28]} />
+          <meshStandardMaterial color="#1f2937" metalness={0.65} roughness={0.28} />
         </mesh>
       </MovingCabRig>
     </>
