@@ -46,6 +46,7 @@ export type Scene3dRepeater = {
   x: number;
   z: number;
   scale: number;
+  variant: number;
 };
 
 export type Scene3dCloud = {
@@ -65,6 +66,8 @@ export type Scene3dRidge = {
   width: number;
   height: number;
   depth: "near" | "far";
+  profile: "crag" | "slope" | "peak";
+  snowCap: boolean;
 };
 
 export type Scene3dBuilding = {
@@ -76,6 +79,8 @@ export type Scene3dBuilding = {
   depth: number;
   color: string;
   roofColor: string;
+  accentColor: string;
+  style: "depot" | "warehouse" | "townhouse";
 };
 
 export type Scene3dRouteCue = {
@@ -152,6 +157,7 @@ const buildRepeaters = (state: SteamTrainsSimulationState): Scene3dRepeater[] =>
     x: 0,
     z: repeatForwardZ(motion + index * 7.8, 7.8),
     scale: 1,
+    variant: index % 4,
   }));
 
   const poles = Array.from({ length: 30 }, (_, index) => {
@@ -162,18 +168,20 @@ const buildRepeaters = (state: SteamTrainsSimulationState): Scene3dRepeater[] =>
       x: side * 10.8,
       z: repeatForwardZ(motion * 0.96 + index * 20, 20),
       scale: side === -1 ? 1 : 0.94,
+      variant: index % 3,
     };
   });
 
-  const trees = Array.from({ length: 42 }, (_, index) => {
+  const trees = Array.from({ length: 84 }, (_, index) => {
     const side = index % 2 === 0 ? -1 : 1;
-    const laneOffset = 15 + (index % 7) * 1.8 + (index % 3) * 0.7;
+    const laneOffset = 14 + (index % 9) * 1.9 + (index % 3) * 0.7;
     return {
       id: `tree-${index}`,
       kind: "tree" as const,
       x: side * laneOffset,
-      z: repeatForwardZ(motion * 0.86 + index * 14, 14),
-      scale: 0.78 + (index % 5) * 0.12,
+      z: repeatForwardZ(motion * 0.86 + index * 9.5, 9.5),
+      scale: 0.72 + (index % 6) * 0.11,
+      variant: index % 5,
     };
   });
 
@@ -212,6 +220,8 @@ const buildRidges = (state: SteamTrainsSimulationState): Scene3dRidge[] => {
       width: near ? 30 + (index % 4) * 5 : 40 + (index % 3) * 6,
       height: near ? 9 + (index % 4) * 1.7 : 12 + (index % 4) * 2,
       depth: near ? "near" : "far",
+      profile: index % 3 === 0 ? "peak" : index % 3 === 1 ? "slope" : "crag",
+      snowCap: !near && index % 3 !== 1,
     };
   });
 };
@@ -223,10 +233,10 @@ const buildBuildings = (state: SteamTrainsSimulationState): Scene3dBuilding[] =>
     const side = index % 2 === 0 ? -1 : 1;
     const palette =
       index % 3 === 0
-        ? { wall: "#cbd5e1", roof: "#64748b" }
+        ? { wall: "#cbd5e1", roof: "#64748b", accent: "#94a3b8" }
         : index % 3 === 1
-          ? { wall: "#d6d3d1", roof: "#57534e" }
-          : { wall: "#bfdbfe", roof: "#475569" };
+          ? { wall: "#d6d3d1", roof: "#57534e", accent: "#a8a29e" }
+          : { wall: "#bfdbfe", roof: "#475569", accent: "#7dd3fc" };
 
     return {
       id: `building-${index}`,
@@ -237,6 +247,8 @@ const buildBuildings = (state: SteamTrainsSimulationState): Scene3dBuilding[] =>
       depth: 3.6 + (index % 2) * 1.8,
       color: palette.wall,
       roofColor: palette.roof,
+      accentColor: palette.accent,
+      style: index % 3 === 0 ? "depot" : index % 3 === 1 ? "warehouse" : "townhouse",
     };
   });
 };
