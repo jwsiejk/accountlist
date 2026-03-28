@@ -48,6 +48,44 @@ export type Scene3dRepeater = {
   scale: number;
 };
 
+export type Scene3dCloud = {
+  id: string;
+  x: number;
+  y: number;
+  z: number;
+  scale: number;
+  depth: "near" | "far";
+};
+
+export type Scene3dRidge = {
+  id: string;
+  x: number;
+  y: number;
+  z: number;
+  width: number;
+  height: number;
+  depth: "near" | "far";
+};
+
+export type Scene3dBuilding = {
+  id: string;
+  x: number;
+  z: number;
+  width: number;
+  height: number;
+  depth: number;
+  color: string;
+  roofColor: string;
+};
+
+export type Scene3dRouteCue = {
+  id: string;
+  z: number;
+  safeBranch: TrackSwitchState;
+  hintText: string;
+  urgency: "upcoming" | "now";
+};
+
 export type Scene3dModel = {
   speedMph: number;
   nextRouteLabel: string;
@@ -58,6 +96,10 @@ export type Scene3dModel = {
   stationCue: Scene3dStationCue | null;
   landmarks: Scene3dLandmarkCue[];
   repeaters: Scene3dRepeater[];
+  clouds: Scene3dCloud[];
+  ridges: Scene3dRidge[];
+  buildings: Scene3dBuilding[];
+  routeCues: Scene3dRouteCue[];
 };
 
 const HUD_HORIZON_DISTANCE = 460;
@@ -112,28 +154,107 @@ const buildRepeaters = (state: SteamTrainsSimulationState): Scene3dRepeater[] =>
     scale: 1,
   }));
 
-  const poles = Array.from({ length: 22 }, (_, index) => ({
-    id: `pole-${index}`,
-    kind: "pole" as const,
-    x: -10.8,
-    z: repeatForwardZ(motion * 0.92 + index * 23, 23),
-    scale: 1,
-  }));
-
-  const trees = Array.from({ length: 30 }, (_, index) => {
+  const poles = Array.from({ length: 30 }, (_, index) => {
     const side = index % 2 === 0 ? -1 : 1;
-    const laneOffset = 16 + (index % 5) * 2.2;
+    return {
+      id: `pole-${index}`,
+      kind: "pole" as const,
+      x: side * 10.8,
+      z: repeatForwardZ(motion * 0.96 + index * 20, 20),
+      scale: side === -1 ? 1 : 0.94,
+    };
+  });
+
+  const trees = Array.from({ length: 42 }, (_, index) => {
+    const side = index % 2 === 0 ? -1 : 1;
+    const laneOffset = 15 + (index % 7) * 1.8 + (index % 3) * 0.7;
     return {
       id: `tree-${index}`,
       kind: "tree" as const,
       x: side * laneOffset,
-      z: repeatForwardZ(motion * 0.84 + index * 18, 18),
-      scale: 0.85 + (index % 4) * 0.14,
+      z: repeatForwardZ(motion * 0.86 + index * 14, 14),
+      scale: 0.78 + (index % 5) * 0.12,
     };
   });
 
   return [...sleepers, ...poles, ...trees];
 };
+
+const buildClouds = (state: SteamTrainsSimulationState): Scene3dCloud[] => {
+  const motion = state.train.x - state.level.startX;
+  return Array.from({ length: 16 }, (_, index) => {
+    const near = index % 2 === 0;
+    const spacing = near ? 96 : 128;
+    const drift = near ? motion * 0.09 : motion * 0.05;
+    const side = index % 3 === 0 ? -1 : 1;
+    return {
+      id: `cloud-${index}`,
+      x: side * (6 + (index % 5) * 4.2),
+      y: near ? 11 + (index % 4) * 0.9 : 13 + (index % 3) * 1.2,
+      z: repeatForwardZ(drift + index * spacing, spacing),
+      scale: near ? 1 + (index % 3) * 0.26 : 1.4 + (index % 4) * 0.18,
+      depth: near ? "near" : "far",
+    };
+  });
+};
+
+const buildRidges = (state: SteamTrainsSimulationState): Scene3dRidge[] => {
+  const motion = state.train.x - state.level.startX;
+  return Array.from({ length: 14 }, (_, index) => {
+    const near = index % 2 === 0;
+    const spacing = near ? 72 : 110;
+    const side = index % 3 === 0 ? -1 : 1;
+    return {
+      id: `ridge-${index}`,
+      x: side * (20 + (index % 4) * 7),
+      y: near ? 4.8 : 5.8,
+      z: repeatForwardZ((near ? motion * 0.34 : motion * 0.2) + index * spacing, spacing),
+      width: near ? 30 + (index % 4) * 5 : 40 + (index % 3) * 6,
+      height: near ? 9 + (index % 4) * 1.7 : 12 + (index % 4) * 2,
+      depth: near ? "near" : "far",
+    };
+  });
+};
+
+const buildBuildings = (state: SteamTrainsSimulationState): Scene3dBuilding[] => {
+  const motion = state.train.x - state.level.startX;
+  const density = state.level.scene === "station" || state.level.scene === "yard" ? 10 : 6;
+  return Array.from({ length: density }, (_, index) => {
+    const side = index % 2 === 0 ? -1 : 1;
+    const palette =
+      index % 3 === 0
+        ? { wall: "#cbd5e1", roof: "#64748b" }
+        : index % 3 === 1
+          ? { wall: "#d6d3d1", roof: "#57534e" }
+          : { wall: "#bfdbfe", roof: "#475569" };
+
+    return {
+      id: `building-${index}`,
+      x: side * (14 + (index % 4) * 4),
+      z: repeatForwardZ(motion * 0.5 + index * 62, 62),
+      width: 4 + (index % 3) * 1.3,
+      height: 2.2 + (index % 4) * 0.6,
+      depth: 3.6 + (index % 2) * 1.8,
+      color: palette.wall,
+      roofColor: palette.roof,
+    };
+  });
+};
+
+const buildRouteCues = (state: SteamTrainsSimulationState): Scene3dRouteCue[] =>
+  state.level.checkpoints
+    .slice(state.nextCheckpointIndex, state.nextCheckpointIndex + 2)
+    .map((checkpoint) => {
+      const z = toForwardZ(state.train.x, checkpoint.x);
+      return {
+        id: `route-cue-${checkpoint.id}`,
+        z,
+        safeBranch: checkpoint.safeBranch,
+        hintText: checkpoint.safeBranch === "main" ? "Top track is safe" : "Side track is safe",
+        urgency: z < 140 ? ("now" as const) : ("upcoming" as const),
+      };
+    })
+    .filter((cue) => cue.z >= WORLD_NEAR_Z && cue.z <= HUD_HORIZON_DISTANCE);
 
 const buildRoutePreviews = (state: SteamTrainsSimulationState): Scene3dTrackPreview[] =>
   state.level.checkpoints
@@ -229,5 +350,9 @@ export const buildScene3dModel = (state: SteamTrainsSimulationState): Scene3dMod
     stationCue,
     landmarks: buildLandmarks(state),
     repeaters: buildRepeaters(state),
+    clouds: buildClouds(state),
+    ridges: buildRidges(state),
+    buildings: buildBuildings(state),
+    routeCues: buildRouteCues(state),
   };
 };

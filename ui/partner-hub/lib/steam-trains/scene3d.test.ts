@@ -85,4 +85,23 @@ describe("steam trains scene3d model", () => {
     assert.equal(Boolean(sleeperB), true);
     assert.notEqual(sleeperA?.z, sleeperB?.z);
   });
+
+  it("builds layered sky, terrain, and route hints for immersive driving", () => {
+    const train = getTrainDefinition("sunset-passenger");
+    const level = getLevelDefinition("level-5-fast-switches");
+    const state = {
+      ...createSimulation(train, level, "levels"),
+      train: {
+        ...createSimulation(train, level, "levels").train,
+        x: level.startX + 200,
+      },
+    };
+
+    const model = buildScene3dModel(state);
+    assert.equal(model.clouds.length > 0, true);
+    assert.equal(model.ridges.length > 0, true);
+    assert.equal(model.buildings.length > 0, true);
+    assert.equal(model.routeCues.length > 0, true);
+    assert.equal(model.routeCues[0]?.hintText.includes("track"), true);
+  });
 });
