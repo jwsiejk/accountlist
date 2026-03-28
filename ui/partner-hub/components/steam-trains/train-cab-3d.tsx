@@ -2,7 +2,6 @@
 
 import { useMemo, useRef } from "react";
 
-import { PerspectiveCamera } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
 import type { GroupProps } from "@react-three/fiber";
 import { Color, type Group } from "three";
@@ -425,7 +424,6 @@ function CabShell({ model, helperMode, state }: { model: Scene3dModel; helperMod
 
   return (
     <>
-      <PerspectiveCamera makeDefault fov={56} position={[0, 2.45, 10.6]} rotation={[-0.05, 0, 0]} />
       <color attach="background" args={["#7fa7c8"]} />
       <fog attach="fog" args={["#b7cde0", 28, 238]} />
       <ambientLight intensity={0.5} color="#f1f5f9" />
@@ -507,7 +505,7 @@ export function TrainCab3D({ state, helperMode }: TrainCab3DProps) {
 
   return (
     <div className="relative h-[500px] overflow-hidden rounded-2xl border border-border bg-sky-200">
-      <Canvas dpr={[1, 1.5]}>
+      <Canvas dpr={[1, 1.5]} camera={{ position: [0, 2.8, -8], fov: 60 }}>
         <CabShell model={model} helperMode={helperMode} state={state} />
       </Canvas>
     </div>
