@@ -154,8 +154,12 @@ export function SteamTrainsTool() {
     }
 
     const now = performance.now();
+    const checkpoint = state.level.checkpoints[state.nextCheckpointIndex];
+    const helperDistance = checkpoint ? checkpoint.x - state.train.x : Number.POSITIVE_INFINITY;
+    const shouldShowIdleHelper = now - lastInteractionRef.current >= INACTIVITY_HELPER_MS;
+    const shouldShowProximityHelper = helperDistance <= (checkpoint?.anticipationDistance ?? 180) * 0.72;
     const helperCheckpointIndex =
-      preferences.helperMode && state.playState === "running" && now - lastInteractionRef.current >= INACTIVITY_HELPER_MS
+      preferences.helperMode && state.playState === "running" && (shouldShowIdleHelper || shouldShowProximityHelper)
         ? state.nextCheckpointIndex
         : null;
 
@@ -312,7 +316,9 @@ export function SteamTrainsTool() {
 
   const isSwitchDisabled = state.playState !== "running";
   const nextCheckpoint = state.level.checkpoints[state.nextCheckpointIndex];
-  const nextRouteLabel = nextCheckpoint ? (nextCheckpoint.safeBranch === "main" ? "Top track" : "Side track") : "Keep going";
+  const nextRouteLabel = nextCheckpoint
+    ? `${nextCheckpoint.safeBranch === "main" ? "Top track" : "Side track"} (${Math.max(0, Math.round(nextCheckpoint.x - state.train.x))}m)`
+    : "Keep going";
 
   return (
     <Card className="mx-auto w-full max-w-6xl">

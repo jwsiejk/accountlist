@@ -42,6 +42,21 @@ describe("steam trains engine", () => {
     assert.equal(state.train.speed <= 0.01, true);
   });
 
+  it("reacts quickly to go and slow commands for understandable control changes", () => {
+    let state = createLevelState("level-2-two-routes");
+    const startSpeed = state.train.speed;
+    state = advanceSimulation(setDriveCommand(state, "go"), 120);
+    const goSpeed = state.train.speed;
+    for (let i = 0; i < 16; i += 1) {
+      state = advanceSimulation(setDriveCommand(state, "slow"), 40);
+    }
+    const slowSpeed = state.train.speed;
+    const slowTarget = state.train.profile.slowSpeed * state.level.baseSpeedMultiplier;
+
+    assert.equal(goSpeed > startSpeed, true);
+    assert.equal(slowSpeed <= slowTarget + 1, true);
+  });
+
   it("creates crash, rewind, and restart flow for wrong route in levels", () => {
     let state = setSwitchState(createLevelState("level-1-switch-start"), "siding");
 
@@ -98,6 +113,27 @@ describe("steam trains engine", () => {
 
     assert.equal(state.stationStopCompleted, true);
     assert.equal(state.stationStopPerfect, true);
+  });
+
+  it("keeps partial station-stop progress when braking is slightly fast", () => {
+    let state = createLevelState("level-3-station-stop");
+    state = setDriveCommand(state, "go");
+
+    for (let i = 0; i < 320 && state.playState === "running"; i += 1) {
+      state = advanceSimulation(state, 40);
+      if (state.train.x > 410) {
+        state = setDriveCommand(state, "slow");
+      }
+      if (state.train.x >= 486 && state.train.x <= 620) {
+        state = setDriveCommand(state, "stop");
+      }
+      if (state.stationStopProgressMs > 120) {
+        break;
+      }
+    }
+
+    assert.equal(state.stationStopProgressMs > 0, true);
+    assert.equal(state.playState, "running");
   });
 
   it("derives different handling profiles across stock trains", () => {

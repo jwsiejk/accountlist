@@ -138,6 +138,9 @@ export type StationStopRule = {
   endX: number;
   requiredStopMs: number;
   maxEntrySpeed: number;
+  forgivingSpeed: number;
+  progressDecayPerSecond: number;
+  exitGraceDistance: number;
 };
 
 export type LevelDefinition = {

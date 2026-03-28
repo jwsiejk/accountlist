@@ -61,6 +61,16 @@ describe("steam train catalog", () => {
     assert.equal(["light", "medium", "heavy"].includes(passenger.haulingClass), true);
   });
 
+  it("keeps handling profile bounds child-friendly for every stock train", () => {
+    STEAM_TRAIN_CATALOG.forEach((train) => {
+      const profile = deriveTrainHandlingProfile(train);
+      assert.equal(profile.topSpeed >= 52 && profile.topSpeed <= 82, true);
+      assert.equal(profile.slowSpeed >= 20 && profile.slowSpeed < profile.topSpeed, true);
+      assert.equal(profile.acceleration >= 19 && profile.acceleration <= 46, true);
+      assert.equal(profile.braking >= 26 && profile.braking <= 42, true);
+    });
+  });
+
   it("registers custom trains in the same catalog path as stock trains", () => {
     const custom = buildTrainDefinitionFromSelection(getDefaultTrainBuilderSelection(), "custom-train-spec");
     registerCustomTrainDefinitions([custom]);
@@ -70,6 +80,33 @@ describe("steam train catalog", () => {
     assert.equal(getTrainDefinition(custom.id).id, custom.id);
 
     clearCustomTrainDefinitions();
+  });
+
+  it("keeps custom builder variants playable after profile derivation", () => {
+    const speedyCustom = buildTrainDefinitionFromSelection(
+      {
+        ...getDefaultTrainBuilderSelection(),
+        wheelArrangementId: "arrangement-passenger",
+        tenderStyleId: "tender-short",
+      },
+      "custom-train-fast",
+    );
+    const heavyCustom = buildTrainDefinitionFromSelection(
+      {
+        ...getDefaultTrainBuilderSelection(),
+        wheelArrangementId: "arrangement-freight",
+        drivingRodStyleId: "rod-stout",
+        tenderStyleId: "tender-long",
+        carSetId: "cars-freight",
+      },
+      "custom-train-heavy",
+    );
+
+    const fastProfile = deriveTrainHandlingProfile(speedyCustom);
+    const heavyProfile = deriveTrainHandlingProfile(heavyCustom);
+    assert.equal(fastProfile.topSpeed > heavyProfile.topSpeed, true);
+    assert.equal(fastProfile.acceleration >= heavyProfile.acceleration, true);
+    assert.equal(heavyProfile.braking >= 26, true);
   });
 
   it("throws for unknown train ids", () => {

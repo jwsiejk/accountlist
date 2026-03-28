@@ -29,24 +29,34 @@ const getTargetSpeed = (state: SteamTrainsSimulationState): number => {
   return topSpeed * levelBoost;
 };
 
+const getCommandHandlingMultiplier = (command: DriveCommand) => {
+  if (command === "go") {
+    return { accel: 1.1, brake: 0.92 };
+  }
+  if (command === "slow") {
+    return { accel: 1, brake: 1.08 };
+  }
+  return { accel: 0.94, brake: 1.28 };
+};
+
 const getStatusText = (state: SteamTrainsSimulationState) => {
   if (state.playState === "crashed") {
-    return "Gentle bump! Rewinding...";
+    return "Oops, gentle bump! We can try again.";
   }
   if (state.playState === "rewinding") {
-    return "Rolling back to try again";
+    return "Rolling back for a quick retry";
   }
   if (state.playState === "completed") {
-    return state.mode === "free-play" ? "Keep driving!" : "Level complete!";
+    return state.mode === "free-play" ? "Sandbox loop! Keep exploring." : "Level complete! Great driving!";
   }
 
   if (state.level.stationStop && !state.stationStopCompleted) {
     const zone = state.level.stationStop;
     if (state.train.x < zone.startX - 36) {
-      return "Get ready to stop at the station";
+      return "Station ahead: get ready to slow down";
     }
     if (state.train.x >= zone.startX - 36 && state.train.x <= zone.endX + 18) {
-      return "Stop in the station zone";
+      return "Brake gently inside the station zone";
     }
   }
 
@@ -60,12 +70,12 @@ const getStatusText = (state: SteamTrainsSimulationState) => {
   }
 
   if (state.driveCommand === "stop") {
-    return "Train stopped";
+    return "Braking to a comfy stop";
   }
   if (state.driveCommand === "slow") {
-    return "Cruising slow";
+    return "Nice and easy";
   }
-  return "Full steam ahead";
+  return "Steady steam ahead";
 };
 
 const createRunningState = (
@@ -282,12 +292,13 @@ export const advanceSimulation = (
   }
 
   const targetSpeed = getTargetSpeed(nextState);
+  const commandHandling = getCommandHandlingMultiplier(nextState.driveCommand);
   const nextSpeed = stepSpeed(
     nextState.train.speed,
     targetSpeed,
     dtMs,
-    nextState.train.profile.acceleration,
-    nextState.train.profile.braking,
+    nextState.train.profile.acceleration * commandHandling.accel,
+    nextState.train.profile.braking * commandHandling.brake,
     nextState.train.profile.rollingDrag,
   );
 
@@ -311,6 +322,7 @@ export const advanceSimulation = (
   if (stationStop && !resolvedState.stationStopCompleted) {
     const inZone = resolvedState.train.x >= stationStop.startX && resolvedState.train.x <= stationStop.endX;
     const stoppedInZone = inZone && resolvedState.train.speed <= stationStop.maxEntrySpeed;
+    const forgivingInZone = inZone && resolvedState.train.speed <= stationStop.forgivingSpeed;
 
     if (stoppedInZone) {
       const progress = resolvedState.stationStopProgressMs + dtMs;
@@ -321,17 +333,24 @@ export const advanceSimulation = (
         stationStopCompleted: complete,
         stationStopPerfect: complete,
       };
-    } else if (!inZone && resolvedState.stationStopProgressMs > 0 && resolvedState.mode === "levels") {
+    } else if (forgivingInZone) {
+      const easedDelta = dtMs * 0.65;
       resolvedState = {
         ...resolvedState,
-        stationStopProgressMs: 0,
+        stationStopProgressMs: Math.max(0, resolvedState.stationStopProgressMs + easedDelta),
+      };
+    } else if (resolvedState.stationStopProgressMs > 0 && resolvedState.mode === "levels") {
+      const decay = (stationStop.progressDecayPerSecond * dtMs) / 1000;
+      resolvedState = {
+        ...resolvedState,
+        stationStopProgressMs: Math.max(0, resolvedState.stationStopProgressMs - decay),
       };
     }
 
     if (
       resolvedState.mode === "levels" &&
       !resolvedState.stationStopCompleted &&
-      resolvedState.train.x > stationStop.endX + 20
+      resolvedState.train.x > stationStop.endX + stationStop.exitGraceDistance
     ) {
       return {
         ...resolvedState,
@@ -342,7 +361,7 @@ export const advanceSimulation = (
           ...resolvedState.train,
           speed: 0,
         },
-        statusText: "Try stopping inside the station zone",
+        statusText: "Almost! Slow more in the station zone",
       };
     }
   }
@@ -396,7 +415,7 @@ export const advanceSimulation = (
         ...resolvedState.train,
         x: resolvedState.level.destinationX,
       },
-      statusText: "Level complete!",
+      statusText: "Level complete! Great driving!",
     };
   }
 
