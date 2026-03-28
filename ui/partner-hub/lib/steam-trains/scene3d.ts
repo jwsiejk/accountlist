@@ -1,4 +1,4 @@
-import type { SteamTrainsSimulationState, TrackSwitchState, TrainDefinition } from "./types";
+import type { LevelScene, SteamTrainsSimulationState, TrackSwitchState, TrainDefinition } from "./types";
 
 export type CabTheme = {
   trimColor: string;
@@ -96,6 +96,7 @@ export type Scene3dModel = {
   nextRouteLabel: string;
   horizonDistance: number;
   worldMotion: number;
+  levelScene: LevelScene;
   checkpointCues: Scene3dCheckpointCue[];
   routePreviews: Scene3dTrackPreview[];
   stationCue: Scene3dStationCue | null;
@@ -371,6 +372,7 @@ export const buildScene3dModel = (state: SteamTrainsSimulationState): Scene3dMod
     nextRouteLabel,
     horizonDistance: HUD_HORIZON_DISTANCE,
     worldMotion: state.train.x - state.level.startX,
+    levelScene: state.level.scene,
     checkpointCues,
     routePreviews: buildRoutePreviews(state),
     stationCue,
