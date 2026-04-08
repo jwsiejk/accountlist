@@ -5,7 +5,14 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HPC_LAB_PRESETS } from "@/lib/hpc-lab/presets";
-import { HPC_LAB_PANEL_KEYS, type HpcLabConfig, type HpcLabPanelKey, type HpcLabPresetId } from "@/lib/hpc-lab/types";
+import {
+  HPC_LAB_PANEL_KEYS,
+  type HpcLabConfig,
+  type HpcLabFileSizeDistribution,
+  type HpcLabPanelKey,
+  type HpcLabPresetId,
+  type HpcLabWorkloadType,
+} from "@/lib/hpc-lab/types";
 
 const panelTitles: Record<HpcLabPanelKey, string> = {
   "cluster-topology": "Cluster topology",
@@ -19,10 +26,24 @@ const panelTitles: Record<HpcLabPanelKey, string> = {
   "bottleneck-attribution": "Bottleneck attribution",
 };
 
+const workloadTypeLabels: Record<HpcLabWorkloadType, string> = {
+  "traditional-hpc": "Traditional HPC",
+  "distributed-ai-training": "Distributed AI Training",
+  "metadata-heavy": "Metadata Heavy",
+};
+
+const fileSizeDistributionLabels: Record<HpcLabFileSizeDistribution, string> = {
+  "large-sequential": "Large Sequential",
+  mixed: "Mixed",
+  "small-random": "Small Random",
+};
+
 const controlRows: Array<{ label: string; key: keyof HpcLabConfig }> = [
   { label: "Compute nodes", key: "computeNodes" },
   { label: "GPU nodes", key: "gpuNodes" },
-  { label: "OSS / OST", key: "ossCount" },
+  { label: "OSS count", key: "ossCount" },
+  { label: "OST per OSS", key: "ostPerOss" },
+  { label: "Total OSTs", key: "ostPerOss" },
   { label: "Stripe width", key: "stripeWidth" },
   { label: "Metadata latency", key: "metadataLatencyMs" },
   { label: "Network bandwidth", key: "networkBandwidthGbps" },
@@ -91,15 +112,19 @@ export function HpcLabTool() {
             {controlRows.map((row) => {
               const value = selectedPreset.initialConfig[row.key];
               const formatted =
-                row.key === "metadataLatencyMs"
-                  ? `${value} ms`
-                  : row.key === "networkBandwidthGbps"
-                    ? `${value} Gbps`
-                    : row.key === "checkpointFrequencyMinutes"
-                      ? `${value} minutes`
-                      : row.key === "ossCount"
-                        ? `${selectedPreset.initialConfig.ossCount} OSS / ${selectedPreset.initialConfig.ossCount * selectedPreset.initialConfig.ostPerOss} OST`
-                        : String(value);
+                row.label === "Total OSTs"
+                  ? selectedPreset.initialConfig.ossCount * selectedPreset.initialConfig.ostPerOss
+                  : row.key === "metadataLatencyMs"
+                    ? `${value} ms`
+                    : row.key === "networkBandwidthGbps"
+                      ? `${value} Gbps`
+                      : row.key === "checkpointFrequencyMinutes"
+                        ? `${value} minutes`
+                        : row.key === "workloadType"
+                          ? workloadTypeLabels[value]
+                          : row.key === "fileSizeDistribution"
+                            ? fileSizeDistributionLabels[value]
+                            : String(value);
 
               return (
                 <div key={row.label} className="flex items-start justify-between gap-4 rounded-md border border-border/60 bg-muted/20 px-3 py-2">

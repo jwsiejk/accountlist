@@ -39,7 +39,7 @@ export const HPC_LAB_PRESETS: readonly HpcLabPreset[] = [
   },
   {
     id: "small-file",
-    name: "Small File Stress",
+    name: "Small File Workload",
     description: "Metadata-sensitive profile for many small random I/O operations and high job concurrency.",
     initialConfig: {
       computeNodes: 80,
