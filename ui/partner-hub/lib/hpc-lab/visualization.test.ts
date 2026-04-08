@@ -4,7 +4,11 @@ import test from "node:test";
 import { simulateHpcLab } from "./engine";
 import { HPC_LAB_PRESETS } from "./presets";
 import {
+  buildCheckpointActiveJobsStats,
+  buildCheckpointChartModel,
   buildConstraintSignalsChartModel,
+  buildMetadataChartModel,
+  buildMetadataUtilizationStats,
   buildOstLoadDistributionChartModel,
   buildThroughputChartModel,
   buildTopologyModel,
@@ -77,4 +81,46 @@ test("visualization layer only transforms existing run data", () => {
     assert.equal(constraints.series[2].points[index].value, tick.constraintSignals.metadataPressure);
     assert.equal(constraints.series[3].points[index].value, tick.constraintSignals.networkPressure);
   }
+});
+
+test("metadata chart keeps ops-only series and utilization is separate deterministic stats", () => {
+  const result = simulateHpcLab(HPC_LAB_PRESETS[2].initialConfig, { totalTicks: 30 });
+  const metadataChart = buildMetadataChartModel(result, 30);
+  const metadataStats = buildMetadataUtilizationStats(result);
+
+  assert.deepEqual(
+    metadataChart.series.map((series) => series.key),
+    ["metadata-requested", "metadata-served"],
+  );
+  assert.equal(metadataChart.valueFormat, "ops");
+  assert.equal(metadataChart.yAxisLabel, "Ops/tick");
+
+  const lastTick = result.timeline[result.timeline.length - 1];
+  const expectedAverage = result.timeline.reduce((sum, tick) => sum + tick.metadataUtilization, 0) / result.timeline.length;
+  const expectedPeak = result.timeline.reduce((max, tick) => Math.max(max, tick.metadataUtilization), 0);
+
+  assert.equal(metadataStats.latest, lastTick.metadataUtilization);
+  assert.equal(metadataStats.average, expectedAverage);
+  assert.equal(metadataStats.peak, expectedPeak);
+});
+
+test("checkpoint panel keeps ratio-only line chart and separate active-job stats", () => {
+  const result = simulateHpcLab(HPC_LAB_PRESETS[1].initialConfig, { totalTicks: 60 });
+  const checkpointChart = buildCheckpointChartModel(result, 60);
+  const checkpointStats = buildCheckpointActiveJobsStats(result);
+
+  assert.deepEqual(
+    checkpointChart.series.map((series) => series.key),
+    ["checkpoint-pause-ratio"],
+  );
+  assert.equal(checkpointChart.valueFormat, "percent");
+  assert.equal(checkpointChart.yAxisLabel, "Pause ratio");
+
+  const lastTick = result.timeline[result.timeline.length - 1];
+  const expectedAverage = result.timeline.reduce((sum, tick) => sum + tick.checkpointActiveJobs, 0) / result.timeline.length;
+  const expectedPeak = result.timeline.reduce((max, tick) => Math.max(max, tick.checkpointActiveJobs), 0);
+
+  assert.equal(checkpointStats.latest, lastTick.checkpointActiveJobs);
+  assert.equal(checkpointStats.average, expectedAverage);
+  assert.equal(checkpointStats.peak, expectedPeak);
 });

@@ -1,6 +1,12 @@
 import type { HpcLabLineChartModel } from "@/lib/hpc-lab/types";
 
-const COLORS = ["#2563eb", "#16a34a", "#7c3aed", "#f97316"];
+const SERIES_COLOR_CLASSES = [
+  "text-sky-600 dark:text-sky-400",
+  "text-emerald-600 dark:text-emerald-400",
+  "text-violet-600 dark:text-violet-400",
+  "text-amber-600 dark:text-amber-400",
+];
+const SERIES_STROKE_PATTERNS = ["0", "6 3", "2 2", "10 4"];
 
 const formatValue = (value: number, format: HpcLabLineChartModel["valueFormat"]) => {
   if (format === "percent") {
@@ -65,7 +71,17 @@ export function MultiSeriesLineChart({ model }: { model: HpcLabLineChartModel })
 
         {model.series.map((series, seriesIndex) => {
           const coordinates = series.points.map((point, index) => ({ x: toX(index), y: toY(point.value) }));
-          return <path key={series.key} d={buildPath(coordinates)} fill="none" stroke={COLORS[seriesIndex]} strokeWidth={2} />;
+          return (
+            <g key={series.key} className={SERIES_COLOR_CLASSES[seriesIndex % SERIES_COLOR_CLASSES.length]}>
+              <path
+                d={buildPath(coordinates)}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeDasharray={SERIES_STROKE_PATTERNS[seriesIndex % SERIES_STROKE_PATTERNS.length]}
+              />
+            </g>
+          );
         })}
 
         <text x={padding.left} y={height - 6} className="fill-foreground/70 text-[10px]">Tick</text>
@@ -73,8 +89,11 @@ export function MultiSeriesLineChart({ model }: { model: HpcLabLineChartModel })
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
         {model.series.map((series, seriesIndex) => (
-          <span key={series.key} className="inline-flex items-center gap-1 text-foreground/80">
-            <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: COLORS[seriesIndex] }} aria-hidden />
+          <span
+            key={series.key}
+            className={`inline-flex items-center gap-1 text-foreground/80 ${SERIES_COLOR_CLASSES[seriesIndex % SERIES_COLOR_CLASSES.length]}`}
+          >
+            <span className="inline-block h-2 w-2 rounded-full bg-current" aria-hidden />
             {series.label}
           </span>
         ))}

@@ -103,7 +103,6 @@ export const buildMetadataChartModel = (result: HpcLabSimulationResult, maxPoint
     [
       toSeries("metadata-requested", "Requested ops", fromTimeline(sampled, (tick) => tick.metadataOpsRequested)),
       toSeries("metadata-served", "Served ops", fromTimeline(sampled, (tick) => tick.metadataOpsServed)),
-      toSeries("metadata-utilization", "Utilization", fromTimeline(sampled, (tick) => tick.metadataUtilization)),
     ],
     downsampled,
     result.timeline.length,
@@ -164,16 +163,67 @@ export const buildCheckpointChartModel = (result: HpcLabSimulationResult, maxPoi
   const { sampled, downsampled } = downsampleTimelineDeterministic(result.timeline, maxPoints);
   return chartModel(
     "Checkpoint pause impact",
-    "Ratio / count",
-    "decimal",
-    [
-      toSeries("checkpoint-pause-ratio", "Pause ratio", fromTimeline(sampled, (tick) => tick.checkpointPauseRatio)),
-      toSeries("checkpoint-active-jobs", "Checkpoint-active jobs", fromTimeline(sampled, (tick) => tick.checkpointActiveJobs)),
-    ],
+    "Pause ratio",
+    "percent",
+    [toSeries("checkpoint-pause-ratio", "Pause ratio", fromTimeline(sampled, (tick) => tick.checkpointPauseRatio))],
     downsampled,
     result.timeline.length,
     sampled.length,
   );
+};
+
+export type HpcLabMetadataUtilizationStats = {
+  latest: number;
+  average: number;
+  peak: number;
+};
+
+export const buildMetadataUtilizationStats = (result: HpcLabSimulationResult): HpcLabMetadataUtilizationStats => {
+  const timeline = result.timeline;
+  if (timeline.length === 0) {
+    return {
+      latest: 0,
+      average: 0,
+      peak: 0,
+    };
+  }
+
+  const latest = timeline[timeline.length - 1].metadataUtilization;
+  const peak = timeline.reduce((max, tick) => Math.max(max, tick.metadataUtilization), 0);
+  const average = timeline.reduce((sum, tick) => sum + tick.metadataUtilization, 0) / timeline.length;
+
+  return {
+    latest,
+    average,
+    peak,
+  };
+};
+
+export type HpcLabCheckpointActiveJobsStats = {
+  latest: number;
+  average: number;
+  peak: number;
+};
+
+export const buildCheckpointActiveJobsStats = (result: HpcLabSimulationResult): HpcLabCheckpointActiveJobsStats => {
+  const timeline = result.timeline;
+  if (timeline.length === 0) {
+    return {
+      latest: 0,
+      average: 0,
+      peak: 0,
+    };
+  }
+
+  const latest = timeline[timeline.length - 1].checkpointActiveJobs;
+  const peak = timeline.reduce((max, tick) => Math.max(max, tick.checkpointActiveJobs), 0);
+  const average = timeline.reduce((sum, tick) => sum + tick.checkpointActiveJobs, 0) / timeline.length;
+
+  return {
+    latest,
+    average,
+    peak,
+  };
 };
 
 export const buildConstraintSignalsChartModel = (

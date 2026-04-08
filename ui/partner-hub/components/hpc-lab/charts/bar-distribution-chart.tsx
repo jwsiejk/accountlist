@@ -30,12 +30,17 @@ export function BarDistributionChart({ model }: { model: HpcLabBarChartModel }) 
 
   return (
     <div className="space-y-2">
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-56 w-full" role="img" aria-label={model.title}>
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="h-56 w-full text-sky-600 dark:text-sky-400"
+        role="img"
+        aria-label={model.title}
+      >
         {bars.map((bar, index) => {
           const x = padding.left + index * barWidth;
           const y = toY(bar.value);
           const h = height - padding.bottom - y;
-          return <rect key={bar.label} x={x} y={y} width={Math.max(1, barWidth - 1)} height={h} fill="#0ea5e9" opacity={0.85} />;
+          return <rect key={bar.label} x={x} y={y} width={Math.max(1, barWidth - 1)} height={h} fill="currentColor" opacity={0.85} />;
         })}
         <text x={6} y={16} className="fill-foreground/70 text-[10px]">
           max {formatValue(yMax, model.valueFormat)}

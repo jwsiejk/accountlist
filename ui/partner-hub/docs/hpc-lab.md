@@ -65,6 +65,7 @@ When the flag is not set to `"true"`, `/hpc-lab` renders a disabled message card
 ## Phase 4 visualization additions
 - New pure visualization mapping helpers in `lib/hpc-lab/visualization.ts` transform `HpcLabSimulationResult` into deterministic render models.
 - Panel grid now renders real views when a run result exists: cluster topology, throughput over time, metadata load, average OST load distribution, job queue/active jobs, compute utilization, waiting on data, checkpoint pause impact, and raw bottleneck constraint signals.
+- Phase 4 chart models now keep unit systems separated per view: metadata ops remain on the metadata ops chart while metadata utilization is shown as separate panel stats, and checkpoint pause ratio remains on its own chart while checkpoint-active job counts are shown separately as panel stats.
 - Long timelines are deterministically downsampled for render responsiveness while preserving first/last ticks.
 - Stale run handling remains explicit; charts remain visible but marked as last-run output when controls changed after execution.
 - Bottleneck panel intentionally shows only raw pressure signals in Phase 4. User-facing dominant bottleneck attribution labeling remains deferred to Phase 5.
