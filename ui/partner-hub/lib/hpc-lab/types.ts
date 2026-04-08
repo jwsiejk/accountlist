@@ -25,6 +25,139 @@ export type HpcLabPreset = {
   initialConfig: HpcLabConfig;
 };
 
+export type HpcLabSimulationOptions = {
+  tickDurationSeconds: number;
+  totalTicks: number;
+};
+
+export type HpcLabNormalizedConfig = HpcLabConfig & {
+  computeNodes: number;
+  gpuNodes: number;
+  ossCount: number;
+  ostPerOss: number;
+  stripeWidth: number;
+  concurrentJobs: number;
+  totalOsts: number;
+  effectiveStripeWidth: number;
+};
+
+export type HpcLabNodeKind = "cpu" | "gpu";
+
+export type HpcLabJobKind = "traditional-hpc" | "distributed-ai-training" | "metadata-heavy";
+
+export type HpcLabJobState = "queued" | "running" | "completed";
+
+export type HpcLabIoPattern = "sequential-read-heavy" | "steady-mixed-with-checkpoints" | "small-random-metadata-heavy";
+
+export type HpcLabJobDefinition = {
+  id: string;
+  kind: HpcLabJobKind;
+  ioPattern: HpcLabIoPattern;
+  requiredCpuNodes: number;
+  requiredGpuNodes: number;
+  runtimeTicks: number;
+  baseReadGbps: number;
+  baseWriteGbps: number;
+  metadataOpsPerTick: number;
+  checkpointIntervalTicks: number | null;
+  checkpointWriteMultiplier: number;
+  checkpointPauseRatio: number;
+};
+
+export type HpcLabJobInstance = HpcLabJobDefinition & {
+  state: HpcLabJobState;
+  progressTicks: number;
+  startTick: number | null;
+  completedTick: number | null;
+};
+
+export type HpcLabSchedulerState = {
+  queuedJobs: HpcLabJobInstance[];
+  runningJobs: HpcLabJobInstance[];
+  completedJobs: HpcLabJobInstance[];
+  allocatedCpuNodes: number;
+  allocatedGpuNodes: number;
+};
+
+export type HpcLabStorageRequest = {
+  requestedReadGbps: number;
+  requestedWriteGbps: number;
+  metadataOpsRequested: number;
+  stripeSeed: number;
+};
+
+export type HpcLabStorageTickState = {
+  requestedReadGbps: number;
+  requestedWriteGbps: number;
+  deliveredReadGbps: number;
+  deliveredWriteGbps: number;
+  metadataOpsRequested: number;
+  metadataOpsServed: number;
+  metadataUtilization: number;
+  ostLoadGbps: number[];
+  storagePressure: number;
+  metadataPressure: number;
+};
+
+export type HpcLabNetworkTickState = {
+  requestedReadGbps: number;
+  requestedWriteGbps: number;
+  deliveredReadGbps: number;
+  deliveredWriteGbps: number;
+  networkUtilization: number;
+  networkPressure: number;
+};
+
+export type HpcLabConstraintSignals = {
+  computePressure: number;
+  storagePressure: number;
+  metadataPressure: number;
+  networkPressure: number;
+};
+
+export type HpcLabTickSnapshot = {
+  tick: number;
+  queuedJobs: number;
+  runningJobs: number;
+  completedJobs: number;
+  cpuUtilization: number;
+  gpuUtilization: number;
+  requestedReadGbps: number;
+  requestedWriteGbps: number;
+  deliveredReadGbps: number;
+  deliveredWriteGbps: number;
+  metadataOpsRequested: number;
+  metadataOpsServed: number;
+  metadataUtilization: number;
+  ostLoadGbps: number[];
+  networkUtilization: number;
+  waitOnDataRatio: number;
+  checkpointActiveJobs: number;
+  checkpointPauseRatio: number;
+  constraintSignals: HpcLabConstraintSignals;
+};
+
+export type HpcLabSimulationSummary = {
+  avgCpuUtilization: number;
+  avgGpuUtilization: number;
+  avgNetworkUtilization: number;
+  avgWaitOnDataRatio: number;
+  totalCompletedJobs: number;
+  peakQueuedJobs: number;
+  avgDeliveredReadGbps: number;
+  avgDeliveredWriteGbps: number;
+  avgMetadataUtilization: number;
+};
+
+export type HpcLabSimulationResult = {
+  normalizedConfig: HpcLabNormalizedConfig;
+  options: HpcLabSimulationOptions;
+  timeline: HpcLabTickSnapshot[];
+  jobs: HpcLabJobInstance[];
+  summary: HpcLabSimulationSummary;
+  assumptions: string[];
+};
+
 export const HPC_LAB_PANEL_KEYS = [
   "cluster-topology",
   "throughput-over-time",
