@@ -71,6 +71,8 @@ export const buildDeterministicJobPlan = (
     ...job,
     state: "queued",
     progressTicks: 0,
+    completedWorkTicks: 0,
+    effectiveProgressLastTick: 0,
     startTick: null,
     completedTick: null,
   }));

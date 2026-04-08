@@ -22,14 +22,16 @@ const distributeAcrossOsts = (totalGbps: number, totalOsts: number, spreadWidth:
   return loads;
 };
 
+export const isCheckpointActiveThisTick = (job: HpcLabJobInstance): boolean =>
+  job.checkpointIntervalTicks !== null && (job.progressTicks + 1) % job.checkpointIntervalTicks === 0;
+
 export const buildStorageRequest = (runningJobs: HpcLabJobInstance[], tick: number): HpcLabStorageRequest => {
   let requestedReadGbps = 0;
   let requestedWriteGbps = 0;
   let metadataOpsRequested = 0;
 
   for (const job of runningJobs) {
-    const hasCheckpoint =
-      job.checkpointIntervalTicks !== null && job.progressTicks > 0 && job.progressTicks % job.checkpointIntervalTicks === 0;
+    const hasCheckpoint = isCheckpointActiveThisTick(job);
     requestedReadGbps += job.baseReadGbps;
     requestedWriteGbps += hasCheckpoint ? job.baseWriteGbps * job.checkpointWriteMultiplier : job.baseWriteGbps;
     metadataOpsRequested += hasCheckpoint ? job.metadataOpsPerTick * 1.2 : job.metadataOpsPerTick;

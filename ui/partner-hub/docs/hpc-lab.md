@@ -18,9 +18,17 @@ Included in Phase 2:
 - Network model core for throughput capping, utilization, and contention signals.
 - Top-level pure API: `simulateHpcLab(config, options?)`.
 
+- Engine now applies deterministic, per-job effective-work progress each tick (fractional progress is supported), rather than advancing jobs by a flat +1 runtime tick.
+- Effective progress now reflects modeled bottlenecks:
+  - `traditional-hpc`: strongly scaled by delivered data ratio.
+  - `distributed-ai-training`: scaled by delivered data ratio and reduced during checkpoint pause intervals.
+  - `metadata-heavy`: strongly scaled by metadata service ratio and wait-on-data conditions.
+- Checkpoint ticks now influence both write pressure metrics and useful progress, so checkpointing affects completion timing and queue dynamics.
+- Jobs admitted on a tick are eligible to accrue useful progress on that same tick.
+
 ## What remains out of scope after Phase 2
-- Interactive controls wiring and stateful simulation execution in the UI (Phase 3).
-- Visualization layer (charts/topology rendering) and panel population (Phase 4).
+- Interactive controls wiring and stateful simulation execution in the UI (Phase 3, still deferred).
+- Visualization layer (charts/topology rendering) and panel population (Phase 4, still deferred).
 - User-facing bottleneck attribution labels (planned later).
 
 ## Feature flag
