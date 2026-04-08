@@ -25,6 +25,7 @@ Included in Phase 2:
   - `metadata-heavy`: strongly scaled by metadata service ratio and wait-on-data conditions.
 - Checkpoint ticks now influence both write pressure metrics and useful progress, so checkpointing affects completion timing and queue dynamics.
 - Jobs admitted on a tick are eligible to accrue useful progress on that same tick.
+- Phase 2 summary output now includes outcome-sensitive effective-work aggregates (`totalEffectiveWorkTicks`, `avgCompletedWorkRatio`, `avgCheckpointPauseRatio`) in addition to utilization and throughput metrics.
 
 ## What remains out of scope after Phase 2
 - Interactive controls wiring and stateful simulation execution in the UI (Phase 3, still deferred).
