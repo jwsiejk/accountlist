@@ -5,8 +5,10 @@ export const DEFAULT_HPC_LAB_SIMULATION_OPTIONS: HpcLabSimulationOptions = {
   totalTicks: 120,
 };
 
+export const isFinitePositiveNumber = (value: number): boolean => Number.isFinite(value) && value > 0;
+
 const assertFinitePositive = (value: number, fieldName: keyof HpcLabConfig | keyof HpcLabSimulationOptions) => {
-  if (!Number.isFinite(value) || value <= 0) {
+  if (!isFinitePositiveNumber(value)) {
     throw new Error(`Invalid ${String(fieldName)}: expected a finite number > 0, received ${value}`);
   }
 };

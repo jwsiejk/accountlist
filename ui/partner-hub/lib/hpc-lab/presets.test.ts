@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { HPC_LAB_PRESETS } from "./presets";
+import { DEFAULT_HPC_LAB_SIMULATION_OPTIONS } from "./config";
+import { getHpcLabPresetSimulationOptions, HPC_LAB_PRESETS } from "./presets";
 
 test("HPC Lab exposes exactly the Phase 1 preset ids", () => {
   assert.deepEqual(
@@ -45,5 +46,13 @@ test("numeric defaults are finite and positive for required config fields", () =
 
     assert.ok(Number.isFinite(preset.initialConfig.concurrentJobs));
     assert.ok(preset.initialConfig.concurrentJobs > 0);
+  }
+});
+
+test("preset simulation defaults merge with engine defaults", () => {
+  for (const preset of HPC_LAB_PRESETS) {
+    const options = getHpcLabPresetSimulationOptions(preset);
+    assert.ok(options.totalTicks >= DEFAULT_HPC_LAB_SIMULATION_OPTIONS.totalTicks);
+    assert.ok(options.tickDurationSeconds > 0);
   }
 });

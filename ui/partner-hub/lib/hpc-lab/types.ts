@@ -18,16 +18,17 @@ export type HpcLabConfig = {
   concurrentJobs: number;
 };
 
+export type HpcLabSimulationOptions = {
+  tickDurationSeconds: number;
+  totalTicks: number;
+};
+
 export type HpcLabPreset = {
   id: HpcLabPresetId;
   name: string;
   description: string;
   initialConfig: HpcLabConfig;
-};
-
-export type HpcLabSimulationOptions = {
-  tickDurationSeconds: number;
-  totalTicks: number;
+  simulationDefaults?: Partial<HpcLabSimulationOptions>;
 };
 
 export type HpcLabNormalizedConfig = HpcLabConfig & {
