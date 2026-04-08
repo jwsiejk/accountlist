@@ -20,10 +20,12 @@ import {
 import { simulateHpcLab } from "@/lib/hpc-lab/engine";
 import { getHpcLabPresetById, HPC_LAB_PRESETS } from "@/lib/hpc-lab/presets";
 import {
+  buildCheckpointActiveJobsStats,
   buildCheckpointChartModel,
   buildComputeUtilizationChartModel,
   buildConstraintSignalsChartModel,
   buildMetadataChartModel,
+  buildMetadataUtilizationStats,
   buildOstLoadDistributionChartModel,
   buildQueueChartModel,
   buildThroughputChartModel,
@@ -111,6 +113,8 @@ export function HpcLabTool() {
   const waitOnDataChart = useMemo(() => (runResult ? buildWaitOnDataChartModel(runResult) : null), [runResult]);
   const checkpointChart = useMemo(() => (runResult ? buildCheckpointChartModel(runResult) : null), [runResult]);
   const bottleneckChart = useMemo(() => (runResult ? buildConstraintSignalsChartModel(runResult) : null), [runResult]);
+  const metadataUtilizationStats = useMemo(() => (runResult ? buildMetadataUtilizationStats(runResult) : null), [runResult]);
+  const checkpointActiveJobsStats = useMemo(() => (runResult ? buildCheckpointActiveJobsStats(runResult) : null), [runResult]);
 
   const onNumericChange = (field: HpcLabFormNumericField, value: string) => {
     setFormState((current) => ({ ...current, [field]: value }));
@@ -327,6 +331,7 @@ export function HpcLabTool() {
                   {panelKey === "cluster-topology" ? (
                     <ChartFrame
                       title="Cluster topology"
+                      showTitle={false}
                       stale={isRunResultStale}
                       emptyMessage="Run a simulation to render topology from normalized configuration."
                       children={topology ? <TopologyDiagram model={topology} /> : null}
@@ -336,6 +341,7 @@ export function HpcLabTool() {
                   {panelKey === "throughput-over-time" ? (
                     <ChartFrame
                       title="Throughput over time"
+                      showTitle={false}
                       stale={isRunResultStale}
                       emptyMessage="Run a simulation to view requested vs delivered throughput."
                       note={throughputChart ? chartNote(throughputChart.downsampled) : undefined}
@@ -346,16 +352,34 @@ export function HpcLabTool() {
                   {panelKey === "metadata-load" ? (
                     <ChartFrame
                       title="Metadata load"
+                      showTitle={false}
                       stale={isRunResultStale}
                       emptyMessage="Run a simulation to view metadata requested and served over time."
                       note={metadataChart ? chartNote(metadataChart.downsampled) : undefined}
-                      children={metadataChart ? <MultiSeriesLineChart model={metadataChart} /> : null}
+                      children={
+                        metadataChart ? (
+                          <div className="space-y-3">
+                            <MultiSeriesLineChart model={metadataChart} />
+                            {metadataUtilizationStats ? (
+                              <div className="rounded-md border border-border/70 bg-muted/30 px-3 py-2 text-xs text-foreground/75">
+                                <p>
+                                  Metadata utilization (separate from ops axis): latest{" "}
+                                  <span className="font-medium text-foreground">{formatPercent(metadataUtilizationStats.latest)}</span> · avg{" "}
+                                  <span className="font-medium text-foreground">{formatPercent(metadataUtilizationStats.average)}</span> · peak{" "}
+                                  <span className="font-medium text-foreground">{formatPercent(metadataUtilizationStats.peak)}</span>
+                                </p>
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null
+                      }
                     />
                   ) : null}
 
                   {panelKey === "ost-load-distribution" ? (
                     <ChartFrame
                       title="OST load distribution"
+                      showTitle={false}
                       subtitle="Average load per OST across the run"
                       stale={isRunResultStale}
                       emptyMessage="Run a simulation to view average OST distribution."
@@ -366,6 +390,7 @@ export function HpcLabTool() {
                   {panelKey === "job-queue-active-jobs" ? (
                     <ChartFrame
                       title="Job queue / active jobs"
+                      showTitle={false}
                       stale={isRunResultStale}
                       emptyMessage="Run a simulation to view queued, running, and completed jobs."
                       note={queueChart ? chartNote(queueChart.downsampled) : undefined}
@@ -376,6 +401,7 @@ export function HpcLabTool() {
                   {panelKey === "compute-utilization" ? (
                     <ChartFrame
                       title="Compute utilization"
+                      showTitle={false}
                       stale={isRunResultStale}
                       emptyMessage="Run a simulation to view CPU and GPU utilization."
                       note={computeUtilChart ? chartNote(computeUtilChart.downsampled) : undefined}
@@ -386,6 +412,7 @@ export function HpcLabTool() {
                   {panelKey === "waiting-on-data" ? (
                     <ChartFrame
                       title="Waiting on data"
+                      showTitle={false}
                       stale={isRunResultStale}
                       emptyMessage="Run a simulation to view wait-on-data ratio over time."
                       note={waitOnDataChart ? chartNote(waitOnDataChart.downsampled) : undefined}
@@ -396,16 +423,34 @@ export function HpcLabTool() {
                   {panelKey === "checkpoint-pause-impact" ? (
                     <ChartFrame
                       title="Checkpoint pause impact"
+                      showTitle={false}
                       stale={isRunResultStale}
-                      emptyMessage="Run a simulation to view checkpoint pause ratio and active checkpointing jobs."
+                      emptyMessage="Run a simulation to view checkpoint pause ratio and checkpoint-active jobs."
                       note={checkpointChart ? chartNote(checkpointChart.downsampled) : undefined}
-                      children={checkpointChart ? <MultiSeriesLineChart model={checkpointChart} /> : null}
+                      children={
+                        checkpointChart ? (
+                          <div className="space-y-3">
+                            <MultiSeriesLineChart model={checkpointChart} />
+                            {checkpointActiveJobsStats ? (
+                              <div className="rounded-md border border-border/70 bg-muted/30 px-3 py-2 text-xs text-foreground/75">
+                                <p>
+                                  Checkpoint-active jobs (separate from pause-ratio axis): latest{" "}
+                                  <span className="font-medium text-foreground">{checkpointActiveJobsStats.latest.toFixed(0)}</span> · avg{" "}
+                                  <span className="font-medium text-foreground">{checkpointActiveJobsStats.average.toFixed(2)}</span> · peak{" "}
+                                  <span className="font-medium text-foreground">{checkpointActiveJobsStats.peak.toFixed(0)}</span>
+                                </p>
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null
+                      }
                     />
                   ) : null}
 
                   {panelKey === "bottleneck-attribution" ? (
                     <ChartFrame
                       title="Bottleneck attribution"
+                      showTitle={false}
                       subtitle="Raw constraint signals"
                       stale={isRunResultStale}
                       emptyMessage="Run a simulation to view compute/storage/metadata/network pressure signals."
