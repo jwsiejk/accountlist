@@ -10,6 +10,7 @@ export function LeftNav() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const aiInterviewEnabled = process.env.NEXT_PUBLIC_ENABLE_AI_INTERVIEW === "true";
+  const hpcLabEnabled = process.env.NEXT_PUBLIC_ENABLE_HPC_LAB === "true";
   const toolLinks = [
     { name: "Energy Tool", href: "/tools/energy" },
     { name: "CHIP-8", href: "/tools/chip8" },
@@ -21,6 +22,7 @@ export function LeftNav() {
     { name: "Case Studies", href: "/case-studies" },
     { name: "Account Mapping", href: "/accountmap" },
     { name: "Job Hunter", href: "/job-hunter" },
+    ...(hpcLabEnabled ? [{ name: "HPC Lab", href: "/hpc-lab" }] : []),
     ...toolLinks,
     { name: "Office Schedule", href: "/offices/schedule" },
     { name: "About / Contact", href: "/about" },

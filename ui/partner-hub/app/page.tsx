@@ -99,6 +99,18 @@ const toolCards = [
 ];
 
 export default function HomePage() {
+  const hpcLabEnabled = process.env.NEXT_PUBLIC_ENABLE_HPC_LAB === "true";
+  const visibleToolCards = hpcLabEnabled
+    ? [
+        ...toolCards,
+        {
+          title: "HPC Lab",
+          description: "Explore HPC and AI infrastructure lab configurations before simulation execution.",
+          href: "/hpc-lab",
+        },
+      ]
+    : toolCards;
+
   return (
     <div className="space-y-10 md:space-y-14">
       <section className="relative overflow-hidden rounded-3xl border border-border/70 bg-gradient-to-br from-primary/10 via-white to-secondary/10 p-10 shadow-sm dark:via-slate-900 md:p-12">
@@ -314,7 +326,7 @@ export default function HomePage() {
             </span>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {toolCards.map((card) => (
+            {visibleToolCards.map((card) => (
               <Card
                 key={card.title}
                 className="transition hover:-translate-y-0.5 hover:shadow-md"
