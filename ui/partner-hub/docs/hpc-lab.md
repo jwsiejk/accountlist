@@ -40,6 +40,8 @@ When the flag is not set to `"true"`, `/hpc-lab` renders a disabled message card
 This separation keeps simulation concerns independent from UI presentation and is designed for a later engine module.
 
 ## Planned later phases
-- Phase 2: implement simulation engine and connect outputs to observability panels.
-- Phase 3: add richer interaction controls, parameter validation, and scenario comparison workflows.
-- Phase 4: introduce persisted scenarios and optional export/reporting capabilities.
+- Phase 2: simulation engine core + types.
+- Phase 3: controls panel + state wiring.
+- Phase 4: visualization layer + topology + charts.
+- Phase 5: workload presets + metrics + bottleneck attribution.
+- Phase 6: polish, validation, tests, docs updates.
