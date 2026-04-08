@@ -70,8 +70,7 @@ export function HpcLabTool() {
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">HPC / AI Infrastructure Learning Lab</h1>
         <p className="max-w-4xl text-sm text-foreground/70">
-          Use this lab to compare infrastructure configuration profiles before wiring the simulation engine. Phase 1 exposes
-          typed presets and configuration scaffolding only.
+          Use this lab to compare infrastructure configuration profiles. Phase 2 now provides a deterministic engine core in lib/hpc-lab, while UI state wiring and visualization remain deferred.
         </p>
       </header>
 
@@ -102,7 +101,7 @@ export function HpcLabTool() {
         <CardContent className="space-y-3 text-sm text-foreground/70">
           <p>{selectedPreset.description}</p>
           <Button type="button" variant="secondary" disabled>
-            Run simulation (available in Phase 2)
+            Simulation wiring arrives in Phase 3
           </Button>
         </CardContent>
       </Card>
@@ -134,7 +133,7 @@ export function HpcLabTool() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-foreground/70">
-                  Simulation engine not wired yet. Phase 2 will populate this panel.
+                  Visualization arrives in Phase 4. Phase 2 adds the engine foundation only.
                 </p>
               </CardContent>
             </Card>
