@@ -67,6 +67,8 @@ export type HpcLabJobDefinition = {
 export type HpcLabJobInstance = HpcLabJobDefinition & {
   state: HpcLabJobState;
   progressTicks: number;
+  completedWorkTicks: number;
+  effectiveProgressLastTick: number;
   startTick: number | null;
   completedTick: number | null;
 };
