@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   buildFormStateFromPreset,
   isFormDirtyAgainstPreset,
+  isSameFormStateValues,
   parseFormStateToSimulationInput,
   resetFormStateToPreset,
   type HpcLabFormNumericField,
@@ -70,7 +71,8 @@ export function HpcLabTool() {
   const [selectedPresetId, setSelectedPresetId] = useState<HpcLabPresetId>(initialPreset.id);
   const [formState, setFormState] = useState<HpcLabFormState>(() => buildFormStateFromPreset(initialPreset));
   const [runResult, setRunResult] = useState<HpcLabSimulationResult | null>(null);
-  const [submitted, setSubmitted] = useState(false);
+  const [touchedFields, setTouchedFields] = useState<Partial<Record<HpcLabFormNumericField, boolean>>>({});
+  const [lastRunFormState, setLastRunFormState] = useState<HpcLabFormState | null>(null);
 
   const selectedPreset = useMemo(
     () => getHpcLabPresetById(selectedPresetId) ?? initialPreset,
@@ -80,32 +82,45 @@ export function HpcLabTool() {
   const parsed = useMemo(() => parseFormStateToSimulationInput(formState), [formState]);
   const validationErrors = parsed.ok ? {} : parsed.errors;
   const isDirty = useMemo(() => isFormDirtyAgainstPreset(formState, selectedPreset), [formState, selectedPreset]);
+  const isRunResultStale = useMemo(
+    () => !!runResult && !!lastRunFormState && !isSameFormStateValues(formState, lastRunFormState),
+    [formState, lastRunFormState, runResult],
+  );
 
   const onNumericChange = (field: HpcLabFormNumericField, value: string) => {
     setFormState((current) => ({ ...current, [field]: value }));
+    setTouchedFields((current) => ({ ...current, [field]: true }));
   };
 
   const onPresetChange = (presetId: HpcLabPresetId) => {
     const preset = getHpcLabPresetById(presetId) ?? initialPreset;
     setSelectedPresetId(preset.id);
     setFormState(resetFormStateToPreset(preset));
-    setSubmitted(false);
+    setTouchedFields({});
+    setLastRunFormState(null);
     setRunResult(null);
   };
 
   const onRunSimulation = () => {
-    setSubmitted(true);
     const current = parseFormStateToSimulationInput(formState);
     if (!current.ok) {
+      setTouchedFields((existing) =>
+        numericFieldMetadata.reduce<Partial<Record<HpcLabFormNumericField, boolean>>>(
+          (next, { field }) => ({ ...next, [field]: true }),
+          existing,
+        ),
+      );
       return;
     }
 
     setRunResult(simulateHpcLab(current.config, current.options));
+    setLastRunFormState(formState);
   };
 
   const onResetToPreset = () => {
     setFormState(resetFormStateToPreset(selectedPreset));
-    setSubmitted(false);
+    setTouchedFields({});
+    setLastRunFormState(null);
     setRunResult(null);
   };
 
@@ -160,6 +175,11 @@ export function HpcLabTool() {
             <div className="grid gap-3 sm:grid-cols-2">
               {numericFieldMetadata.map(({ field, label, suffix }) => (
                 <div key={field} className="space-y-1">
+                  {touchedFields[field] && validationErrors[field] ? (
+                    <p id={`hpc-lab-${field}-error`} className="text-xs text-destructive">
+                      {validationErrors[field]}
+                    </p>
+                  ) : null}
                   <label htmlFor={`hpc-lab-${field}`} className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
                     {label}
                   </label>
@@ -168,12 +188,14 @@ export function HpcLabTool() {
                       id={`hpc-lab-${field}`}
                       value={formState[field]}
                       onChange={(event) => onNumericChange(field, event.target.value)}
+                      onBlur={() => setTouchedFields((current) => ({ ...current, [field]: true }))}
                       className="h-10 w-full rounded-md border border-border/70 bg-card px-3 text-sm text-foreground"
                       inputMode="decimal"
+                      aria-invalid={touchedFields[field] && validationErrors[field] ? true : undefined}
+                      aria-describedby={touchedFields[field] && validationErrors[field] ? `hpc-lab-${field}-error` : undefined}
                     />
                     {suffix ? <span className="text-xs text-foreground/60">{suffix}</span> : null}
                   </div>
-                  {submitted && validationErrors[field] ? <p className="text-xs text-destructive">{validationErrors[field]}</p> : null}
                 </div>
               ))}
 
@@ -224,6 +246,16 @@ export function HpcLabTool() {
                 Reset to preset defaults
               </Button>
             </div>
+            {parsed.ok ? (
+              <div className="rounded-md border border-border/70 bg-muted/40 px-3 py-2 text-xs text-foreground/80">
+                <p>
+                  Total OSTs: <span className="font-medium text-foreground">{parsed.config.totalOsts}</span>
+                </p>
+                <p>
+                  Effective stripe width: <span className="font-medium text-foreground">{parsed.config.effectiveStripeWidth}</span>
+                </p>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
 
@@ -234,6 +266,11 @@ export function HpcLabTool() {
                 <CardTitle className="text-base">Phase 3 run summary</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-2 text-sm sm:grid-cols-2">
+                {isRunResultStale ? (
+                  <p className="sm:col-span-2 rounded bg-amber-500/10 px-2 py-1 text-xs text-amber-700">
+                    Results reflect the last run. Run simulation again to update.
+                  </p>
+                ) : null}
                 <p>Total completed jobs: <span className="font-medium text-foreground">{runResult.summary.totalCompletedJobs}</span></p>
                 <p>Peak queued jobs: <span className="font-medium text-foreground">{runResult.summary.peakQueuedJobs}</span></p>
                 <p>Avg CPU utilization: <span className="font-medium text-foreground">{formatPercent(runResult.summary.avgCpuUtilization)}</span></p>
@@ -262,7 +299,9 @@ export function HpcLabTool() {
                 <CardContent>
                   <p className="text-sm text-foreground/70">
                     {runResult
-                      ? "Simulation run complete. Visualization arrives in Phase 4."
+                      ? isRunResultStale
+                        ? "Last run is stale after control changes. Run simulation again. Visualization arrives in Phase 4."
+                        : "Simulation run complete. Visualization arrives in Phase 4."
                       : "Run a simulation to prepare data. Visualization arrives in Phase 4."}
                   </p>
                 </CardContent>

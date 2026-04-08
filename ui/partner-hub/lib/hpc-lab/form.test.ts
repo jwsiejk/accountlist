@@ -5,6 +5,7 @@ import { getHpcLabPresetById } from "./presets";
 import {
   buildFormStateFromPreset,
   isFormDirtyAgainstPreset,
+  isSameFormStateValues,
   parseFormStateToSimulationInput,
   resetFormStateToPreset,
 } from "./form";
@@ -49,11 +50,13 @@ test("parseFormStateToSimulationInput returns clear errors for invalid numeric f
   const parsed = parseFormStateToSimulationInput(state);
 
   assert.equal(parsed.ok, false);
-  if (!parsed.ok) {
-    assert.equal(parsed.errors.computeNodes, "Compute nodes must be a finite number greater than 0.");
-    assert.equal(parsed.errors.networkBandwidthGbps, "Network bandwidth must be a finite number greater than 0.");
-    assert.equal(parsed.errors.totalTicks, "Simulation duration must be a finite number greater than 0.");
+  if (parsed.ok) {
+    throw new Error("Expected invalid form parse");
   }
+
+  assert.equal(parsed.errors.computeNodes, "Compute nodes must be a finite number greater than 0.");
+  assert.equal(parsed.errors.networkBandwidthGbps, "Network bandwidth must be a finite number greater than 0.");
+  assert.equal(parsed.errors.totalTicks, "Simulation duration must be a finite number greater than 0.");
 });
 
 test("resetFormStateToPreset restores defaults and clears dirty comparison", () => {
@@ -65,4 +68,15 @@ test("resetFormStateToPreset restores defaults and clears dirty comparison", () 
   const reset = resetFormStateToPreset(aiPreset);
   assert.equal(isFormDirtyAgainstPreset(reset, aiPreset), false);
   assert.equal(reset.concurrentJobs, String(aiPreset.initialConfig.concurrentJobs));
+});
+
+test("isSameFormStateValues compares trimmed numeric fields and exact categorical fields", () => {
+  const left = buildFormStateFromPreset(aiPreset);
+  const right = buildFormStateFromPreset(aiPreset);
+  right.computeNodes = `  ${right.computeNodes}  `;
+
+  assert.equal(isSameFormStateValues(left, right), true);
+
+  right.workloadType = "metadata-heavy";
+  assert.equal(isSameFormStateValues(left, right), false);
 });

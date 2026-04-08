@@ -159,19 +159,20 @@ export const parseFormStateToSimulationInput = (state: HpcLabFormState): ParsedH
 export const isFormDirtyAgainstPreset = (state: HpcLabFormState, preset: HpcLabPreset): boolean => {
   const baseline = buildFormStateFromPreset(preset);
 
-  return (
-    state.computeNodes.trim() !== baseline.computeNodes ||
-    state.gpuNodes.trim() !== baseline.gpuNodes ||
-    state.ossCount.trim() !== baseline.ossCount ||
-    state.ostPerOss.trim() !== baseline.ostPerOss ||
-    state.stripeWidth.trim() !== baseline.stripeWidth ||
-    state.metadataLatencyMs.trim() !== baseline.metadataLatencyMs ||
-    state.networkBandwidthGbps.trim() !== baseline.networkBandwidthGbps ||
-    state.workloadType !== baseline.workloadType ||
-    state.fileSizeDistribution !== baseline.fileSizeDistribution ||
-    state.checkpointFrequencyMinutes.trim() !== baseline.checkpointFrequencyMinutes ||
-    state.concurrentJobs.trim() !== baseline.concurrentJobs ||
-    state.totalTicks.trim() !== baseline.totalTicks ||
-    state.tickDurationSeconds.trim() !== baseline.tickDurationSeconds
-  );
+  return !isSameFormStateValues(state, baseline);
 };
+
+export const isSameFormStateValues = (left: HpcLabFormState, right: HpcLabFormState): boolean =>
+  left.computeNodes.trim() === right.computeNodes.trim() &&
+  left.gpuNodes.trim() === right.gpuNodes.trim() &&
+  left.ossCount.trim() === right.ossCount.trim() &&
+  left.ostPerOss.trim() === right.ostPerOss.trim() &&
+  left.stripeWidth.trim() === right.stripeWidth.trim() &&
+  left.metadataLatencyMs.trim() === right.metadataLatencyMs.trim() &&
+  left.networkBandwidthGbps.trim() === right.networkBandwidthGbps.trim() &&
+  left.workloadType === right.workloadType &&
+  left.fileSizeDistribution === right.fileSizeDistribution &&
+  left.checkpointFrequencyMinutes.trim() === right.checkpointFrequencyMinutes.trim() &&
+  left.concurrentJobs.trim() === right.concurrentJobs.trim() &&
+  left.totalTicks.trim() === right.totalTicks.trim() &&
+  left.tickDurationSeconds.trim() === right.tickDurationSeconds.trim();

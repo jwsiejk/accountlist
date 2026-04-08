@@ -13,8 +13,9 @@ Included in Phase 3:
 - Real local control state for infrastructure and workload parameters.
 - Preset-aware defaults for both infrastructure config and simulation options.
 - Explicit **Run simulation** and **Reset to preset defaults** actions.
-- Inline validation for all required positive numeric fields before execution.
+- Inline validation for all required positive numeric fields before execution, shown during editing (blur/change) rather than only after submit attempts.
 - Local execution via `simulateHpcLab(config, options)` and compact run summary rendering.
+- Last run summary remains visible after control edits but is clearly marked stale until the next run.
 - Simulation duration controls (`totalTicks`, `tickDurationSeconds`) exposed in the UI so users can extend run horizon without code edits.
 
 Preset simulation defaults now intentionally use longer horizons than the engine baseline for better out-of-the-box behavior exploration:
