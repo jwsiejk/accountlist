@@ -177,3 +177,48 @@ export const HPC_LAB_PANEL_KEYS = [
 ] as const;
 
 export type HpcLabPanelKey = (typeof HPC_LAB_PANEL_KEYS)[number];
+
+export type HpcLabChartPoint = {
+  tick: number;
+  value: number;
+};
+
+export type HpcLabLineSeries = {
+  key: string;
+  label: string;
+  points: HpcLabChartPoint[];
+};
+
+export type HpcLabLineChartModel = {
+  title: string;
+  subtitle?: string;
+  yAxisLabel: string;
+  valueFormat: "percent" | "gbps" | "ops" | "count" | "decimal";
+  series: HpcLabLineSeries[];
+  downsampled: boolean;
+  sourcePoints: number;
+  renderedPoints: number;
+};
+
+export type HpcLabBarDatum = {
+  label: string;
+  value: number;
+};
+
+export type HpcLabBarChartModel = {
+  title: string;
+  subtitle?: string;
+  yAxisLabel: string;
+  valueFormat: "percent" | "gbps" | "ops" | "count" | "decimal";
+  bars: HpcLabBarDatum[];
+};
+
+export type HpcLabTopologyModel = {
+  cpuNodes: number;
+  gpuNodes: number;
+  ossCount: number;
+  totalOsts: number;
+  effectiveStripeWidth: number;
+  networkBandwidthGbps: number;
+  metadataLatencyMs: number;
+};

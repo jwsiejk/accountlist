@@ -6,10 +6,10 @@ The HPC Lab introduces a dedicated workspace for exploring how infrastructure co
 ## Route
 - `/hpc-lab`
 
-## Phase 3 scope
-Phase 3 wires the controls panel to the deterministic simulation engine under `lib/hpc-lab`.
+## Phase 4 scope
+Phase 4 keeps the Phase 3 controls workflow and adds topology + chart visualization models derived from deterministic simulation results under `lib/hpc-lab`.
 
-Included in Phase 3:
+Included through Phase 4:
 - Real local control state for infrastructure and workload parameters.
 - Preset-aware defaults for both infrastructure config and simulation options.
 - Explicit **Run simulation** and **Reset to preset defaults** actions.
@@ -22,11 +22,6 @@ Preset simulation defaults now intentionally use longer horizons than the engine
 - `classic-hpc`: 180 ticks
 - `ai-training`: 360 ticks (helps checkpoint effects appear naturally)
 - `small-file`: 240 ticks
-
-## What remains out of scope after Phase 3
-- Visualization layer (charts/topology rendering) and panel population (Phase 4, still deferred).
-- User-facing bottleneck attribution labels (planned later).
-- API routes, persistence, workers/background processing.
 
 ## Feature flag
 Set the following in `.env.local`:
@@ -65,3 +60,15 @@ When the flag is not set to `"true"`, `/hpc-lab` renders a disabled message card
 - `jobs` (final job states)
 - `summary` (aggregated utilization and throughput metrics)
 - `assumptions` (documented model caveats)
+
+
+## Phase 4 visualization additions
+- New pure visualization mapping helpers in `lib/hpc-lab/visualization.ts` transform `HpcLabSimulationResult` into deterministic render models.
+- Panel grid now renders real views when a run result exists: cluster topology, throughput over time, metadata load, average OST load distribution, job queue/active jobs, compute utilization, waiting on data, checkpoint pause impact, and raw bottleneck constraint signals.
+- Long timelines are deterministically downsampled for render responsiveness while preserving first/last ticks.
+- Stale run handling remains explicit; charts remain visible but marked as last-run output when controls changed after execution.
+- Bottleneck panel intentionally shows only raw pressure signals in Phase 4. User-facing dominant bottleneck attribution labeling remains deferred to Phase 5.
+
+## What remains out of scope after Phase 4
+- Dominant user-facing bottleneck attribution labels (Phase 5).
+- API routes, persistence, workers/background processing.
