@@ -38,19 +38,23 @@ const fileSizeDistributionLabels: Record<HpcLabFileSizeDistribution, string> = {
   "small-random": "Small Random",
 };
 
-const controlRows: Array<{ label: string; key: keyof HpcLabConfig }> = [
-  { label: "Compute nodes", key: "computeNodes" },
-  { label: "GPU nodes", key: "gpuNodes" },
-  { label: "OSS count", key: "ossCount" },
-  { label: "OST per OSS", key: "ostPerOss" },
-  { label: "Total OSTs", key: "ostPerOss" },
-  { label: "Stripe width", key: "stripeWidth" },
-  { label: "Metadata latency", key: "metadataLatencyMs" },
-  { label: "Network bandwidth", key: "networkBandwidthGbps" },
-  { label: "Workload type", key: "workloadType" },
-  { label: "File size distribution", key: "fileSizeDistribution" },
-  { label: "Checkpoint frequency", key: "checkpointFrequencyMinutes" },
-  { label: "Concurrent jobs", key: "concurrentJobs" },
+const formatWorkloadType = (value: HpcLabWorkloadType) => workloadTypeLabels[value];
+
+const formatFileSizeDistribution = (value: HpcLabFileSizeDistribution) => fileSizeDistributionLabels[value];
+
+const controlRows: Array<{ label: string; renderValue: (config: HpcLabConfig) => string | number }> = [
+  { label: "Compute nodes", renderValue: (config) => config.computeNodes },
+  { label: "GPU nodes", renderValue: (config) => config.gpuNodes },
+  { label: "OSS count", renderValue: (config) => config.ossCount },
+  { label: "OST per OSS", renderValue: (config) => config.ostPerOss },
+  { label: "Total OSTs", renderValue: (config) => config.ossCount * config.ostPerOss },
+  { label: "Stripe width", renderValue: (config) => config.stripeWidth },
+  { label: "Metadata latency", renderValue: (config) => `${config.metadataLatencyMs} ms` },
+  { label: "Network bandwidth", renderValue: (config) => `${config.networkBandwidthGbps} Gbps` },
+  { label: "Workload type", renderValue: (config) => formatWorkloadType(config.workloadType) },
+  { label: "File size distribution", renderValue: (config) => formatFileSizeDistribution(config.fileSizeDistribution) },
+  { label: "Checkpoint frequency", renderValue: (config) => `${config.checkpointFrequencyMinutes} minutes` },
+  { label: "Concurrent jobs", renderValue: (config) => config.concurrentJobs },
 ];
 
 export function HpcLabTool() {
@@ -110,21 +114,7 @@ export function HpcLabTool() {
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             {controlRows.map((row) => {
-              const value = selectedPreset.initialConfig[row.key];
-              const formatted =
-                row.label === "Total OSTs"
-                  ? selectedPreset.initialConfig.ossCount * selectedPreset.initialConfig.ostPerOss
-                  : row.key === "metadataLatencyMs"
-                    ? `${value} ms`
-                    : row.key === "networkBandwidthGbps"
-                      ? `${value} Gbps`
-                      : row.key === "checkpointFrequencyMinutes"
-                        ? `${value} minutes`
-                        : row.key === "workloadType"
-                          ? workloadTypeLabels[value]
-                          : row.key === "fileSizeDistribution"
-                            ? fileSizeDistributionLabels[value]
-                            : String(value);
+              const formatted = row.renderValue(selectedPreset.initialConfig);
 
               return (
                 <div key={row.label} className="flex items-start justify-between gap-4 rounded-md border border-border/60 bg-muted/20 px-3 py-2">
