@@ -23,7 +23,7 @@ const distributeAcrossOsts = (totalGbps: number, totalOsts: number, spreadWidth:
 };
 
 export const isCheckpointActiveThisTick = (job: HpcLabJobInstance): boolean =>
-  job.checkpointIntervalTicks !== null && (job.progressTicks + 1) % job.checkpointIntervalTicks === 0;
+  job.checkpointIntervalTicks !== null && (job.elapsedRuntimeTicks + 1) % job.checkpointIntervalTicks === 0;
 
 export const buildStorageRequest = (runningJobs: HpcLabJobInstance[], tick: number): HpcLabStorageRequest => {
   let requestedReadGbps = 0;

@@ -16,20 +16,26 @@ const computeEffectiveProgressForJob = (
   waitOnDataRatio: number,
   checkpointActive: boolean,
 ): number => {
+  /**
+   * Deterministic per-tick useful-work model:
+   * - traditional-hpc: mostly data-path limited (storage + network delivery).
+   * - distributed-ai-training: data-path limited and explicitly reduced by checkpoint pauses.
+   * - metadata-heavy: mostly metadata-path limited and additionally sensitive to data wait.
+   */
   const dataRatio = clamp01(deliveredDataRatio);
   const metadataRatio = clamp01(metadataServiceRatio);
   const waitFreeRatio = clamp01(1 - waitOnDataRatio);
   const checkpointRatio = checkpointActive ? clamp01(1 - job.checkpointPauseRatio) : 1;
 
   if (job.kind === "traditional-hpc") {
-    return dataRatio * dataRatio;
+    return clamp01(0.8 * dataRatio + 0.2 * waitFreeRatio) * dataRatio;
   }
 
   if (job.kind === "distributed-ai-training") {
-    return dataRatio * checkpointRatio;
+    return clamp01(0.7 * dataRatio + 0.3 * waitFreeRatio) * checkpointRatio;
   }
 
-  return metadataRatio * metadataRatio * waitFreeRatio;
+  return clamp01(0.8 * metadataRatio + 0.2 * dataRatio) * metadataRatio * waitFreeRatio;
 };
 
 export const simulateHpcLab = (config: HpcLabConfig, options?: Partial<HpcLabSimulationOptions>): HpcLabSimulationResult => {
@@ -59,14 +65,23 @@ export const simulateHpcLab = (config: HpcLabConfig, options?: Partial<HpcLabSim
         ? checkpointActiveJobs.reduce((sum, job) => sum + job.checkpointPauseRatio, 0) / scheduler.runningJobs.length
         : 0;
 
-    const effectiveWorkByJobId = Object.fromEntries(
-      scheduler.runningJobs.map((job) => [
-        job.id,
-        computeEffectiveProgressForJob(job, deliveredDataRatio, metadataServiceRatio, waitOnDataRatio, isCheckpointActiveThisTick(job)),
-      ]),
-    );
+    const progressedRunningJobs = scheduler.runningJobs.map((job) => {
+      const effectiveProgressLastTick = computeEffectiveProgressForJob(
+        job,
+        deliveredDataRatio,
+        metadataServiceRatio,
+        waitOnDataRatio,
+        isCheckpointActiveThisTick(job),
+      );
+      return {
+        ...job,
+        elapsedRuntimeTicks: job.elapsedRuntimeTicks + 1,
+        effectiveProgressLastTick,
+        completedWorkTicks: job.completedWorkTicks + effectiveProgressLastTick,
+      };
+    });
 
-    scheduler = applyRunningJobProgress(scheduler, tick, effectiveWorkByJobId);
+    scheduler = applyRunningJobProgress(scheduler, tick, progressedRunningJobs);
 
     timeline.push({
       tick,
@@ -98,6 +113,9 @@ export const simulateHpcLab = (config: HpcLabConfig, options?: Partial<HpcLabSim
 
   const allJobs = [...scheduler.queuedJobs, ...scheduler.runningJobs, ...scheduler.completedJobs].sort((a, b) => a.id.localeCompare(b.id));
 
+  const totalEffectiveWorkTicks = allJobs.reduce((sum, job) => sum + job.completedWorkTicks, 0);
+  const completedWorkRatios = allJobs.map((job) => clamp01(job.completedWorkTicks / job.runtimeTicks));
+
   return {
     normalizedConfig,
     options: normalizedOptions,
@@ -113,6 +131,9 @@ export const simulateHpcLab = (config: HpcLabConfig, options?: Partial<HpcLabSim
       avgDeliveredReadGbps: average(timeline.map((tick) => tick.deliveredReadGbps)),
       avgDeliveredWriteGbps: average(timeline.map((tick) => tick.deliveredWriteGbps)),
       avgMetadataUtilization: average(timeline.map((tick) => tick.metadataUtilization)),
+      totalEffectiveWorkTicks,
+      avgCompletedWorkRatio: average(completedWorkRatios),
+      avgCheckpointPauseRatio: average(timeline.map((tick) => tick.checkpointPauseRatio)),
     },
     assumptions: [
       "Deterministic tick-based simulation with no randomness.",

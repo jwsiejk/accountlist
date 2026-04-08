@@ -66,7 +66,7 @@ export type HpcLabJobDefinition = {
 
 export type HpcLabJobInstance = HpcLabJobDefinition & {
   state: HpcLabJobState;
-  progressTicks: number;
+  elapsedRuntimeTicks: number;
   completedWorkTicks: number;
   effectiveProgressLastTick: number;
   startTick: number | null;
@@ -149,6 +149,9 @@ export type HpcLabSimulationSummary = {
   avgDeliveredReadGbps: number;
   avgDeliveredWriteGbps: number;
   avgMetadataUtilization: number;
+  totalEffectiveWorkTicks: number;
+  avgCompletedWorkRatio: number;
+  avgCheckpointPauseRatio: number;
 };
 
 export type HpcLabSimulationResult = {

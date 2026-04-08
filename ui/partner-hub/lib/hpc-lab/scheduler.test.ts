@@ -25,8 +25,13 @@ test("scheduler allocates and releases CPU/GPU resources correctly", () => {
   const initialRunning = state.runningJobs.length;
 
   for (let tick = 1; tick <= 120; tick += 1) {
-    const effective = Object.fromEntries(state.runningJobs.map((job) => [job.id, 1]));
-    state = applyRunningJobProgress(state, tick, effective);
+    const progressed = state.runningJobs.map((job) => ({
+      ...job,
+      elapsedRuntimeTicks: job.elapsedRuntimeTicks + 1,
+      effectiveProgressLastTick: 1,
+      completedWorkTicks: job.completedWorkTicks + 1,
+    }));
+    state = applyRunningJobProgress(state, tick, progressed);
     state = admitQueuedJobs(state, config, tick + 1);
   }
 

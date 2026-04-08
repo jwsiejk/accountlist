@@ -70,7 +70,7 @@ export const buildDeterministicJobPlan = (
   return jobs.map((job) => ({
     ...job,
     state: "queued",
-    progressTicks: 0,
+    elapsedRuntimeTicks: 0,
     completedWorkTicks: 0,
     effectiveProgressLastTick: 0,
     startTick: null,

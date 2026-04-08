@@ -66,3 +66,18 @@ test("newly admitted jobs can make useful progress on their start tick", () => {
   assert.equal(started.length > 0, true);
   assert.equal(started.every((job) => job.completedWorkTicks > 0), true);
 });
+
+test("scheduler+engine path does not oversubscribe CPU or GPU nodes", () => {
+  const config = { ...HPC_LAB_PRESETS[1].initialConfig, concurrentJobs: 18, computeNodes: 8, gpuNodes: 6 };
+  const result = simulateHpcLab(config, { totalTicks: 20 });
+
+  for (const tick of result.timeline) {
+    const cpuCap = result.normalizedConfig.computeNodes;
+    const gpuCap = result.normalizedConfig.gpuNodes;
+
+    assert.equal(tick.cpuUtilization <= 1, true);
+    assert.equal(tick.gpuUtilization <= 1, true);
+    assert.equal(tick.cpuUtilization * cpuCap <= cpuCap, true);
+    assert.equal(tick.gpuUtilization * gpuCap <= gpuCap, true);
+  }
+});

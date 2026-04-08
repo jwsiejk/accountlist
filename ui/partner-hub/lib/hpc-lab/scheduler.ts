@@ -57,7 +57,7 @@ export const admitQueuedJobs = (
 export const applyRunningJobProgress = (
   state: HpcLabSchedulerState,
   tick: number,
-  effectiveWorkByJobId: Readonly<Record<string, number>>,
+  nextRunningJobs: HpcLabJobInstance[],
 ): HpcLabSchedulerState => {
   const completedJobs = [...state.completedJobs];
   const stillRunning: HpcLabJobInstance[] = [];
@@ -65,21 +65,13 @@ export const applyRunningJobProgress = (
   let allocatedCpuNodes = 0;
   let allocatedGpuNodes = 0;
 
-  for (const running of state.runningJobs) {
-    const effectiveProgressLastTick = Math.max(0, effectiveWorkByJobId[running.id] ?? 0);
-    const progressed: HpcLabJobInstance = {
-      ...running,
-      progressTicks: running.progressTicks + 1,
-      effectiveProgressLastTick,
-      completedWorkTicks: running.completedWorkTicks + effectiveProgressLastTick,
-    };
-
-    if (progressed.completedWorkTicks >= progressed.runtimeTicks) {
-      completedJobs.push({ ...progressed, state: "completed", completedTick: tick });
+  for (const running of nextRunningJobs) {
+    if (running.completedWorkTicks >= running.runtimeTicks) {
+      completedJobs.push({ ...running, state: "completed", completedTick: tick });
     } else {
-      stillRunning.push(progressed);
-      allocatedCpuNodes += progressed.requiredCpuNodes;
-      allocatedGpuNodes += progressed.requiredGpuNodes;
+      stillRunning.push(running);
+      allocatedCpuNodes += running.requiredCpuNodes;
+      allocatedGpuNodes += running.requiredGpuNodes;
     }
   }
 
