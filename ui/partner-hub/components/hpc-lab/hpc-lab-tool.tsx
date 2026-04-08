@@ -2,6 +2,10 @@
 
 import { useMemo, useState } from "react";
 
+import { BarDistributionChart } from "@/components/hpc-lab/charts/bar-distribution-chart";
+import { ChartFrame } from "@/components/hpc-lab/charts/chart-frame";
+import { MultiSeriesLineChart } from "@/components/hpc-lab/charts/multi-series-line-chart";
+import { TopologyDiagram } from "@/components/hpc-lab/topology-diagram";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -15,6 +19,17 @@ import {
 } from "@/lib/hpc-lab/form";
 import { simulateHpcLab } from "@/lib/hpc-lab/engine";
 import { getHpcLabPresetById, HPC_LAB_PRESETS } from "@/lib/hpc-lab/presets";
+import {
+  buildCheckpointChartModel,
+  buildComputeUtilizationChartModel,
+  buildConstraintSignalsChartModel,
+  buildMetadataChartModel,
+  buildOstLoadDistributionChartModel,
+  buildQueueChartModel,
+  buildThroughputChartModel,
+  buildTopologyModel,
+  buildWaitOnDataChartModel,
+} from "@/lib/hpc-lab/visualization";
 import {
   HPC_LAB_PANEL_KEYS,
   type HpcLabFileSizeDistribution,
@@ -87,6 +102,16 @@ export function HpcLabTool() {
     [formState, lastRunFormState, runResult],
   );
 
+  const topology = useMemo(() => (runResult ? buildTopologyModel(runResult) : null), [runResult]);
+  const throughputChart = useMemo(() => (runResult ? buildThroughputChartModel(runResult) : null), [runResult]);
+  const metadataChart = useMemo(() => (runResult ? buildMetadataChartModel(runResult) : null), [runResult]);
+  const ostDistributionChart = useMemo(() => (runResult ? buildOstLoadDistributionChartModel(runResult) : null), [runResult]);
+  const queueChart = useMemo(() => (runResult ? buildQueueChartModel(runResult) : null), [runResult]);
+  const computeUtilChart = useMemo(() => (runResult ? buildComputeUtilizationChartModel(runResult) : null), [runResult]);
+  const waitOnDataChart = useMemo(() => (runResult ? buildWaitOnDataChartModel(runResult) : null), [runResult]);
+  const checkpointChart = useMemo(() => (runResult ? buildCheckpointChartModel(runResult) : null), [runResult]);
+  const bottleneckChart = useMemo(() => (runResult ? buildConstraintSignalsChartModel(runResult) : null), [runResult]);
+
   const onNumericChange = (field: HpcLabFormNumericField, value: string) => {
     setFormState((current) => ({ ...current, [field]: value }));
     setTouchedFields((current) => ({ ...current, [field]: true }));
@@ -124,12 +149,14 @@ export function HpcLabTool() {
     setRunResult(null);
   };
 
+  const chartNote = (downsampled: boolean) => (downsampled ? "Chart points are deterministically downsampled for rendering." : undefined);
+
   return (
     <div className="space-y-6">
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">HPC / AI Infrastructure Learning Lab</h1>
         <p className="max-w-4xl text-sm text-foreground/70">
-          Phase 3 wires controls to local deterministic simulation execution. Phase 4 will add topology and observability visualization layers.
+          Phase 4 adds topology and chart-based visualization generated from deterministic simulation run output.
         </p>
       </header>
 
@@ -297,13 +324,95 @@ export function HpcLabTool() {
                   <CardTitle className="text-sm">{panelTitles[panelKey]}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-foreground/70">
-                    {runResult
-                      ? isRunResultStale
-                        ? "Last run is stale after control changes. Run simulation again. Visualization arrives in Phase 4."
-                        : "Simulation run complete. Visualization arrives in Phase 4."
-                      : "Run a simulation to prepare data. Visualization arrives in Phase 4."}
-                  </p>
+                  {panelKey === "cluster-topology" ? (
+                    <ChartFrame
+                      title="Cluster topology"
+                      stale={isRunResultStale}
+                      emptyMessage="Run a simulation to render topology from normalized configuration."
+                      children={topology ? <TopologyDiagram model={topology} /> : null}
+                    />
+                  ) : null}
+
+                  {panelKey === "throughput-over-time" ? (
+                    <ChartFrame
+                      title="Throughput over time"
+                      stale={isRunResultStale}
+                      emptyMessage="Run a simulation to view requested vs delivered throughput."
+                      note={throughputChart ? chartNote(throughputChart.downsampled) : undefined}
+                      children={throughputChart ? <MultiSeriesLineChart model={throughputChart} /> : null}
+                    />
+                  ) : null}
+
+                  {panelKey === "metadata-load" ? (
+                    <ChartFrame
+                      title="Metadata load"
+                      stale={isRunResultStale}
+                      emptyMessage="Run a simulation to view metadata requested and served over time."
+                      note={metadataChart ? chartNote(metadataChart.downsampled) : undefined}
+                      children={metadataChart ? <MultiSeriesLineChart model={metadataChart} /> : null}
+                    />
+                  ) : null}
+
+                  {panelKey === "ost-load-distribution" ? (
+                    <ChartFrame
+                      title="OST load distribution"
+                      subtitle="Average load per OST across the run"
+                      stale={isRunResultStale}
+                      emptyMessage="Run a simulation to view average OST distribution."
+                      children={ostDistributionChart ? <BarDistributionChart model={ostDistributionChart} /> : null}
+                    />
+                  ) : null}
+
+                  {panelKey === "job-queue-active-jobs" ? (
+                    <ChartFrame
+                      title="Job queue / active jobs"
+                      stale={isRunResultStale}
+                      emptyMessage="Run a simulation to view queued, running, and completed jobs."
+                      note={queueChart ? chartNote(queueChart.downsampled) : undefined}
+                      children={queueChart ? <MultiSeriesLineChart model={queueChart} /> : null}
+                    />
+                  ) : null}
+
+                  {panelKey === "compute-utilization" ? (
+                    <ChartFrame
+                      title="Compute utilization"
+                      stale={isRunResultStale}
+                      emptyMessage="Run a simulation to view CPU and GPU utilization."
+                      note={computeUtilChart ? chartNote(computeUtilChart.downsampled) : undefined}
+                      children={computeUtilChart ? <MultiSeriesLineChart model={computeUtilChart} /> : null}
+                    />
+                  ) : null}
+
+                  {panelKey === "waiting-on-data" ? (
+                    <ChartFrame
+                      title="Waiting on data"
+                      stale={isRunResultStale}
+                      emptyMessage="Run a simulation to view wait-on-data ratio over time."
+                      note={waitOnDataChart ? chartNote(waitOnDataChart.downsampled) : undefined}
+                      children={waitOnDataChart ? <MultiSeriesLineChart model={waitOnDataChart} /> : null}
+                    />
+                  ) : null}
+
+                  {panelKey === "checkpoint-pause-impact" ? (
+                    <ChartFrame
+                      title="Checkpoint pause impact"
+                      stale={isRunResultStale}
+                      emptyMessage="Run a simulation to view checkpoint pause ratio and active checkpointing jobs."
+                      note={checkpointChart ? chartNote(checkpointChart.downsampled) : undefined}
+                      children={checkpointChart ? <MultiSeriesLineChart model={checkpointChart} /> : null}
+                    />
+                  ) : null}
+
+                  {panelKey === "bottleneck-attribution" ? (
+                    <ChartFrame
+                      title="Bottleneck attribution"
+                      subtitle="Raw constraint signals"
+                      stale={isRunResultStale}
+                      emptyMessage="Run a simulation to view compute/storage/metadata/network pressure signals."
+                      note={bottleneckChart ? `${chartNote(bottleneckChart.downsampled) ?? ""} ${bottleneckChart.subtitle ?? ""}`.trim() : undefined}
+                      children={bottleneckChart ? <MultiSeriesLineChart model={bottleneckChart} /> : null}
+                    />
+                  ) : null}
                 </CardContent>
               </Card>
             ))}
