@@ -6,31 +6,26 @@ The HPC Lab introduces a dedicated workspace for exploring how infrastructure co
 ## Route
 - `/hpc-lab`
 
-## Phase 2 scope
-Phase 2 adds the deterministic simulation engine foundation under `lib/hpc-lab`.
+## Phase 3 scope
+Phase 3 wires the controls panel to the deterministic simulation engine under `lib/hpc-lab`.
 
-Included in Phase 2:
-- Engine-domain type system expansion for jobs, scheduler state, storage/network state, timeline snapshots, and simulation results.
-- Config normalization and validation helpers with derived inventory (`totalOsts`, `effectiveStripeWidth`).
-- Deterministic workload plan generation for `traditional-hpc`, `distributed-ai-training`, and `metadata-heavy` behaviors.
-- FIFO scheduler core for queue/running/completed lifecycle and non-oversubscribed CPU/GPU node allocation.
-- Storage model core for deterministic striping, OST load distribution, metadata service pressure, and checkpoint burst write impact.
-- Network model core for throughput capping, utilization, and contention signals.
-- Top-level pure API: `simulateHpcLab(config, options?)`.
+Included in Phase 3:
+- Real local control state for infrastructure and workload parameters.
+- Preset-aware defaults for both infrastructure config and simulation options.
+- Explicit **Run simulation** and **Reset to preset defaults** actions.
+- Inline validation for all required positive numeric fields before execution.
+- Local execution via `simulateHpcLab(config, options)` and compact run summary rendering.
+- Simulation duration controls (`totalTicks`, `tickDurationSeconds`) exposed in the UI so users can extend run horizon without code edits.
 
-- Engine now applies deterministic, per-job effective-work progress each tick (fractional progress is supported), rather than advancing jobs by a flat +1 runtime tick.
-- Effective progress now reflects modeled bottlenecks:
-  - `traditional-hpc`: strongly scaled by delivered data ratio.
-  - `distributed-ai-training`: scaled by delivered data ratio and reduced during checkpoint pause intervals.
-  - `metadata-heavy`: strongly scaled by metadata service ratio and wait-on-data conditions.
-- Checkpoint ticks now influence both write pressure metrics and useful progress, so checkpointing affects completion timing and queue dynamics.
-- Jobs admitted on a tick are eligible to accrue useful progress on that same tick.
-- Phase 2 summary output now includes outcome-sensitive effective-work aggregates (`totalEffectiveWorkTicks`, `avgCompletedWorkRatio`, `avgCheckpointPauseRatio`) in addition to utilization and throughput metrics.
+Preset simulation defaults now intentionally use longer horizons than the engine baseline for better out-of-the-box behavior exploration:
+- `classic-hpc`: 180 ticks
+- `ai-training`: 360 ticks (helps checkpoint effects appear naturally)
+- `small-file`: 240 ticks
 
-## What remains out of scope after Phase 2
-- Interactive controls wiring and stateful simulation execution in the UI (Phase 3, still deferred).
+## What remains out of scope after Phase 3
 - Visualization layer (charts/topology rendering) and panel population (Phase 4, still deferred).
 - User-facing bottleneck attribution labels (planned later).
+- API routes, persistence, workers/background processing.
 
 ## Feature flag
 Set the following in `.env.local`:
@@ -43,9 +38,10 @@ When the flag is not set to `"true"`, `/hpc-lab` renders a disabled message card
 
 ## Current architecture
 - **`app/(routes)/hpc-lab/page.tsx`**: route-level feature gate and top-level rendering.
-- **`components/hpc-lab/hpc-lab-tool.tsx`**: client-side scaffold UI, preset selection, and read-only configuration display.
+- **`components/hpc-lab/hpc-lab-tool.tsx`**: client-side controls, preset switching, validation UX, and local run summary.
 - **`lib/hpc-lab/types.ts`**: stable type boundary for preset/config types plus simulation engine domain types.
-- **`lib/hpc-lab/presets.ts`**: centrally defined preset catalog.
+- **`lib/hpc-lab/presets.ts`**: centrally defined preset catalog and preset-aware simulation defaults.
+- **`lib/hpc-lab/form.ts`**: pure helpers for preset-to-form hydration, validation, parsing, reset behavior, and dirty comparison.
 - **`lib/hpc-lab/config.ts`**: config and option normalization / validation.
 - **`lib/hpc-lab/workloads.ts`**: deterministic workload plan generation.
 - **`lib/hpc-lab/scheduler.ts`**: deterministic FIFO scheduling and resource accounting.
@@ -56,7 +52,7 @@ When the flag is not set to `"true"`, `/hpc-lab` renders a disabled message card
 ## Modeling assumptions
 - This is a deterministic behavior simulator, not a vendor-certified benchmark.
 - No randomness is used; identical config/options produce identical outputs.
-- Tick-based simulation defaults: `tickDurationSeconds=1`, `totalTicks=120`.
+- Tick-based simulation defaults from the base engine remain `tickDurationSeconds=1`, `totalTicks=120`; presets may override UI defaults for better learning flows.
 - Checkpoint bursts for distributed AI training are deterministic interval events that increase write pressure and pause ratio.
 - Storage service is influenced by OST capacity, stripe spread, and metadata service limits.
 

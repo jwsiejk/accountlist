@@ -1,4 +1,5 @@
-import type { HpcLabPreset } from "@/lib/hpc-lab/types";
+import { DEFAULT_HPC_LAB_SIMULATION_OPTIONS } from "./config";
+import type { HpcLabPreset, HpcLabSimulationOptions } from "./types";
 
 export const HPC_LAB_PRESETS: readonly HpcLabPreset[] = [
   {
@@ -18,6 +19,10 @@ export const HPC_LAB_PRESETS: readonly HpcLabPreset[] = [
       checkpointFrequencyMinutes: 30,
       concurrentJobs: 24,
     },
+    simulationDefaults: {
+      totalTicks: 180,
+      tickDurationSeconds: 1,
+    },
   },
   {
     id: "ai-training",
@@ -35,6 +40,10 @@ export const HPC_LAB_PRESETS: readonly HpcLabPreset[] = [
       fileSizeDistribution: "mixed",
       checkpointFrequencyMinutes: 10,
       concurrentJobs: 12,
+    },
+    simulationDefaults: {
+      totalTicks: 360,
+      tickDurationSeconds: 1,
     },
   },
   {
@@ -54,8 +63,17 @@ export const HPC_LAB_PRESETS: readonly HpcLabPreset[] = [
       checkpointFrequencyMinutes: 20,
       concurrentJobs: 64,
     },
+    simulationDefaults: {
+      totalTicks: 240,
+      tickDurationSeconds: 1,
+    },
   },
 ] as const;
 
 export const getHpcLabPresetById = (id: HpcLabPreset["id"]) =>
   HPC_LAB_PRESETS.find((preset) => preset.id === id);
+
+export const getHpcLabPresetSimulationOptions = (preset: HpcLabPreset): HpcLabSimulationOptions => ({
+  ...DEFAULT_HPC_LAB_SIMULATION_OPTIONS,
+  ...preset.simulationDefaults,
+});
