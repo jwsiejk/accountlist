@@ -42,6 +42,7 @@ import {
   type HpcLabSimulationResult,
   type HpcLabWorkloadType,
 } from "@/lib/hpc-lab/types";
+import { formatDecimal, formatGbps, formatPercent } from "@/lib/hpc-lab/format";
 
 const panelTitles: Record<HpcLabPanelKey, string> = {
   "cluster-topology": "Cluster topology",
@@ -81,9 +82,7 @@ const numericFieldMetadata: Array<{ field: HpcLabFormNumericField; label: string
   { field: "tickDurationSeconds", label: "Tick duration", suffix: "seconds" },
 ];
 
-const formatPercent = (ratio: number) => `${(ratio * 100).toFixed(1)}%`;
-const formatGbps = (value: number) => `${value.toFixed(2)} Gbps`;
-const formatTicks = (value: number) => value.toFixed(2);
+const formatTicks = (value: number) => formatDecimal(value, 2);
 
 export function HpcLabTool() {
   const initialPreset = HPC_LAB_PRESETS[0];
@@ -100,6 +99,7 @@ export function HpcLabTool() {
 
   const parsed = useMemo(() => parseFormStateToSimulationInput(formState), [formState]);
   const validationErrors = parsed.ok ? {} : parsed.errors;
+  const validationErrorCount = Object.keys(validationErrors).length;
   const isDirty = useMemo(() => isFormDirtyAgainstPreset(formState, selectedPreset), [formState, selectedPreset]);
   const isRunResultStale = useMemo(
     () => !!runResult && !!lastRunFormState && !isSameFormStateValues(formState, lastRunFormState),
@@ -201,10 +201,10 @@ export function HpcLabTool() {
             <p>
               <span className="font-semibold text-foreground">Learning focus:</span> {selectedPreset.learningGuidance.learningFocus}
             </p>
-            <p className="mt-1">
+            <p className="mt-1 break-words">
               <span className="font-semibold text-foreground">What to watch:</span> {selectedPreset.learningGuidance.keyKnobs.join(", ")}
             </p>
-            <p className="mt-1">
+            <p className="mt-1 break-words">
               <span className="font-semibold text-foreground">Expected behavior:</span> {selectedPreset.learningGuidance.expectedBehavior}
             </p>
           </div>
@@ -291,6 +291,11 @@ export function HpcLabTool() {
                 Reset to preset defaults
               </Button>
             </div>
+            {!parsed.ok ? (
+              <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive" role="status" aria-live="polite">
+                Fix {validationErrorCount} highlighted {validationErrorCount === 1 ? "field" : "fields"} to run the simulation.
+              </p>
+            ) : null}
             {parsed.ok ? (
               <div className="rounded-md border border-border/70 bg-muted/40 px-3 py-2 text-xs text-foreground/80">
                 <p>
@@ -312,7 +317,7 @@ export function HpcLabTool() {
               </CardHeader>
               <CardContent className="grid gap-2 text-sm sm:grid-cols-2">
                 {isRunResultStale ? (
-                  <p className="sm:col-span-2 rounded bg-amber-500/10 px-2 py-1 text-xs text-amber-700">
+                  <p className="sm:col-span-2 rounded bg-amber-500/10 px-2 py-1 text-xs text-amber-700" aria-live="polite">
                     Results reflect the last run. Run simulation again to update.
                   </p>
                 ) : null}
@@ -328,7 +333,7 @@ export function HpcLabTool() {
                 <p>Total effective work ticks: <span className="font-medium text-foreground">{formatTicks(runResult.summary.totalEffectiveWorkTicks)}</span></p>
                 <p>Avg completed work ratio: <span className="font-medium text-foreground">{formatPercent(runResult.summary.avgCompletedWorkRatio)}</span></p>
                 <p>Avg checkpoint pause ratio: <span className="font-medium text-foreground">{formatPercent(runResult.summary.avgCheckpointPauseRatio)}</span></p>
-                <p className="sm:col-span-2 text-foreground/70">
+                <p className="sm:col-span-2 break-words text-foreground/70">
                   Effective stripe width after normalization: <span className="font-medium text-foreground">{runResult.normalizedConfig.effectiveStripeWidth}</span>
                 </p>
               </CardContent>
@@ -387,7 +392,7 @@ export function HpcLabTool() {
                             <MultiSeriesLineChart model={metadataChart} />
                             {metadataUtilizationStats ? (
                               <div className="rounded-md border border-border/70 bg-muted/30 px-3 py-2 text-xs text-foreground/75">
-                                <p>
+                                <p className="break-words">
                                   Metadata utilization (separate from ops axis): latest{" "}
                                   <span className="font-medium text-foreground">{formatPercent(metadataUtilizationStats.latest)}</span> · avg{" "}
                                   <span className="font-medium text-foreground">{formatPercent(metadataUtilizationStats.average)}</span> · peak{" "}
@@ -458,7 +463,7 @@ export function HpcLabTool() {
                             <MultiSeriesLineChart model={checkpointChart} />
                             {checkpointActiveJobsStats ? (
                               <div className="rounded-md border border-border/70 bg-muted/30 px-3 py-2 text-xs text-foreground/75">
-                                <p>
+                                <p className="break-words">
                                   Checkpoint-active jobs (separate from pause-ratio axis): latest{" "}
                                   <span className="font-medium text-foreground">{checkpointActiveJobsStats.latest.toFixed(0)}</span> · avg{" "}
                                   <span className="font-medium text-foreground">{checkpointActiveJobsStats.average.toFixed(2)}</span> · peak{" "}
@@ -484,7 +489,9 @@ export function HpcLabTool() {
                         bottleneckChart ? (
                           <div className="space-y-3">
                             <MultiSeriesLineChart model={bottleneckChart} />
-                            <p className="text-xs text-foreground/70">This chart shows the raw pressure signals behind the run-level bottleneck summary.</p>
+                            <p className="break-words text-xs text-foreground/70">
+                              This chart shows the raw pressure signals behind the run-level bottleneck summary.
+                            </p>
                           </div>
                         ) : null
                       }

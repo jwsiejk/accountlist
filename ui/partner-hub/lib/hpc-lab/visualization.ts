@@ -9,6 +9,7 @@ import type {
 } from "./types";
 
 const DEFAULT_MAX_POINTS = 120;
+const EMPTY_OST_DISTRIBUTION_LABEL = "No OST load was delivered in this run.";
 
 const toSeries = (key: string, label: string, points: HpcLabChartPoint[]): HpcLabLineSeries => ({ key, label, points });
 
@@ -32,6 +33,10 @@ export const downsampleTimelineDeterministic = (
   timeline: HpcLabTickSnapshot[],
   maxPoints: number = DEFAULT_MAX_POINTS,
 ): { sampled: HpcLabTickSnapshot[]; downsampled: boolean } => {
+  if (timeline.length === 0) {
+    return { sampled: [], downsampled: false };
+  }
+
   if (maxPoints < 2 || timeline.length <= maxPoints) {
     return { sampled: timeline, downsampled: false };
   }
@@ -249,7 +254,17 @@ export const buildConstraintSignalsChartModel = (
 };
 
 export const buildOstLoadDistributionChartModel = (result: HpcLabSimulationResult): HpcLabBarChartModel => {
-  const totalOsts = result.normalizedConfig.totalOsts;
+  const totalOsts = Math.max(0, result.normalizedConfig.totalOsts);
+  if (totalOsts === 0) {
+    return {
+      title: "OST load distribution",
+      subtitle: EMPTY_OST_DISTRIBUTION_LABEL,
+      yAxisLabel: "Avg Gbps",
+      valueFormat: "gbps",
+      bars: [],
+    };
+  }
+
   const totals = new Array<number>(totalOsts).fill(0);
 
   for (const tick of result.timeline) {
@@ -259,7 +274,7 @@ export const buildOstLoadDistributionChartModel = (result: HpcLabSimulationResul
   }
 
   const divisor = Math.max(1, result.timeline.length);
-  const averages = totals.map((value) => value / divisor);
+  const averages = totals.map((value) => (Number.isFinite(value) ? value / divisor : 0));
 
   return {
     title: "OST load distribution",

@@ -1,4 +1,5 @@
 import type { HpcLabLineChartModel } from "@/lib/hpc-lab/types";
+import { formatCount, formatDecimal, formatGbps, formatOps, formatPercent } from "@/lib/hpc-lab/format";
 
 const SERIES_COLOR_CLASSES = [
   "text-sky-600 dark:text-sky-400",
@@ -10,18 +11,18 @@ const SERIES_STROKE_PATTERNS = ["0", "6 3", "2 2", "10 4"];
 
 const formatValue = (value: number, format: HpcLabLineChartModel["valueFormat"]) => {
   if (format === "percent") {
-    return `${(value * 100).toFixed(1)}%`;
+    return formatPercent(value);
   }
   if (format === "gbps") {
-    return `${value.toFixed(2)} Gbps`;
+    return formatGbps(value);
   }
   if (format === "ops") {
-    return `${value.toFixed(0)} ops`;
+    return formatOps(value);
   }
   if (format === "count") {
-    return `${value.toFixed(0)}`;
+    return formatCount(value);
   }
-  return `${value.toFixed(2)}`;
+  return formatDecimal(value);
 };
 
 const buildPath = (points: Array<{ x: number; y: number }>): string =>
@@ -32,10 +33,16 @@ export function MultiSeriesLineChart({ model }: { model: HpcLabLineChartModel })
   const height = 220;
   const padding = { top: 12, right: 12, bottom: 28, left: 44 };
 
-  const allValues = model.series.flatMap((series) => series.points.map((point) => point.value));
+  const allValues = model.series.flatMap((series) => series.points.map((point) => point.value)).filter((value) => Number.isFinite(value));
   const yMax = Math.max(1, ...allValues);
   const yMin = 0;
   const pointsCount = Math.max(1, model.series[0]?.points.length ?? 1);
+  const hasSeries = model.series.length > 0;
+  const hasPoints = hasSeries && model.series.some((series) => series.points.length > 0);
+
+  if (!hasSeries || !hasPoints) {
+    return <p className="text-sm text-foreground/70">No chart points available for this run.</p>;
+  }
 
   const toX = (index: number) => {
     if (pointsCount === 1) {
@@ -59,7 +66,13 @@ export function MultiSeriesLineChart({ model }: { model: HpcLabLineChartModel })
 
   return (
     <div className="space-y-2">
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-56 w-full" role="img" aria-label={model.title}>
+      <div className="overflow-x-auto">
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          className="h-56 min-w-[520px] w-full"
+          role="img"
+          aria-label={`${model.title}. Y-axis in ${model.yAxisLabel}.`}
+        >
         {yTicks.map((tick) => (
           <g key={tick.y}>
             <line x1={padding.left} x2={width - padding.right} y1={tick.y} y2={tick.y} stroke="currentColor" opacity={0.12} />
@@ -85,19 +98,21 @@ export function MultiSeriesLineChart({ model }: { model: HpcLabLineChartModel })
         })}
 
         <text x={padding.left} y={height - 6} className="fill-foreground/70 text-[10px]">Tick</text>
-      </svg>
+        </svg>
+      </div>
 
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-foreground/80" aria-label={`${model.title} legend`}>
         {model.series.map((series, seriesIndex) => (
-          <span
+          <li
             key={series.key}
-            className={`inline-flex items-center gap-1 text-foreground/80 ${SERIES_COLOR_CLASSES[seriesIndex % SERIES_COLOR_CLASSES.length]}`}
+            className={`inline-flex items-center gap-1 ${SERIES_COLOR_CLASSES[seriesIndex % SERIES_COLOR_CLASSES.length]}`}
           >
             <span className="inline-block h-2 w-2 rounded-full bg-current" aria-hidden />
-            {series.label}
-          </span>
+            <span>{series.label}</span>
+            <span className="text-foreground/65">({SERIES_STROKE_PATTERNS[seriesIndex % SERIES_STROKE_PATTERNS.length] === "0" ? "solid" : "dashed"})</span>
+          </li>
         ))}
-      </div>
+      </ul>
     </div>
   );
 }

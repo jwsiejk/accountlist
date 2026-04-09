@@ -17,6 +17,12 @@ const PRESSURE_KEYS = ["compute", "storage", "metadata", "network"] as const;
 type PressureKey = (typeof PRESSURE_KEYS)[number];
 
 const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
+const safeRatio = (numerator: number, denominator: number, whenEmpty: number): number => {
+  if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator <= 0) {
+    return whenEmpty;
+  }
+  return clamp01(numerator / denominator);
+};
 
 const toPressureEntries = (signals: HpcLabConstraintSignals): Array<{ key: PressureKey; value: number }> => [
   { key: "compute", value: clamp01(signals.computePressure) },
@@ -142,7 +148,7 @@ const buildExplanation = (
   }
 
   if (dominantKind === "mixed") {
-    return `Mixed bottlenecks. Pressure signals shifted or remained close, with ${derived.bottleneckTransitionCount} transitions and a longest stable streak of ${derived.longestDominantStreak} ticks.`;
+    return `Mixed bottlenecks. Pressure signals stayed close or changed frequently, with ${derived.bottleneckTransitionCount} transitions and a longest stable streak of ${derived.longestDominantStreak} ticks.`;
   }
 
   const labels: Record<Exclude<HpcLabBottleneckKind, "mixed" | "balanced">, string> = {
@@ -217,7 +223,7 @@ export const analyzeRunBottlenecks = (result: HpcLabSimulationResult): HpcLabRun
   const sortedShares = Object.entries(timeShareByKind)
     .map(([kind, share]) => ({ kind: kind as HpcLabBottleneckKind, share }))
     .sort((left, right) => right.share - left.share);
-  const topShareGap = sortedShares[0].share - sortedShares[1].share;
+  const topShareGap = sortedShares.length > 1 ? sortedShares[0].share - sortedShares[1].share : 0;
   const confidenceScore = clamp01(dominantTimeShare * 0.8 + topShareGap * 0.8 - timeShareByKind.mixed * 0.3);
 
   let bottleneckTransitionCount = 0;
@@ -244,10 +250,10 @@ export const analyzeRunBottlenecks = (result: HpcLabSimulationResult): HpcLabRun
 
   const longestDominantStreak = computeLongestStreak(perTick);
   const derivedMetrics = {
-    throughputFulfillmentRatio: requestedThroughputTotal > 0 ? deliveredThroughputTotal / requestedThroughputTotal : 1,
-    metadataServiceRatio: requestedMetadataTotal > 0 ? servedMetadataTotal / requestedMetadataTotal : 1,
-    queueBurdenRatio: queueTicks / tickCount,
-    checkpointActiveTickShare: checkpointActiveTicks / tickCount,
+    throughputFulfillmentRatio: safeRatio(deliveredThroughputTotal, requestedThroughputTotal, 1),
+    metadataServiceRatio: safeRatio(servedMetadataTotal, requestedMetadataTotal, 1),
+    queueBurdenRatio: safeRatio(queueTicks, tickCount, 0),
+    checkpointActiveTickShare: safeRatio(checkpointActiveTicks, tickCount, 0),
     bottleneckTransitionCount,
     longestDominantStreak,
   };

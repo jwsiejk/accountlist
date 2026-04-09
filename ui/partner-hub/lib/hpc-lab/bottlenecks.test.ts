@@ -110,3 +110,48 @@ test("analysis always returns non-empty explanation and next steps with allowed 
   assert.equal(allowedKinds.has(attribution.dominantKind), true);
   assert.equal(attribution.perTick.every((tick) => allowedKinds.has(tick.kind)), true);
 });
+
+test("balanced low-signal runs return stable non-empty balanced attribution", () => {
+  const run = simulateHpcLab(
+    {
+      ...HPC_LAB_PRESETS[0].initialConfig,
+      concurrentJobs: 1,
+      computeNodes: 512,
+      gpuNodes: 256,
+      ossCount: 64,
+      ostPerOss: 16,
+      networkBandwidthGbps: 1200,
+      metadataLatencyMs: 0.5,
+    },
+    { totalTicks: 60 },
+  );
+  const attribution = analyzeRunBottlenecks(run);
+
+  assert.equal(attribution.dominantKind, "balanced");
+  assert.equal(attribution.explanation.trim().length > 0, true);
+  assert.equal(attribution.nextSteps.length > 0, true);
+});
+
+test("mixed runs with frequent transitions remain stable and finite", () => {
+  const run = simulateHpcLab(
+    {
+      ...HPC_LAB_PRESETS[1].initialConfig,
+      concurrentJobs: 40,
+      computeNodes: 10,
+      gpuNodes: 10,
+      networkBandwidthGbps: 55,
+      metadataLatencyMs: 5.8,
+      checkpointFrequencyMinutes: 0.04,
+    },
+    { totalTicks: 200 },
+  );
+  const attribution = analyzeRunBottlenecks(run);
+
+  assert.equal(Number.isFinite(attribution.confidenceScore), true);
+  assert.equal(Number.isFinite(attribution.derivedMetrics.throughputFulfillmentRatio), true);
+  assert.equal(Number.isFinite(attribution.derivedMetrics.metadataServiceRatio), true);
+  assert.equal(Number.isFinite(attribution.derivedMetrics.queueBurdenRatio), true);
+  assert.equal(Number.isFinite(attribution.derivedMetrics.checkpointActiveTickShare), true);
+  assert.equal(attribution.nextSteps.length > 0, true);
+  assert.equal(attribution.bottleneckTransitionCount >= 0, true);
+});
