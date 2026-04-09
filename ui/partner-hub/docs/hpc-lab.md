@@ -17,27 +17,60 @@ When the flag is not set to `"true"`, `/hpc-lab` renders a disabled message card
 
 ## Current user workflow
 1. Choose a preset profile.
-2. Adjust infrastructure/workload/simulation controls.
-3. Run simulation.
-4. Review outputs:
+2. Review the environment explainer to understand which parts are modeled directly versus taught conceptually.
+3. Adjust infrastructure/workload/simulation controls.
+4. Run simulation.
+5. Review outputs:
    - Run summary metrics.
    - Bottleneck summary attribution and suggestions.
-   - Guided walkthrough explaining what happened, why, what to learn, and what to change next.
+   - Guided walkthrough explaining what happened, why, what to learn, what to change next, and how to interpret the result in the environment model.
    - Cluster topology panel.
    - Evidence charts (throughput, metadata, OST distribution, queue/activity, utilization, wait-on-data, checkpoint impact, raw constraint signals).
-5. Change one variable at a time and compare runs.
+6. Change one variable at a time and compare runs.
 
 Preset switching, reset behavior, stale-result messaging, and deterministic chart downsampling are part of the intended workflow.
 
+## Higher-ed storage environment framing (explicit)
+HPC Lab now teaches a higher-ed hybrid shared-cluster framing with distinct storage tiers:
+
+- **Node-local scratch**: temporary, per-node, fast, and **not shared** across compute nodes.
+- **Shared scratch / parallel filesystem**: active shared workspace visible to many compute nodes; includes metadata and striped data paths.
+- **Home/lab/project storage**: longer-lived collaborative storage, typically separate from short-lived shared scratch semantics.
+- **Archive/cold storage (optional concept)**: future/external retention tier, not modeled in current runs.
+
+### Architecture modes (conceptual teaching modes)
+The docs and UI recognize these conceptual architectures:
+
+1. **Hybrid shared cluster** (default profile in this lab): local scratch on compute nodes + shared parallel scratch + separate longer-lived storage.
+2. **Converged storage services**: storage services may co-exist with other cluster roles; metadata and data service concepts still apply.
+3. **Dedicated storage layer**: compute nodes act as clients of a dedicated shared storage tier running metadata/data services.
+
+These are explanatory lenses, not an engine-mode switch.
+
+## What the current simulator models versus teaches conceptually
+### Actively modeled today (deterministic)
+- Scheduler/resource-allocation pressure and queue behavior.
+- Compute nodes as clients.
+- Shared filesystem metadata behavior.
+- Shared striped data-path behavior.
+- Aggregate network delivery limits.
+
+### Conceptual in teaching, not separately simulated as independent I/O paths
+- A dedicated node-local scratch performance path.
+- A distinct home/lab/project performance path.
+- Archive/cold storage movement and retrieval behavior.
+
 ## Current architecture
 - **`app/(routes)/hpc-lab/page.tsx`**: route-level feature gate and top-level rendering.
-- **`components/hpc-lab/hpc-lab-tool.tsx`**: client-side controls, preset switching, validation UX, run summary, bottleneck summary card, and chart panel rendering.
+- **`components/hpc-lab/hpc-lab-tool.tsx`**: client-side controls, preset switching, validation UX, run summary, environment explainer integration, bottleneck summary card, and chart panel rendering.
+- **`components/hpc-lab/environment-explainer.tsx`**: educational panel for storage tiers, stack layers, architecture mode framing, and simulator honesty.
 - **`components/hpc-lab/bottleneck-summary.tsx`**: presentational run-level bottleneck explanation, confidence, suggestions, and derived metrics.
-- **`components/hpc-lab/guided-walkthrough.tsx`**: presentational educational walkthrough card built from deterministic run evidence.
+- **`components/hpc-lab/guided-walkthrough.tsx`**: presentational educational walkthrough card built from deterministic run evidence plus environment-aware context.
 - **`components/hpc-lab/topology-diagram.tsx`**: normalized-inventory topology presentation.
 - **`components/hpc-lab/charts/*`**: chart frame + deterministic SVG chart presentation.
-- **`lib/hpc-lab/types.ts`**: stable type boundary for presets/config/domain outputs, chart models, and bottleneck analysis.
-- **`lib/hpc-lab/presets.ts`**: preset catalog, simulation defaults, and learning guidance metadata.
+- **`lib/hpc-lab/types.ts`**: stable type boundary for presets/config/domain outputs, chart models, bottleneck analysis, and environment profile modeling.
+- **`lib/hpc-lab/environment.ts`**: pure higher-ed environment profile model and environment-context helpers.
+- **`lib/hpc-lab/presets.ts`**: preset catalog, simulation defaults, and learning/environment guidance metadata.
 - **`lib/hpc-lab/form.ts`**: pure preset hydration, numeric validation, parse, reset, and dirty comparison helpers.
 - **`lib/hpc-lab/config.ts`**: deterministic config/options normalization and validation.
 - **`lib/hpc-lab/workloads.ts`**: deterministic workload plan generation.
@@ -56,6 +89,7 @@ Preset switching, reset behavior, stale-result messaging, and deterministic char
 - Engine defaults remain `tickDurationSeconds=1`, `totalTicks=120`; presets intentionally use longer defaults for learning flows.
 - Checkpoint bursts for distributed AI training are deterministic interval events.
 - Storage behavior is influenced by OST inventory, effective stripe width, metadata service limits, and aggregate network cap.
+- Environment teaching does not claim institution-specific or vendor-specific topology details.
 
 ## Main engine API
 `simulateHpcLab(config, options?)` returns:
@@ -88,6 +122,7 @@ Each preset includes:
 - Learning focus.
 - Key knobs/watch items.
 - Expected behavior tendencies.
+- Environment guidance for how that workload tends to stress the shared stack in this model.
 
 This guidance is directional and educational. It does not guarantee a fixed outcome for every parameter combination.
 

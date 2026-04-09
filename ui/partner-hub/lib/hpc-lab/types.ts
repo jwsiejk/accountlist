@@ -4,10 +4,49 @@ export type HpcLabWorkloadType = "traditional-hpc" | "distributed-ai-training" |
 
 export type HpcLabFileSizeDistribution = "large-sequential" | "mixed" | "small-random";
 
+export type HpcLabArchitectureMode = "hybrid-shared-cluster" | "converged-storage-services" | "dedicated-storage-layer";
+
+export type HpcLabStorageTier = {
+  id: "node-local-scratch" | "shared-scratch" | "long-lived-storage" | "archive-storage";
+  title: string;
+  summary: string;
+  characteristics: string[];
+  simulatedToday: boolean;
+};
+
+export type HpcLabStackLayer = {
+  id:
+    | "login-access"
+    | "scheduler-resource-allocation"
+    | "compute-clients"
+    | "local-scratch"
+    | "shared-filesystem-metadata"
+    | "shared-filesystem-data"
+    | "long-lived-storage";
+  title: string;
+  role: string;
+  simulatedToday: boolean;
+};
+
+export type HpcLabEnvironmentProfile = {
+  environmentProfileId: "higher-ed-shared-cluster-hybrid";
+  title: string;
+  shortDescription: string;
+  architectureMode: HpcLabArchitectureMode;
+  architectureModePositioning: string;
+  tiers: HpcLabStorageTier[];
+  stackLayers: HpcLabStackLayer[];
+  whatTheSimulatorModels: string[];
+  whatTheSimulatorDoesNotModel: string[];
+  recommendedWorkflow: string[];
+  glossary: Array<{ term: string; definition: string }>;
+};
+
 export type HpcLabPresetLearningGuidance = {
   learningFocus: string;
   keyKnobs: string[];
   expectedBehavior: string;
+  environmentGuidance: string;
 };
 
 export type HpcLabConfig = {
@@ -226,6 +265,7 @@ export type HpcLabGuidedWalkthrough = {
   whatHappened: string;
   whyItHappened: string;
   whatToLearn: string;
+  environmentContext: string;
   nextExperiments: HpcLabWalkthroughExperiment[];
   evidence: HpcLabWalkthroughEvidenceItem[];
   runCaveats: string[];

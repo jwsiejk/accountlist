@@ -43,6 +43,11 @@ export function GuidedWalkthrough({ walkthrough, stale }: GuidedWalkthroughProps
         <p className="text-sm text-foreground/80">{walkthrough.whatToLearn}</p>
       </div>
 
+      <div className="space-y-1">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/60">Environment context</h3>
+        <p className="text-sm text-foreground/80">{walkthrough.environmentContext}</p>
+      </div>
+
       <div className="space-y-2">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/60">Try next</h3>
         <ul className="space-y-2">

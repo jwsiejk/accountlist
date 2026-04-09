@@ -6,6 +6,7 @@ import type {
   HpcLabWalkthroughEvidenceItem,
   HpcLabWalkthroughExperiment,
 } from "./types";
+import { buildEnvironmentResultContext } from "./environment";
 
 const toPercent = (value: number): number => Math.max(0, Math.min(1, value));
 
@@ -317,6 +318,7 @@ export const buildGuidedWalkthrough = (
   whatHappened: buildWhatHappened(result, attribution),
   whyItHappened: buildWhy(result, attribution),
   whatToLearn: buildTeachingTakeaway(preset, result, attribution),
+  environmentContext: buildEnvironmentResultContext(attribution),
   nextExperiments: buildExperiments(preset, result, attribution),
   evidence: buildEvidence(result, attribution),
   runCaveats: buildCaveats(result, attribution),
