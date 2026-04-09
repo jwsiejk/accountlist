@@ -308,7 +308,7 @@ export function HpcLabTool() {
           {runResult ? (
             <Card className="border-border/70">
               <CardHeader>
-                <CardTitle className="text-base">Phase 3 run summary</CardTitle>
+                <CardTitle className="text-base">Run summary</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-2 text-sm sm:grid-cols-2">
                 {isRunResultStale ? (
@@ -338,7 +338,7 @@ export function HpcLabTool() {
           {runResult ? (
             <Card className="border-border/70">
               <CardHeader>
-                <CardTitle className="text-base">Phase 5 bottleneck summary</CardTitle>
+                <CardTitle className="text-base">Bottleneck summary</CardTitle>
               </CardHeader>
               <CardContent>
                 <BottleneckSummary attribution={bottleneckAttribution} stale={isRunResultStale} />
