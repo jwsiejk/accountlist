@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import { BarDistributionChart } from "@/components/hpc-lab/charts/bar-distribution-chart";
 import { BottleneckSummary } from "@/components/hpc-lab/bottleneck-summary";
+import { GuidedWalkthrough } from "@/components/hpc-lab/guided-walkthrough";
 import { ChartFrame } from "@/components/hpc-lab/charts/chart-frame";
 import { MultiSeriesLineChart } from "@/components/hpc-lab/charts/multi-series-line-chart";
 import { TopologyDiagram } from "@/components/hpc-lab/topology-diagram";
@@ -21,6 +22,7 @@ import {
 import { simulateHpcLab } from "@/lib/hpc-lab/engine";
 import { analyzeRunBottlenecks } from "@/lib/hpc-lab/bottlenecks";
 import { getHpcLabPresetById, HPC_LAB_PRESETS } from "@/lib/hpc-lab/presets";
+import { buildGuidedWalkthrough } from "@/lib/hpc-lab/walkthrough";
 import {
   buildCheckpointActiveJobsStats,
   buildCheckpointChartModel,
@@ -118,6 +120,10 @@ export function HpcLabTool() {
   const metadataUtilizationStats = useMemo(() => (runResult ? buildMetadataUtilizationStats(runResult) : null), [runResult]);
   const checkpointActiveJobsStats = useMemo(() => (runResult ? buildCheckpointActiveJobsStats(runResult) : null), [runResult]);
   const bottleneckAttribution = useMemo(() => (runResult ? analyzeRunBottlenecks(runResult) : null), [runResult]);
+  const walkthrough = useMemo(
+    () => (runResult && bottleneckAttribution ? buildGuidedWalkthrough(selectedPreset, runResult, bottleneckAttribution) : null),
+    [bottleneckAttribution, runResult, selectedPreset],
+  );
 
   const onNumericChange = (field: HpcLabFormNumericField, value: string) => {
     setFormState((current) => ({ ...current, [field]: value }));
@@ -347,6 +353,17 @@ export function HpcLabTool() {
               </CardHeader>
               <CardContent>
                 <BottleneckSummary attribution={bottleneckAttribution} stale={isRunResultStale} />
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {runResult ? (
+            <Card className="border-border/70">
+              <CardHeader>
+                <CardTitle className="text-base">Guided walkthrough</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <GuidedWalkthrough walkthrough={walkthrough} stale={isRunResultStale} />
               </CardContent>
             </Card>
           ) : null}

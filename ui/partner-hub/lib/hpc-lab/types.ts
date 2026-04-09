@@ -205,6 +205,32 @@ export type HpcLabRunBottleneckAttribution = {
   nextSteps: string[];
 };
 
+export type HpcLabWalkthroughEvidenceFormat = "percent" | "count";
+
+export type HpcLabWalkthroughEvidenceItem = {
+  metric: string;
+  label: string;
+  value: number;
+  format: HpcLabWalkthroughEvidenceFormat;
+  interpretation: string;
+};
+
+export type HpcLabWalkthroughExperiment = {
+  title: string;
+  change: string;
+  reason: string;
+};
+
+export type HpcLabGuidedWalkthrough = {
+  headline: string;
+  whatHappened: string;
+  whyItHappened: string;
+  whatToLearn: string;
+  nextExperiments: HpcLabWalkthroughExperiment[];
+  evidence: HpcLabWalkthroughEvidenceItem[];
+  runCaveats: string[];
+};
+
 export const HPC_LAB_PANEL_KEYS = [
   "cluster-topology",
   "throughput-over-time",
