@@ -38,7 +38,7 @@ When the flag is not set to `"true"`, `/hpc-lab` renders a disabled message card
 
 ## Current architecture
 - **`app/(routes)/hpc-lab/page.tsx`**: route-level feature gate and top-level rendering.
-- **`components/hpc-lab/hpc-lab-tool.tsx`**: client-side controls, preset switching, validation UX, run summary, and Phase 5 attribution rendering.
+- **`components/hpc-lab/hpc-lab-tool.tsx`**: client-side controls, preset switching, validation UX, run summary, dedicated run-level bottleneck summary card, and raw evidence chart rendering.
 - **`components/hpc-lab/bottleneck-summary.tsx`**: presentational UI for run-level bottleneck explanation, confidence, suggestions, and derived metrics.
 - **`lib/hpc-lab/types.ts`**: stable type boundary for preset/config types, simulation domain types, and bottleneck analysis types.
 - **`lib/hpc-lab/presets.ts`**: centrally defined preset catalog, preset-aware simulation defaults, and learning guidance metadata.
@@ -81,6 +81,11 @@ Run-level labels are conservative and deterministic:
 - **network-bound**: network pressure is clearly dominant.
 - **mixed**: no single pressure is consistently dominant (close competition or frequent transitions).
 - **balanced**: pressure signals remain broadly low, so no strong bottleneck is currently active.
+
+UI presentation for bottlenecks is intentionally split and non-duplicative:
+- **Phase 5 bottleneck summary card**: the single full run-level attribution view (dominant label, confidence, explanation, next levers, and derived metrics).
+- **Bottleneck attribution panel**: raw compute/storage/metadata/network pressure signals plus a compact note linking those signals to the run-level summary.
+- Stale messaging remains clear without stacked duplicates: the summary card owns attribution staleness, while chart-level stale indicators remain in panel frames.
 
 Derived metrics are based on observed run data only:
 - Throughput fulfillment ratio: delivered total throughput / requested total throughput.

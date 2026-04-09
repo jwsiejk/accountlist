@@ -244,7 +244,7 @@ export const buildConstraintSignalsChartModel = (
     downsampled,
     result.timeline.length,
     sampled.length,
-    "Phase 5 adds dominant bottleneck labeling.",
+    "Raw pressure signals behind run-level bottleneck attribution.",
   );
 };
 
