@@ -54,6 +54,8 @@ export type HpcLabConcept = {
   explanation: string;
   realWorldMapping: string;
   whyItMatters: string;
+  shortHint?: string;
+  detailedExplanation?: string;
   modeledToday: boolean;
 };
 

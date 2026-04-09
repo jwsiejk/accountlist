@@ -365,6 +365,38 @@ const CONCEPTS: Record<HpcLabConceptId, HpcLabConcept> = {
 
 const CONCEPT_IDS = Object.keys(CONCEPTS) as HpcLabConceptId[];
 
-export const getHpcLabConcept = (id: HpcLabConceptId): HpcLabConcept => CONCEPTS[id];
+const DETAILED_EXPLANATION_CONCEPTS = new Set<HpcLabConceptId>([
+  "shared-scratch",
+  "local-scratch",
+  "long-lived-storage",
+  "metadata-path",
+  "striped-data-path",
+  "shared-filesystem",
+  "compute-clients",
+  "ddn-exascaler-managed-lustre",
+  "network-fabric",
+  "total-osts",
+  "effective-stripe-width",
+]);
 
-export const listHpcLabConcepts = (): HpcLabConcept[] => CONCEPT_IDS.map((id) => CONCEPTS[id]);
+const buildConceptHelp = (concept: HpcLabConcept): Pick<HpcLabConcept, "shortHint" | "detailedExplanation"> => {
+  const shortHint = concept.explanation;
+  if (!DETAILED_EXPLANATION_CONCEPTS.has(concept.id)) {
+    return { shortHint };
+  }
+
+  return {
+    shortHint,
+    detailedExplanation: `${concept.explanation} ${concept.realWorldMapping} ${concept.whyItMatters}`,
+  };
+};
+
+export const getHpcLabConcept = (id: HpcLabConceptId): HpcLabConcept => {
+  const concept = CONCEPTS[id];
+  return { ...concept, ...buildConceptHelp(concept) };
+};
+
+export const listHpcLabConcepts = (): HpcLabConcept[] => CONCEPT_IDS.map((id) => getHpcLabConcept(id));
+
+export const getHpcLabConceptHelpMode = (id: HpcLabConceptId): "tooltip" | "popover" =>
+  getHpcLabConcept(id).detailedExplanation ? "popover" : "tooltip";
