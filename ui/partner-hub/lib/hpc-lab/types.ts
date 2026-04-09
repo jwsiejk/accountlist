@@ -4,6 +4,12 @@ export type HpcLabWorkloadType = "traditional-hpc" | "distributed-ai-training" |
 
 export type HpcLabFileSizeDistribution = "large-sequential" | "mixed" | "small-random";
 
+export type HpcLabPresetLearningGuidance = {
+  learningFocus: string;
+  keyKnobs: string[];
+  expectedBehavior: string;
+};
+
 export type HpcLabConfig = {
   computeNodes: number;
   gpuNodes: number;
@@ -29,6 +35,7 @@ export type HpcLabPreset = {
   description: string;
   initialConfig: HpcLabConfig;
   simulationDefaults?: Partial<HpcLabSimulationOptions>;
+  learningGuidance: HpcLabPresetLearningGuidance;
 };
 
 export type HpcLabNormalizedConfig = HpcLabConfig & {
@@ -162,6 +169,40 @@ export type HpcLabSimulationResult = {
   jobs: HpcLabJobInstance[];
   summary: HpcLabSimulationSummary;
   assumptions: string[];
+};
+
+export type HpcLabBottleneckKind = "compute" | "storage" | "metadata" | "network" | "mixed" | "balanced";
+
+export type HpcLabBottleneckConfidence = "low" | "medium" | "high";
+
+export type HpcLabTickBottleneckAttribution = {
+  tick: number;
+  kind: HpcLabBottleneckKind;
+  dominantPressure: number;
+  marginToNext: number;
+};
+
+export type HpcLabDerivedRunMetrics = {
+  throughputFulfillmentRatio: number;
+  metadataServiceRatio: number;
+  queueBurdenRatio: number;
+  checkpointActiveTickShare: number;
+  bottleneckTransitionCount: number;
+  longestDominantStreak: number;
+};
+
+export type HpcLabRunBottleneckAttribution = {
+  dominantKind: HpcLabBottleneckKind;
+  confidence: HpcLabBottleneckConfidence;
+  confidenceScore: number;
+  dominantTimeShare: number;
+  timeShareByKind: Record<HpcLabBottleneckKind, number>;
+  perTick: HpcLabTickBottleneckAttribution[];
+  derivedMetrics: HpcLabDerivedRunMetrics;
+  bottleneckTransitionCount: number;
+  longestDominantStreak: number;
+  explanation: string;
+  nextSteps: string[];
 };
 
 export const HPC_LAB_PANEL_KEYS = [

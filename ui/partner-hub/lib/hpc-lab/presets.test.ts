@@ -56,3 +56,13 @@ test("preset simulation defaults merge with engine defaults", () => {
     assert.ok(options.tickDurationSeconds > 0);
   }
 });
+
+
+test("every preset includes non-empty learning guidance metadata", () => {
+  for (const preset of HPC_LAB_PRESETS) {
+    assert.ok(preset.learningGuidance.learningFocus.trim().length > 0);
+    assert.ok(preset.learningGuidance.expectedBehavior.trim().length > 0);
+    assert.ok(preset.learningGuidance.keyKnobs.length > 0);
+    assert.ok(preset.learningGuidance.keyKnobs.every((item) => item.trim().length > 0));
+  }
+});

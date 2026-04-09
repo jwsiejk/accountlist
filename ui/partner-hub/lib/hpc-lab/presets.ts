@@ -23,6 +23,11 @@ export const HPC_LAB_PRESETS: readonly HpcLabPreset[] = [
       totalTicks: 180,
       tickDurationSeconds: 1,
     },
+    learningGuidance: {
+      learningFocus: "Sequential throughput versus cluster-wide contention as concurrency rises.",
+      keyKnobs: ["Stripe width", "OST count", "Network bandwidth", "Concurrent jobs"],
+      expectedBehavior: "Usually highlights storage/network tradeoffs before metadata limits become central.",
+    },
   },
   {
     id: "ai-training",
@@ -45,6 +50,11 @@ export const HPC_LAB_PRESETS: readonly HpcLabPreset[] = [
       totalTicks: 360,
       tickDurationSeconds: 1,
     },
+    learningGuidance: {
+      learningFocus: "Checkpoint bursts, GPU utilization sensitivity, and sustained throughput under pause pressure.",
+      keyKnobs: ["Checkpoint frequency", "GPU nodes", "Network bandwidth", "Concurrent jobs"],
+      expectedBehavior: "Shows pause-driven write bursts where data-path limits can reduce useful training progress.",
+    },
   },
   {
     id: "small-file",
@@ -66,6 +76,11 @@ export const HPC_LAB_PRESETS: readonly HpcLabPreset[] = [
     simulationDefaults: {
       totalTicks: 240,
       tickDurationSeconds: 1,
+    },
+    learningGuidance: {
+      learningFocus: "Metadata service limits under high small-file concurrency.",
+      keyKnobs: ["Metadata latency", "Concurrent jobs", "File size distribution", "Compute nodes"],
+      expectedBehavior: "Often increases metadata pressure and queueing when metadata service cannot keep up.",
     },
   },
 ] as const;
