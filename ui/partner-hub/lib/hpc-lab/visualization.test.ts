@@ -124,3 +124,28 @@ test("checkpoint panel keeps ratio-only line chart and separate active-job stats
   assert.equal(checkpointStats.average, expectedAverage);
   assert.equal(checkpointStats.peak, expectedPeak);
 });
+
+test("downsampling returns stable empty output for empty timelines", () => {
+  const sampled = downsampleTimelineDeterministic([], 20);
+
+  assert.deepEqual(sampled, {
+    sampled: [],
+    downsampled: false,
+  });
+});
+
+test("one-point run renders single point without downsampling", () => {
+  const result = simulateHpcLab(HPC_LAB_PRESETS[0].initialConfig, { totalTicks: 1 });
+  const throughput = buildThroughputChartModel(result, 120);
+
+  assert.equal(throughput.downsampled, false);
+  assert.equal(throughput.series.every((series) => series.points.length === 1), true);
+});
+
+test("OST distribution returns finite values for sparse/idle runs", () => {
+  const idle = simulateHpcLab({ ...HPC_LAB_PRESETS[0].initialConfig, concurrentJobs: 1 }, { totalTicks: 1 });
+  const distribution = buildOstLoadDistributionChartModel(idle);
+
+  assert.equal(distribution.bars.length, idle.normalizedConfig.totalOsts);
+  assert.equal(distribution.bars.every((bar) => Number.isFinite(bar.value)), true);
+});
