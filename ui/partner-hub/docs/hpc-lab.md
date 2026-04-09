@@ -22,8 +22,10 @@ When the flag is not set to `"true"`, `/hpc-lab` renders a disabled message card
 4. Review outputs:
    - Run summary metrics.
    - Bottleneck summary attribution and suggestions.
+   - Guided walkthrough explaining what happened, why, what to learn, and what to change next.
    - Cluster topology panel.
    - Evidence charts (throughput, metadata, OST distribution, queue/activity, utilization, wait-on-data, checkpoint impact, raw constraint signals).
+5. Change one variable at a time and compare runs.
 
 Preset switching, reset behavior, stale-result messaging, and deterministic chart downsampling are part of the intended workflow.
 
@@ -31,6 +33,7 @@ Preset switching, reset behavior, stale-result messaging, and deterministic char
 - **`app/(routes)/hpc-lab/page.tsx`**: route-level feature gate and top-level rendering.
 - **`components/hpc-lab/hpc-lab-tool.tsx`**: client-side controls, preset switching, validation UX, run summary, bottleneck summary card, and chart panel rendering.
 - **`components/hpc-lab/bottleneck-summary.tsx`**: presentational run-level bottleneck explanation, confidence, suggestions, and derived metrics.
+- **`components/hpc-lab/guided-walkthrough.tsx`**: presentational educational walkthrough card built from deterministic run evidence.
 - **`components/hpc-lab/topology-diagram.tsx`**: normalized-inventory topology presentation.
 - **`components/hpc-lab/charts/*`**: chart frame + deterministic SVG chart presentation.
 - **`lib/hpc-lab/types.ts`**: stable type boundary for presets/config/domain outputs, chart models, and bottleneck analysis.
@@ -44,9 +47,11 @@ Preset switching, reset behavior, stale-result messaging, and deterministic char
 - **`lib/hpc-lab/engine.ts`**: deterministic tick loop combining scheduler, storage, and network.
 - **`lib/hpc-lab/visualization.ts`**: pure chart/topology/stat model builders and deterministic downsampling.
 - **`lib/hpc-lab/bottlenecks.ts`**: pure deterministic run-level bottleneck attribution.
+- **`lib/hpc-lab/walkthrough.ts`**: pure deterministic educational walkthrough synthesis using preset guidance + run outputs + bottleneck attribution.
 
 ## Modeling assumptions and caveats
 - This is a deterministic behavior simulator, not a vendor-certified benchmark.
+- Guided walkthrough output is educational and evidence-based; it is not benchmark certification or a capacity-sizing engine.
 - No randomness is used; identical config/options produce identical outputs.
 - Engine defaults remain `tickDurationSeconds=1`, `totalTicks=120`; presets intentionally use longer defaults for learning flows.
 - Checkpoint bursts for distributed AI training are deterministic interval events.
