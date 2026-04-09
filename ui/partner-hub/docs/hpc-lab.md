@@ -30,6 +30,26 @@ When the flag is not set to `"true"`, `/hpc-lab` renders a disabled message card
 
 Preset switching, reset behavior, stale-result messaging, and deterministic chart downsampling are part of the intended workflow.
 
+## Contextual hover/focus explanations (teaching layer)
+HPC Lab includes contextual hover/focus explanations that map controls, topology labels, walkthrough terms, and key result metrics to real higher-ed HPC concepts.
+
+- The teaching copy is centralized in a typed concept glossary (`lib/hpc-lab/concepts.ts`) so explanatory text stays out of JSX and remains testable.
+- Tooltip triggers support both pointer hover and keyboard focus.
+- Explanations are directional and educational, not a claim of exact 1:1 platform parity.
+
+### Storage-tier distinctions shown in the UI
+- **Local scratch**: per-node temporary storage, not shared across nodes (conceptual here; not separately modeled as its own I/O path).
+- **Shared scratch / parallel filesystem**: shared cluster-visible workspace (primary modeled storage path in this simulator).
+- **Home/lab/project storage**: longer-lived storage tier separate from shared scratch semantics (conceptual in this simulator).
+
+### Real-world concept mapping
+- Compute and GPU nodes are treated as compute clients of a shared filesystem.
+- Metadata latency is the closest simulator analogue to metadata-service pressure (MDS/MDT side).
+- OSS + OST inventory represent shared data-path width in a Lustre-style parallel filesystem model.
+- Stripe width represents file striping width across OSTs.
+- Network bandwidth represents aggregate client-to-storage fabric limits.
+- DDN EXAScaler / managed Lustre style platforms are referenced as production packaging of Lustre-like concepts, not as vendor-specific benchmark equivalence.
+
 ## Higher-ed storage environment framing (explicit)
 HPC Lab now teaches a higher-ed hybrid shared-cluster framing with distinct storage tiers:
 

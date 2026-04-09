@@ -6,6 +6,7 @@ import { BarDistributionChart } from "@/components/hpc-lab/charts/bar-distributi
 import { BottleneckSummary } from "@/components/hpc-lab/bottleneck-summary";
 import { EnvironmentExplainer } from "@/components/hpc-lab/environment-explainer";
 import { GuidedWalkthrough } from "@/components/hpc-lab/guided-walkthrough";
+import { InfoTooltip } from "@/components/hpc-lab/info-tooltip";
 import { ChartFrame } from "@/components/hpc-lab/charts/chart-frame";
 import { MultiSeriesLineChart } from "@/components/hpc-lab/charts/multi-series-line-chart";
 import { TopologyDiagram } from "@/components/hpc-lab/topology-diagram";
@@ -22,6 +23,7 @@ import {
 } from "@/lib/hpc-lab/form";
 import { simulateHpcLab } from "@/lib/hpc-lab/engine";
 import { analyzeRunBottlenecks } from "@/lib/hpc-lab/bottlenecks";
+import { getHpcLabConcept } from "@/lib/hpc-lab/concepts";
 import { getHpcLabPresetById, HPC_LAB_PRESETS } from "@/lib/hpc-lab/presets";
 import { buildGuidedWalkthrough } from "@/lib/hpc-lab/walkthrough";
 import {
@@ -86,6 +88,20 @@ const numericFieldMetadata: Array<{ field: HpcLabFormNumericField; label: string
 ];
 
 const formatTicks = (value: number) => formatDecimal(value, 2);
+
+const CONTROL_CONCEPTS: Partial<Record<HpcLabFormNumericField, Parameters<typeof getHpcLabConcept>[0]>> = {
+  computeNodes: "compute-nodes",
+  gpuNodes: "gpu-nodes",
+  ossCount: "oss-count",
+  ostPerOss: "ost-per-oss",
+  stripeWidth: "stripe-width",
+  metadataLatencyMs: "metadata-latency",
+  networkBandwidthGbps: "network-bandwidth",
+  checkpointFrequencyMinutes: "checkpoint-frequency",
+  concurrentJobs: "concurrent-jobs",
+  totalTicks: "simulation-duration",
+  tickDurationSeconds: "tick-duration",
+};
 
 export function HpcLabTool() {
   const initialPreset = HPC_LAB_PRESETS[0];
@@ -221,6 +237,51 @@ export function HpcLabTool() {
         </CardContent>
       </Card>
 
+      <Card className="border-border/70">
+        <CardHeader>
+          <CardTitle className="text-base">What environment this lab represents</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm text-foreground/75">
+          <p className="break-words">
+            <span className="inline-flex items-center gap-1">
+              <span className="font-medium text-foreground">Local scratch</span>
+              <InfoTooltip
+                label="Local scratch concept"
+                title={getHpcLabConcept("local-scratch").hoverTitle}
+                body={getHpcLabConcept("local-scratch").whyItMatters}
+              />
+            </span>{" "}
+            is per-node temporary space and not shared across compute nodes.
+          </p>
+          <p className="break-words">
+            <span className="inline-flex items-center gap-1">
+              <span className="font-medium text-foreground">Shared scratch / parallel filesystem</span>
+              <InfoTooltip
+                label="Shared scratch concept"
+                title={getHpcLabConcept("shared-scratch").hoverTitle}
+                body={`${getHpcLabConcept("shared-scratch").explanation} ${getHpcLabConcept("ddn-exascaler-managed-lustre").realWorldMapping}`}
+              />
+            </span>{" "}
+            is the cluster-visible active workspace modeled by this simulator.
+          </p>
+          <p className="break-words">
+            <span className="inline-flex items-center gap-1">
+              <span className="font-medium text-foreground">Home/lab/project storage</span>
+              <InfoTooltip
+                label="Long-lived storage concept"
+                title={getHpcLabConcept("long-lived-storage").hoverTitle}
+                body={getHpcLabConcept("long-lived-storage").whyItMatters}
+              />
+            </span>{" "}
+            is longer-lived and distinct from shared scratch behavior.
+          </p>
+          <p className="text-xs text-foreground/70">
+            Honesty note: this lab primarily models the shared filesystem path (metadata + striped data path + network), not a separate local-scratch
+            performance path.
+          </p>
+        </CardContent>
+      </Card>
+
       <EnvironmentExplainer bottleneckAttribution={bottleneckAttribution} />
 
       <div className="grid gap-6 xl:grid-cols-2">
@@ -238,7 +299,16 @@ export function HpcLabTool() {
                     </p>
                   ) : null}
                   <label htmlFor={`hpc-lab-${field}`} className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-                    {label}
+                    <span className="inline-flex items-center gap-1">
+                      <span>{label}</span>
+                      {CONTROL_CONCEPTS[field] ? (
+                        <InfoTooltip
+                          label={`${label} concept`}
+                          title={getHpcLabConcept(CONTROL_CONCEPTS[field]).hoverTitle}
+                          body={`${getHpcLabConcept(CONTROL_CONCEPTS[field]).explanation} ${getHpcLabConcept(CONTROL_CONCEPTS[field]).whyItMatters}`}
+                        />
+                      ) : null}
+                    </span>
                   </label>
                   <div className="flex items-center gap-2">
                     <input
@@ -322,6 +392,126 @@ export function HpcLabTool() {
         </Card>
 
         <div className="space-y-4">
+          {runResult ? (
+            <Card className="border-border/70">
+              <CardHeader>
+                <CardTitle className="text-base">Key interpretation metrics</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-2 text-sm sm:grid-cols-2">
+                <p>
+                  <span className="inline-flex items-center gap-1">
+                    <span>Wait on data</span>
+                    <InfoTooltip
+                      label="Wait on data explanation"
+                      title={getHpcLabConcept("wait-on-data").hoverTitle}
+                      body={`${getHpcLabConcept("wait-on-data").explanation} High means jobs spend more time blocked on shared-path delivery; lower is better for useful work.`}
+                    />
+                  </span>
+                  : <span className="font-medium text-foreground">{formatPercent(runResult.summary.avgWaitOnDataRatio)}</span>
+                </p>
+                <p>
+                  <span className="inline-flex items-center gap-1">
+                    <span>Metadata utilization</span>
+                    <InfoTooltip
+                      label="Metadata utilization explanation"
+                      title={getHpcLabConcept("metadata-utilization").hoverTitle}
+                      body={`${getHpcLabConcept("metadata-utilization").explanation} High sustained values point toward metadata-path stress.`}
+                    />
+                  </span>
+                  : <span className="font-medium text-foreground">{formatPercent(runResult.summary.avgMetadataUtilization)}</span>
+                </p>
+                {bottleneckAttribution ? (
+                  <>
+                    <p>
+                      <span className="inline-flex items-center gap-1">
+                        <span>Throughput fulfillment</span>
+                        <InfoTooltip
+                          label="Throughput fulfillment explanation"
+                          title={getHpcLabConcept("throughput-fulfillment").hoverTitle}
+                          body={`${getHpcLabConcept("throughput-fulfillment").explanation} Higher is healthier; low values point to shared data-path or network caps.`}
+                        />
+                      </span>
+                      :{" "}
+                      <span className="font-medium text-foreground">
+                        {formatPercent(bottleneckAttribution.derivedMetrics.throughputFulfillmentRatio)}
+                      </span>
+                    </p>
+                    <p>
+                      <span className="inline-flex items-center gap-1">
+                        <span>Queue burden</span>
+                        <InfoTooltip
+                          label="Queue burden explanation"
+                          title={getHpcLabConcept("queue-burden").hoverTitle}
+                          body={`${getHpcLabConcept("queue-burden").explanation} Higher means scheduler/compute admission is under heavier pressure.`}
+                        />
+                      </span>
+                      : <span className="font-medium text-foreground">{formatPercent(bottleneckAttribution.derivedMetrics.queueBurdenRatio)}</span>
+                    </p>
+                    <p>
+                      <span className="inline-flex items-center gap-1">
+                        <span>Checkpoint-active tick share</span>
+                        <InfoTooltip
+                          label="Checkpoint-active tick share explanation"
+                          title={getHpcLabConcept("checkpoint-active-tick-share").hoverTitle}
+                          body={`${getHpcLabConcept("checkpoint-active-tick-share").explanation} Higher values suggest more checkpoint cadence overhead in this run.`}
+                        />
+                      </span>
+                      :{" "}
+                      <span className="font-medium text-foreground">
+                        {formatPercent(bottleneckAttribution.derivedMetrics.checkpointActiveTickShare)}
+                      </span>
+                    </p>
+                    <p>
+                      <span className="inline-flex items-center gap-1">
+                        <span>Bottleneck transitions</span>
+                        <InfoTooltip
+                          label="Bottleneck transitions explanation"
+                          title={getHpcLabConcept("bottleneck-transitions").hoverTitle}
+                          body={`${getHpcLabConcept("bottleneck-transitions").explanation} More transitions mean contention is shifting between subsystems.`}
+                        />
+                      </span>
+                      :{" "}
+                      <span className="font-medium text-foreground">{bottleneckAttribution.derivedMetrics.bottleneckTransitionCount}</span>
+                    </p>
+                    <p>
+                      <span className="inline-flex items-center gap-1">
+                        <span>Longest dominant streak</span>
+                        <InfoTooltip
+                          label="Longest dominant streak explanation"
+                          title={getHpcLabConcept("longest-dominant-streak").hoverTitle}
+                          body={`${getHpcLabConcept("longest-dominant-streak").explanation} Longer streaks indicate a clearer single limiter.`}
+                        />
+                      </span>
+                      : <span className="font-medium text-foreground">{bottleneckAttribution.derivedMetrics.longestDominantStreak}</span>
+                    </p>
+                    <p>
+                      <span className="inline-flex items-center gap-1">
+                        <span>Bottleneck confidence</span>
+                        <InfoTooltip
+                          label="Bottleneck confidence explanation"
+                          title={getHpcLabConcept("bottleneck-confidence").hoverTitle}
+                          body={`${getHpcLabConcept("bottleneck-confidence").explanation} Higher confidence means one pressure class stayed more clearly dominant.`}
+                        />
+                      </span>
+                      : <span className="font-medium text-foreground">{bottleneckAttribution.confidence}</span>
+                    </p>
+                    <p>
+                      <span className="inline-flex items-center gap-1">
+                        <span>Dominant time share</span>
+                        <InfoTooltip
+                          label="Dominant time share explanation"
+                          title={getHpcLabConcept("dominant-time-share").hoverTitle}
+                          body={`${getHpcLabConcept("dominant-time-share").explanation} Higher share indicates a clearer subsystem to tune first.`}
+                        />
+                      </span>
+                      : <span className="font-medium text-foreground">{formatPercent(bottleneckAttribution.dominantTimeShare)}</span>
+                    </p>
+                  </>
+                ) : null}
+              </CardContent>
+            </Card>
+          ) : null}
+
           {runResult ? (
             <Card className="border-border/70">
               <CardHeader>

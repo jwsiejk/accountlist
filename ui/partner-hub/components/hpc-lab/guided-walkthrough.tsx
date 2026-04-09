@@ -1,3 +1,5 @@
+import { InfoTooltip } from "@/components/hpc-lab/info-tooltip";
+import { getHpcLabConcept } from "@/lib/hpc-lab/concepts";
 import type { HpcLabGuidedWalkthrough } from "@/lib/hpc-lab/types";
 import { formatCount, formatPercent } from "@/lib/hpc-lab/format";
 
@@ -14,6 +16,12 @@ const renderEvidenceValue = (value: number, format: "count" | "percent") => {
 };
 
 export function GuidedWalkthrough({ walkthrough, stale }: GuidedWalkthroughProps) {
+  const metadataPath = getHpcLabConcept("metadata-path");
+  const sharedFilesystem = getHpcLabConcept("shared-filesystem");
+  const localScratch = getHpcLabConcept("local-scratch");
+  const stripedDataPath = getHpcLabConcept("striped-data-path");
+  const computeClients = getHpcLabConcept("compute-clients");
+
   if (!walkthrough) {
     return <p className="text-sm text-foreground/70">Run a simulation to generate the guided walkthrough.</p>;
   }
@@ -46,6 +54,28 @@ export function GuidedWalkthrough({ walkthrough, stale }: GuidedWalkthroughProps
       <div className="space-y-1">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/60">Environment context</h3>
         <p className="text-sm text-foreground/80">{walkthrough.environmentContext}</p>
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-foreground/70">
+          <span className="inline-flex items-center gap-1">
+            <span>metadata path</span>
+            <InfoTooltip label="Metadata path concept" title={metadataPath.hoverTitle} body={metadataPath.explanation} />
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span>shared filesystem</span>
+            <InfoTooltip label="Shared filesystem concept" title={sharedFilesystem.hoverTitle} body={sharedFilesystem.explanation} />
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span>striped data path</span>
+            <InfoTooltip label="Striped data path concept" title={stripedDataPath.hoverTitle} body={stripedDataPath.explanation} />
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span>compute clients</span>
+            <InfoTooltip label="Compute clients concept" title={computeClients.hoverTitle} body={computeClients.explanation} />
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span>local scratch</span>
+            <InfoTooltip label="Local scratch concept" title={localScratch.hoverTitle} body={localScratch.whyItMatters} />
+          </span>
+        </p>
       </div>
 
       <div className="space-y-2">
