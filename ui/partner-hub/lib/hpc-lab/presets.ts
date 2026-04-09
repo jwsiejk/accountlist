@@ -27,6 +27,8 @@ export const HPC_LAB_PRESETS: readonly HpcLabPreset[] = [
       learningFocus: "Sequential throughput versus cluster-wide contention as concurrency rises.",
       keyKnobs: ["Stripe width", "OST count", "Network bandwidth", "Concurrent jobs"],
       expectedBehavior: "Usually highlights storage/network tradeoffs before metadata limits become central.",
+      environmentGuidance:
+        "Best for learning shared-scratch throughput and striping behavior; local node scratch exists in real clusters but is not a separate simulated path here.",
     },
   },
   {
@@ -54,6 +56,8 @@ export const HPC_LAB_PRESETS: readonly HpcLabPreset[] = [
       learningFocus: "Checkpoint bursts, GPU utilization sensitivity, and sustained throughput under pause pressure.",
       keyKnobs: ["Checkpoint frequency", "GPU nodes", "Network bandwidth", "Concurrent jobs"],
       expectedBehavior: "Shows pause-driven write bursts where data-path limits can reduce useful training progress.",
+      environmentGuidance:
+        "Teaches checkpoint bursts against shared storage and network; local scratch can help staging conceptually, but shared checkpoint writes are the modeled pressure path.",
     },
   },
   {
@@ -81,6 +85,8 @@ export const HPC_LAB_PRESETS: readonly HpcLabPreset[] = [
       learningFocus: "Metadata service limits under high small-file concurrency.",
       keyKnobs: ["Metadata latency", "Concurrent jobs", "File size distribution", "Compute nodes"],
       expectedBehavior: "Often increases metadata pressure and queueing when metadata service cannot keep up.",
+      environmentGuidance:
+        "Best for metadata-path pressure on the shared filesystem; this does not model home/lab/project storage as an independent metadata service path.",
     },
   },
 ] as const;

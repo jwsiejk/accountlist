@@ -28,6 +28,7 @@ test("metadata-bound run walkthrough explains metadata limits and proposes metad
   assert.equal(walkthrough.evidence.some((item) => item.metric === "metadata-service-ratio" && item.value === attribution.derivedMetrics.metadataServiceRatio), true);
   assert.equal(walkthrough.evidence.some((item) => item.metric === "avg-wait-on-data-ratio" && item.value === result.summary.avgWaitOnDataRatio), true);
   assert.equal(walkthrough.nextExperiments.some((item) => item.change.toLowerCase().includes("metadatalatencyms")), true);
+  assert.equal(walkthrough.environmentContext.toLowerCase().includes("shared"), true);
 });
 
 test("no-jobs-completed with partial progress is framed as informative, not total failure", () => {

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import { BarDistributionChart } from "@/components/hpc-lab/charts/bar-distribution-chart";
 import { BottleneckSummary } from "@/components/hpc-lab/bottleneck-summary";
+import { EnvironmentExplainer } from "@/components/hpc-lab/environment-explainer";
 import { GuidedWalkthrough } from "@/components/hpc-lab/guided-walkthrough";
 import { ChartFrame } from "@/components/hpc-lab/charts/chart-frame";
 import { MultiSeriesLineChart } from "@/components/hpc-lab/charts/multi-series-line-chart";
@@ -213,9 +214,14 @@ export function HpcLabTool() {
             <p className="mt-1 break-words">
               <span className="font-semibold text-foreground">Expected behavior:</span> {selectedPreset.learningGuidance.expectedBehavior}
             </p>
+            <p className="mt-1 break-words">
+              <span className="font-semibold text-foreground">Environment lens:</span> {selectedPreset.learningGuidance.environmentGuidance}
+            </p>
           </div>
         </CardContent>
       </Card>
+
+      <EnvironmentExplainer bottleneckAttribution={bottleneckAttribution} />
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Card className="border-border/70">

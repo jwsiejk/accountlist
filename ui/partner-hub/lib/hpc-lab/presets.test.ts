@@ -64,5 +64,6 @@ test("every preset includes non-empty learning guidance metadata", () => {
     assert.ok(preset.learningGuidance.expectedBehavior.trim().length > 0);
     assert.ok(preset.learningGuidance.keyKnobs.length > 0);
     assert.ok(preset.learningGuidance.keyKnobs.every((item) => item.trim().length > 0));
+    assert.ok(preset.learningGuidance.environmentGuidance.trim().length > 0);
   }
 });
