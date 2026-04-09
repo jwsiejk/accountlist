@@ -163,7 +163,7 @@ export function HpcLabTool() {
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">HPC / AI Infrastructure Learning Lab</h1>
         <p className="max-w-4xl text-sm text-foreground/70">
-          Phase 5 adds user-facing bottleneck attribution and derived metrics on top of the existing deterministic visualization layer.
+          Explore deterministic HPC/AI simulation outputs with run-level bottleneck attribution and supporting evidence charts.
         </p>
       </header>
 
@@ -484,10 +484,7 @@ export function HpcLabTool() {
                         bottleneckChart ? (
                           <div className="space-y-3">
                             <MultiSeriesLineChart model={bottleneckChart} />
-                            <p className="text-xs text-foreground/70">
-                              This raw signal chart is the primary evidence view. Phase 5 attribution summarizes these pressures at run level.
-                            </p>
-                            <BottleneckSummary attribution={bottleneckAttribution} stale={isRunResultStale} />
+                            <p className="text-xs text-foreground/70">This chart shows the raw pressure signals behind the run-level bottleneck summary.</p>
                           </div>
                         ) : null
                       }
