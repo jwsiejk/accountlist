@@ -19,7 +19,7 @@ export function ChartFrame({ title, showTitle = true, subtitle, stale = false, e
         {showTitle ? <h3 className="text-sm font-semibold text-foreground">{title}</h3> : null}
         {subtitle ? <p className="break-words text-xs text-foreground/65">{subtitle}</p> : null}
         {stale ? (
-          <p className="break-words text-xs text-amber-700" aria-live="polite">
+          <p className="break-words text-xs text-amber-700">
             Showing last run result (stale).
           </p>
         ) : null}

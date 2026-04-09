@@ -23,7 +23,7 @@ export function BottleneckSummary({ attribution, stale }: BottleneckSummaryProps
   return (
     <section className="space-y-3" aria-label="Run-level bottleneck summary">
       {stale ? (
-        <p className="rounded bg-amber-500/10 px-2 py-1 text-xs text-amber-700" aria-live="polite">
+        <p className="rounded bg-amber-500/10 px-2 py-1 text-xs text-amber-700">
           Attribution reflects the last run and is currently stale.
         </p>
       ) : null}

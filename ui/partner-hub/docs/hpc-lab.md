@@ -89,6 +89,7 @@ This guidance is directional and educational. It does not guarantee a fixed outc
 ## Phase 6 polish and hardening notes (implemented)
 - Removed residual phase-number language from end-user UI copy.
 - Improved accessibility for validation messaging, stale notices, and chart labeling/legend readability.
+- Centralized stale-run live announcements to the run summary and kept repeated stale badges in bottleneck/chart areas visual-only to reduce screen-reader announcement noise.
 - Hardened empty/minimal rendering paths for charts and helper outputs without synthetic fallback data.
 - Tightened responsive wrapping/overflow behavior for dense panels, guidance text, and long explanatory content.
 - Kept deterministic simulation and attribution contracts intact.
