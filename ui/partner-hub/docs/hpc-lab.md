@@ -6,10 +6,10 @@ The HPC Lab introduces a dedicated workspace for exploring how infrastructure co
 ## Route
 - `/hpc-lab`
 
-## Phase 4 scope
-Phase 4 keeps the Phase 3 controls workflow and adds topology + chart visualization models derived from deterministic simulation results under `lib/hpc-lab`.
+## Phase 5 scope
+Phase 5 keeps the Phase 3 controls workflow and Phase 4 visualization panels intact, then adds user-facing bottleneck attribution, derived run metrics, and stronger preset learning guidance.
 
-Included through Phase 4:
+Included through Phase 5:
 - Real local control state for infrastructure and workload parameters.
 - Preset-aware defaults for both infrastructure config and simulation options.
 - Explicit **Run simulation** and **Reset to preset defaults** actions.
@@ -17,8 +17,12 @@ Included through Phase 4:
 - Local execution via `simulateHpcLab(config, options)` and compact run summary rendering.
 - Last run summary remains visible after control edits but is clearly marked stale until the next run.
 - Simulation duration controls (`totalTicks`, `tickDurationSeconds`) exposed in the UI so users can extend run horizon without code edits.
+- Raw pressure-signal evidence chart for compute/storage/metadata/network constraint signals.
+- Deterministic run-level bottleneck attribution derived from raw per-tick pressure signals plus run metrics.
+- Derived run metrics: throughput fulfillment ratio, metadata service ratio, queue burden ratio, checkpoint-active tick share, transition count, and longest dominant streak.
+- Preset learning guidance (`learningFocus`, key knobs to watch, expected behavior tendencies).
 
-Preset simulation defaults now intentionally use longer horizons than the engine baseline for better out-of-the-box behavior exploration:
+Preset simulation defaults intentionally use longer horizons than the engine baseline for better out-of-the-box behavior exploration:
 - `classic-hpc`: 180 ticks
 - `ai-training`: 360 ticks (helps checkpoint effects appear naturally)
 - `small-file`: 240 ticks
@@ -34,9 +38,11 @@ When the flag is not set to `"true"`, `/hpc-lab` renders a disabled message card
 
 ## Current architecture
 - **`app/(routes)/hpc-lab/page.tsx`**: route-level feature gate and top-level rendering.
-- **`components/hpc-lab/hpc-lab-tool.tsx`**: client-side controls, preset switching, validation UX, and local run summary.
-- **`lib/hpc-lab/types.ts`**: stable type boundary for preset/config types plus simulation engine domain types.
-- **`lib/hpc-lab/presets.ts`**: centrally defined preset catalog and preset-aware simulation defaults.
+- **`components/hpc-lab/hpc-lab-tool.tsx`**: client-side controls, preset switching, validation UX, run summary, and Phase 5 attribution rendering.
+- **`components/hpc-lab/bottleneck-summary.tsx`**: presentational UI for run-level bottleneck explanation, confidence, suggestions, and derived metrics.
+- **`lib/hpc-lab/types.ts`**: stable type boundary for preset/config types, simulation domain types, and bottleneck analysis types.
+- **`lib/hpc-lab/presets.ts`**: centrally defined preset catalog, preset-aware simulation defaults, and learning guidance metadata.
+- **`lib/hpc-lab/bottlenecks.ts`**: pure deterministic bottleneck analysis built from simulation outputs.
 - **`lib/hpc-lab/form.ts`**: pure helpers for preset-to-form hydration, validation, parsing, reset behavior, and dirty comparison.
 - **`lib/hpc-lab/config.ts`**: config and option normalization / validation.
 - **`lib/hpc-lab/workloads.ts`**: deterministic workload plan generation.
@@ -61,15 +67,36 @@ When the flag is not set to `"true"`, `/hpc-lab` renders a disabled message card
 - `summary` (aggregated utilization and throughput metrics)
 - `assumptions` (documented model caveats)
 
+## Bottleneck meaning and attribution rules
+Phase 5 attribution uses raw `constraintSignals` as the primary source of truth per tick:
+- `computePressure`
+- `storagePressure`
+- `metadataPressure`
+- `networkPressure`
 
-## Phase 4 visualization additions
-- New pure visualization mapping helpers in `lib/hpc-lab/visualization.ts` transform `HpcLabSimulationResult` into deterministic render models.
-- Panel grid now renders real views when a run result exists: cluster topology, throughput over time, metadata load, average OST load distribution, job queue/active jobs, compute utilization, waiting on data, checkpoint pause impact, and raw bottleneck constraint signals.
-- Phase 4 chart models now keep unit systems separated per view: metadata ops remain on the metadata ops chart while metadata utilization is shown as separate panel stats, and checkpoint pause ratio remains on its own chart while checkpoint-active job counts are shown separately as panel stats.
-- Long timelines are deterministically downsampled for render responsiveness while preserving first/last ticks.
-- Stale run handling remains explicit; charts remain visible but marked as last-run output when controls changed after execution.
-- Bottleneck panel intentionally shows only raw pressure signals in Phase 4. User-facing dominant bottleneck attribution labeling remains deferred to Phase 5.
+Run-level labels are conservative and deterministic:
+- **compute-bound**: compute pressure is clearly dominant over other pressures for a substantial share of ticks.
+- **storage-bound**: storage pressure is clearly dominant.
+- **metadata-bound**: metadata pressure is clearly dominant.
+- **network-bound**: network pressure is clearly dominant.
+- **mixed**: no single pressure is consistently dominant (close competition or frequent transitions).
+- **balanced**: pressure signals remain broadly low, so no strong bottleneck is currently active.
 
-## What remains out of scope after Phase 4
-- Dominant user-facing bottleneck attribution labels (Phase 5).
+Derived metrics are based on observed run data only:
+- Throughput fulfillment ratio: delivered total throughput / requested total throughput.
+- Metadata service ratio: served metadata ops / requested metadata ops.
+- Queue burden ratio: fraction of ticks with queued jobs > 0.
+- Checkpoint-active tick share: fraction of ticks with checkpoint-active jobs > 0.
+- Bottleneck transition count: number of changes in per-tick dominant label.
+- Longest dominant streak: longest consecutive run of one per-tick label.
+
+## Preset learning guidance
+Each preset now includes human-readable teaching metadata:
+- **Learning focus**: what concept this preset is intended to teach.
+- **Key knobs / watch items**: controls and outputs to focus on while tuning.
+- **Expected behavior tendencies**: likely direction of pressure patterns, without guaranteeing a fixed outcome.
+
+## What remains out of scope after Phase 5
 - API routes, persistence, workers/background processing.
+- Chart-library replacement or control-flow redesign.
+- Phase 6 polish/hardening tasks (still not started).

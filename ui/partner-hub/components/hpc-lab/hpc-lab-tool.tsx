@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 
 import { BarDistributionChart } from "@/components/hpc-lab/charts/bar-distribution-chart";
+import { BottleneckSummary } from "@/components/hpc-lab/bottleneck-summary";
 import { ChartFrame } from "@/components/hpc-lab/charts/chart-frame";
 import { MultiSeriesLineChart } from "@/components/hpc-lab/charts/multi-series-line-chart";
 import { TopologyDiagram } from "@/components/hpc-lab/topology-diagram";
@@ -18,6 +19,7 @@ import {
   type HpcLabFormState,
 } from "@/lib/hpc-lab/form";
 import { simulateHpcLab } from "@/lib/hpc-lab/engine";
+import { analyzeRunBottlenecks } from "@/lib/hpc-lab/bottlenecks";
 import { getHpcLabPresetById, HPC_LAB_PRESETS } from "@/lib/hpc-lab/presets";
 import {
   buildCheckpointActiveJobsStats,
@@ -115,6 +117,7 @@ export function HpcLabTool() {
   const bottleneckChart = useMemo(() => (runResult ? buildConstraintSignalsChartModel(runResult) : null), [runResult]);
   const metadataUtilizationStats = useMemo(() => (runResult ? buildMetadataUtilizationStats(runResult) : null), [runResult]);
   const checkpointActiveJobsStats = useMemo(() => (runResult ? buildCheckpointActiveJobsStats(runResult) : null), [runResult]);
+  const bottleneckAttribution = useMemo(() => (runResult ? analyzeRunBottlenecks(runResult) : null), [runResult]);
 
   const onNumericChange = (field: HpcLabFormNumericField, value: string) => {
     setFormState((current) => ({ ...current, [field]: value }));
@@ -160,7 +163,7 @@ export function HpcLabTool() {
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">HPC / AI Infrastructure Learning Lab</h1>
         <p className="max-w-4xl text-sm text-foreground/70">
-          Phase 4 adds topology and chart-based visualization generated from deterministic simulation run output.
+          Phase 5 adds user-facing bottleneck attribution and derived metrics on top of the existing deterministic visualization layer.
         </p>
       </header>
 
@@ -194,6 +197,17 @@ export function HpcLabTool() {
             Active preset: <span className="font-medium text-foreground">{selectedPreset.name}</span>
             {isDirty ? <span className="ml-2 rounded bg-amber-500/10 px-2 py-0.5 text-xs text-amber-600">Modified</span> : null}
           </p>
+          <div className="rounded-md border border-border/70 bg-muted/30 px-3 py-2 text-xs text-foreground/80">
+            <p>
+              <span className="font-semibold text-foreground">Learning focus:</span> {selectedPreset.learningGuidance.learningFocus}
+            </p>
+            <p className="mt-1">
+              <span className="font-semibold text-foreground">What to watch:</span> {selectedPreset.learningGuidance.keyKnobs.join(", ")}
+            </p>
+            <p className="mt-1">
+              <span className="font-semibold text-foreground">Expected behavior:</span> {selectedPreset.learningGuidance.expectedBehavior}
+            </p>
+          </div>
         </CardContent>
       </Card>
 
@@ -317,6 +331,17 @@ export function HpcLabTool() {
                 <p className="sm:col-span-2 text-foreground/70">
                   Effective stripe width after normalization: <span className="font-medium text-foreground">{runResult.normalizedConfig.effectiveStripeWidth}</span>
                 </p>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {runResult ? (
+            <Card className="border-border/70">
+              <CardHeader>
+                <CardTitle className="text-base">Phase 5 bottleneck summary</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <BottleneckSummary attribution={bottleneckAttribution} stale={isRunResultStale} />
               </CardContent>
             </Card>
           ) : null}
@@ -455,7 +480,17 @@ export function HpcLabTool() {
                       stale={isRunResultStale}
                       emptyMessage="Run a simulation to view compute/storage/metadata/network pressure signals."
                       note={bottleneckChart ? `${chartNote(bottleneckChart.downsampled) ?? ""} ${bottleneckChart.subtitle ?? ""}`.trim() : undefined}
-                      children={bottleneckChart ? <MultiSeriesLineChart model={bottleneckChart} /> : null}
+                      children={
+                        bottleneckChart ? (
+                          <div className="space-y-3">
+                            <MultiSeriesLineChart model={bottleneckChart} />
+                            <p className="text-xs text-foreground/70">
+                              This raw signal chart is the primary evidence view. Phase 5 attribution summarizes these pressures at run level.
+                            </p>
+                            <BottleneckSummary attribution={bottleneckAttribution} stale={isRunResultStale} />
+                          </div>
+                        ) : null
+                      }
                     />
                   ) : null}
                 </CardContent>
