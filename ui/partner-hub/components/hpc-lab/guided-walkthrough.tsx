@@ -1,5 +1,4 @@
-import { InfoTooltip } from "@/components/hpc-lab/info-tooltip";
-import { getHpcLabConcept } from "@/lib/hpc-lab/concepts";
+import { ConceptHelp } from "@/components/hpc-lab/concept-help";
 import type { HpcLabGuidedWalkthrough } from "@/lib/hpc-lab/types";
 import { formatCount, formatPercent } from "@/lib/hpc-lab/format";
 
@@ -16,12 +15,6 @@ const renderEvidenceValue = (value: number, format: "count" | "percent") => {
 };
 
 export function GuidedWalkthrough({ walkthrough, stale }: GuidedWalkthroughProps) {
-  const metadataPath = getHpcLabConcept("metadata-path");
-  const sharedFilesystem = getHpcLabConcept("shared-filesystem");
-  const localScratch = getHpcLabConcept("local-scratch");
-  const stripedDataPath = getHpcLabConcept("striped-data-path");
-  const computeClients = getHpcLabConcept("compute-clients");
-
   if (!walkthrough) {
     return <p className="text-sm text-foreground/70">Run a simulation to generate the guided walkthrough.</p>;
   }
@@ -57,23 +50,23 @@ export function GuidedWalkthrough({ walkthrough, stale }: GuidedWalkthroughProps
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-foreground/70">
           <span className="inline-flex items-center gap-1">
             <span>metadata path</span>
-            <InfoTooltip label="Metadata path concept" title={metadataPath.hoverTitle} body={metadataPath.explanation} />
+            <ConceptHelp conceptId="metadata-path" label="Metadata path concept" />
           </span>
           <span className="inline-flex items-center gap-1">
             <span>shared filesystem</span>
-            <InfoTooltip label="Shared filesystem concept" title={sharedFilesystem.hoverTitle} body={sharedFilesystem.explanation} />
+            <ConceptHelp conceptId="shared-filesystem" label="Shared filesystem concept" />
           </span>
           <span className="inline-flex items-center gap-1">
             <span>striped data path</span>
-            <InfoTooltip label="Striped data path concept" title={stripedDataPath.hoverTitle} body={stripedDataPath.explanation} />
+            <ConceptHelp conceptId="striped-data-path" label="Striped data path concept" />
           </span>
           <span className="inline-flex items-center gap-1">
             <span>compute clients</span>
-            <InfoTooltip label="Compute clients concept" title={computeClients.hoverTitle} body={computeClients.explanation} />
+            <ConceptHelp conceptId="compute-clients" label="Compute clients concept" />
           </span>
           <span className="inline-flex items-center gap-1">
             <span>local scratch</span>
-            <InfoTooltip label="Local scratch concept" title={localScratch.hoverTitle} body={localScratch.whyItMatters} />
+            <ConceptHelp conceptId="local-scratch" label="Local scratch concept" />
           </span>
         </p>
       </div>

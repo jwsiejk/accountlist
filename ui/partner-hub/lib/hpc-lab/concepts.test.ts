@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { getHpcLabConcept, listHpcLabConcepts } from "./concepts";
+import { getHpcLabConcept, getHpcLabConceptHelpMode, listHpcLabConcepts } from "./concepts";
 import type { HpcLabConceptId } from "./types";
 
 const REQUIRED_CONCEPTS: HpcLabConceptId[] = [
@@ -52,4 +52,30 @@ test("concept helpers are deterministic and stable", () => {
   const metadataFirst = getHpcLabConcept("metadata-path");
   const metadataSecond = getHpcLabConcept("metadata-path");
   assert.deepEqual(metadataFirst, metadataSecond);
+
+  const modesFirst = first.map((concept) => [concept.id, getHpcLabConceptHelpMode(concept.id)] as const);
+  const modesSecond = second.map((concept) => [concept.id, getHpcLabConceptHelpMode(concept.id)] as const);
+  assert.deepEqual(modesFirst, modesSecond);
+});
+
+test("concepts with detailed explanations route to popover mode", () => {
+  const localScratch = getHpcLabConcept("local-scratch");
+  assert.ok(localScratch.detailedExplanation);
+  assert.equal(getHpcLabConceptHelpMode("local-scratch"), "popover");
+
+  const sharedFilesystem = getHpcLabConcept("shared-filesystem");
+  assert.ok(sharedFilesystem.detailedExplanation);
+  assert.equal(getHpcLabConceptHelpMode("shared-filesystem"), "popover");
+});
+
+test("compact concepts route to tooltip mode", () => {
+  const queueBurden = getHpcLabConcept("queue-burden");
+  assert.ok(queueBurden.shortHint);
+  assert.equal(queueBurden.detailedExplanation, undefined);
+  assert.equal(getHpcLabConceptHelpMode("queue-burden"), "tooltip");
+
+  const stripeWidth = getHpcLabConcept("stripe-width");
+  assert.ok(stripeWidth.shortHint);
+  assert.equal(stripeWidth.detailedExplanation, undefined);
+  assert.equal(getHpcLabConceptHelpMode("stripe-width"), "tooltip");
 });

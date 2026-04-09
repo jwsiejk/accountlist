@@ -30,11 +30,14 @@ When the flag is not set to `"true"`, `/hpc-lab` renders a disabled message card
 
 Preset switching, reset behavior, stale-result messaging, and deterministic chart downsampling are part of the intended workflow.
 
-## Contextual hover/focus explanations (teaching layer)
-HPC Lab includes contextual hover/focus explanations that map controls, topology labels, walkthrough terms, and key result metrics to real higher-ed HPC concepts.
+## Contextual help surfaces (teaching layer)
+HPC Lab includes contextual explanations that map controls, topology labels, walkthrough terms, and key result metrics to real higher-ed HPC concepts.
 
 - The teaching copy is centralized in a typed concept glossary (`lib/hpc-lab/concepts.ts`) so explanatory text stays out of JSX and remains testable.
-- Tooltip triggers support both pointer hover and keyboard focus.
+- The UI now uses two help patterns for readability in dense layouts:
+  - **Short tooltip (hover/focus):** compact one-sentence clarifications for concise controls/metrics (for example metadata latency, wait on data, queue burden, stripe width).
+  - **Explainer popover (click/keyboard activation):** longer architectural teaching content (for example higher-ed environment framing, local scratch vs shared scratch, Lustre/DDN concept mapping, and extended topology guidance).
+- Tooltip triggers support pointer hover + keyboard focus; explainer popovers support click/keyboard activation, Escape, and outside-click dismissal.
 - Explanations are directional and educational, not a claim of exact 1:1 platform parity.
 
 ### Storage-tier distinctions shown in the UI
