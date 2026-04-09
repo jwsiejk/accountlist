@@ -6,6 +6,57 @@ export type HpcLabFileSizeDistribution = "large-sequential" | "mixed" | "small-r
 
 export type HpcLabArchitectureMode = "hybrid-shared-cluster" | "converged-storage-services" | "dedicated-storage-layer";
 
+export type HpcLabConceptCategory = "control" | "topology" | "metric" | "architecture";
+
+export type HpcLabConceptId =
+  | "compute-nodes"
+  | "gpu-nodes"
+  | "oss-count"
+  | "ost-per-oss"
+  | "stripe-width"
+  | "metadata-latency"
+  | "network-bandwidth"
+  | "checkpoint-frequency"
+  | "concurrent-jobs"
+  | "simulation-duration"
+  | "tick-duration"
+  | "cpu-pool"
+  | "gpu-pool"
+  | "network-fabric"
+  | "mds-metadata"
+  | "oss-pool"
+  | "total-osts"
+  | "effective-stripe-width"
+  | "wait-on-data"
+  | "metadata-utilization"
+  | "throughput-fulfillment"
+  | "queue-burden"
+  | "checkpoint-active-tick-share"
+  | "bottleneck-transitions"
+  | "longest-dominant-streak"
+  | "bottleneck-confidence"
+  | "dominant-time-share"
+  | "shared-scratch"
+  | "local-scratch"
+  | "long-lived-storage"
+  | "metadata-path"
+  | "data-path"
+  | "striped-data-path"
+  | "shared-filesystem"
+  | "compute-clients"
+  | "ddn-exascaler-managed-lustre";
+
+export type HpcLabConcept = {
+  id: HpcLabConceptId;
+  category: HpcLabConceptCategory;
+  label: string;
+  hoverTitle: string;
+  explanation: string;
+  realWorldMapping: string;
+  whyItMatters: string;
+  modeledToday: boolean;
+};
+
 export type HpcLabStorageTier = {
   id: "node-local-scratch" | "shared-scratch" | "long-lived-storage" | "archive-storage";
   title: string;
