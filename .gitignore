@@ -1,23 +1,32 @@
-# dependencies
-node_modules/
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
 
-# Next.js
-.next/
-out/
+# dbt
+.dbt/
+target/
+logs/
+dbt_packages/
 
-# env
-.env.local
-.env.*.local
+# Docker
+*.pid
+docker-compose.override.yml
 
-# logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# Environment files
+.env
+.env.*
+!.env.example
 
-# OS
+# OS / editor clutter
 .DS_Store
 Thumbs.db
-
-**/__pycache__/
-*.pyc
-
+*.swp
+*.swo
+.vscode/
+.idea/
