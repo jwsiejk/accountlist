@@ -121,7 +121,7 @@ export default function DdnFsiWhiteboardPage() {
       <section className={styles.workspace} aria-label="DDN guided discovery flow">
         <aside className={styles.symptomRail}>
           <h2 className={styles.railTitle}>Customer symptom</h2>
-          <div className={styles.symptomList} role="listbox" aria-label="Select a customer symptom">
+          <div className={styles.symptomList} role="group" aria-label="Select a customer symptom">
             {SYMPTOM_ORDER.map((symptomKey) => {
               const symptom = SYMPTOM_FLOWS[symptomKey];
               const isSelected = selectedSymptom === symptomKey;
@@ -130,8 +130,7 @@ export default function DdnFsiWhiteboardPage() {
                 <button
                   key={symptomKey}
                   type="button"
-                  role="option"
-                  aria-selected={isSelected}
+                  aria-pressed={isSelected}
                   className={`${styles.symptomButton} ${isSelected ? styles.symptomButtonActive : ""}`}
                   onClick={() => setSelectedSymptom(symptomKey)}
                 >
@@ -142,24 +141,40 @@ export default function DdnFsiWhiteboardPage() {
           </div>
         </aside>
 
-        <section className={styles.flowArea}>
-          <div className={styles.flowCards}>
-            {FLOW_STAGE_ORDER.map((stage) => (
-              <article key={stage.key} className={styles.flowCard}>
-                <h3>{stage.label}</h3>
-                <p>{selectedFlow.stages[stage.key]}</p>
-              </article>
-            ))}
-          </div>
+        <section className={styles.flowArea} aria-live="polite">
+          <h2 className={styles.selectedSymptomHeading}>Selected symptom: “{selectedFlow.label}”</h2>
 
-          <aside className={styles.validationBox}>
-            <h2>Validate before positioning DDN</h2>
-            <ul>
-              <li>What metric proves or disproves the constraint?</li>
-              <li>Who owns the delayed workflow?</li>
-              <li>What changes if the delay is removed?</li>
-            </ul>
-          </aside>
+          <div className={styles.flowAndValidation}>
+            <ol className={styles.timeline}>
+              {FLOW_STAGE_ORDER.map((stage, index) => {
+                const isBestQuestion = stage.key === "bestNextQuestion";
+                const isHypothesis = stage.key === "ddnHypothesis";
+
+                return (
+                  <li key={stage.key} className={styles.timelineItem}>
+                    <article
+                      className={`${styles.flowCard} ${isBestQuestion ? styles.bestNextQuestionCard : ""} ${isHypothesis ? styles.hypothesisCard : ""}`}
+                    >
+                      <div className={styles.cardHeader}>
+                        <span className={styles.stepNumber}>{index + 1}</span>
+                        <h3>{stage.label}</h3>
+                      </div>
+                      <p>{selectedFlow.stages[stage.key]}</p>
+                    </article>
+                  </li>
+                );
+              })}
+            </ol>
+
+            <aside className={styles.validationBox}>
+              <h2>Validate before positioning DDN</h2>
+              <ul>
+                <li>What metric proves or disproves the constraint?</li>
+                <li>Who owns the delayed workflow?</li>
+                <li>What changes if the delay is removed?</li>
+              </ul>
+            </aside>
+          </div>
         </section>
       </section>
 
