@@ -15,14 +15,16 @@
 }
 
 .kicker,
-.structureNote,
 .loomHint,
 .callout,
 .ddnFitLabel,
 .stickyLabel,
 .stageBadge,
 .dataAccessCallout,
-.talkTrackTitle {
+.symptomLabel,
+.panelTitle,
+.stageTitle,
+.diagnosisCard h3 {
   font-family: "Comic Sans MS", "Bradley Hand", "Segoe Print", cursive;
 }
 
@@ -41,25 +43,117 @@
 
 .subtitle {
   margin: 0;
-  max-width: 68ch;
+  max-width: 75ch;
   font-size: 1rem;
   color: #344054;
 }
 
-.structureNote {
-  margin-top: 0.6rem;
-  font-size: 1.05rem;
-}
-
 .loomHint {
-  margin-top: 0.25rem;
+  margin-top: 0.4rem;
   font-size: 1rem;
   color: #334155;
   font-weight: 700;
 }
 
-.tabSection {
+.diagnosisSection {
   margin-top: 1rem;
+  border: 2px solid #8d99aa;
+  border-radius: 16px;
+  background: #fffffff0;
+  padding: 0.8rem;
+  box-shadow: 0 6px 12px rgba(15, 23, 42, 0.08);
+}
+
+.diagnosisHeader {
+  margin-bottom: 0.55rem;
+}
+
+.panelTitle {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.diagnosisSubtitle {
+  margin: 0.2rem 0 0;
+  font-size: 0.94rem;
+  color: #334155;
+}
+
+.symptomGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(130px, 1fr));
+  gap: 0.55rem;
+}
+
+.symptomCard {
+  border: 2px solid #8f7f4d;
+  border-radius: 12px;
+  background: #fff4af;
+  padding: 0.55rem;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.symptomCard:hover {
+  transform: translateY(-1px);
+}
+
+.symptomCard:focus-visible {
+  outline: 3px solid #1d4ed8;
+  outline-offset: 2px;
+}
+
+.symptomCardSelected {
+  border-color: #1d4ed8;
+  box-shadow: 0 0 0 2px rgba(29, 78, 216, 0.2);
+  background: #ffef88;
+}
+
+.symptomLabel {
+  display: block;
+  font-size: 0.92rem;
+  color: #302613;
+}
+
+.symptomWorkload {
+  margin-top: 0.35rem;
+  display: inline-block;
+  font-size: 0.78rem;
+  color: #5c4d20;
+  border-top: 1px dashed rgba(92, 77, 32, 0.4);
+  padding-top: 0.22rem;
+}
+
+.diagnosisPanel {
+  margin-top: 0.65rem;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(140px, 1fr));
+  gap: 0.55rem;
+}
+
+.diagnosisCard {
+  border: 2px solid #8d99aa;
+  border-radius: 12px;
+  background: #fffdf4;
+  padding: 0.58rem;
+  min-height: 118px;
+}
+
+.diagnosisCard h3 {
+  margin: 0;
+  font-size: 0.89rem;
+  color: #1e3a8a;
+}
+
+.diagnosisCard p {
+  margin: 0.35rem 0 0;
+  font-size: 0.84rem;
+  line-height: 1.33;
+}
+
+.tabSection {
+  margin-top: 0.8rem;
   display: flex;
   flex-wrap: wrap;
   gap: 0.7rem;
@@ -108,7 +202,7 @@
 }
 
 .pipelineSection {
-  margin-top: 1rem;
+  margin-top: 0.9rem;
   display: grid;
   grid-template-columns: repeat(6, minmax(140px, 1fr));
   gap: 0.55rem;
@@ -166,7 +260,6 @@
 .stageTitle {
   margin: 0;
   font-size: 0.95rem;
-  font-family: "Comic Sans MS", "Bradley Hand", "Segoe Print", cursive;
 }
 
 .stageList {
@@ -228,7 +321,7 @@
 }
 
 .bottomGrid {
-  margin-top: 0.95rem;
+  margin-top: 0.85rem;
   display: grid;
   grid-template-columns: minmax(320px, 1.4fr) minmax(260px, 1fr);
   gap: 0.8rem;
@@ -242,23 +335,12 @@
   padding: 0.8rem;
 }
 
-.panelTitle {
-  margin: 0;
-  font-size: 1.05rem;
-  font-family: "Comic Sans MS", "Bradley Hand", "Segoe Print", cursive;
-}
-
 .conversationMode ol,
 .conversationMode ul {
   margin: 0.45rem 0 0;
   padding-left: 1.2rem;
   font-size: 0.94rem;
   line-height: 1.45;
-}
-
-.talkTrackTitle {
-  margin: 0.55rem 0 0;
-  font-size: 1rem;
 }
 
 .stickyNote {
@@ -314,6 +396,14 @@
 }
 
 @media (max-width: 1200px) {
+  .symptomGrid {
+    grid-template-columns: repeat(3, minmax(140px, 1fr));
+  }
+
+  .diagnosisPanel {
+    grid-template-columns: repeat(3, minmax(150px, 1fr));
+  }
+
   .pipelineSection {
     grid-template-columns: repeat(3, minmax(170px, 1fr));
   }
@@ -329,6 +419,8 @@
 }
 
 @media (max-width: 800px) {
+  .symptomGrid,
+  .diagnosisPanel,
   .pipelineSection {
     grid-template-columns: 1fr;
   }
