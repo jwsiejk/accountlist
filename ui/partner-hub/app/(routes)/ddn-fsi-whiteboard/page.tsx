@@ -26,7 +26,7 @@ type SymptomContent = {
 const STAGE_ORDER: Array<{ key: StageKey; label: string; step: number }> = [
   { key: "dataSources", label: "Data Sources", step: 1 },
   { key: "ingest", label: "Ingest", step: 2 },
-  { key: "dataAccessLayer", label: "Data Access", step: 3 },
+  { key: "dataAccessLayer", label: "Constraint", step: 3 },
   { key: "compute", label: "Compute", step: 4 },
   { key: "workloads", label: "Workloads", step: 5 },
   { key: "businessOutcomes", label: "Outcomes", step: 6 },
