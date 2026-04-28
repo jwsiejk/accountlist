@@ -170,19 +170,12 @@ export default function DdnFsiWhiteboardPage() {
 
       <section className={styles.bottomGrid}>
         <article className={styles.conversationMode}>
-          <h2 className={styles.panelTitle}>Customer conversation mode</h2>
-          <ol>
-            <li>Start with the business workload</li>
-            <li>Map the pipeline</li>
-            <li>Find the constraint</li>
-            <li>Tie DDN to measurable impact</li>
-          </ol>
-          <h3 className={styles.talkTrackTitle}>2-minute talk track</h3>
+          <h2 className={styles.panelTitle}>Customer conversation flow</h2>
           <ul>
             <li>Start with the business workload</li>
             <li>Map the data flow</li>
             <li>Find where data access slows the pipeline</li>
-            <li>Connect DDN to the measurable outcome</li>
+            <li>Connect DDN to a measurable outcome</li>
           </ul>
         </article>
 
