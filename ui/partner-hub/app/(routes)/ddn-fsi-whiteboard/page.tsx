@@ -13,13 +13,13 @@ type WorkloadContent = {
   ddnFit: string;
 };
 
-const STAGE_ORDER: Array<{ key: StageKey; label: string }> = [
-  { key: "dataSources", label: "Data Sources" },
-  { key: "ingest", label: "Ingest" },
-  { key: "dataAccessLayer", label: "Data Access Layer" },
-  { key: "compute", label: "Compute" },
-  { key: "workloads", label: "Workloads" },
-  { key: "businessOutcomes", label: "Business Outcomes" },
+const STAGE_ORDER: Array<{ key: StageKey; label: string; step: number }> = [
+  { key: "dataSources", label: "Data Sources", step: 1 },
+  { key: "ingest", label: "Ingest", step: 2 },
+  { key: "dataAccessLayer", label: "Data Access", step: 3 },
+  { key: "compute", label: "Compute", step: 4 },
+  { key: "workloads", label: "Workloads", step: 5 },
+  { key: "businessOutcomes", label: "Outcomes", step: 6 },
 ];
 
 const WORKLOADS: Record<WorkloadKey, WorkloadContent> = {
@@ -95,9 +95,7 @@ export default function DdnFsiWhiteboardPage() {
           impact.
         </p>
         <p className={styles.structureNote}>The structure stays consistent. The pressure points change by workload.</p>
-        <p className={styles.loomHint}>
-          Use this view to walk left-to-right, then switch workloads to show how the pressure point changes.
-        </p>
+        <p className={styles.loomHint}>Walk left-to-right. Identify the constraint. Tie it to an outcome.</p>
       </section>
 
       <section className={styles.tabSection} aria-label="Workload selector">
@@ -139,20 +137,32 @@ export default function DdnFsiWhiteboardPage() {
               <article
                 className={`${styles.stageCard} ${isDataAccess ? styles.dataAccessCard : ""} ${isBusinessOutcome ? styles.outcomeCard : ""}`}
               >
-                <h2 className={styles.stageTitle}>{stage.label}</h2>
+                <div className={styles.stageHeader}>
+                  <span className={styles.stageBadge} aria-hidden="true">
+                    {stage.step}
+                  </span>
+                  <h2 className={styles.stageTitle}>{stage.label}</h2>
+                </div>
                 <ul className={styles.stageList}>
                   {workload.stages[stage.key].map((item) => (
                     <li key={item}>{item}</li>
                   ))}
                 </ul>
                 {isDataAccess ? (
-                  <div className={styles.ddnFitPanel}>
-                    <p className={styles.ddnFitLabel}>DDN fit: remove the data bottleneck</p>
-                    <p className={styles.ddnFitCopy}>{workload.ddnFit}</p>
-                  </div>
+                  <>
+                    <p className={styles.dataAccessCallout}>This is usually where DDN enters the conversation.</p>
+                    <div className={styles.ddnFitPanel}>
+                      <p className={styles.ddnFitLabel}>DDN fit: remove the data bottleneck</p>
+                      <p className={styles.ddnFitCopy}>{workload.ddnFit}</p>
+                    </div>
+                  </>
                 ) : null}
               </article>
-              {index < STAGE_ORDER.length - 1 ? <span className={styles.arrow} aria-hidden="true">→</span> : null}
+              {index < STAGE_ORDER.length - 1 ? (
+                <span className={styles.arrow} aria-hidden="true">
+                  →
+                </span>
+              ) : null}
             </div>
           );
         })}
@@ -167,9 +177,16 @@ export default function DdnFsiWhiteboardPage() {
             <li>Find the constraint</li>
             <li>Tie DDN to measurable impact</li>
           </ol>
+          <h3 className={styles.talkTrackTitle}>2-minute talk track</h3>
+          <ul>
+            <li>Start with the business workload</li>
+            <li>Map the data flow</li>
+            <li>Find where data access slows the pipeline</li>
+            <li>Connect DDN to the measurable outcome</li>
+          </ul>
         </article>
 
-        <aside className={styles.stickyNote}>
+        <aside key={selectedWorkload} className={styles.stickyNote}>
           <p className={styles.stickyLabel}>Discovery question:</p>
           <p className={styles.stickyText}>“{workload.discoveryQuestion}”</p>
           <p className={styles.stickyWorkload}>{workload.label}</p>
