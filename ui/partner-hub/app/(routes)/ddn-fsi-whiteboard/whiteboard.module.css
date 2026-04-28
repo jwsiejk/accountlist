@@ -1,0 +1,285 @@
+.page {
+  min-height: 100vh;
+  padding: clamp(1.25rem, 2vw, 2.5rem);
+  background:
+    radial-gradient(circle at 10% 10%, rgba(255, 255, 255, 0.8), transparent 40%),
+    radial-gradient(circle at 90% 20%, rgba(255, 252, 235, 0.6), transparent 35%),
+    repeating-linear-gradient(0deg, rgba(50, 50, 50, 0.03), rgba(50, 50, 50, 0.03) 1px, transparent 1px, transparent 22px),
+    #f8f5ea;
+  color: #1f2937;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.headerSection {
+  max-width: 1000px;
+}
+
+.kicker,
+.structureNote,
+.loomHint,
+.callout,
+.ddnFitLabel,
+.stickyLabel {
+  font-family: "Comic Sans MS", "Bradley Hand", "Segoe Print", cursive;
+}
+
+.kicker {
+  margin: 0;
+  color: #3d4b60;
+  font-size: 1rem;
+}
+
+.title {
+  margin: 0.35rem 0;
+  font-size: clamp(2rem, 3vw, 2.8rem);
+  line-height: 1.1;
+  font-family: "Comic Sans MS", "Bradley Hand", "Segoe Print", cursive;
+}
+
+.subtitle {
+  margin: 0;
+  max-width: 72ch;
+  font-size: 1.1rem;
+  color: #344054;
+}
+
+.structureNote {
+  margin-top: 0.85rem;
+  font-size: 1.15rem;
+}
+
+.loomHint {
+  margin-top: 0.5rem;
+  font-size: 1rem;
+  color: #4a5565;
+}
+
+.tabSection {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  align-items: center;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.tabButton,
+.resetButton {
+  border: 2px solid #7f8da6;
+  border-radius: 999px;
+  padding: 0.55rem 1rem;
+  background: #fff;
+  font-size: 0.98rem;
+  cursor: pointer;
+  transition: transform 120ms ease, background-color 120ms ease;
+}
+
+.tabButton:hover,
+.resetButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: #f7fbff;
+}
+
+.tabButton:focus-visible,
+.resetButton:focus-visible {
+  outline: 3px solid #1d4ed8;
+  outline-offset: 2px;
+}
+
+.tabButtonActive {
+  background: #dceafe;
+  border-color: #1d4ed8;
+  box-shadow: 0 0 0 2px rgba(29, 78, 216, 0.2);
+}
+
+.resetButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pipelineSection {
+  margin-top: 1.35rem;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(180px, 1fr));
+  gap: 0.75rem;
+  align-items: start;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+}
+
+.stageWithArrow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.stageCard {
+  position: relative;
+  width: 100%;
+  min-height: 270px;
+  border-radius: 18px;
+  border: 2px solid #8d99aa;
+  background: #ffffffee;
+  padding: 0.85rem;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+}
+
+.stageCard::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 1px dashed rgba(71, 85, 105, 0.28);
+  border-radius: 14px;
+  pointer-events: none;
+}
+
+.stageTitle {
+  margin: 0;
+  font-size: 1.02rem;
+  font-family: "Comic Sans MS", "Bradley Hand", "Segoe Print", cursive;
+}
+
+.stageList {
+  margin: 0.65rem 0 0;
+  padding-left: 1.15rem;
+  font-size: 0.94rem;
+  line-height: 1.45;
+}
+
+.arrow {
+  font-size: 1.4rem;
+  color: #55637a;
+  font-family: "Comic Sans MS", "Bradley Hand", "Segoe Print", cursive;
+}
+
+.dataAccessCard {
+  border-width: 3px;
+  border-color: #1d4ed8;
+  background: linear-gradient(165deg, #f6f9ff 0%, #ffffff 70%);
+  box-shadow: 0 10px 20px rgba(29, 78, 216, 0.2);
+}
+
+.ddnFitPanel {
+  margin-top: 0.65rem;
+  border: 1px solid #1d4ed8;
+  border-radius: 12px;
+  padding: 0.55rem;
+  background: #eaf1ff;
+}
+
+.ddnFitLabel {
+  margin: 0;
+  color: #12357e;
+  font-weight: 700;
+}
+
+.ddnFitCopy {
+  margin: 0.45rem 0 0;
+  font-size: 0.88rem;
+  color: #1e293b;
+}
+
+.outcomeCard {
+  background: linear-gradient(165deg, #f8fff8 0%, #ffffff 78%);
+  border-color: #4d8b58;
+}
+
+.bottomGrid {
+  margin-top: 1.35rem;
+  display: grid;
+  grid-template-columns: minmax(270px, 1fr) minmax(270px, 1fr);
+  gap: 0.95rem;
+}
+
+.conversationMode,
+.stickyNote {
+  border-radius: 18px;
+  border: 2px solid #7f8da6;
+  background: #ffffffea;
+  padding: 1rem;
+}
+
+.panelTitle {
+  margin: 0;
+  font-size: 1.2rem;
+  font-family: "Comic Sans MS", "Bradley Hand", "Segoe Print", cursive;
+}
+
+.conversationMode ol {
+  margin: 0.7rem 0 0;
+  padding-left: 1.3rem;
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.stickyNote {
+  background: #fff4af;
+  border-color: #876f11;
+  transform: rotate(-1deg);
+}
+
+.stickyLabel {
+  margin: 0;
+  font-weight: 700;
+  color: #4c3f0a;
+}
+
+.stickyText {
+  margin: 0.5rem 0 0;
+  font-size: 1.2rem;
+  line-height: 1.4;
+  color: #312607;
+}
+
+.stickyWorkload {
+  margin: 0.65rem 0 0;
+  font-size: 0.95rem;
+  color: #4c3f0a;
+}
+
+.calloutRow {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.callout {
+  border-radius: 999px;
+  border: 2px dashed #7f8da6;
+  background: #ffffffc7;
+  padding: 0.3rem 0.85rem;
+  font-size: 1rem;
+}
+
+@media (max-width: 1200px) {
+  .pipelineSection {
+    grid-template-columns: 1fr;
+  }
+
+  .stageWithArrow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .arrow {
+    align-self: center;
+    transform: rotate(90deg);
+  }
+
+  .stageCard {
+    min-height: auto;
+  }
+}
+
+@media (max-width: 800px) {
+  .bottomGrid {
+    grid-template-columns: 1fr;
+  }
+}
