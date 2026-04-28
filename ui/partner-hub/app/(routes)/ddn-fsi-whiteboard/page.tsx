@@ -5,12 +5,22 @@ import styles from "./whiteboard.module.css";
 
 type WorkloadKey = "quantResearch" | "riskModeling" | "fraudDetection" | "aiGenAI";
 type StageKey = "dataSources" | "ingest" | "dataAccessLayer" | "compute" | "workloads" | "businessOutcomes";
+type SymptomKey = "backtests" | "riskRuns" | "gpuUnderutilized" | "fraudDelayed" | "aiPilotsStuck";
 
 type WorkloadContent = {
   label: string;
   stages: Record<StageKey, string[]>;
   discoveryQuestion: string;
   ddnFit: string;
+};
+
+type SymptomContent = {
+  label: string;
+  workload: WorkloadKey;
+  constraint: string;
+  businessOutcome: string;
+  nextQuestion: string;
+  ddnHypothesis: string;
 };
 
 const STAGE_ORDER: Array<{ key: StageKey; label: string; step: number }> = [
@@ -79,23 +89,136 @@ const WORKLOADS: Record<WorkloadKey, WorkloadContent> = {
   },
 };
 
+const SYMPTOMS: Record<SymptomKey, SymptomContent> = {
+  backtests: {
+    label: "Backtests take too long",
+    workload: "quantResearch",
+    constraint: "High-concurrency reads against shared historical and alternative datasets.",
+    businessOutcome: "Shorter research cycles, faster strategy iteration, and improved time-to-alpha.",
+    nextQuestion: "Where do jobs queue today — compute, scheduler, network, or data access?",
+    ddnHypothesis: "Validate whether parallel data access is limiting research throughput.",
+  },
+  riskRuns: {
+    label: "Risk runs are still overnight",
+    workload: "riskModeling",
+    constraint: "Simulation throughput and batch-window pressure as model complexity and data volumes grow.",
+    businessOutcome: "Move toward intraday risk visibility and faster decision windows.",
+    nextQuestion: "Which step owns the batch window — data prep, model execution, or result aggregation?",
+    ddnHypothesis: "Validate whether throughput and data wait time are extending the risk cycle.",
+  },
+  gpuUnderutilized: {
+    label: "GPUs are underutilized",
+    workload: "aiGenAI",
+    constraint: "Data feeding, checkpointing, or dataset reuse is limiting expensive compute.",
+    businessOutcome: "Higher GPU ROI, faster time-to-model, and better use of AI infrastructure spend.",
+    nextQuestion: "What does GPU utilization look like during training, and when does it drop?",
+    ddnHypothesis: "Validate whether the data pipeline is starving GPUs or slowing checkpoint/restart cycles.",
+  },
+  fraudDelayed: {
+    label: "Fraud response is delayed",
+    workload: "fraudDetection",
+    constraint: "Real-time scoring needs fast access to both streaming events and historical feature context.",
+    businessOutcome: "Reduced loss exposure, faster fraud response, and improved detection accuracy.",
+    nextQuestion: "What is the cost of delayed detection, and where does latency enter the flow?",
+    ddnHypothesis: "Validate whether real-time and historical data access are slowing detection workflows.",
+  },
+  aiPilotsStuck: {
+    label: "AI pilots are stuck",
+    workload: "aiGenAI",
+    constraint: "Data preparation, retrieval, checkpointing, and dataset reuse are not production-ready.",
+    businessOutcome: "Move AI initiatives from pilot to production faster with better infrastructure leverage.",
+    nextQuestion: "Where are pilots slowing down — data prep, training, retrieval, governance, or inference?",
+    ddnHypothesis: "Validate whether the AI data pipeline can support repeatable production workloads.",
+  },
+};
+
+const SYMPTOM_ORDER: SymptomKey[] = ["backtests", "riskRuns", "gpuUnderutilized", "fraudDelayed", "aiPilotsStuck"];
+
 const CALL_OUTS = ["Where does it slow down?", "Is compute waiting on data?", "What outcome matters?"];
+
+const DIAGNOSIS_COLUMNS: Array<{ title: string; getCopy: (symptom: SymptomContent) => string }> = [
+  { title: "Customer symptom", getCopy: (symptom) => symptom.label },
+  { title: "Likely constraint", getCopy: (symptom) => symptom.constraint },
+  { title: "Business outcome", getCopy: (symptom) => symptom.businessOutcome },
+  { title: "Best next question", getCopy: (symptom) => symptom.nextQuestion },
+  { title: "DDN hypothesis", getCopy: (symptom) => symptom.ddnHypothesis },
+];
 
 export default function DdnFsiWhiteboardPage() {
   const [selectedWorkload, setSelectedWorkload] = useState<WorkloadKey>("quantResearch");
+  const [selectedSymptom, setSelectedSymptom] = useState<SymptomKey>("backtests");
+
   const workload = useMemo(() => WORKLOADS[selectedWorkload], [selectedWorkload]);
+  const symptom = useMemo(() => SYMPTOMS[selectedSymptom], [selectedSymptom]);
+
+  const setWorkloadWithSymptomAlignment = (nextWorkload: WorkloadKey) => {
+    const currentSymptom = SYMPTOMS[selectedSymptom];
+    const keepCurrent = currentSymptom.workload === nextWorkload;
+
+    if (!keepCurrent) {
+      const firstMatching = SYMPTOM_ORDER.find((symptomKey) => SYMPTOMS[symptomKey].workload === nextWorkload);
+      if (firstMatching) {
+        setSelectedSymptom(firstMatching);
+      }
+    }
+
+    setSelectedWorkload(nextWorkload);
+  };
+
+  const setSymptomAndWorkload = (symptomKey: SymptomKey) => {
+    const nextSymptom = SYMPTOMS[symptomKey];
+    setSelectedSymptom(symptomKey);
+    setSelectedWorkload(nextSymptom.workload);
+  };
 
   return (
     <main className={styles.page}>
       <section className={styles.headerSection}>
         <p className={styles.kicker}>DDN FSI conversation whiteboard</p>
-        <h1 className={styles.title}>DDN FSI Pipeline Whiteboard</h1>
+        <h1 className={styles.title}>DDN FSI Deal Qualifier</h1>
         <p className={styles.subtitle}>
-          A simple way to identify where financial services data pipelines break — and where DDN creates measurable
-          impact.
+          A whiteboard-style way to turn customer symptoms into workload constraints, business outcomes, discovery
+          questions, and measurable next steps.
         </p>
-        <p className={styles.structureNote}>The structure stays consistent. The pressure points change by workload.</p>
-        <p className={styles.loomHint}>Walk left-to-right. Identify the constraint. Tie it to an outcome.</p>
+        <p className={styles.loomHint}>Start with the symptom. Diagnose the constraint. Quantify the outcome.</p>
+      </section>
+
+      <section className={styles.diagnosisSection} aria-label="Symptom-driven qualification">
+        <div className={styles.diagnosisHeader}>
+          <h2 className={styles.panelTitle}>Start with what the customer says</h2>
+          <p className={styles.diagnosisSubtitle}>
+            Translate the symptom into a constraint, business outcome, discovery question, and DDN hypothesis.
+          </p>
+        </div>
+
+        <div className={styles.symptomGrid}>
+          {SYMPTOM_ORDER.map((symptomKey) => {
+            const item = SYMPTOMS[symptomKey];
+            const isSelected = selectedSymptom === symptomKey;
+
+            return (
+              <button
+                key={symptomKey}
+                type="button"
+                className={`${styles.symptomCard} ${isSelected ? styles.symptomCardSelected : ""}`}
+                onClick={() => setSymptomAndWorkload(symptomKey)}
+                aria-pressed={isSelected}
+              >
+                <span className={styles.symptomLabel}>“{item.label}”</span>
+                <span className={styles.symptomWorkload}>{WORKLOADS[item.workload].label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className={styles.diagnosisPanel}>
+          {DIAGNOSIS_COLUMNS.map((column) => (
+            <article key={column.title} className={styles.diagnosisCard}>
+              <h3>{column.title}</h3>
+              <p>{column.getCopy(symptom)}</p>
+            </article>
+          ))}
+        </div>
       </section>
 
       <section className={styles.tabSection} aria-label="Workload selector">
@@ -110,7 +233,7 @@ export default function DdnFsiWhiteboardPage() {
                 role="tab"
                 aria-selected={isSelected}
                 className={`${styles.tabButton} ${isSelected ? styles.tabButtonActive : ""}`}
-                onClick={() => setSelectedWorkload(workloadKey)}
+                onClick={() => setWorkloadWithSymptomAlignment(workloadKey)}
               >
                 {WORKLOADS[workloadKey].label}
               </button>
@@ -120,8 +243,11 @@ export default function DdnFsiWhiteboardPage() {
         <button
           type="button"
           className={styles.resetButton}
-          onClick={() => setSelectedWorkload("quantResearch")}
-          disabled={selectedWorkload === "quantResearch"}
+          onClick={() => {
+            setSelectedSymptom("backtests");
+            setSelectedWorkload("quantResearch");
+          }}
+          disabled={selectedWorkload === "quantResearch" && selectedSymptom === "backtests"}
         >
           Reset to Quant Research
         </button>
@@ -150,9 +276,9 @@ export default function DdnFsiWhiteboardPage() {
                 </ul>
                 {isDataAccess ? (
                   <>
-                    <p className={styles.dataAccessCallout}>This is usually where DDN enters the conversation.</p>
+                    <p className={styles.dataAccessCallout}>Validate this before pitching architecture.</p>
                     <div className={styles.ddnFitPanel}>
-                      <p className={styles.ddnFitLabel}>DDN fit: remove the data bottleneck</p>
+                      <p className={styles.ddnFitLabel}>DDN hypothesis: data access may be limiting the workload</p>
                       <p className={styles.ddnFitCopy}>{workload.ddnFit}</p>
                     </div>
                   </>
@@ -172,10 +298,10 @@ export default function DdnFsiWhiteboardPage() {
         <article className={styles.conversationMode}>
           <h2 className={styles.panelTitle}>Customer conversation flow</h2>
           <ul>
-            <li>Start with the business workload</li>
-            <li>Map the data flow</li>
-            <li>Find where data access slows the pipeline</li>
-            <li>Connect DDN to a measurable outcome</li>
+            <li>Start with the customer symptom</li>
+            <li>Identify the workload behind it</li>
+            <li>Diagnose the likely constraint</li>
+            <li>Quantify the business impact</li>
           </ul>
         </article>
 
