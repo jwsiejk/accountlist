@@ -19,6 +19,11 @@ const sections = [
     href: "/job-hunter/applications",
   },
   {
+    title: "Conversations",
+    description: "Review outreach drafts, follow-ups, replies, and missing targets.",
+    href: "/job-hunter/conversations",
+  },
+  {
     title: "Resume",
     description: "Edit resume profile data used for minimal-delta tailoring output.",
     href: "/job-hunter/resume",
@@ -48,7 +53,7 @@ export default function JobHunterPage() {
         </ol>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
         {sections.map((section) => (
           <Link key={section.href} href={section.href}>
             <Card className="h-full hover:border-primary/40 hover:bg-muted/30">
