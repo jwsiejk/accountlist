@@ -40,4 +40,16 @@ describe("conversations engine", () => {
     assert.equal(actions.staleSentNoReply.length, 1);
     assert.equal(actions.rolesNeedingTargets.length, 1);
   });
+
+  it("does not mark roles as needing targets when company differs only by case/whitespace", () => {
+    const now = new Date("2026-01-12T00:00:00.000Z");
+    const { targets } = buildConversationBriefForJob(job, undefined, undefined, now);
+    const actions = getTodaysConversationActions({
+      today: now,
+      sequences: [],
+      targets: [{ ...targets[0], company: " acme " }],
+      jobs: [job],
+    });
+    assert.equal(actions.rolesNeedingTargets.length, 0);
+  });
 });

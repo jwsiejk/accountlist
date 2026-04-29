@@ -48,16 +48,17 @@ describe("conversation automation", () => {
     assert.equal(store.conversationBriefs.length, 1);
   });
 
-  it("uses existing company targets and avoids placeholder targets when available", () => {
+  it("uses existing company targets with case-insensitive trimmed company matching", () => {
     const job = makeJob("job-1", "Solutions Architect", "cloud distributed systems", "Acme");
     const existingTarget: ConversationTarget = {
-      id: "acme:employee-1", company: "Acme", name: "Pat Engineer", relationshipType: "employee", source: "manual", confidence: 95,
+      id: "acme:employee-1", company: " acme ", name: "Pat Engineer", relationshipType: "employee", source: "manual", confidence: 95,
       createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z",
     };
     const { assets, summary } = generateConversationAssetsForJobs({ store: baseStore([job], [existingTarget]), now: new Date("2026-01-02T00:00:00.000Z"), minimumScore: 60, topMatchesLimit: 5 });
 
     assert.equal(summary.generatedTargets, 0);
     assert.equal(Object.values(assets.targetsById).length, 0);
+    assert.equal(Object.values(assets.targetsById).some((target) => target.id.includes("auto-")), false);
     assert.equal(Object.values(assets.sequencesById).every((s) => s.contactId === existingTarget.id), true);
   });
 
