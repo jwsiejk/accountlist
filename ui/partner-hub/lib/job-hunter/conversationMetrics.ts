@@ -79,7 +79,14 @@ export const calculateConversationExecutionMetrics = (params: {
 
     if (repliedAt && isWithinWindow(repliedAt, today, window)) metrics.replies += 1;
 
-    if (sequence.status === "skipped") metrics.skipped += 1;
+    if (sequence.status === "skipped") {
+      if (window === "allTime") {
+        metrics.skipped += 1;
+      } else {
+        const updatedAt = parseDate(sequence.updatedAt);
+        if (updatedAt && isWithinWindow(updatedAt, today, window)) metrics.skipped += 1;
+      }
+    }
     if (sequence.status === "replied") metrics.activeConversations += 1;
 
     if (sequence.status === "sent" && !sequence.repliedAt) {
