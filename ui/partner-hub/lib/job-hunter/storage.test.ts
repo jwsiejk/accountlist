@@ -169,6 +169,12 @@ describe("job hunter storage", () => {
       },
       selectedJobIds: [],
       sources: [],
+      conversationTargets: [],
+      conversationTargetsById: {},
+      conversationBriefs: [],
+      conversationBriefsById: {},
+      outreachSequences: [],
+      outreachSequencesById: {},
     });
 
     const loaded = loadJobHunterStore();
@@ -209,6 +215,12 @@ describe("job hunter storage", () => {
       applicationsById: {},
       selectedJobIds: ["job-1"],
       sources: [{ company: "Acme", boardType: "greenhouse", boardToken: "acme" }],
+      conversationTargets: [],
+      conversationTargetsById: {},
+      conversationBriefs: [],
+      conversationBriefsById: {},
+      outreachSequences: [],
+      outreachSequencesById: {},
       resumeProfile: {
         fullName: "James Wang",
         email: "james@example.com",
@@ -256,6 +268,12 @@ describe("job hunter storage", () => {
       applicationsById: {},
       selectedJobIds: [],
       sources: [],
+      conversationTargets: [],
+      conversationTargetsById: {},
+      conversationBriefs: [],
+      conversationBriefsById: {},
+      outreachSequences: [],
+      outreachSequencesById: {},
       automation: {
         autoSyncOnJobsOpen: false,
         autoSyncIfOlderThanHours: 300,
@@ -437,7 +455,6 @@ describe("job hunter storage", () => {
       "That source already exists.",
     );
   });
-});
 
 
   it("hydrates legacy conversation array into conversationsById", () => {
@@ -478,4 +495,4 @@ describe("job hunter storage", () => {
       writable: true,
     });
   });
-
+});

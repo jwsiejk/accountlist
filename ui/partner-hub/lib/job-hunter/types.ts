@@ -131,7 +131,6 @@ export type TailoredResumeVariant = {
   plainText: string;
 };
 
-
 export type JobWorkArrangement = "remote" | "hybrid" | "onsite" | "unknown";
 
 export type JobHunterPreferences = {
@@ -155,34 +154,63 @@ export type JobHunterAutomationSettings = {
   topMatchesLimit: number;
 };
 
+export type RelationshipType = "recruiter" | "hiring_manager" | "peer" | "referral_contact";
+export type OutreachChannel = "linkedin" | "email";
+export type OutreachStage = "intro" | "follow_up_1" | "follow_up_2";
+export type OutreachStatus = "draft" | "sent" | "replied";
 
-export type JobHunterConversationType = "initial_outreach" | "follow_up" | "post_interview_thanks";
-
-export type JobHunterConversationMessageRole = "user" | "assistant" | "contact";
-
-export type JobHunterConversationMessage = {
-  id: string;
-  role: JobHunterConversationMessageRole;
-  body: string;
-  createdAt: string;
-};
-
-export type JobHunterConversationThread = {
+export type ConversationTarget = {
   id: string;
   jobId: string;
-  type: JobHunterConversationType;
-  title?: string;
-  messages: JobHunterConversationMessage[];
+  company: string;
+  fullName?: string;
+  roleTitle?: string;
+  relationship: RelationshipType;
+  linkedinUrl?: string;
+  email?: string;
+  confidence: number;
+  notes?: string;
   createdAt: string;
   updatedAt: string;
 };
 
-export type JobHunterConversationDraft = {
-  type: JobHunterConversationType;
-  subject: string;
-  body: string;
+export type ConversationBrief = {
+  id: string;
+  jobId: string;
+  company: string;
+  reasonToPursue: string;
+  hiringPriorities: string[];
+  painPoints: string[];
+  candidateFit: string[];
+  riskAreas: string[];
+  messageAngle: string;
+  targetIds: string[];
   createdAt: string;
+  updatedAt: string;
 };
+
+export type OutreachSequence = {
+  id: string;
+  jobId: string;
+  targetId: string;
+  briefId: string;
+  stage: OutreachStage;
+  status: OutreachStatus;
+  channel: OutreachChannel;
+  scheduledFor: string;
+  sentAt?: string;
+  repliedAt?: string;
+  subject: string;
+  message: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type JobHunterConversationType = "initial_outreach" | "follow_up" | "post_interview_thanks";
+export type JobHunterConversationMessageRole = "user" | "assistant" | "contact";
+export type JobHunterConversationMessage = { id: string; role: JobHunterConversationMessageRole; body: string; createdAt: string };
+export type JobHunterConversationThread = { id: string; jobId: string; type: JobHunterConversationType; title?: string; messages: JobHunterConversationMessage[]; createdAt: string; updatedAt: string };
+export type JobHunterConversationDraft = { type: JobHunterConversationType; subject: string; body: string; createdAt: string };
 
 export type JobHunterStore = {
   jobs: JobPosting[];
@@ -197,4 +225,10 @@ export type JobHunterStore = {
   automation?: JobHunterAutomationSettings;
   conversations?: JobHunterConversationThread[];
   conversationsById?: Record<string, JobHunterConversationThread>;
+  conversationTargets: ConversationTarget[];
+  conversationTargetsById: Record<string, ConversationTarget>;
+  conversationBriefs: ConversationBrief[];
+  conversationBriefsById: Record<string, ConversationBrief>;
+  outreachSequences: OutreachSequence[];
+  outreachSequencesById: Record<string, OutreachSequence>;
 };
