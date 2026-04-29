@@ -24,8 +24,9 @@ const logicalOutreachKey = (sequence: OutreachSequence) => `${sequence.jobId}:${
 const buildPlaceholderTargets = (job: JobPosting, now: Date): ConversationTarget[] => {
   const createdAt = now.toISOString();
   return [
-    { id: `${job.id}:auto-recruiter`, company: job.company, name: `${job.company} Recruiter`, relationshipType: "recruiter", source: "manual", confidence: 60, createdAt, updatedAt: createdAt },
-    { id: `${job.id}:auto-hiring-manager`, company: job.company, name: `${job.company} Hiring Manager`, relationshipType: "hiring_manager", source: "manual", confidence: 55, createdAt, updatedAt: createdAt },
+    { id: `${job.id}:auto-recruiter-needed`, company: job.company, name: "Recruiter target needed", relationshipType: "recruiter", source: "manual", confidence: 60, notes: "Add name, title, LinkedIn URL, email, and notes before outreach.", createdAt, updatedAt: createdAt },
+    { id: `${job.id}:auto-hiring-manager-needed`, company: job.company, name: "Hiring manager target needed", relationshipType: "hiring_manager", source: "manual", confidence: 55, notes: "Add name, title, LinkedIn URL, email, and notes before outreach.", createdAt, updatedAt: createdAt },
+    { id: `${job.id}:auto-employee-referral-needed`, company: job.company, name: "Employee/referral target needed", relationshipType: "employee", source: "manual", confidence: 50, notes: "Add name, title, LinkedIn URL, email, and notes before outreach.", createdAt, updatedAt: createdAt },
   ];
 };
 
