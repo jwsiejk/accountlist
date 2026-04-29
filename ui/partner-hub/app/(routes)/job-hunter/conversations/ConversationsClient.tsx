@@ -7,11 +7,13 @@ import { buildConversationTarget, createTargetDraft, isTargetDraftValid, type Ta
 import { applySequenceMessageEdit, getDraftedOutreach, getFollowUpsDue, markSequenceSent, skipSequence, snoozeSequence } from "@/lib/job-hunter/conversationUi";
 import { generateConversationDraftsFromTopJobs, type ConversationAutomationSummary } from "@/lib/job-hunter/conversationAutomation";
 import { buildDailyConversationActions } from "@/lib/job-hunter/conversationActions";
+import { calculateConversationDailyProgress, calculateConversationExecutionMetrics, getDefaultConversationDailyQuota } from "@/lib/job-hunter/conversationMetrics";
 import { loadJobHunterStore, saveJobHunterStore } from "@/lib/job-hunter/storage";
 
 import { ActiveConversationsSection, DraftedOutreachSection, FollowUpsDueSection } from "./components/ConversationSections";
 import { TargetDraftCard } from "./components/TargetDraftCard";
 import { DailyActionPlan } from "./components/DailyActionPlan";
+import { ConversationMetricsPanel } from "./components/ConversationMetricsPanel";
 
 export default function ConversationsClient() {
   const [store, setStore] = useState(() => loadJobHunterStore());
@@ -24,6 +26,9 @@ export default function ConversationsClient() {
   const drafted = useMemo(() => getDraftedOutreach(store.outreachSequences ?? []), [store.outreachSequences]);
   const followUpsDue = useMemo(() => getFollowUpsDue(store.outreachSequences ?? [], now), [now, store.outreachSequences]);
   const dailyActions = useMemo(() => buildDailyConversationActions({ jobsById: store.jobsById, targetsById: store.conversationTargetsById, actions, maxActions: 10 }), [actions, store.conversationTargetsById, store.jobsById]);
+  const dailyQuota = useMemo(() => getDefaultConversationDailyQuota(), []);
+  const executionMetrics = useMemo(() => calculateConversationExecutionMetrics({ now, sequences: store.outreachSequences ?? [] }), [now, store.outreachSequences]);
+  const progressPercent = useMemo(() => calculateConversationDailyProgress({ metrics: executionMetrics, quota: dailyQuota }), [dailyQuota, executionMetrics]);
 
   const persist = (nextStore: ReturnType<typeof loadJobHunterStore>) => {
     setStore(nextStore);
@@ -67,6 +72,8 @@ export default function ConversationsClient() {
 
   return <main className="mx-auto max-w-5xl space-y-6 p-6">
     <header className="space-y-2"><h1 className="text-2xl font-semibold">Conversations</h1><p className="text-sm text-foreground/70">Review drafts, follow-ups, and active replies without auto-sending.</p></header>
+
+    <ConversationMetricsPanel metrics={executionMetrics} quota={dailyQuota} progressPercent={progressPercent} />
 
     <DailyActionPlan dailyActions={dailyActions} draftEdits={draftEdits} setDraftEdits={setDraftEdits} store={store} onActionMarkSent={onActionMarkSent} onActionSkip={onActionSkip} />
 
