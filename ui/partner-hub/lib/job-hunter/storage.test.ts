@@ -495,4 +495,31 @@ describe("job hunter storage", () => {
       writable: true,
     });
   });
+
+
+  it("migrates legacy conversation fields", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(JOB_HUNTER_STORAGE_KEY, JSON.stringify({
+      jobsById: {}, jobs: [], applications: [], applicationsById: {},
+      conversationTargetsById: {
+        t1: { id: "t1", company: "Acme", fullName: "Jane Doe", roleTitle: "Recruiter", linkedinUrl: "https://x", relationship: "peer", confidence: 50, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" }
+      },
+      conversationBriefsById: {
+        b1: { id: "b1", jobId: "j1", company: "Acme", reasonToPursue: "x", hiringPriorities: ["a"], painPoints: ["b"], candidateFit: [], riskAreas: [], messageAngle: "m", targetIds: ["t1"], createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" }
+      },
+      outreachSequencesById: {
+        o1: { id: "o1", jobId: "j1", targetId: "t1", stage: "intro", channel: "email", message: "hi", status: "queued", scheduledFor: "2026-01-03T00:00:00.000Z", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" }
+      }
+    }));
+    const previousWindow = globalThis.window;
+    Object.defineProperty(globalThis, "window", { value: { localStorage: storage }, configurable: true, writable: true });
+    const loaded = loadJobHunterStore();
+    assert.equal(loaded.conversationTargetsById.t1.name, "Jane Doe");
+    assert.equal(loaded.conversationTargetsById.t1.relationshipType, "employee");
+    assert.equal(loaded.conversationBriefsById.b1.likelyHiringPriorities[0], "a");
+    assert.equal(loaded.outreachSequencesById.o1.contactId, "t1");
+    assert.equal(loaded.outreachSequencesById.o1.dueAt, "2026-01-03T00:00:00.000Z");
+    Object.defineProperty(globalThis, "window", { value: previousWindow, configurable: true, writable: true });
+  });
+
 });
