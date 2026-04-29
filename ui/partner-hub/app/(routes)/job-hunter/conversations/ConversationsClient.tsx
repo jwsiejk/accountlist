@@ -27,8 +27,8 @@ export default function ConversationsClient() {
   const followUpsDue = useMemo(() => getFollowUpsDue(store.outreachSequences ?? [], now), [now, store.outreachSequences]);
   const dailyActions = useMemo(() => buildDailyConversationActions({ jobsById: store.jobsById, targetsById: store.conversationTargetsById, actions, maxActions: 10 }), [actions, store.conversationTargetsById, store.jobsById]);
   const dailyQuota = useMemo(() => getDefaultConversationDailyQuota(), []);
-  const executionMetrics = useMemo(() => calculateConversationExecutionMetrics({ now, sequences: store.outreachSequences ?? [] }), [now, store.outreachSequences]);
-  const progressPercent = useMemo(() => calculateConversationDailyProgress({ metrics: executionMetrics, quota: dailyQuota }), [dailyQuota, executionMetrics]);
+  const executionMetrics = useMemo(() => calculateConversationExecutionMetrics({ today: now, window: "today", sequences: store.outreachSequences ?? [] }), [now, store.outreachSequences]);
+  const dailyProgress = useMemo(() => calculateConversationDailyProgress({ metrics: executionMetrics, quota: dailyQuota }), [dailyQuota, executionMetrics]);
 
   const persist = (nextStore: ReturnType<typeof loadJobHunterStore>) => {
     setStore(nextStore);
@@ -73,7 +73,7 @@ export default function ConversationsClient() {
   return <main className="mx-auto max-w-5xl space-y-6 p-6">
     <header className="space-y-2"><h1 className="text-2xl font-semibold">Conversations</h1><p className="text-sm text-foreground/70">Review drafts, follow-ups, and active replies without auto-sending.</p></header>
 
-    <ConversationMetricsPanel metrics={executionMetrics} quota={dailyQuota} progressPercent={progressPercent} />
+    <ConversationMetricsPanel metrics={executionMetrics} progress={dailyProgress} />
 
     <DailyActionPlan dailyActions={dailyActions} draftEdits={draftEdits} setDraftEdits={setDraftEdits} store={store} onActionMarkSent={onActionMarkSent} onActionSkip={onActionSkip} />
 
