@@ -11,6 +11,7 @@ import { loadJobHunterStore, saveJobHunterStore } from "@/lib/job-hunter/storage
 
 import { ActiveConversationsSection, DraftedOutreachSection, FollowUpsDueSection } from "./components/ConversationSections";
 import { TargetDraftCard } from "./components/TargetDraftCard";
+import { DailyActionPlan } from "./components/DailyActionPlan";
 
 export default function ConversationsClient() {
   const [store, setStore] = useState(() => loadJobHunterStore());
@@ -67,26 +68,7 @@ export default function ConversationsClient() {
   return <main className="mx-auto max-w-5xl space-y-6 p-6">
     <header className="space-y-2"><h1 className="text-2xl font-semibold">Conversations</h1><p className="text-sm text-foreground/70">Review drafts, follow-ups, and active replies without auto-sending.</p></header>
 
-    <section className="space-y-3 rounded-lg border border-border/60 p-4 text-sm">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Today's Action Plan</h2>
-        <p className="text-xs text-foreground/70">Top {dailyActions.length} prioritized actions</p>
-      </div>
-      {dailyActions.length === 0 ? <p className="text-sm text-foreground/70">No immediate actions today.</p> : <div className="space-y-2">{dailyActions.map((action) => <article key={action.id} className="rounded border border-border/40 p-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm font-medium">P{action.priority} · {action.actionType.replaceAll("_", " ")}</p>
-          <div className="flex flex-wrap gap-2 text-xs">
-            {action.supportedActions.includes("edit") && action.sequenceId ? <button type="button" onClick={() => setDraftEdits((prev) => ({ ...prev, [action.sequenceId as string]: draftEdits[action.sequenceId as string] ?? (store.outreachSequencesById[action.sequenceId as string]?.editedMessage ?? store.outreachSequencesById[action.sequenceId as string]?.generatedMessage ?? "") }))} className="rounded border border-border px-2 py-1">edit</button> : null}
-            {action.supportedActions.includes("copy") ? <button type="button" onClick={() => void navigator.clipboard?.writeText(action.messagePreview ?? "")} className="rounded border border-border px-2 py-1">copy</button> : null}
-            {action.supportedActions.includes("mark_sent") ? <button type="button" onClick={() => onActionMarkSent(action.sequenceId)} className="rounded border border-border px-2 py-1">mark sent</button> : null}
-            {action.supportedActions.includes("skip") ? <button type="button" onClick={() => onActionSkip(action.sequenceId)} className="rounded border border-border px-2 py-1">skip</button> : null}
-          </div>
-        </div>
-        <p className="text-xs text-foreground/70">{[action.company, action.role, action.contact].filter(Boolean).join(" · ") || "General"}</p>
-        {action.messagePreview ? <p className="mt-1 line-clamp-2 text-xs">{action.messagePreview}</p> : null}
-        {action.guide === "roles_needing_targets" ? <a href="#roles-needing-targets" className="mt-1 inline-block text-xs underline">Go to Roles Needing Targets</a> : null}
-      </article>)}</div>}
-    </section>
+    <DailyActionPlan dailyActions={dailyActions} draftEdits={draftEdits} setDraftEdits={setDraftEdits} store={store} onActionMarkSent={onActionMarkSent} onActionSkip={onActionSkip} />
 
     <section className="space-y-3 rounded-lg border border-border/60 p-4 text-sm"><div className="flex flex-wrap items-center justify-between gap-3"><p className="text-foreground/80">Generate conversation briefs and drafts from top-scoring roles.</p><button type="button" onClick={onGenerateDrafts} className="rounded border border-border px-3 py-1.5 font-medium hover:bg-accent">Generate conversation drafts</button></div>{generationSummary ? <p className="text-xs text-foreground/70">Processed {generationSummary.consideredJobs} jobs with {generationSummary.eligibleJobs} eligible top matches; generated {generationSummary.generatedBriefs} briefs, {generationSummary.generatedTargets} targets, and {generationSummary.generatedOutreachDrafts} outreach drafts; skipped {generationSummary.skippedDuplicates} duplicates.</p> : null}<div className="grid gap-3 md:grid-cols-5">{[["Drafts to review", actions.draftsToReview.length], ["Follow-ups due", actions.followUpsDue.length], ["Stale sent no reply", actions.staleSentNoReply.length], ["Active replies", actions.activeReplies.length], ["Roles needing targets", actions.rolesNeedingTargets.length]].map(([label, count]) => <article key={String(label)} className="rounded border border-border/40 p-3"><p className="text-xs text-foreground/70">{label}</p><p className="text-2xl font-semibold">{count}</p></article>)}</div></section>
 
