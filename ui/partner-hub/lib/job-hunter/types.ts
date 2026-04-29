@@ -210,6 +210,22 @@ export type OutreachSequence = {
   updatedAt: string;
 };
 
+
+export type ConversationDailyActionType = "send_follow_up" | "review_reply" | "send_draft" | "add_target" | "review_stale_sent";
+export type ConversationDailyActionPriority = "high" | "medium" | "low";
+
+export type ConversationDailyAction = {
+  id: string;
+  type: ConversationDailyActionType;
+  priority: ConversationDailyActionPriority;
+  label: string;
+  description: string;
+  company?: string;
+  roleTitle?: string;
+  contactName?: string;
+  dueAt?: string;
+};
+
 export type JobHunterConversationType = "initial_outreach" | "follow_up" | "post_interview_thanks";
 export type JobHunterConversationMessageRole = "user" | "assistant" | "contact";
 export type JobHunterConversationMessage = { id: string; role: JobHunterConversationMessageRole; body: string; createdAt: string };
