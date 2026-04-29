@@ -2,7 +2,7 @@ import { DEFAULT_APPLY_CHECKLIST, DEFAULT_GUIDED_APPLY_WORKFLOW, getApplicationC
 import { DEFAULT_AUTOMATION_SETTINGS, normalizeAutomationSettings } from "./discoveryAutomation";
 import { getDefaultPreferences, normalizePreferences } from "./preferences";
 import { normalizeResumeProfile } from "./resumeProfile";
-import type { Application, ApplyChecklist, BoardType, ConversationBrief, ConversationTarget, GuidedApplyWorkflow, JobHunterConversationThread, JobHunterStore, JobSourceConfig, OutreachSequence } from "./types";
+import type { Application, ApplyChecklist, BoardType, ConversationBrief, ConversationOutcome, ConversationTarget, GuidedApplyWorkflow, JobHunterConversationThread, JobHunterStore, JobSourceConfig, OutreachSequence } from "./types";
 
 export const JOB_HUNTER_STORAGE_KEY = "partner-hub:job-hunter:v1";
 
@@ -23,6 +23,8 @@ const DEFAULT_STORE: JobHunterStore = {
   conversationBriefsById: {},
   outreachSequences: [],
   outreachSequencesById: {},
+  conversationOutcomes: [],
+  conversationOutcomesById: {},
 };
 
 const BOARD_TYPES: BoardType[] = ["greenhouse", "lever", "ashby", "smartrecruiters"];
@@ -126,6 +128,21 @@ const normalizeOutreachSequence = (value: OutreachSequence | any): OutreachSeque
   status: value.status === "sent" || value.status === "replied" || value.status === "draft" || value.status === "queued" || value.status === "skipped" ? value.status : "draft",
 });
 
+const normalizeConversationOutcome = (value: ConversationOutcome | any): ConversationOutcome => ({
+  ...value,
+  type:
+    value.type === "reply_received" ||
+    value.type === "conversation_started" ||
+    value.type === "referral_received" ||
+    value.type === "recruiter_screen" ||
+    value.type === "interview_scheduled" ||
+    value.type === "rejected" ||
+    value.type === "offer_received" ||
+    value.type === "closed_no_response"
+      ? value.type
+      : "conversation_started",
+});
+
 
 const toConversationTargetsById = (targets: ConversationTarget[]) =>
   targets.reduce<Record<string, ConversationTarget>>((acc, target) => {
@@ -142,6 +159,11 @@ const toConversationBriefsById = (briefs: ConversationBrief[]) =>
 const toOutreachSequencesById = (sequences: OutreachSequence[]) =>
   sequences.reduce<Record<string, OutreachSequence>>((acc, sequence) => {
     acc[sequence.id] = normalizeOutreachSequence(sequence);
+    return acc;
+  }, {});
+const toConversationOutcomesById = (outcomes: ConversationOutcome[]) =>
+  outcomes.reduce<Record<string, ConversationOutcome>>((acc, outcome) => {
+    acc[outcome.id] = normalizeConversationOutcome(outcome);
     return acc;
   }, {});
 
@@ -269,6 +291,18 @@ export const loadJobHunterStore = (): JobHunterStore => {
       return acc;
     }, {});
     const outreachSequences = Object.values(outreachSequencesById);
+    const outcomesFromArray = Array.isArray(parsed.conversationOutcomes)
+      ? parsed.conversationOutcomes.filter((item): item is ConversationOutcome => Boolean(item && item.id && item.sequenceId && item.jobId)).map(normalizeConversationOutcome)
+      : [];
+    const rawOutcomesById =
+      parsed.conversationOutcomesById && typeof parsed.conversationOutcomesById === "object" && !Array.isArray(parsed.conversationOutcomesById)
+        ? parsed.conversationOutcomesById
+        : toConversationOutcomesById(outcomesFromArray);
+    const conversationOutcomesById = Object.entries(rawOutcomesById).reduce<Record<string, ConversationOutcome>>((acc, [id, outcome]) => {
+      acc[id] = normalizeConversationOutcome({ ...outcome, id });
+      return acc;
+    }, {});
+    const conversationOutcomes = Object.values(conversationOutcomesById);
 
     return {
       jobs,
@@ -289,6 +323,8 @@ export const loadJobHunterStore = (): JobHunterStore => {
       conversationBriefsById,
       outreachSequences,
       outreachSequencesById,
+      conversationOutcomes,
+      conversationOutcomesById,
     };
   } catch {
     return DEFAULT_STORE;
@@ -328,6 +364,10 @@ export const saveJobHunterStore = (store: JobHunterStore) => {
     acc[id] = normalizeOutreachSequence({ ...sequence, id });
     return acc;
   }, {});
+  const conversationOutcomesById = Object.entries(store.conversationOutcomesById ?? {}).reduce<Record<string, ConversationOutcome>>((acc, [id, outcome]) => {
+    acc[id] = normalizeConversationOutcome({ ...outcome, id });
+    return acc;
+  }, {});
 
   window.localStorage.setItem(
     JOB_HUNTER_STORAGE_KEY,
@@ -346,6 +386,8 @@ export const saveJobHunterStore = (store: JobHunterStore) => {
       conversationBriefs: Object.values(conversationBriefsById),
       outreachSequencesById,
       outreachSequences: Object.values(outreachSequencesById),
+      conversationOutcomesById,
+      conversationOutcomes: Object.values(conversationOutcomesById),
     }),
   );
 };

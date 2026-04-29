@@ -7,10 +7,11 @@ import { buildConversationTarget, createTargetDraft, isTargetDraftValid, type Ta
 import { applySequenceMessageEdit, getDraftedOutreach, getFollowUpsDue, markSequenceSent, skipSequence, snoozeSequence } from "@/lib/job-hunter/conversationUi";
 import { generateConversationDraftsFromTopJobs, type ConversationAutomationSummary } from "@/lib/job-hunter/conversationAutomation";
 import { buildDailyConversationActions } from "@/lib/job-hunter/conversationActions";
+import { addConversationOutcome } from "@/lib/job-hunter/conversationOutcomes";
 import { calculateConversationDailyProgress, calculateConversationExecutionMetrics, getDefaultConversationDailyQuota } from "@/lib/job-hunter/conversationMetrics";
 import { loadJobHunterStore, saveJobHunterStore } from "@/lib/job-hunter/storage";
 
-import { ActiveConversationsSection, DraftedOutreachSection, FollowUpsDueSection } from "./components/ConversationSections";
+import { ActiveConversationsSection, DraftedOutreachSection, FollowUpsDueSection, PipelineOutcomesPanel } from "./components/ConversationSections";
 import { TargetDraftCard } from "./components/TargetDraftCard";
 import { DailyActionPlan } from "./components/DailyActionPlan";
 import { ConversationMetricsPanel } from "./components/ConversationMetricsPanel";
@@ -29,6 +30,10 @@ export default function ConversationsClient() {
   const dailyQuota = useMemo(() => getDefaultConversationDailyQuota(), []);
   const executionMetrics = useMemo(() => calculateConversationExecutionMetrics({ today: now, window: "today", sequences: store.outreachSequences ?? [] }), [now, store.outreachSequences]);
   const dailyProgress = useMemo(() => calculateConversationDailyProgress({ metrics: executionMetrics, quota: dailyQuota }), [dailyQuota, executionMetrics]);
+  const outcomeCounts = useMemo(() => (store.conversationOutcomes ?? []).reduce<Record<string, number>>((acc, outcome) => {
+    acc[outcome.type] = (acc[outcome.type] ?? 0) + 1;
+    return acc;
+  }, {}), [store.conversationOutcomes]);
 
   const persist = (nextStore: ReturnType<typeof loadJobHunterStore>) => {
     setStore(nextStore);
@@ -59,6 +64,9 @@ export default function ConversationsClient() {
     persist(result.store);
     setGenerationSummary(result.summary);
   };
+  const onMarkOutcome = (sequenceId: string, type: "reply_received" | "conversation_started" | "recruiter_screen" | "interview_scheduled" | "rejected" | "closed_no_response") => {
+    persist(addConversationOutcome(store, sequenceId, type, new Date()));
+  };
 
   const onAddTarget = (jobId: string) => {
     const draft = targetDrafts[jobId] ?? createTargetDraft();
@@ -83,7 +91,8 @@ export default function ConversationsClient() {
 
     <FollowUpsDueSection followUpsDue={followUpsDue} jobsById={store.jobsById} targetsById={store.conversationTargetsById} draftEdits={draftEdits} setDraftEdit={(id, value) => setDraftEdits((prev) => ({ ...prev, [id]: value }))} onEditSave={onEditSave} onCopy={(value) => void navigator.clipboard?.writeText(value)} onMarkSent={(id) => persist(markSequenceSent(store, id, new Date()))} onSkip={(id) => persist(skipSequence(store, id, new Date()))} onSnooze={(id) => persist(snoozeSequence(store, id, new Date()))} />
 
-    <ActiveConversationsSection activeReplies={actions.activeReplies} jobsById={store.jobsById} targetsById={store.conversationTargetsById} />
+    <ActiveConversationsSection activeReplies={actions.activeReplies} jobsById={store.jobsById} targetsById={store.conversationTargetsById} onMarkOutcome={onMarkOutcome} />
+    <PipelineOutcomesPanel outcomeCounts={outcomeCounts} />
 
     <section id="roles-needing-targets" className="space-y-3"><h2 className="text-xl font-semibold">Roles Needing Targets</h2>{actions.rolesNeedingTargets.length === 0 ? <p className="text-sm text-foreground/70">Every company currently has at least one target.</p> : actions.rolesNeedingTargets.map((job) => { const draft = targetDrafts[job.id] ?? createTargetDraft(); return <TargetDraftCard key={job.id} job={job} draft={draft} onChange={(nextDraft) => setTargetDrafts((prev) => ({ ...prev, [job.id]: nextDraft }))} onAdd={() => onAddTarget(job.id)} />; })}</section>
   </main>;

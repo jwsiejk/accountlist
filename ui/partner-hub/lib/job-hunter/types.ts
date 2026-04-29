@@ -231,6 +231,24 @@ export type JobHunterConversationMessageRole = "user" | "assistant" | "contact";
 export type JobHunterConversationMessage = { id: string; role: JobHunterConversationMessageRole; body: string; createdAt: string };
 export type JobHunterConversationThread = { id: string; jobId: string; type: JobHunterConversationType; title?: string; messages: JobHunterConversationMessage[]; createdAt: string; updatedAt: string };
 export type JobHunterConversationDraft = { type: JobHunterConversationType; subject: string; body: string; createdAt: string };
+export type ConversationOutcomeType =
+  | "reply_received"
+  | "conversation_started"
+  | "referral_received"
+  | "recruiter_screen"
+  | "interview_scheduled"
+  | "rejected"
+  | "offer_received"
+  | "closed_no_response";
+export type ConversationOutcome = {
+  id: string;
+  sequenceId: string;
+  jobId: string;
+  contactId: string;
+  type: ConversationOutcomeType;
+  createdAt: string;
+  notes?: string;
+};
 
 export type JobHunterStore = {
   jobs: JobPosting[];
@@ -251,4 +269,6 @@ export type JobHunterStore = {
   conversationBriefsById: Record<string, ConversationBrief>;
   outreachSequences: OutreachSequence[];
   outreachSequencesById: Record<string, OutreachSequence>;
+  conversationOutcomes?: ConversationOutcome[];
+  conversationOutcomesById?: Record<string, ConversationOutcome>;
 };
