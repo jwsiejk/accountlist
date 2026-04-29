@@ -155,6 +155,35 @@ export type JobHunterAutomationSettings = {
   topMatchesLimit: number;
 };
 
+
+export type JobHunterConversationType = "initial_outreach" | "follow_up" | "post_interview_thanks";
+
+export type JobHunterConversationMessageRole = "user" | "assistant" | "contact";
+
+export type JobHunterConversationMessage = {
+  id: string;
+  role: JobHunterConversationMessageRole;
+  body: string;
+  createdAt: string;
+};
+
+export type JobHunterConversationThread = {
+  id: string;
+  jobId: string;
+  type: JobHunterConversationType;
+  title?: string;
+  messages: JobHunterConversationMessage[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type JobHunterConversationDraft = {
+  type: JobHunterConversationType;
+  subject: string;
+  body: string;
+  createdAt: string;
+};
+
 export type JobHunterStore = {
   jobs: JobPosting[];
   jobsById: Record<string, JobPosting>;
@@ -166,4 +195,6 @@ export type JobHunterStore = {
   resumeProfile?: ResumeProfile;
   preferences?: JobHunterPreferences;
   automation?: JobHunterAutomationSettings;
+  conversations?: JobHunterConversationThread[];
+  conversationsById?: Record<string, JobHunterConversationThread>;
 };

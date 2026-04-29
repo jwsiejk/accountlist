@@ -2,7 +2,7 @@ import { DEFAULT_APPLY_CHECKLIST, DEFAULT_GUIDED_APPLY_WORKFLOW, getApplicationC
 import { DEFAULT_AUTOMATION_SETTINGS, normalizeAutomationSettings } from "./discoveryAutomation";
 import { getDefaultPreferences, normalizePreferences } from "./preferences";
 import { normalizeResumeProfile } from "./resumeProfile";
-import type { Application, ApplyChecklist, BoardType, GuidedApplyWorkflow, JobHunterStore, JobSourceConfig } from "./types";
+import type { Application, ApplyChecklist, BoardType, GuidedApplyWorkflow, JobHunterConversationThread, JobHunterStore, JobSourceConfig } from "./types";
 
 export const JOB_HUNTER_STORAGE_KEY = "partner-hub:job-hunter:v1";
 
@@ -15,6 +15,8 @@ const DEFAULT_STORE: JobHunterStore = {
   applicationsById: {},
   preferences: getDefaultPreferences(),
   automation: DEFAULT_AUTOMATION_SETTINGS,
+  conversations: [],
+  conversationsById: {},
 };
 
 const BOARD_TYPES: BoardType[] = ["greenhouse", "lever", "ashby", "smartrecruiters"];
@@ -66,6 +68,21 @@ const normalizeApplication = (value: Application): Application => ({
       : undefined,
 });
 
+
+const normalizeConversation = (value: JobHunterConversationThread): JobHunterConversationThread => ({
+  ...value,
+  messages: Array.isArray(value.messages)
+    ? value.messages
+        .filter((m) => m && typeof m.body === "string" && typeof m.role === "string" && typeof m.createdAt === "string")
+        .map((m, idx) => ({ id: typeof m.id === "string" && m.id.trim() ? m.id : `${value.id}:m-${idx + 1}`, role: m.role, body: m.body, createdAt: m.createdAt }))
+    : [],
+});
+
+const toConversationsById = (conversations: JobHunterConversationThread[]) =>
+  conversations.reduce<Record<string, JobHunterConversationThread>>((acc, conversation) => {
+    acc[conversation.id] = normalizeConversation(conversation);
+    return acc;
+  }, {});
 const toApplicationsById = (applications: Application[]) =>
   applications.reduce<Record<string, Application>>((acc, application) => {
     acc[application.jobId] = normalizeApplication(application);
@@ -139,6 +156,19 @@ export const loadJobHunterStore = (): JobHunterStore => {
     }, {});
     const applications = Object.values(applicationsById);
 
+    const conversationsFromArray = Array.isArray(parsed.conversations)
+      ? parsed.conversations.filter((item): item is JobHunterConversationThread => Boolean(item && item.id && item.jobId && item.type)).map(normalizeConversation)
+      : [];
+    const rawConversationsById =
+      parsed.conversationsById && typeof parsed.conversationsById === "object" && !Array.isArray(parsed.conversationsById)
+        ? parsed.conversationsById
+        : toConversationsById(conversationsFromArray);
+    const conversationsById = Object.entries(rawConversationsById).reduce<Record<string, JobHunterConversationThread>>((acc, [id, conversation]) => {
+      acc[id] = normalizeConversation({ ...conversation, id });
+      return acc;
+    }, {});
+    const conversations = Object.values(conversationsById);
+
     return {
       jobs,
       jobsById,
@@ -150,6 +180,8 @@ export const loadJobHunterStore = (): JobHunterStore => {
       resumeProfile: parsed.resumeProfile ? normalizeResumeProfile(parsed.resumeProfile) : undefined,
       preferences: parsed.preferences ? normalizePreferences(parsed.preferences) : getDefaultPreferences(),
       automation: normalizeAutomationSettings(parsed.automation),
+      conversations,
+      conversationsById,
     };
   } catch {
     return DEFAULT_STORE;
@@ -170,6 +202,11 @@ export const saveJobHunterStore = (store: JobHunterStore) => {
     return acc;
   }, {});
 
+  const conversationsById = Object.entries(store.conversationsById ?? {}).reduce<Record<string, JobHunterConversationThread>>((acc, [id, conversation]) => {
+    acc[id] = normalizeConversation({ ...conversation, id });
+    return acc;
+  }, {});
+
   window.localStorage.setItem(
     JOB_HUNTER_STORAGE_KEY,
     JSON.stringify({
@@ -179,6 +216,8 @@ export const saveJobHunterStore = (store: JobHunterStore) => {
       resumeProfile: store.resumeProfile ? normalizeResumeProfile(store.resumeProfile) : undefined,
       preferences: normalizePreferences(store.preferences),
       automation: normalizeAutomationSettings(store.automation),
+      conversationsById,
+      conversations: Object.values(conversationsById),
     }),
   );
 };

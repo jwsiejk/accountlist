@@ -438,3 +438,44 @@ describe("job hunter storage", () => {
     );
   });
 });
+
+
+  it("hydrates legacy conversation array into conversationsById", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(
+      JOB_HUNTER_STORAGE_KEY,
+      JSON.stringify({
+        jobsById: {},
+        jobs: [],
+        applications: [],
+        conversations: [
+          {
+            id: "job-1:initial_outreach",
+            jobId: "job-1",
+            type: "initial_outreach",
+            messages: [{ role: "user", body: "Hello", createdAt: "2026-01-01T00:00:00.000Z" }],
+            createdAt: "2026-01-01T00:00:00.000Z",
+            updatedAt: "2026-01-01T00:00:00.000Z",
+          },
+        ],
+      }),
+    );
+
+    const previousWindow = globalThis.window;
+    Object.defineProperty(globalThis, "window", {
+      value: { localStorage: storage },
+      configurable: true,
+      writable: true,
+    });
+
+    const loaded = loadJobHunterStore();
+    assert.equal(loaded.conversations?.length, 1);
+    assert.equal(loaded.conversationsById?.["job-1:initial_outreach"].messages[0].id, "job-1:initial_outreach:m-1");
+
+    Object.defineProperty(globalThis, "window", {
+      value: previousWindow,
+      configurable: true,
+      writable: true,
+    });
+  });
+
