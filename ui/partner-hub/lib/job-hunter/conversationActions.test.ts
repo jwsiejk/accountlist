@@ -1,0 +1,46 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { buildDailyConversationActions } from "./conversationActions";
+import type { ConversationTarget, JobPosting, OutreachSequence } from "./types";
+
+const today = new Date("2026-04-29T12:00:00.000Z");
+
+const job: JobPosting = { id: "job-1", title: "Staff Engineer", company: "Acme", source: "manual", createdAt: today.toISOString(), updatedAt: today.toISOString() };
+const target: ConversationTarget = { id: "target-1", company: "Acme", name: "Taylor", relationshipType: "recruiter", source: "manual", confidence: 80, createdAt: today.toISOString(), updatedAt: today.toISOString() };
+const seq = (overrides: Partial<OutreachSequence>): OutreachSequence => ({ id: "job-1:target-1:intro:linkedin", jobId: job.id, contactId: target.id, stage: "intro", channel: "linkedin", generatedMessage: "hello", status: "draft", createdAt: today.toISOString(), updatedAt: today.toISOString(), ...overrides });
+
+test("prioritizes action types in required order", () => {
+  const actions = buildDailyConversationActions({
+    today,
+    jobs: [job, { ...job, id: "job-2", company: "Beta", title: "Manager" }],
+    targets: [target],
+    sequences: [
+      seq({ id: "follow", stage: "follow_up_1", dueAt: "2026-04-29T00:00:00.000Z" }),
+      seq({ id: "reply", status: "replied" }),
+      seq({ id: "draft", stage: "intro", status: "draft" }),
+      seq({ id: "stale", status: "sent", sentAt: "2026-04-20T00:00:00.000Z" }),
+    ],
+  });
+
+  assert.deepEqual(actions.map((a) => a.actionType), ["send_follow_up", "review_reply", "send_draft", "add_target", "review_stale_sent"]);
+});
+
+test("limits to top 10 actions by default", () => {
+  const sequences = Array.from({ length: 20 }, (_, index) => seq({ id: `f-${index}`, stage: "follow_up_1", dueAt: "2026-04-29T00:00:00.000Z" }));
+  const actions = buildDailyConversationActions({ today, jobs: [job], targets: [target], sequences });
+  assert.equal(actions.length, 10);
+  assert.ok(actions.every((a) => a.actionType === "send_follow_up"));
+});
+
+test("includes context and guidance fields", () => {
+  const actions = buildDailyConversationActions({ today, jobs: [job, { ...job, id: "job-2", company: "NoTarget", title: "Dev" }], targets: [target], sequences: [seq({ id: "draft", generatedMessage: "message preview" })] });
+  const draftAction = actions.find((action) => action.actionType === "send_draft");
+  const addTargetAction = actions.find((action) => action.actionType === "add_target");
+  assert.equal(draftAction?.company, "Acme");
+  assert.equal(draftAction?.role, "Staff Engineer");
+  assert.equal(draftAction?.contact, "Taylor");
+  assert.equal(draftAction?.messagePreview, "message preview");
+  assert.deepEqual(draftAction?.supportedActions, ["edit", "copy", "mark_sent", "skip"]);
+  assert.equal(addTargetAction?.guide, "roles_needing_targets");
+});
