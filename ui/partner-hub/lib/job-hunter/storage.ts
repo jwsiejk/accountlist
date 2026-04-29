@@ -90,19 +90,40 @@ const toConversationsById = (conversations: JobHunterConversationThread[]) =>
     return acc;
   }, {});
 
-const normalizeConversationTarget = (value: ConversationTarget): ConversationTarget => ({
+
+const normalizeLegacyRelationship = (value: unknown): ConversationTarget["relationshipType"] => {
+  const v = typeof value === "string" ? value : "unknown";
+  if (v === "peer") return "employee";
+  if (v === "referral_contact") return "referral";
+  if (v === "recruiter" || v === "hiring_manager" || v === "employee" || v === "referral") return v;
+  return "unknown";
+};
+
+const normalizeConversationTarget = (value: ConversationTarget | any): ConversationTarget => ({
   ...value,
+  name: typeof value.name === "string" ? value.name : typeof value.fullName === "string" ? value.fullName : "Unknown Contact",
+  title: typeof value.title === "string" ? value.title : typeof value.roleTitle === "string" ? value.roleTitle : undefined,
+  profileUrl: typeof value.profileUrl === "string" ? value.profileUrl : typeof value.linkedinUrl === "string" ? value.linkedinUrl : undefined,
+  relationshipType: normalizeLegacyRelationship(value.relationshipType ?? value.relationship),
+  source: value.source ?? "manual",
   confidence: Math.max(0, Math.min(100, Number.isFinite(value.confidence) ? value.confidence : 0)),
 });
 
-const normalizeConversationBrief = (value: ConversationBrief): ConversationBrief => ({
+const normalizeConversationBrief = (value: ConversationBrief | any): ConversationBrief => ({
   ...value,
-  targetIds: Array.from(new Set((value.targetIds ?? []).filter(Boolean))),
+  roleTitle: value.roleTitle ?? "",
+  likelyHiringPriorities: value.likelyHiringPriorities ?? value.hiringPriorities ?? [],
+  likelyPainPoints: value.likelyPainPoints ?? value.painPoints ?? [],
+  proofPoints: value.proofPoints ?? [],
+  recommendedTargets: Array.from(new Set((value.recommendedTargets ?? value.targetIds ?? []).filter(Boolean))),
 });
 
-const normalizeOutreachSequence = (value: OutreachSequence): OutreachSequence => ({
+const normalizeOutreachSequence = (value: OutreachSequence | any): OutreachSequence => ({
   ...value,
-  message: typeof value.message === "string" ? value.message.trim() : "",
+  contactId: value.contactId ?? value.targetId,
+  dueAt: value.dueAt ?? value.scheduledFor,
+  generatedMessage: typeof value.generatedMessage === "string" ? value.generatedMessage.trim() : typeof (value as any).message === "string" ? (value as any).message.trim() : "",
+  status: value.status === "sent" || value.status === "replied" || value.status === "draft" || value.status === "queued" || value.status === "skipped" ? value.status : "draft",
 });
 
 
@@ -211,7 +232,7 @@ export const loadJobHunterStore = (): JobHunterStore => {
     const conversations = Object.values(conversationsById);
 
     const targetsFromArray = Array.isArray(parsed.conversationTargets)
-      ? parsed.conversationTargets.filter((item): item is ConversationTarget => Boolean(item && item.id && item.jobId)).map(normalizeConversationTarget)
+      ? parsed.conversationTargets.filter((item): item is ConversationTarget => Boolean(item && item.id && item.company)).map(normalizeConversationTarget)
       : [];
     const rawTargetsById =
       parsed.conversationTargetsById && typeof parsed.conversationTargetsById === "object" && !Array.isArray(parsed.conversationTargetsById)

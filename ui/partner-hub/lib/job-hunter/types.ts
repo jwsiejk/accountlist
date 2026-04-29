@@ -154,22 +154,25 @@ export type JobHunterAutomationSettings = {
   topMatchesLimit: number;
 };
 
-export type RelationshipType = "recruiter" | "hiring_manager" | "peer" | "referral_contact";
-export type OutreachChannel = "linkedin" | "email";
-export type OutreachStage = "intro" | "follow_up_1" | "follow_up_2";
-export type OutreachStatus = "draft" | "sent" | "replied";
+export type ConversationTargetRelationship = "recruiter" | "hiring_manager" | "employee" | "referral" | "unknown";
+export type ConversationTargetSource = "manual" | "linkedin" | "company_site" | "imported" | "other";
+export type OutreachChannel = "linkedin" | "email" | "manual";
+export type OutreachStage = "intro" | "follow_up_1" | "follow_up_2" | "referral_request" | "thank_you" | "nurture";
+export type OutreachStatus = "draft" | "queued" | "sent" | "replied" | "skipped";
 
 export type ConversationTarget = {
   id: string;
-  jobId: string;
   company: string;
-  fullName?: string;
-  roleTitle?: string;
-  relationship: RelationshipType;
-  linkedinUrl?: string;
+  name: string;
+  title?: string;
+  profileUrl?: string;
   email?: string;
+  relationshipType: ConversationTargetRelationship;
+  source: ConversationTargetSource;
   confidence: number;
   notes?: string;
+  lastContactedAt?: string;
+  nextFollowUpAt?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -178,13 +181,15 @@ export type ConversationBrief = {
   id: string;
   jobId: string;
   company: string;
+  roleTitle: string;
   reasonToPursue: string;
-  hiringPriorities: string[];
-  painPoints: string[];
+  likelyHiringPriorities: string[];
+  likelyPainPoints: string[];
   candidateFit: string[];
   riskAreas: string[];
   messageAngle: string;
-  targetIds: string[];
+  proofPoints: string[];
+  recommendedTargets: string[];
   createdAt: string;
   updatedAt: string;
 };
@@ -192,16 +197,15 @@ export type ConversationBrief = {
 export type OutreachSequence = {
   id: string;
   jobId: string;
-  targetId: string;
-  briefId: string;
+  contactId: string;
   stage: OutreachStage;
-  status: OutreachStatus;
   channel: OutreachChannel;
-  scheduledFor: string;
+  generatedMessage: string;
+  editedMessage?: string;
+  status: OutreachStatus;
+  dueAt?: string;
   sentAt?: string;
   repliedAt?: string;
-  subject: string;
-  message: string;
   createdAt: string;
   updatedAt: string;
 };
