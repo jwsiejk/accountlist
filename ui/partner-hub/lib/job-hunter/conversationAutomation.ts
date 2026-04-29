@@ -1,5 +1,5 @@
 import { deriveTopMatchesReviewQueue, rankJobsForReview } from "./discoveryAutomation";
-import { buildConversationBriefForJob, buildInitialOutreachQueueForJob } from "./conversations";
+import { buildConversationBriefForJob, buildInitialOutreachQueueForJob, normalizeCompanyKey } from "./conversations";
 import type { ConversationBrief, ConversationTarget, JobHunterPreferences, JobHunterStore, JobPosting, OutreachSequence } from "./types";
 
 export type ConversationAutomationSummary = {
@@ -56,7 +56,8 @@ export const generateConversationAssetsForJobs = (params: {
 
   for (const row of eligible) {
     const existingBrief = Object.values(params.store.conversationBriefsById).find((brief) => brief.jobId === row.job.id);
-    const companyTargets = Object.values(params.store.conversationTargetsById).filter((target) => target.company === row.job.company);
+    const jobCompanyKey = normalizeCompanyKey(row.job.company);
+    const companyTargets = Object.values(params.store.conversationTargetsById).filter((target) => normalizeCompanyKey(target.company) === jobCompanyKey);
     const existingOutreach = Object.values(params.store.outreachSequencesById).filter((sequence) => sequence.jobId === row.job.id);
 
     let brief = existingBrief;

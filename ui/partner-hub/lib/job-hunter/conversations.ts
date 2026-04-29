@@ -3,6 +3,7 @@ import type { ConversationBrief, ConversationTarget, JobPosting, OutreachChannel
 const BANLIST = ["i am extremely passionate", "synergize", "circle back", "rockstar", "guru"];
 const clean = (value: string) => value.replace(/\s+/g, " ").trim();
 const iso = (d: Date) => d.toISOString();
+export const normalizeCompanyKey = (company: string) => clean(company).toLowerCase();
 
 export const normalizeConversationTarget = (target: ConversationTarget): ConversationTarget => ({
   ...target,
@@ -70,7 +71,10 @@ export const buildOutreachDraft = (params: { job: JobPosting; brief: Conversatio
 
 export const buildInitialOutreachQueueForJob = (params: { job: JobPosting; brief: ConversationBrief; targets: ConversationTarget[]; existing: OutreachSequence[]; now: Date }): OutreachSequence[] => {
   const priority = { recruiter: 0, hiring_manager: 1, employee: 2, referral: 3, unknown: 4 };
-  const sorted = [...params.targets].filter((t) => t.company === params.job.company).sort((a, b) => priority[a.relationshipType] - priority[b.relationshipType]);
+  const jobCompanyKey = normalizeCompanyKey(params.job.company);
+  const sorted = [...params.targets]
+    .filter((t) => normalizeCompanyKey(t.company) === jobCompanyKey)
+    .sort((a, b) => priority[a.relationshipType] - priority[b.relationshipType]);
   const seen = new Set(params.existing.map((s) => `${s.jobId}:${s.contactId}:${s.stage}:${s.channel}`));
   const out: OutreachSequence[] = [];
   for (const target of sorted) {
@@ -97,7 +101,7 @@ export const getTodaysConversationActions = (params: { today: Date; sequences: O
   const followUpsDue = params.sequences.filter((s) => s.stage !== "intro" && (s.status === "draft" || s.status === "queued") && (s.dueAt?.slice(0, 10) ?? "") <= todayIso);
   const staleSentNoReply = params.sequences.filter((s) => s.status === "sent" && !s.repliedAt && (params.today.getTime() - new Date(s.sentAt ?? s.updatedAt).getTime()) / 86400000 > 5);
   const activeReplies = params.sequences.filter((s) => s.status === "replied");
-  const companiesWithTargets = new Set(params.targets.map((t) => t.company));
-  const rolesNeedingTargets = params.jobs.filter((j) => !companiesWithTargets.has(j.company));
+  const companiesWithTargets = new Set(params.targets.map((t) => normalizeCompanyKey(t.company)));
+  const rolesNeedingTargets = params.jobs.filter((j) => !companiesWithTargets.has(normalizeCompanyKey(j.company)));
   return { draftsToReview, followUpsDue, staleSentNoReply, activeReplies, rolesNeedingTargets };
 };
