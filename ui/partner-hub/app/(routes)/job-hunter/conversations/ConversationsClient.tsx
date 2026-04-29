@@ -23,7 +23,7 @@ export default function ConversationsClient() {
   const actions = useMemo(() => getTodaysConversationActions({ today: now, sequences: store.outreachSequences ?? [], targets: store.conversationTargets ?? [], jobs: store.jobs ?? [] }), [now, store]);
   const drafted = useMemo(() => getDraftedOutreach(store.outreachSequences ?? []), [store.outreachSequences]);
   const followUpsDue = useMemo(() => getFollowUpsDue(store.outreachSequences ?? [], now), [now, store.outreachSequences]);
-  const dailyActions = useMemo(() => buildDailyConversationActions({ today: now, sequences: store.outreachSequences ?? [], targets: store.conversationTargets ?? [], jobs: store.jobs ?? [] }), [now, store]);
+  const dailyActions = useMemo(() => buildDailyConversationActions({ jobsById: store.jobsById, targetsById: store.conversationTargetsById, actions, maxActions: 10 }), [actions, store.conversationTargetsById, store.jobsById]);
 
   const persist = (nextStore: ReturnType<typeof loadJobHunterStore>) => {
     setStore(nextStore);
