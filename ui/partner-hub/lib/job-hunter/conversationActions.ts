@@ -1,4 +1,3 @@
-import { getTodaysConversationActions } from "./conversations";
 import { getOutreachPreview } from "./conversationUi";
 import type { ConversationDailyAction, ConversationTarget, JobPosting, OutreachSequence } from "./types";
 
@@ -21,17 +20,13 @@ const getSequenceContext = (sequence: OutreachSequence, jobsById: Record<string,
 });
 
 export const buildDailyConversationActions = (params: {
-  today: Date;
-  limit?: number;
-  sequences: OutreachSequence[];
-  targets: ConversationTarget[];
-  jobs: JobPosting[];
+  jobsById: Record<string, JobPosting>;
+  targetsById: Record<string, ConversationTarget>;
+  actions: ReturnType<typeof import("./conversations").getTodaysConversationActions>;
+  maxActions?: number;
 }): BuilderAction[] => {
-  const { sequences, targets, jobs, today } = params;
-  const limit = params.limit ?? 10;
-  const jobsById = Object.fromEntries(jobs.map((job) => [job.id, job]));
-  const targetsById = Object.fromEntries(targets.map((target) => [target.id, target]));
-  const todays = getTodaysConversationActions({ today, sequences, targets, jobs });
+  const { jobsById, targetsById, actions: todays } = params;
+  const limit = params.maxActions ?? 10;
 
   const actions: BuilderAction[] = [];
 
