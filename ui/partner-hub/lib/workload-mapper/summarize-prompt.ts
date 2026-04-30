@@ -2,11 +2,11 @@ import type { WorkloadSummaryRequest } from "./summarize-types";
 
 const workloadBusinessHints: Record<string, string> = {
   fraud: "Focus on reducing fraud exposure, speeding investigations, and improving decision confidence.",
-  "risk-modeling": "Focus on understanding portfolio exposure, regulatory readiness, and scenario impact faster.",
+  risk: "Focus on understanding portfolio exposure, regulatory readiness, and scenario impact faster.",
   trading: "Focus on finding and validating trading strategies faster.",
   compliance: "Focus on reducing manual review effort and improving audit/regulatory response.",
-  rag: "Focus on helping employees find trusted answers faster.",
-  "model-finetune": "Focus on adapting models to domain language/processes and improving task quality under governance.",
+  "fsi-rag": "Focus on helping employees find trusted answers faster.",
+  "fsi-ft": "Focus on adapting models to domain language/processes and improving task quality under governance.",
   "ai-training": "Focus on building differentiated AI capabilities or domain models.",
   inference: "Focus on serving AI capabilities reliably to users/apps with predictable latency.",
   simulation: "Focus on completing simulations faster and shortening time from run to insight.",
@@ -32,6 +32,7 @@ export function buildSummarizePrompt(input: WorkloadSummaryRequest): string {
     "Do not invent facts beyond the provided fields.",
     "Call out missing fields clearly.",
     `Workload business framing hint: ${hint}`,
+    "Use the workload business framing hint as context, but prioritize the actual field values provided by the user.",
     "Respond in 3-5 short paragraphs.",
     "\nStructured workload context:\n",
     JSON.stringify(input, null, 2),
