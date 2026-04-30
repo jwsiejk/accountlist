@@ -74,3 +74,27 @@ export interface WorkloadProfile {
   missingInputs: Array<{ label: string; whyItMatters: string }>;
   talkTrack: string[];
 }
+
+export interface WorkloadExamplePreset {
+  workloadName?: string;
+  processImproved: string;
+  successCriteria: string;
+  aiPattern: AiPattern;
+  dataTypes: string[];
+  dataSizeRange: string;
+  dailyIngestRange: string;
+  filePattern: string;
+  freshnessRequirement: string;
+  performanceTier: PerformanceTier;
+  queryConcurrency: string;
+  gpuDependency: string;
+  latencyRequirement: string;
+  dataSensitivity: string;
+  auditTrail: string;
+  encryption: string;
+  dataResidency: string;
+  retention: string;
+  explainability: string;
+  accessControls: string;
+  sizingInputs: Record<SizingInputKey, string>;
+}
