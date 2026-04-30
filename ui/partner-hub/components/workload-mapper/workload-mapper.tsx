@@ -44,11 +44,11 @@ interface InputProps {
   onChange: (value: string) => void;
 }
 
-interface SelectProps {
+interface SelectProps<T extends string> {
   label: string;
-  value: string;
-  options: string[];
-  onChange: (value: string) => void;
+  value: T;
+  options: readonly T[];
+  onChange: (value: T) => void;
 }
 
 interface MultiSelectChipsProps {
@@ -264,7 +264,7 @@ function CustomWorkloadFields({
   };
 
   const handlePatternChange = (value: string) => {
-    onStateChange((previousState) => ({ ...previousState, aiPattern: value as AiPattern }));
+    onStateChange((previousState) => ({ ...previousState, aiPattern: value }));
   };
 
   return (
@@ -294,7 +294,7 @@ function CustomWorkloadFields({
 
 function DiscoveryQuestionnaire({ state, onStateChange }: WorkloadStateProps) {
   const handlePatternChange = (value: string) => {
-    onStateChange((previousState) => ({ ...previousState, aiPattern: value as AiPattern }));
+    onStateChange((previousState) => ({ ...previousState, aiPattern: value }));
   };
 
   return (
@@ -322,7 +322,7 @@ function DiscoveryQuestionnaire({ state, onStateChange }: WorkloadStateProps) {
             value={state.performanceTier}
             options={["real-time", "near real-time", "intraday", "batch/end-of-day"]}
             onChange={(value) =>
-              onStateChange((p) => ({ ...p, performanceTier: value as WorkloadFormState["performanceTier"] }))
+              onStateChange((p) => ({ ...p, performanceTier: value }))
             }
           />
           <Input
@@ -600,7 +600,7 @@ function Input({ label, value, onChange }: InputProps) {
   );
 }
 
-function Select({ label, value, options, onChange }: SelectProps) {
+function Select<T extends string>({ label, value, options, onChange }: SelectProps<T>) {
   return (
     <label className="text-xs font-medium text-foreground/70">
       {label}
