@@ -28,7 +28,7 @@ export interface DdnReferencePatternSummary {
   summaryGuidance: string[];
 }
 
-export interface WorkloadSummaryRequest {
+export interface SummaryBaseRequest {
   workload: WorkloadSelectionContext;
   customWorkload: {
     category: string;
@@ -49,7 +49,10 @@ export interface WorkloadSummaryResponse {
   summary: string;
 }
 
-export function toSelectionContext(selected: WorkloadTemplate | undefined, state: WorkloadFormState, custom: WorkloadSummaryRequest["customWorkload"]): WorkloadSelectionContext {
+export type WorkloadSummaryRequest = SummaryBaseRequest;
+export type BomSummaryRequest = SummaryBaseRequest;
+
+export function toSelectionContext(selected: WorkloadTemplate | undefined, state: WorkloadFormState, custom: SummaryBaseRequest["customWorkload"]): WorkloadSelectionContext {
   const isCustom = state.selectedWorkloadId === "custom";
   return {
     id: isCustom ? "custom" : state.selectedWorkloadId,
