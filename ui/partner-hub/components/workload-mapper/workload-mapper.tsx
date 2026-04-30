@@ -2,6 +2,9 @@
 
 import { type Dispatch, type ReactNode, type SetStateAction, useMemo, useState } from "react";
 
+import type { WorkloadSummaryRequest } from "@/lib/workload-mapper/summarize-types";
+import { toSelectionContext } from "@/lib/workload-mapper/summarize-types";
+
 import { sizingFields, workloadExamplePresets, workloadLibrary } from "./workload-mapper-data";
 import { buildWorkloadProfile, getSelectedWorkload } from "./workload-mapper-utils";
 import { type AiPattern, type WorkloadFormState } from "./workload-mapper-types";
@@ -113,6 +116,9 @@ export function WorkloadMapper() {
   const [customDescription, setCustomDescription] = useState("");
   const [customAssumptions, setCustomAssumptions] = useState("");
   const [customPressurePoints, setCustomPressurePoints] = useState("");
+  const [summary, setSummary] = useState("");
+  const [summaryError, setSummaryError] = useState("");
+  const [isSummarizing, setIsSummarizing] = useState(false);
 
   const isCustom = state.selectedWorkloadId === "custom";
   const selected = getSelectedWorkload(state.selectedWorkloadId);
@@ -134,6 +140,49 @@ export function WorkloadMapper() {
       ),
     [state, isCustom, customCategory, customDescription, customAssumptions, customPressurePoints],
   );
+
+
+  const summarizeWorkload = async () => {
+    setIsSummarizing(true);
+    setSummaryError("");
+    try {
+      const payload: WorkloadSummaryRequest = {
+        workload: toSelectionContext(selected, state, {
+          category: customCategory,
+          description: customDescription,
+          assumptions: customAssumptions,
+          pressurePoints: customPressurePoints,
+        }),
+        customWorkload: {
+          category: customCategory,
+          description: customDescription,
+          assumptions: customAssumptions,
+          pressurePoints: customPressurePoints,
+        },
+        questionnaire: state,
+        knownInputs: profile.knownInputs,
+        missingInputs: profile.missingInputs,
+        architecturePipeline: profile.architectureSteps,
+        buildingBlocks: profile.buildingBlocks,
+      };
+
+      const response = await fetch("/api/workload-mapper/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = (await response.json()) as { summary?: string; error?: string };
+      if (!response.ok || !data.summary) {
+        throw new Error(data.error || "Could not generate summary.");
+      }
+      setSummary(data.summary);
+    } catch (error) {
+      setSummary("");
+      setSummaryError(error instanceof Error ? error.message : "Could not generate summary.");
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
 
   const applyWorkloadExamplePreset = () => {
     const preset = workloadExamplePresets[state.selectedWorkloadId] ?? (isCustom ? workloadExamplePresets.custom : undefined);
@@ -203,6 +252,7 @@ export function WorkloadMapper() {
             <BuildingBlocks blocks={profile.buildingBlocks} />
             <BomReadinessCard profile={profile} />
             <TalkTrackCard profile={profile} />
+            <SummarizeCard summary={summary} error={summaryError} loading={isSummarizing} onSummarize={summarizeWorkload} />
           </div>
         </section>
       )}
@@ -604,6 +654,51 @@ function TalkTrackCard({ profile }: { profile: ReturnType<typeof buildWorkloadPr
           <li key={line}>• {line}</li>
         ))}
       </ul>
+    </Card>
+  );
+}
+
+
+function SummarizeCard({
+  summary,
+  error,
+  loading,
+  onSummarize,
+}: {
+  summary: string;
+  error: string;
+  loading: boolean;
+  onSummarize: () => Promise<void>;
+}) {
+  const copySummary = async () => {
+    if (!summary) return;
+    await navigator.clipboard.writeText(summary);
+  };
+
+  return (
+    <Card title="Summarize">
+      <p className="mb-3 text-xs text-foreground/70">
+        Summary generation uses the local Ollama model configured for this app. Discovery inputs are sent only to the
+        local summarization endpoint.
+      </p>
+      <button type="button" className="rounded-md border px-3 py-2 text-sm font-medium" onClick={onSummarize} disabled={loading}>
+        {loading ? "Generating summary..." : "Summarize workload in plain English"}
+      </button>
+      {error ? (
+        <div className="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          <p>{error}</p>
+          <p className="mt-2 text-xs">Try: <code>ollama serve</code> and <code>ollama pull &lt;model&gt;</code></p>
+        </div>
+      ) : null}
+      {summary ? (
+        <div className="mt-3 rounded-md border border-border/70 bg-muted/20 p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold">Plain-English Workload Summary</h3>
+            <button type="button" className="rounded-md border px-2 py-1 text-xs" onClick={copySummary}>Copy Summary</button>
+          </div>
+          <p className="whitespace-pre-wrap text-sm text-foreground/90">{summary}</p>
+        </div>
+      ) : null}
     </Card>
   );
 }
