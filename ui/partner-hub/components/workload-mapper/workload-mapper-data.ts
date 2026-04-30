@@ -28,10 +28,10 @@ export const sizingFields: SizingField[] = [
 ];
 
 export const architecturePatterns: Record<string, string[]> = {
-  RAG: ["Data Sources", "Ingestion / Normalization", "Feature + Embedding Pipeline", "High-Performance Data Platform", "Vector DB / Analytics Engine", "LLM / Model Serving", "Business Application"],
-  "Training from scratch": ["Data Lake + Curation", "Distributed Preprocessing", "High-Throughput Training Storage", "GPU Training Cluster", "Checkpoint & Artifact Registry", "Model Validation", "Model Registry"],
-  "Fine-tuning": ["Domain Dataset", "Data Quality + Labeling", "Fine-tuning Pipeline", "Accelerated Training", "Evaluation Harness", "Model Registry", "Deployment Targets"],
-  "Inference only": ["Application/API Gateway", "Request Orchestration", "Feature/Prompt Processing", "Model Serving Tier", "Caching + Session State", "Observability + Guardrails"],
-  "Analytics / ML pipeline": ["Data Sources", "Ingestion", "ETL/ELT + Feature Engineering", "Unified Data Platform", "ML/Analytics Execution", "BI / Decision Apps"],
-  "HPC simulation": ["Scientific Inputs", "Job Scheduler", "Parallel File/Data Platform", "HPC Compute Fabric", "Simulation Output Store", "Post-processing + Visualization"],
+  RAG: ["Data Sources", "Ingestion / Normalization", "Chunking + Embedding", "High-Performance Data Platform", "Vector DB / Retrieval", "LLM / Model Serving", "Business App"],
+  "Training from scratch": ["Data Lake / Corpus", "Distributed Preprocessing", "High-Throughput Training Storage", "GPU Training Cluster", "Checkpointing", "Evaluation", "Model Registry"],
+  "Fine-tuning": ["Curated Dataset", "Data Quality + Labeling", "Fine-tuning Pipeline", "Accelerated Training", "Evaluation Harness", "Model Registry", "Deployment Targets"],
+  "Inference only": ["Application/API Gateway", "Request Orchestration", "Prompt/Feature Processing", "Model Serving Tier", "Cache / Session State", "Observability / Guardrails"],
+  "Analytics / ML pipeline": ["Data Sources", "Ingestion", "ETL/ELT + Feature Engineering", "Unified Data Platform", "ML/Analytics Execution", "Decision Apps"],
+  "HPC simulation": ["Scientific Inputs", "Job Scheduler", "Parallel File/Data Platform", "HPC Compute Fabric", "Simulation Output Store", "Post-processing / Visualization"],
 };
