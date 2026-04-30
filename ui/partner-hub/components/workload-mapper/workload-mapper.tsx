@@ -166,14 +166,25 @@ export function WorkloadMapper() {
         buildingBlocks: profile.buildingBlocks,
       };
 
-      const response = await fetch("/api/workload-mapper/summarize", {
+      const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+      const response = await fetch(`${basePath}/api/workload-mapper/summarize`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = (await response.json()) as { summary?: string; error?: string };
-      if (!response.ok || !data.summary) {
-        throw new Error(data.error || "Could not generate summary.");
+      const responseText = await response.text();
+      let data: { summary?: string; error?: string } | null = null;
+
+      try {
+        data = JSON.parse(responseText) as { summary?: string; error?: string };
+      } catch {
+        throw new Error(
+          "Summarizer endpoint returned a non-JSON response. Check the API route/basePath configuration.",
+        );
+      }
+
+      if (!response.ok || !data?.summary) {
+        throw new Error(data?.error || "Could not generate summary.");
       }
       setSummary(data.summary);
     } catch (error) {
