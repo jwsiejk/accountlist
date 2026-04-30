@@ -2,7 +2,7 @@
 
 import { type Dispatch, type ReactNode, type SetStateAction, useMemo, useState } from "react";
 
-import { sizingFields, workloadLibrary } from "./workload-mapper-data";
+import { sizingFields, workloadExamplePresets, workloadLibrary } from "./workload-mapper-data";
 import { buildWorkloadProfile, getSelectedWorkload } from "./workload-mapper-utils";
 import { type AiPattern, type WorkloadFormState } from "./workload-mapper-types";
 
@@ -135,6 +135,35 @@ export function WorkloadMapper() {
     [state, isCustom, customCategory, customDescription, customAssumptions, customPressurePoints],
   );
 
+  const applyWorkloadExamplePreset = () => {
+    const preset = workloadExamplePresets[state.selectedWorkloadId] ?? (isCustom ? workloadExamplePresets.custom : undefined);
+    if (!preset) return;
+    setState((previousState) => ({
+      ...previousState,
+      workloadName: isCustom && preset.workloadName ? preset.workloadName : previousState.workloadName,
+      processImproved: preset.processImproved,
+      successCriteria: preset.successCriteria,
+      aiPattern: preset.aiPattern,
+      dataTypes: preset.dataTypes,
+      dataSizeRange: preset.dataSizeRange,
+      dailyIngestRange: preset.dailyIngestRange,
+      filePattern: preset.filePattern,
+      freshnessRequirement: preset.freshnessRequirement,
+      performanceTier: preset.performanceTier,
+      queryConcurrency: preset.queryConcurrency,
+      gpuDependency: preset.gpuDependency,
+      latencyRequirement: preset.latencyRequirement,
+      dataSensitivity: preset.dataSensitivity,
+      auditTrail: preset.auditTrail,
+      encryption: preset.encryption,
+      dataResidency: preset.dataResidency,
+      retention: preset.retention,
+      explainability: preset.explainability,
+      accessControls: preset.accessControls,
+      sizingInputs: { ...preset.sizingInputs },
+    }));
+  };
+
   return (
     <div className="space-y-6 pb-10">
       <HeroSection />
@@ -165,7 +194,7 @@ export function WorkloadMapper() {
               onCustomPressurePointsChange={setCustomPressurePoints}
             />
             <DiscoveryQuestionnaire state={state} onStateChange={setState} />
-            <BomInputCapture state={state} onStateChange={setState} />
+            <BomInputCapture state={state} onStateChange={setState} onApplyPreset={applyWorkloadExamplePreset} />
           </div>
 
           <div className="space-y-6">
@@ -450,9 +479,30 @@ function GovernanceSection({ state, onStateChange }: WorkloadStateProps) {
   );
 }
 
-function BomInputCapture({ state, onStateChange }: WorkloadStateProps) {
+function BomInputCapture({
+  state,
+  onStateChange,
+  onApplyPreset,
+}: WorkloadStateProps & { onApplyPreset: () => void }) {
   return (
     <Card title="BOM input capture">
+      <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50/70 p-3">
+        <p className="text-xs font-semibold text-amber-900">
+          Illustrative discovery inputs based on common AI/HPC/FSI workload patterns and DDN-style reference
+          architecture thinking — not final sizing recommendations or final BOM guidance.
+        </p>
+        <p className="mt-1 text-xs text-amber-900/90">
+          Examples are illustrative discovery inputs informed by common workload/reference architecture patterns. They are
+          not DDN official sizing, final BOM guidance, or SKU recommendations.
+        </p>
+        <button
+          type="button"
+          className="mt-2 rounded-md border border-amber-400 bg-white px-3 py-1 text-xs font-semibold text-amber-900"
+          onClick={onApplyPreset}
+        >
+          Auto-populate realistic example for this workload
+        </button>
+      </div>
       <div className="grid gap-3 md:grid-cols-2">
         {sizingFields.map((field) => (
           <Input
