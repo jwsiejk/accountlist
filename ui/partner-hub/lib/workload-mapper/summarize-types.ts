@@ -10,6 +10,24 @@ export interface WorkloadSelectionContext {
   isCustom: boolean;
 }
 
+export interface DdnBuildingBlockSummary {
+  name: string;
+  whatItDoes: string;
+  whyItFits: string;
+  capturedInputSignals: string[];
+  validationQuestions: string[];
+}
+
+export interface DdnReferencePatternSummary {
+  workloadId: string;
+  closestDdnPattern: string;
+  mappingConfidence: "Low" | "Medium" | "High";
+  sourceBasis: string[];
+  buildingBlocks: DdnBuildingBlockSummary[];
+  validationBeforeBom: string[];
+  summaryGuidance: string[];
+}
+
 export interface WorkloadSummaryRequest {
   workload: WorkloadSelectionContext;
   customWorkload: {
@@ -23,7 +41,9 @@ export interface WorkloadSummaryRequest {
   missingInputs: Array<{ label: string; whyItMatters: string }>;
   architecturePipeline: string[];
   buildingBlocks: Record<string, string[]>;
+  ddnReferencePattern: DdnReferencePatternSummary;
 }
+
 
 export interface WorkloadSummaryResponse {
   summary: string;

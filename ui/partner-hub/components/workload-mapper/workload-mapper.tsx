@@ -7,6 +7,7 @@ import { toSelectionContext } from "@/lib/workload-mapper/summarize-types";
 
 import { sizingFields, workloadExamplePresets, workloadLibrary } from "./workload-mapper-data";
 import { buildWorkloadProfile, getSelectedWorkload } from "./workload-mapper-utils";
+import { getDdnReferencePattern } from "./workload-mapper-ddn-reference";
 import { type AiPattern, type WorkloadFormState } from "./workload-mapper-types";
 
 type StateSetter = Dispatch<SetStateAction<WorkloadFormState>>;
@@ -164,6 +165,7 @@ export function WorkloadMapper() {
         missingInputs: profile.missingInputs,
         architecturePipeline: profile.architectureSteps,
         buildingBlocks: profile.buildingBlocks,
+        ddnReferencePattern: getDdnReferencePattern(isCustom ? "custom" : state.selectedWorkloadId, state.aiPattern),
       };
 
       const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
