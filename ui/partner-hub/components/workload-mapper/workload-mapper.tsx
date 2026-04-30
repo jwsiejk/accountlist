@@ -1,32 +1,62 @@
 "use client";
 
-import { Dispatch, ReactNode, SetStateAction, useMemo, useState } from "react";
+import { type Dispatch, type ReactNode, type SetStateAction, useMemo, useState } from "react";
+
+import { sizingFields, workloadLibrary } from "./workload-mapper-data";
+import { buildWorkloadProfile, getSelectedWorkload } from "./workload-mapper-utils";
+import { type AiPattern, type WorkloadFormState } from "./workload-mapper-types";
 
 type StateSetter = Dispatch<SetStateAction<WorkloadFormState>>;
 
-interface WorkloadSelectionCardProps {
+interface WorkloadStateProps {
   state: WorkloadFormState;
+  onStateChange: StateSetter;
+}
+
+interface WorkloadSelectionCardProps extends WorkloadStateProps {
   selectedDescription?: string;
   isCustom: boolean;
   customCategory: string;
   customDescription: string;
   customAssumptions: string;
   customPressurePoints: string;
-  onStateChange: StateSetter;
   onCustomCategoryChange: (value: string) => void;
   onCustomDescriptionChange: (value: string) => void;
   onCustomAssumptionsChange: (value: string) => void;
   onCustomPressurePointsChange: (value: string) => void;
 }
 
-interface DiscoveryQuestionnaireProps {
-  state: WorkloadFormState;
-  onStateChange: StateSetter;
+interface WalkthroughViewProps {
+  profile: ReturnType<typeof buildWorkloadProfile>;
+  workloadName: string;
+  workloadDescription: string;
+  assumptions: string;
 }
 
-import { sizingFields, workloadLibrary } from "./workload-mapper-data";
-import { buildWorkloadProfile, getSelectedWorkload } from "./workload-mapper-utils";
-import { AiPattern, WorkloadFormState } from "./workload-mapper-types";
+interface CardProps {
+  title: string;
+  children: ReactNode;
+}
+
+interface InputProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}
+
+interface SelectProps {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+}
+
+interface MultiSelectChipsProps {
+  label: string;
+  options: string[];
+  selected: string[];
+  onToggle: (option: string) => void;
+}
 
 const aiPatterns: AiPattern[] = [
   "RAG",
@@ -151,7 +181,20 @@ export function WorkloadMapper() {
   );
 }
 
-function HeroSection() { return <section className="rounded-2xl border border-border/60 bg-gradient-to-r from-slate-50 to-white p-6 shadow-sm"><p className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground/50">AI Workload Discovery Mapper</p><h1 className="mt-2 text-3xl font-semibold">Story-first discovery from use case to BOM readiness</h1><p className="mt-3 text-sm text-foreground/70">This guided flow helps align AI workload context, architecture pressure points, and BOM-readiness inputs before detailed solution sizing.</p></section>; }
+function HeroSection() {
+  return (
+    <section className="rounded-2xl border border-border/60 bg-gradient-to-r from-slate-50 to-white p-6 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground/50">
+        AI Workload Discovery Mapper
+      </p>
+      <h1 className="mt-2 text-3xl font-semibold">Story-first discovery from use case to BOM readiness</h1>
+      <p className="mt-3 text-sm text-foreground/70">
+        This guided flow helps align AI workload context, architecture pressure points, and BOM-readiness
+        inputs before detailed solution sizing.
+      </p>
+    </section>
+  );
+}
 
 function WalkthroughToggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
   return (
@@ -169,26 +212,431 @@ function WalkthroughToggle({ enabled, onToggle }: { enabled: boolean; onToggle: 
   );
 }
 
-function WorkloadSelectionCard(props: WorkloadSelectionCardProps) { const { state, onStateChange, isCustom, selectedDescription } = props; return <Card title="Workload selection"><select className="w-full rounded-md border px-3 py-2 text-sm" value={state.selectedWorkloadId} onChange={(e)=>onStateChange((p: WorkloadFormState)=>({...p,selectedWorkloadId:e.target.value,aiPattern:"Not sure yet"}))}>{workloadLibrary.map((w)=><option key={w.id} value={w.id}>{w.category} — {w.name}</option>)}<option value="custom">Custom Workload</option></select>{isCustom ? <CustomWorkloadFields {...props} /> : <p className="mt-3 text-sm text-foreground/70">{selectedDescription}</p>}</Card>; }
+function WorkloadSelectionCard(props: WorkloadSelectionCardProps) {
+  const { state, onStateChange, isCustom, selectedDescription } = props;
 
-function CustomWorkloadFields({ state, customCategory, customDescription, customAssumptions, customPressurePoints, onStateChange, onCustomCategoryChange, onCustomDescriptionChange, onCustomAssumptionsChange, onCustomPressurePointsChange }: WorkloadSelectionCardProps) { return <div className="mt-4 grid gap-3"><Input label="Workload name" value={state.workloadName} onChange={(v)=>onStateChange((p: WorkloadFormState)=>({...p,workloadName:v}))}/><Select label="Category" value={customCategory} options={["FSI", "HPC / AI", "Custom"]} onChange={onCustomCategoryChange}/><Input label="Description / business goal" value={customDescription} onChange={onCustomDescriptionChange}/><Select label="Selected AI pattern" value={state.aiPattern} options={aiPatterns} onChange={(v)=>onStateChange((p: WorkloadFormState)=>({...p,aiPattern:v as AiPattern}))}/><Input label="Assumptions (comma-separated)" value={customAssumptions} onChange={onCustomAssumptionsChange}/><Input label="Likely pressure points (comma-separated)" value={customPressurePoints} onChange={onCustomPressurePointsChange}/></div>; }
+  const handleWorkloadChange = (value: string) => {
+    onStateChange((previousState) => ({
+      ...previousState,
+      selectedWorkloadId: value,
+      aiPattern: "Not sure yet",
+    }));
+  };
 
-function DiscoveryQuestionnaire({ state, onStateChange }: DiscoveryQuestionnaireProps) { return <Card title="Discovery questionnaire"><div className="space-y-4"><div className="grid gap-3 md:grid-cols-2"><Input label="Process/decision being improved" value={state.processImproved} onChange={(v)=>onStateChange((p: WorkloadFormState)=>({...p,processImproved:v}))}/><Input label="Success criteria" value={state.successCriteria} onChange={(v)=>onStateChange((p: WorkloadFormState)=>({...p,successCriteria:v}))}/><Select label="AI pattern" value={state.aiPattern} options={aiPatterns} onChange={(v)=>onStateChange((p: WorkloadFormState)=>({...p,aiPattern:v as AiPattern}))}/></div><DataProfileSection state={state} onStateChange={onStateChange}/><div className="grid gap-3 md:grid-cols-2"><Select label="Performance tier" value={state.performanceTier} options={["real-time", "near real-time", "intraday", "batch/end-of-day"]} onChange={(v)=>onStateChange((p: WorkloadFormState)=>({...p,performanceTier:v as WorkloadFormState["performanceTier"]}))}/><Input label="Latency requirement" value={state.latencyRequirement} onChange={(v)=>onStateChange((p: WorkloadFormState)=>({...p,latencyRequirement:v}))}/><Input label="Concurrency" value={state.queryConcurrency} onChange={(v)=>onStateChange((p: WorkloadFormState)=>({...p,queryConcurrency:v,sizingInputs:{...p.sizingInputs,queryConcurrency:v}}))}/><Select label="GPU dependency" value={state.gpuDependency} options={["Low", "Medium", "High"]} onChange={(v)=>onStateChange((p: WorkloadFormState)=>({...p,gpuDependency:v}))}/></div><GovernanceSection state={state} onStateChange={onStateChange}/></div></Card>; }
+  return (
+    <Card title="Workload selection">
+      <select
+        className="w-full rounded-md border px-3 py-2 text-sm"
+        value={state.selectedWorkloadId}
+        onChange={(event) => handleWorkloadChange(event.target.value)}
+      >
+        {workloadLibrary.map((workload) => (
+          <option key={workload.id} value={workload.id}>
+            {workload.category} — {workload.name}
+          </option>
+        ))}
+        <option value="custom">Custom Workload</option>
+      </select>
 
-function DataProfileSection({ state, onStateChange }: DiscoveryQuestionnaireProps) { return <section className="rounded-lg border border-border/60 p-3"><h3 className="text-sm font-semibold">Data profile</h3><div className="mt-3 grid gap-3 md:grid-cols-2"><MultiSelectChips label="Data types" selected={state.dataTypes} options={dataTypeOptions} onToggle={(option)=>onStateChange((p: WorkloadFormState)=>({...p,dataTypes:p.dataTypes.includes(option)?p.dataTypes.filter((i)=>i!==option):[...p.dataTypes,option]}))}/><Input label="Data size range" value={state.dataSizeRange} onChange={(v)=>onStateChange((p: WorkloadFormState)=>({...p,dataSizeRange:v}))}/><Input label="Daily ingest range" value={state.dailyIngestRange} onChange={(v)=>onStateChange((p: WorkloadFormState)=>({...p,dailyIngestRange:v}))}/><Input label="File/object pattern" value={state.filePattern} onChange={(v)=>onStateChange((p: WorkloadFormState)=>({...p,filePattern:v}))}/><Input label="Freshness requirement" value={state.freshnessRequirement} onChange={(v)=>onStateChange((p: WorkloadFormState)=>({...p,freshnessRequirement:v}))}/></div></section>; }
+      {isCustom ? (
+        <CustomWorkloadFields {...props} />
+      ) : (
+        <p className="mt-3 text-sm text-foreground/70">{selectedDescription}</p>
+      )}
+    </Card>
+  );
+}
 
-function GovernanceSection({ state, onStateChange }: DiscoveryQuestionnaireProps) { return <section className="rounded-lg border border-border/60 p-3"><h3 className="text-sm font-semibold">Governance and risk</h3><div className="mt-3 grid gap-3 md:grid-cols-2"><Select label="Data sensitivity" value={state.dataSensitivity} options={["Low", "Moderate", "High", "Regulated / Highly sensitive"]} onChange={(v)=>onStateChange((p: WorkloadFormState)=>({...p,dataSensitivity:v}))}/><Select label="Audit trail" value={state.auditTrail} options={["Baseline", "Strict"]} onChange={(v)=>onStateChange((p: WorkloadFormState)=>({...p,auditTrail:v}))}/><Select label="Encryption" value={state.encryption} options={["Required", "Optional"]} onChange={(v)=>onStateChange((p: WorkloadFormState)=>({...p,encryption:v}))}/><Select label="Data residency" value={state.dataResidency} options={["Local", "Regional", "Global"]} onChange={(v)=>onStateChange((p: WorkloadFormState)=>({...p,dataResidency:v}))}/><Input label="Retention" value={state.retention} onChange={(v)=>onStateChange((p: WorkloadFormState)=>({...p,retention:v}))}/><Select label="Explainability" value={state.explainability} options={["Required", "Preferred", "Not required"]} onChange={(v)=>onStateChange((p: WorkloadFormState)=>({...p,explainability:v}))}/><Input label="Access controls" value={state.accessControls} onChange={(v)=>onStateChange((p: WorkloadFormState)=>({...p,accessControls:v}))}/></div></section>; }
+function CustomWorkloadFields({
+  state,
+  customCategory,
+  customDescription,
+  customAssumptions,
+  customPressurePoints,
+  onStateChange,
+  onCustomCategoryChange,
+  onCustomDescriptionChange,
+  onCustomAssumptionsChange,
+  onCustomPressurePointsChange,
+}: WorkloadSelectionCardProps) {
+  const handleWorkloadNameChange = (value: string) => {
+    onStateChange((previousState) => ({ ...previousState, workloadName: value }));
+  };
 
-function BomInputCapture({ state, onStateChange }: DiscoveryQuestionnaireProps) { return <Card title="BOM input capture"><div className="grid gap-3 md:grid-cols-2">{sizingFields.map((f)=><Input key={f.key} label={f.label} value={state.sizingInputs[f.key]} onChange={(v)=>onStateChange((p: WorkloadFormState)=>({...p,sizingInputs:{...p.sizingInputs,[f.key]:v}}))}/>)}</div></Card>; }
-function ArchitecturePipeline({ steps }: { steps: string[] }) { return <Card title="Architecture pipeline"><ol className="space-y-2">{steps.map((step, index)=><li key={step} className="rounded-md border bg-muted/20 px-3 py-2 text-sm"><span className="mr-2 font-semibold text-foreground/60">{index + 1}.</span>{step}</li>)}</ol></Card>; }
-function PressurePointChips({ points }: { points: string[] }) { return <Card title="Top pressure points"><div className="flex flex-wrap gap-2">{points.map((point)=><span key={point} className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs">{point}</span>)}</div></Card>; }
-function BuildingBlocks({ blocks }: { blocks: Record<string, string[]> }) { return <Card title="Key building blocks">{Object.entries(blocks).map(([group, values])=><div key={group} className="mb-4"><h3 className="text-sm font-semibold">{group}</h3><ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-foreground/70">{values.map((value)=><li key={value}>{value}</li>)}</ul></div>)}</Card>; }
-function BomReadinessCard({ profile }: { profile: ReturnType<typeof buildWorkloadProfile> }) { return <Card title="BOM readiness"><div className="h-3 rounded-full bg-muted"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${profile.readinessPercent}%` }} /></div><p className="mt-2 text-sm font-semibold">{profile.readinessPercent}% readiness</p><p className="mt-2 text-xs font-medium">This is BOM readiness, not a BOM.</p><p className="mt-2 text-xs text-foreground/70">Known inputs: {profile.knownInputs.length} | Missing inputs: {profile.missingInputs.length}</p><ul className="mt-2 space-y-1 text-xs">{profile.missingInputs.slice(0, 5).map((item)=><li key={item.label}><span className="font-medium">{item.label}:</span> {item.whyItMatters}</li>)}</ul><p className="mt-3 text-xs font-semibold">Next best questions</p><ul className="list-disc pl-5 text-xs">{profile.missingInputs.slice(0, 3).map((item)=><li key={item.label}>Can we quantify {item.label.toLowerCase()}?</li>)}</ul></Card>; }
-function TalkTrackCard({ profile }: { profile: ReturnType<typeof buildWorkloadProfile> }) { return <Card title="Talk track"><ul className="space-y-2 text-sm">{profile.talkTrack.map((line)=><li key={line}>• {line}</li>)}</ul></Card>; }
+  const handlePatternChange = (value: string) => {
+    onStateChange((previousState) => ({ ...previousState, aiPattern: value as AiPattern }));
+  };
 
-function WalkthroughView({ profile, workloadName, workloadDescription, assumptions }: { profile: ReturnType<typeof buildWorkloadProfile>; workloadName: string; workloadDescription: string; assumptions: string; }) { return <section className="space-y-5 rounded-2xl border border-border/60 bg-card p-6 shadow-sm"><h2 className="text-2xl font-semibold">Walkthrough: {workloadName}</h2><p className="text-sm text-foreground/80">{workloadDescription || "Description to be confirmed."}</p><p className="text-sm text-foreground/70"><span className="font-semibold">Assumptions:</span> {assumptions || "Assumptions not yet captured."}</p><p className="text-sm"><span className="font-semibold">Classification:</span> {profile.classification}</p><ArchitecturePipeline steps={profile.architectureSteps} /><PressurePointChips points={profile.pressurePoints} /><BuildingBlocks blocks={profile.buildingBlocks} /><BomReadinessCard profile={profile} /><TalkTrackCard profile={profile} /></section>; }
+  return (
+    <div className="mt-4 grid gap-3">
+      <Input label="Workload name" value={state.workloadName} onChange={handleWorkloadNameChange} />
+      <Select
+        label="Category"
+        value={customCategory}
+        options={["FSI", "HPC / AI", "Custom"]}
+        onChange={onCustomCategoryChange}
+      />
+      <Input label="Description / business goal" value={customDescription} onChange={onCustomDescriptionChange} />
+      <Select label="Selected AI pattern" value={state.aiPattern} options={aiPatterns} onChange={handlePatternChange} />
+      <Input
+        label="Assumptions (comma-separated)"
+        value={customAssumptions}
+        onChange={onCustomAssumptionsChange}
+      />
+      <Input
+        label="Likely pressure points (comma-separated)"
+        value={customPressurePoints}
+        onChange={onCustomPressurePointsChange}
+      />
+    </div>
+  );
+}
 
-function Card({ title, children }: { title: string; children: ReactNode }) { return <section className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm"><h2 className="text-sm font-semibold uppercase tracking-wide text-foreground/60">{title}</h2><div className="mt-3">{children}</div></section>; }
-function Input({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) { return <label className="text-xs font-medium text-foreground/70">{label}<input className="mt-1 w-full rounded-md border border-border/70 px-2 py-2 text-sm" value={value} onChange={(event) => onChange(event.target.value)} /></label>; }
-function Select({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) { return <label className="text-xs font-medium text-foreground/70">{label}<select className="mt-1 w-full rounded-md border border-border/70 bg-background px-2 py-2 text-sm" value={value} onChange={(event) => onChange(event.target.value)}>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>; }
-function MultiSelectChips({ label, options, selected, onToggle }: { label: string; options: string[]; selected: string[]; onToggle: (option: string) => void; }) { return <div><p className="text-xs font-medium text-foreground/70">{label}</p><div className="mt-1 flex flex-wrap gap-2">{options.map((option)=><button type="button" key={option} className={`rounded-full border px-3 py-1 text-xs ${selected.includes(option) ? "border-primary bg-primary/10" : "border-border bg-background"}`} onClick={() => onToggle(option)}>{option}</button>)}</div></div>; }
+function DiscoveryQuestionnaire({ state, onStateChange }: WorkloadStateProps) {
+  const handlePatternChange = (value: string) => {
+    onStateChange((previousState) => ({ ...previousState, aiPattern: value as AiPattern }));
+  };
+
+  return (
+    <Card title="Discovery questionnaire">
+      <div className="space-y-4">
+        <div className="grid gap-3 md:grid-cols-2">
+          <Input
+            label="Process/decision being improved"
+            value={state.processImproved}
+            onChange={(value) => onStateChange((p) => ({ ...p, processImproved: value }))}
+          />
+          <Input
+            label="Success criteria"
+            value={state.successCriteria}
+            onChange={(value) => onStateChange((p) => ({ ...p, successCriteria: value }))}
+          />
+          <Select label="AI pattern" value={state.aiPattern} options={aiPatterns} onChange={handlePatternChange} />
+        </div>
+
+        <DataProfileSection state={state} onStateChange={onStateChange} />
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <Select
+            label="Performance tier"
+            value={state.performanceTier}
+            options={["real-time", "near real-time", "intraday", "batch/end-of-day"]}
+            onChange={(value) =>
+              onStateChange((p) => ({ ...p, performanceTier: value as WorkloadFormState["performanceTier"] }))
+            }
+          />
+          <Input
+            label="Latency requirement"
+            value={state.latencyRequirement}
+            onChange={(value) => onStateChange((p) => ({ ...p, latencyRequirement: value }))}
+          />
+          <Input
+            label="Concurrency"
+            value={state.queryConcurrency}
+            onChange={(value) =>
+              onStateChange((p) => ({
+                ...p,
+                queryConcurrency: value,
+                sizingInputs: { ...p.sizingInputs, queryConcurrency: value },
+              }))
+            }
+          />
+          <Select
+            label="GPU dependency"
+            value={state.gpuDependency}
+            options={["Low", "Medium", "High"]}
+            onChange={(value) => onStateChange((p) => ({ ...p, gpuDependency: value }))}
+          />
+        </div>
+
+        <GovernanceSection state={state} onStateChange={onStateChange} />
+      </div>
+    </Card>
+  );
+}
+
+function DataProfileSection({ state, onStateChange }: WorkloadStateProps) {
+  const handleDataTypeToggle = (option: string) => {
+    onStateChange((previousState) => ({
+      ...previousState,
+      dataTypes: previousState.dataTypes.includes(option)
+        ? previousState.dataTypes.filter((item) => item !== option)
+        : [...previousState.dataTypes, option],
+    }));
+  };
+
+  return (
+    <section className="rounded-lg border border-border/60 p-3">
+      <h3 className="text-sm font-semibold">Data profile</h3>
+      <div className="mt-3 grid gap-3 md:grid-cols-2">
+        <MultiSelectChips
+          label="Data types"
+          selected={state.dataTypes}
+          options={dataTypeOptions}
+          onToggle={handleDataTypeToggle}
+        />
+        <Input
+          label="Data size range"
+          value={state.dataSizeRange}
+          onChange={(value) => onStateChange((p) => ({ ...p, dataSizeRange: value }))}
+        />
+        <Input
+          label="Daily ingest range"
+          value={state.dailyIngestRange}
+          onChange={(value) => onStateChange((p) => ({ ...p, dailyIngestRange: value }))}
+        />
+        <Input
+          label="File/object pattern"
+          value={state.filePattern}
+          onChange={(value) => onStateChange((p) => ({ ...p, filePattern: value }))}
+        />
+        <Input
+          label="Freshness requirement"
+          value={state.freshnessRequirement}
+          onChange={(value) => onStateChange((p) => ({ ...p, freshnessRequirement: value }))}
+        />
+      </div>
+    </section>
+  );
+}
+
+function GovernanceSection({ state, onStateChange }: WorkloadStateProps) {
+  return (
+    <section className="rounded-lg border border-border/60 p-3">
+      <h3 className="text-sm font-semibold">Governance and risk</h3>
+      <div className="mt-3 grid gap-3 md:grid-cols-2">
+        <Select
+          label="Data sensitivity"
+          value={state.dataSensitivity}
+          options={["Low", "Moderate", "High", "Regulated / Highly sensitive"]}
+          onChange={(value) => onStateChange((p) => ({ ...p, dataSensitivity: value }))}
+        />
+        <Select
+          label="Audit trail"
+          value={state.auditTrail}
+          options={["Baseline", "Strict"]}
+          onChange={(value) => onStateChange((p) => ({ ...p, auditTrail: value }))}
+        />
+        <Select
+          label="Encryption"
+          value={state.encryption}
+          options={["Required", "Optional"]}
+          onChange={(value) => onStateChange((p) => ({ ...p, encryption: value }))}
+        />
+        <Select
+          label="Data residency"
+          value={state.dataResidency}
+          options={["Local", "Regional", "Global"]}
+          onChange={(value) => onStateChange((p) => ({ ...p, dataResidency: value }))}
+        />
+        <Input
+          label="Retention"
+          value={state.retention}
+          onChange={(value) => onStateChange((p) => ({ ...p, retention: value }))}
+        />
+        <Select
+          label="Explainability"
+          value={state.explainability}
+          options={["Required", "Preferred", "Not required"]}
+          onChange={(value) => onStateChange((p) => ({ ...p, explainability: value }))}
+        />
+        <Input
+          label="Access controls"
+          value={state.accessControls}
+          onChange={(value) => onStateChange((p) => ({ ...p, accessControls: value }))}
+        />
+      </div>
+    </section>
+  );
+}
+
+function BomInputCapture({ state, onStateChange }: WorkloadStateProps) {
+  return (
+    <Card title="BOM input capture">
+      <div className="grid gap-3 md:grid-cols-2">
+        {sizingFields.map((field) => (
+          <Input
+            key={field.key}
+            label={field.label}
+            value={state.sizingInputs[field.key]}
+            onChange={(value) =>
+              onStateChange((p) => ({
+                ...p,
+                sizingInputs: { ...p.sizingInputs, [field.key]: value },
+              }))
+            }
+          />
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function ArchitecturePipeline({ steps }: { steps: string[] }) {
+  return (
+    <Card title="Architecture pipeline">
+      <ol className="space-y-2">
+        {steps.map((step, index) => (
+          <li key={step} className="rounded-md border bg-muted/20 px-3 py-2 text-sm">
+            <span className="mr-2 font-semibold text-foreground/60">{index + 1}.</span>
+            {step}
+          </li>
+        ))}
+      </ol>
+    </Card>
+  );
+}
+
+function PressurePointChips({ points }: { points: string[] }) {
+  return (
+    <Card title="Top pressure points">
+      <div className="flex flex-wrap gap-2">
+        {points.map((point) => (
+          <span key={point} className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs">
+            {point}
+          </span>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function BuildingBlocks({ blocks }: { blocks: Record<string, string[]> }) {
+  return (
+    <Card title="Key building blocks">
+      {Object.entries(blocks).map(([group, values]) => (
+        <div key={group} className="mb-4">
+          <h3 className="text-sm font-semibold">{group}</h3>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-foreground/70">
+            {values.map((value) => (
+              <li key={value}>{value}</li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </Card>
+  );
+}
+
+function BomReadinessCard({ profile }: { profile: ReturnType<typeof buildWorkloadProfile> }) {
+  return (
+    <Card title="BOM readiness">
+      <div className="h-3 rounded-full bg-muted">
+        <div className="h-full rounded-full bg-emerald-500" style={{ width: `${profile.readinessPercent}%` }} />
+      </div>
+      <p className="mt-2 text-sm font-semibold">{profile.readinessPercent}% readiness</p>
+      <p className="mt-2 text-xs font-medium">This is BOM readiness, not a BOM.</p>
+      <p className="mt-2 text-xs text-foreground/70">
+        Known inputs: {profile.knownInputs.length} | Missing inputs: {profile.missingInputs.length}
+      </p>
+      <ul className="mt-2 space-y-1 text-xs">
+        {profile.missingInputs.slice(0, 5).map((item) => (
+          <li key={item.label}>
+            <span className="font-medium">{item.label}:</span> {item.whyItMatters}
+          </li>
+        ))}
+      </ul>
+      <p className="mt-3 text-xs font-semibold">Next best questions</p>
+      <ul className="list-disc pl-5 text-xs">
+        {profile.missingInputs.slice(0, 3).map((item) => (
+          <li key={item.label}>Can we quantify {item.label.toLowerCase()}?</li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+function TalkTrackCard({ profile }: { profile: ReturnType<typeof buildWorkloadProfile> }) {
+  return (
+    <Card title="Talk track">
+      <ul className="space-y-2 text-sm">
+        {profile.talkTrack.map((line) => (
+          <li key={line}>• {line}</li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+function WalkthroughView({ profile, workloadName, workloadDescription, assumptions }: WalkthroughViewProps) {
+  return (
+    <section className="space-y-5 rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
+      <h2 className="text-2xl font-semibold">Walkthrough: {workloadName}</h2>
+      <p className="text-sm text-foreground/80">{workloadDescription || "Description to be confirmed."}</p>
+      <p className="text-sm text-foreground/70">
+        <span className="font-semibold">Assumptions:</span> {assumptions || "Assumptions not yet captured."}
+      </p>
+      <p className="text-sm">
+        <span className="font-semibold">Classification:</span> {profile.classification}
+      </p>
+      <ArchitecturePipeline steps={profile.architectureSteps} />
+      <PressurePointChips points={profile.pressurePoints} />
+      <BuildingBlocks blocks={profile.buildingBlocks} />
+      <BomReadinessCard profile={profile} />
+      <TalkTrackCard profile={profile} />
+    </section>
+  );
+}
+
+function Card({ title, children }: CardProps) {
+  return (
+    <section className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground/60">{title}</h2>
+      <div className="mt-3">{children}</div>
+    </section>
+  );
+}
+
+function Input({ label, value, onChange }: InputProps) {
+  return (
+    <label className="text-xs font-medium text-foreground/70">
+      {label}
+      <input
+        className="mt-1 w-full rounded-md border border-border/70 px-2 py-2 text-sm"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
+  );
+}
+
+function Select({ label, value, options, onChange }: SelectProps) {
+  return (
+    <label className="text-xs font-medium text-foreground/70">
+      {label}
+      <select
+        className="mt-1 w-full rounded-md border border-border/70 bg-background px-2 py-2 text-sm"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function MultiSelectChips({ label, options, selected, onToggle }: MultiSelectChipsProps) {
+  return (
+    <div>
+      <p className="text-xs font-medium text-foreground/70">{label}</p>
+      <div className="mt-1 flex flex-wrap gap-2">
+        {options.map((option) => (
+          <button
+            type="button"
+            key={option}
+            className={`rounded-full border px-3 py-1 text-xs ${
+              selected.includes(option) ? "border-primary bg-primary/10" : "border-border bg-background"
+            }`}
+            onClick={() => onToggle(option)}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
