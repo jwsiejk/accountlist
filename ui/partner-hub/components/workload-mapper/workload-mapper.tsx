@@ -120,6 +120,9 @@ export function WorkloadMapper() {
   const [summary, setSummary] = useState("");
   const [summaryError, setSummaryError] = useState("");
   const [isSummarizing, setIsSummarizing] = useState(false);
+  const [bomSummary, setBomSummary] = useState("");
+  const [bomSummaryError, setBomSummaryError] = useState("");
+  const [isGeneratingBomSummary, setIsGeneratingBomSummary] = useState(false);
 
   const isCustom = state.selectedWorkloadId === "custom";
   const selected = getSelectedWorkload(state.selectedWorkloadId);
@@ -197,6 +200,59 @@ export function WorkloadMapper() {
     }
   };
 
+
+
+  const summarizeBom = async () => {
+    setIsGeneratingBomSummary(true);
+    setBomSummaryError("");
+    try {
+      const payload: WorkloadSummaryRequest = {
+        workload: toSelectionContext(selected, state, {
+          category: customCategory,
+          description: customDescription,
+          assumptions: customAssumptions,
+          pressurePoints: customPressurePoints,
+        }),
+        customWorkload: {
+          category: customCategory,
+          description: customDescription,
+          assumptions: customAssumptions,
+          pressurePoints: customPressurePoints,
+        },
+        questionnaire: state,
+        knownInputs: profile.knownInputs,
+        missingInputs: profile.missingInputs,
+        architecturePipeline: profile.architectureSteps,
+        buildingBlocks: profile.buildingBlocks,
+        ddnReferencePattern: getDdnReferencePattern(isCustom ? "custom" : state.selectedWorkloadId, state.aiPattern),
+      };
+
+      const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+      const response = await fetch(`${basePath}/api/workload-mapper/bom-summary`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const responseText = await response.text();
+      let data: { summary?: string; error?: string } | null = null;
+
+      try {
+        data = JSON.parse(responseText) as { summary?: string; error?: string };
+      } catch {
+        throw new Error("BOM summarizer endpoint returned a non-JSON response. Check the API route/basePath configuration.");
+      }
+
+      if (!response.ok || !data?.summary) {
+        throw new Error(data?.error || "Could not generate BOM summary.");
+      }
+      setBomSummary(data.summary);
+    } catch (error) {
+      setBomSummary("");
+      setBomSummaryError(error instanceof Error ? error.message : "Could not generate BOM summary.");
+    } finally {
+      setIsGeneratingBomSummary(false);
+    }
+  };
   const applyWorkloadExamplePreset = () => {
     const preset = workloadExamplePresets[state.selectedWorkloadId] ?? (isCustom ? workloadExamplePresets.custom : undefined);
     if (!preset) return;
@@ -266,6 +322,7 @@ export function WorkloadMapper() {
             <BomReadinessCard profile={profile} />
             <TalkTrackCard profile={profile} />
             <SummarizeCard summary={summary} error={summaryError} loading={isSummarizing} onSummarize={summarizeWorkload} />
+            <BomSummaryCard summary={bomSummary} error={bomSummaryError} loading={isGeneratingBomSummary} onSummarize={summarizeBom} />
           </div>
         </section>
       )}
@@ -716,6 +773,52 @@ function SummarizeCard({
   );
 }
 
+function BomSummaryCard({
+  summary,
+  error,
+  loading,
+  onSummarize,
+}: {
+  summary: string;
+  error: string;
+  loading: boolean;
+  onSummarize: () => Promise<void>;
+}) {
+  const copySummary = async () => {
+    if (!summary) return;
+    await navigator.clipboard.writeText(summary);
+  };
+
+  return (
+    <Card title="BOM Summary">
+      <p className="mb-2 text-xs font-medium text-amber-700">
+        This is an architecture/BOM-readiness summary, not an actual BOM, quote, or official sizing recommendation.
+      </p>
+      <p className="mb-3 text-xs text-foreground/70">
+        Summary generation uses the local Ollama model configured for this app. Discovery inputs are sent only to the local summarization endpoint.
+      </p>
+      <button type="button" className="rounded-md border px-3 py-2 text-sm font-medium" onClick={onSummarize} disabled={loading}>
+        {loading ? "Generating BOM summary..." : "Generate BOM Summary"}
+      </button>
+      {error ? (
+        <div className="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          <p>{error}</p>
+          <p className="mt-2 text-xs">Try: <code>ollama serve</code> and <code>ollama pull &lt;model&gt;</code></p>
+        </div>
+      ) : null}
+      {summary ? (
+        <div className="mt-3 rounded-md border border-border/70 bg-muted/20 p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold">BOM Summary</h3>
+            <button type="button" className="rounded-md border px-2 py-1 text-xs" onClick={copySummary}>Copy Summary</button>
+          </div>
+          <p className="whitespace-pre-wrap text-sm text-foreground/90">{summary}</p>
+        </div>
+      ) : null}
+    </Card>
+  );
+}
+
 function WalkthroughView({ profile, workloadName, workloadDescription, assumptions }: WalkthroughViewProps) {
   return (
     <section className="space-y-5 rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
@@ -798,3 +901,5 @@ function MultiSelectChips({ label, options, selected, onToggle }: MultiSelectChi
     </div>
   );
 }
+
+
