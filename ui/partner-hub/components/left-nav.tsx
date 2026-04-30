@@ -13,6 +13,7 @@ export function LeftNav() {
   const hpcLabEnabled = process.env.NEXT_PUBLIC_ENABLE_HPC_LAB === "true";
   const toolLinks = [
     { name: "Energy Tool", href: "/tools/energy" },
+    { name: "AI Workload Mapper", href: "/tools/workload-mapper" },
     ...(aiInterviewEnabled ? [{ name: "AI Interview", href: "/tools/interview" }] : []),
   ];
   const links = [
