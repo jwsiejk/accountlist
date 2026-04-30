@@ -18,6 +18,8 @@ export type ConversationAssets = {
 };
 
 export const DEFAULT_CONVERSATION_MINIMUM_SCORE = 70;
+const PLACEHOLDER_TARGET_NAMES = new Set(["Recruiter target needed", "Hiring manager target needed", "Employee/referral target needed"]);
+const isApprovedTarget = (target: ConversationTarget) => !PLACEHOLDER_TARGET_NAMES.has(target.name.trim());
 
 const logicalOutreachKey = (sequence: OutreachSequence) => `${sequence.jobId}:${sequence.contactId}:${sequence.stage}:${sequence.channel}`;
 
@@ -81,7 +83,10 @@ export const generateConversationAssetsForJobs = (params: {
 
     if (!brief) continue;
 
-    const queue = buildInitialOutreachQueueForJob({ job: row.job, brief, targets, existing: existingOutreach, now: params.now });
+    const approvedTargets = targets.filter(isApprovedTarget);
+    const queue = approvedTargets.length > 0
+      ? buildInitialOutreachQueueForJob({ job: row.job, brief, targets: approvedTargets, existing: existingOutreach, now: params.now })
+      : [];
     const seenLogicalKeys = new Set(existingOutreach.map(logicalOutreachKey));
 
     for (const draft of queue) {

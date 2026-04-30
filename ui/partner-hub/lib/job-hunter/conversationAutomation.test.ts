@@ -43,7 +43,7 @@ describe("conversation automation", () => {
 
     assert.equal(summary.eligibleJobs, 1);
     assert.equal(summary.generatedBriefs, 1);
-    assert.equal(summary.generatedTargets, 2);
+    assert.equal(summary.generatedTargets, 3);
     assert.equal(summary.generatedOutreachDrafts >= 1, true);
     assert.equal(store.conversationBriefs.length, 1);
   });
@@ -68,8 +68,18 @@ describe("conversation automation", () => {
     store.conversationBriefsById["b1"] = { id: "b1", jobId: job.id, company: "Acme", roleTitle: job.title, reasonToPursue: "x", likelyHiringPriorities: ["a"], likelyPainPoints: ["b"], candidateFit: ["c"], riskAreas: ["d"], messageAngle: "e", proofPoints: [], recommendedTargets: [], createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" };
     const { store: out } = generateConversationDraftsFromTopJobs({ store, now: new Date("2026-01-02T00:00:00.000Z"), minimumScore: 60 });
 
-    assert.ok(out.conversationTargetsById["job-1:auto-recruiter"]);
-    assert.ok(out.conversationTargetsById["job-1:auto-hiring-manager"]);
+    assert.ok(out.conversationTargetsById["job-1:auto-recruiter-needed"]);
+    assert.ok(out.conversationTargetsById["job-1:auto-hiring-manager-needed"]);
+    assert.equal(out.outreachSequences.length, 0);
+  });
+
+  it("generates drafts when at least one approved candidate exists", () => {
+    const job = makeJob("job-1", "Solutions Architect", "cloud distributed systems", "Acme");
+    const approvedTarget: ConversationTarget = {
+      id: "acme:recruiter-1", company: "Acme", name: "Jamie Recruiter", relationshipType: "recruiter", source: "manual", confidence: 90,
+      createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+    const { store: out } = generateConversationDraftsFromTopJobs({ store: baseStore([job], [approvedTarget]), now: new Date("2026-01-02T00:00:00.000Z"), minimumScore: 60 });
     assert.equal(out.outreachSequences.length >= 1, true);
   });
 
