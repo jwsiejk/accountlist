@@ -680,7 +680,7 @@ function ArchitecturePipeline({
               <button
                 type="button"
                 aria-label={`Explain ${step}`}
-                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-blue-500 bg-blue-500 text-xs font-bold text-white hover:bg-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-blue-500/80 bg-blue-500/90 text-[11px] font-semibold text-white hover:bg-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                 onClick={() => setOpenStep((current) => (current === step ? null : step))}
               >
                 i
