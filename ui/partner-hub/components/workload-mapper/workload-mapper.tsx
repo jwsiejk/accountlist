@@ -31,16 +31,6 @@ interface WorkloadSelectionCardProps extends WorkloadStateProps {
   onCustomPressurePointsChange: (value: string) => void;
 }
 
-interface WalkthroughViewProps {
-  profile: ReturnType<typeof buildWorkloadProfile>;
-  workloadName: string;
-  workloadDescription: string;
-  assumptions: string;
-  state: WorkloadFormState;
-  selectedWorkload?: WorkloadTemplate;
-  customCategory: string;
-}
-
 interface CardProps {
   title: string;
   children: ReactNode;
@@ -116,7 +106,6 @@ const initialState: WorkloadFormState = {
 
 export function WorkloadMapper() {
   const [state, setState] = useState(initialState);
-  const [walkthroughMode, setWalkthroughMode] = useState(false);
   const [customCategory, setCustomCategory] = useState("Custom");
   const [customDescription, setCustomDescription] = useState("");
   const [customAssumptions, setCustomAssumptions] = useState("");
@@ -289,55 +278,41 @@ export function WorkloadMapper() {
   return (
     <div className="space-y-6 pb-10">
       <HeroSection />
-      <WalkthroughToggle enabled={walkthroughMode} onToggle={() => setWalkthroughMode((v) => !v)} />
+      <section className="grid gap-6 xl:grid-cols-2">
+        <div className="space-y-6">
+          <WorkloadSelectionCard
+            state={state}
+            selectedDescription={selected?.description}
+            isCustom={isCustom}
+            customCategory={customCategory}
+            customDescription={customDescription}
+            customAssumptions={customAssumptions}
+            customPressurePoints={customPressurePoints}
+            onStateChange={setState}
+            onCustomCategoryChange={setCustomCategory}
+            onCustomDescriptionChange={setCustomDescription}
+            onCustomAssumptionsChange={setCustomAssumptions}
+            onCustomPressurePointsChange={setCustomPressurePoints}
+          />
+          <DiscoveryQuestionnaire state={state} onStateChange={setState} />
+          <BomInputCapture state={state} onStateChange={setState} onApplyPreset={applyWorkloadExamplePreset} />
+        </div>
 
-      {walkthroughMode ? (
-        <WalkthroughView
-          profile={profile}
-          workloadName={state.workloadName || selected?.name || "Custom workload"}
-          workloadDescription={isCustom ? customDescription : selected?.description || ""}
-          assumptions={isCustom ? customAssumptions : selected?.assumptions.join(", ") || ""}
-          state={state}
-          selectedWorkload={selected}
-          customCategory={customCategory}
-        />
-      ) : (
-        <section className="grid gap-6 xl:grid-cols-2">
-          <div className="space-y-6">
-            <WorkloadSelectionCard
-              state={state}
-              selectedDescription={selected?.description}
-              isCustom={isCustom}
-              customCategory={customCategory}
-              customDescription={customDescription}
-              customAssumptions={customAssumptions}
-              customPressurePoints={customPressurePoints}
-              onStateChange={setState}
-              onCustomCategoryChange={setCustomCategory}
-              onCustomDescriptionChange={setCustomDescription}
-              onCustomAssumptionsChange={setCustomAssumptions}
-              onCustomPressurePointsChange={setCustomPressurePoints}
-            />
-            <DiscoveryQuestionnaire state={state} onStateChange={setState} />
-            <BomInputCapture state={state} onStateChange={setState} onApplyPreset={applyWorkloadExamplePreset} />
-          </div>
-
-          <div className="space-y-6">
-            <ArchitecturePipeline
-              steps={profile.architectureSteps}
-              state={state}
-              selectedWorkload={selected}
-              customContext={isCustom ? { workloadName: state.workloadName, category: customCategory } : undefined}
-            />
-            <PressurePointChips points={profile.pressurePoints} />
-            <BuildingBlocks blocks={profile.buildingBlocks} />
-            <BomReadinessCard profile={profile} />
-            <TalkTrackCard profile={profile} />
-            <SummarizeCard summary={summary} error={summaryError} loading={isSummarizing} onSummarize={summarizeWorkload} />
-            <BomSummaryCard summary={bomSummary} error={bomSummaryError} loading={isGeneratingBomSummary} onSummarize={summarizeBom} />
-          </div>
-        </section>
-      )}
+        <div className="space-y-6">
+          <ArchitecturePipeline
+            steps={profile.architectureSteps}
+            state={state}
+            selectedWorkload={selected}
+            customContext={isCustom ? { workloadName: state.workloadName, category: customCategory } : undefined}
+          />
+          <PressurePointChips points={profile.pressurePoints} />
+          <BuildingBlocks blocks={profile.buildingBlocks} />
+          <BomReadinessCard profile={profile} />
+          <TalkTrackCard profile={profile} />
+          <SummarizeCard summary={summary} error={summaryError} loading={isSummarizing} onSummarize={summarizeWorkload} />
+          <BomSummaryCard summary={bomSummary} error={bomSummaryError} loading={isGeneratingBomSummary} onSummarize={summarizeBom} />
+        </div>
+      </section>
     </div>
   );
 }
@@ -353,22 +328,6 @@ function HeroSection() {
         This guided flow helps align AI workload context, architecture pressure points, and BOM-readiness
         inputs before detailed solution sizing.
       </p>
-    </section>
-  );
-}
-
-function WalkthroughToggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
-  return (
-    <section className="rounded-xl border border-border/60 bg-card p-3 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-semibold">Walkthrough Mode</p>
-          <p className="text-xs text-foreground/60">Screen-share friendly discovery narrative view.</p>
-        </div>
-        <button className="rounded-md border px-3 py-1 text-sm font-medium" onClick={onToggle}>
-          {enabled ? "Exit Walkthrough Mode" : "Enter Walkthrough Mode"}
-        </button>
-      </div>
     </section>
   );
 }
@@ -882,31 +841,6 @@ function BomSummaryCard({
         </div>
       ) : null}
     </Card>
-  );
-}
-
-function WalkthroughView({ profile, workloadName, workloadDescription, assumptions, state, selectedWorkload, customCategory }: WalkthroughViewProps) {
-  return (
-    <section className="space-y-5 rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
-      <h2 className="text-2xl font-semibold">Walkthrough: {workloadName}</h2>
-      <p className="text-sm text-foreground/80">{workloadDescription || "Description to be confirmed."}</p>
-      <p className="text-sm text-foreground/70">
-        <span className="font-semibold">Assumptions:</span> {assumptions || "Assumptions not yet captured."}
-      </p>
-      <p className="text-sm">
-        <span className="font-semibold">Classification:</span> {profile.classification}
-      </p>
-      <ArchitecturePipeline
-        steps={profile.architectureSteps}
-        state={state}
-        selectedWorkload={selectedWorkload}
-        customContext={{ workloadName, category: customCategory }}
-      />
-      <PressurePointChips points={profile.pressurePoints} />
-      <BuildingBlocks blocks={profile.buildingBlocks} />
-      <BomReadinessCard profile={profile} />
-      <TalkTrackCard profile={profile} />
-    </section>
   );
 }
 
