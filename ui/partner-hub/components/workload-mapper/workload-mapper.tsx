@@ -9,6 +9,7 @@ import { sizingFields, workloadExamplePresets, workloadLibrary } from "./workloa
 import { buildWorkloadProfile, getSelectedWorkload } from "./workload-mapper-utils";
 import { getDdnReferencePattern } from "./workload-mapper-ddn-reference";
 import { getPipelineStepHelp } from "./workload-mapper-pipeline-help";
+import { buildWorkloadVisualMap, type VisualMap } from "./workload-mapper-visual-map";
 import { type AiPattern, type WorkloadFormState, type WorkloadTemplate } from "./workload-mapper-types";
 
 type StateSetter = Dispatch<SetStateAction<WorkloadFormState>>;
@@ -116,6 +117,7 @@ export function WorkloadMapper() {
   const [bomSummary, setBomSummary] = useState("");
   const [bomSummaryError, setBomSummaryError] = useState("");
   const [isGeneratingBomSummary, setIsGeneratingBomSummary] = useState(false);
+  const [showVisualMap, setShowVisualMap] = useState(false);
 
   const isCustom = state.selectedWorkloadId === "custom";
   const selected = getSelectedWorkload(state.selectedWorkloadId);
@@ -136,6 +138,17 @@ export function WorkloadMapper() {
           : undefined,
       ),
     [state, isCustom, customCategory, customDescription, customAssumptions, customPressurePoints],
+  );
+  const ddnReferencePattern = getDdnReferencePattern(isCustom ? "custom" : state.selectedWorkloadId, state.aiPattern);
+  const visualMap = useMemo(
+    () =>
+      buildWorkloadVisualMap({
+        workloadId: isCustom ? "custom" : state.selectedWorkloadId,
+        selectedWorkload: selected,
+        state,
+        ddnReferencePattern,
+      }),
+    [ddnReferencePattern, isCustom, selected, state],
   );
 
 
@@ -161,7 +174,7 @@ export function WorkloadMapper() {
         missingInputs: profile.missingInputs,
         architecturePipeline: profile.architectureSteps,
         buildingBlocks: profile.buildingBlocks,
-        ddnReferencePattern: getDdnReferencePattern(isCustom ? "custom" : state.selectedWorkloadId, state.aiPattern),
+        ddnReferencePattern,
       };
 
       const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
@@ -217,7 +230,7 @@ export function WorkloadMapper() {
         missingInputs: profile.missingInputs,
         architecturePipeline: profile.architectureSteps,
         buildingBlocks: profile.buildingBlocks,
-        ddnReferencePattern: getDdnReferencePattern(isCustom ? "custom" : state.selectedWorkloadId, state.aiPattern),
+        ddnReferencePattern,
       };
 
       const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
@@ -309,6 +322,14 @@ export function WorkloadMapper() {
           <BuildingBlocks blocks={profile.buildingBlocks} />
           <BomReadinessCard profile={profile} />
           <WhyDdnCard profile={profile} />
+          <button
+            type="button"
+            className="w-full rounded-md border border-sky-300 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-900 hover:bg-sky-100"
+            onClick={() => setShowVisualMap((current) => !current)}
+          >
+            {showVisualMap ? "Hide Visual" : "Create Visual"}
+          </button>
+          {showVisualMap ? <WorkloadVisualMapCard visualMap={visualMap} /> : null}
           <SummarizeCard summary={summary} error={summaryError} loading={isSummarizing} onSummarize={summarizeWorkload} />
           <BomSummaryCard summary={bomSummary} error={bomSummaryError} loading={isGeneratingBomSummary} onSummarize={summarizeBom} />
         </div>
@@ -746,6 +767,70 @@ function WhyDdnCard({ profile }: { profile: ReturnType<typeof buildWorkloadProfi
           <li key={line}>• {line}</li>
         ))}
       </ul>
+    </Card>
+  );
+}
+
+function WorkloadVisualMapCard({ visualMap }: { visualMap: VisualMap }) {
+  return (
+    <Card title="Workload Visual Map">
+      <div className="space-y-4">
+        <div className="rounded-lg border border-sky-200 bg-sky-50/70 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-sky-900">{visualMap.title}</p>
+          <p className="mt-1 text-sm font-medium text-sky-950">{visualMap.businessGoal}</p>
+        </div>
+        <div className="space-y-2">
+          {visualMap.nodes.map((node, index) => (
+            <div key={node.id}>
+              <details className="rounded-lg border border-border/70 bg-muted/20 p-3">
+                <summary className="cursor-pointer list-none text-sm font-semibold">
+                  <span>{index + 1}. {node.title}</span>
+                  {node.ddnFit ? <span className="ml-2 rounded-full border border-emerald-300 bg-emerald-100 px-2 py-0.5 text-[10px] uppercase text-emerald-900">DDN fit</span> : null}
+                </summary>
+                <p className="mt-2 text-xs text-foreground/80">{node.plainEnglish}</p>
+                {node.examples?.length ? (
+                  <ul className="mt-2 list-disc pl-4 text-xs text-foreground/70">
+                    {node.examples.map((example) => (
+                      <li key={example}>{example}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </details>
+              {index < visualMap.nodes.length - 1 ? <div className="py-1 text-center text-xs text-foreground/60">↓</div> : null}
+            </div>
+          ))}
+        </div>
+        <div className="grid gap-3 lg:grid-cols-2">
+          <div className="rounded-lg border border-purple-200 bg-purple-50/50 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-purple-900">Governance & Security rail</p>
+            <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-purple-900/90">
+              {visualMap.governance.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </div>
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-900">DDN fit highlights</p>
+            <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-emerald-900/90">
+              {visualMap.ddnFitHighlights.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-900">Business result</p>
+          <p className="mt-1 text-sm text-emerald-950">{visualMap.outcome}</p>
+        </div>
+        <details className="rounded-lg border border-border/70 p-3">
+          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-foreground/70">Validation focus</summary>
+          <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-foreground/80">
+            {visualMap.validationFocus.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </details>
+      </div>
     </Card>
   );
 }
