@@ -320,10 +320,7 @@ export function WorkloadMapper() {
 function HeroSection() {
   return (
     <section className="rounded-2xl border border-border/60 bg-gradient-to-r from-slate-50 to-white p-6 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground/50">
-        AI Workload Discovery Mapper
-      </p>
-      <h1 className="mt-2 text-3xl font-semibold">Story-first discovery from use case to BOM readiness</h1>
+      <h1 className="text-3xl font-semibold">AI Workload Discovery Mapper</h1>
       <p className="mt-3 text-sm text-foreground/70">
         This guided flow helps align AI workload context, architecture pressure points, and BOM-readiness
         inputs before detailed solution sizing.
