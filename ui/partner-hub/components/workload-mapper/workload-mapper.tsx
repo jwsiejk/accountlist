@@ -308,7 +308,7 @@ export function WorkloadMapper() {
           <PressurePointChips points={profile.pressurePoints} />
           <BuildingBlocks blocks={profile.buildingBlocks} />
           <BomReadinessCard profile={profile} />
-          <TalkTrackCard profile={profile} />
+          <WhyDdnCard profile={profile} />
           <SummarizeCard summary={summary} error={summaryError} loading={isSummarizing} onSummarize={summarizeWorkload} />
           <BomSummaryCard summary={bomSummary} error={bomSummaryError} loading={isGeneratingBomSummary} onSummarize={summarizeBom} />
         </div>
@@ -738,11 +738,11 @@ function BomReadinessCard({ profile }: { profile: ReturnType<typeof buildWorkloa
   );
 }
 
-function TalkTrackCard({ profile }: { profile: ReturnType<typeof buildWorkloadProfile> }) {
+function WhyDdnCard({ profile }: { profile: ReturnType<typeof buildWorkloadProfile> }) {
   return (
-    <Card title="Talk track">
+    <Card title="Why DDN">
       <ul className="space-y-2 text-sm">
-        {profile.talkTrack.map((line) => (
+        {profile.whyDdn.map((line) => (
           <li key={line}>• {line}</li>
         ))}
       </ul>
