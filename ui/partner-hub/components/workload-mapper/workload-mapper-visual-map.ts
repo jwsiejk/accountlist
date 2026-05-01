@@ -224,7 +224,7 @@ export function buildWorkloadVisualMap({ workloadId, selectedWorkload, state, dd
   }
 
   return {
-    title: `${selectedWorkload?.name ?? state.workloadName || "Custom Workload"} Visual Map`,
+    title: `${selectedWorkload?.name ?? (state.workloadName || "Custom Workload")} Visual Map`,
     businessGoal: state.processImproved || selectedWorkload?.description || "Clarify the business workflow and define measurable outcomes.",
     nodes: genericNodes(state),
     governance: genericGovernance(state),
