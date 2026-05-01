@@ -8,7 +8,8 @@ import { toSelectionContext } from "@/lib/workload-mapper/summarize-types";
 import { sizingFields, workloadExamplePresets, workloadLibrary } from "./workload-mapper-data";
 import { buildWorkloadProfile, getSelectedWorkload } from "./workload-mapper-utils";
 import { getDdnReferencePattern } from "./workload-mapper-ddn-reference";
-import { type AiPattern, type WorkloadFormState } from "./workload-mapper-types";
+import { getPipelineStepHelp } from "./workload-mapper-pipeline-help";
+import { type AiPattern, type WorkloadFormState, type WorkloadTemplate } from "./workload-mapper-types";
 
 type StateSetter = Dispatch<SetStateAction<WorkloadFormState>>;
 
@@ -35,6 +36,9 @@ interface WalkthroughViewProps {
   workloadName: string;
   workloadDescription: string;
   assumptions: string;
+  state: WorkloadFormState;
+  selectedWorkload?: WorkloadTemplate;
+  customCategory: string;
 }
 
 interface CardProps {
@@ -293,6 +297,9 @@ export function WorkloadMapper() {
           workloadName={state.workloadName || selected?.name || "Custom workload"}
           workloadDescription={isCustom ? customDescription : selected?.description || ""}
           assumptions={isCustom ? customAssumptions : selected?.assumptions.join(", ") || ""}
+          state={state}
+          selectedWorkload={selected}
+          customCategory={customCategory}
         />
       ) : (
         <section className="grid gap-6 xl:grid-cols-2">
@@ -316,7 +323,12 @@ export function WorkloadMapper() {
           </div>
 
           <div className="space-y-6">
-            <ArchitecturePipeline steps={profile.architectureSteps} />
+            <ArchitecturePipeline
+              steps={profile.architectureSteps}
+              state={state}
+              selectedWorkload={selected}
+              customContext={isCustom ? { workloadName: state.workloadName, category: customCategory } : undefined}
+            />
             <PressurePointChips points={profile.pressurePoints} />
             <BuildingBlocks blocks={profile.buildingBlocks} />
             <BomReadinessCard profile={profile} />
@@ -642,14 +654,68 @@ function BomInputCapture({
   );
 }
 
-function ArchitecturePipeline({ steps }: { steps: string[] }) {
+function ArchitecturePipeline({
+  steps,
+  state,
+  selectedWorkload,
+  customContext,
+}: {
+  steps: string[];
+  state: WorkloadFormState;
+  selectedWorkload?: WorkloadTemplate;
+  customContext?: { workloadName?: string; category?: string };
+}) {
+  const [openStep, setOpenStep] = useState<string | null>(null);
+
   return (
     <Card title="Architecture pipeline">
       <ol className="space-y-2">
         {steps.map((step, index) => (
           <li key={step} className="rounded-md border bg-muted/20 px-3 py-2 text-sm">
-            <span className="mr-2 font-semibold text-foreground/60">{index + 1}.</span>
-            {step}
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <span className="mr-2 font-semibold text-foreground/60">{index + 1}.</span>
+                {step}
+              </div>
+              <button
+                type="button"
+                aria-label={`Explain ${step}`}
+                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-blue-500 bg-blue-500 text-xs font-bold text-white hover:bg-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                onClick={() => setOpenStep((current) => (current === step ? null : step))}
+              >
+                i
+              </button>
+            </div>
+            {openStep === step ? (
+              <div className="mt-3 rounded-md border border-blue-200 bg-blue-50/40 p-3 text-xs text-foreground/90">
+                {(() => {
+                  const help = getPipelineStepHelp({
+                    step,
+                    workloadId: selectedWorkload?.id,
+                    workloadName: customContext?.workloadName || selectedWorkload?.name,
+                    category: customContext?.category || selectedWorkload?.category,
+                    aiPattern: state.aiPattern,
+                    state,
+                  });
+                  return (
+                    <div className="space-y-2">
+                      <p><span className="font-semibold">Plain English:</span> {help.plainEnglish}</p>
+                      <p><span className="font-semibold">Why it matters:</span> {help.whyItMatters}</p>
+                      {help.example ? <p><span className="font-semibold">Example:</span> {help.example}</p> : null}
+                      <div>
+                        <p className="font-semibold">Discovery questions:</p>
+                        <ul className="mt-1 list-disc space-y-1 pl-4">
+                          {help.questions.map((question) => (
+                            <li key={question}>{question}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      {help.ddnAngle ? <p>{help.ddnAngle}</p> : null}
+                    </div>
+                  );
+                })()}
+              </div>
+            ) : null}
           </li>
         ))}
       </ol>
@@ -819,7 +885,7 @@ function BomSummaryCard({
   );
 }
 
-function WalkthroughView({ profile, workloadName, workloadDescription, assumptions }: WalkthroughViewProps) {
+function WalkthroughView({ profile, workloadName, workloadDescription, assumptions, state, selectedWorkload, customCategory }: WalkthroughViewProps) {
   return (
     <section className="space-y-5 rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
       <h2 className="text-2xl font-semibold">Walkthrough: {workloadName}</h2>
@@ -830,7 +896,12 @@ function WalkthroughView({ profile, workloadName, workloadDescription, assumptio
       <p className="text-sm">
         <span className="font-semibold">Classification:</span> {profile.classification}
       </p>
-      <ArchitecturePipeline steps={profile.architectureSteps} />
+      <ArchitecturePipeline
+        steps={profile.architectureSteps}
+        state={state}
+        selectedWorkload={selectedWorkload}
+        customContext={{ workloadName, category: customCategory }}
+      />
       <PressurePointChips points={profile.pressurePoints} />
       <BuildingBlocks blocks={profile.buildingBlocks} />
       <BomReadinessCard profile={profile} />
@@ -901,5 +972,3 @@ function MultiSelectChips({ label, options, selected, onToggle }: MultiSelectChi
     </div>
   );
 }
-
-
