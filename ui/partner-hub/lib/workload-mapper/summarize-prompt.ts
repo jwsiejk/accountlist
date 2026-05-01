@@ -14,7 +14,7 @@ const workloadSummaryFocus: Record<string, string> = {
 };
 
 export function buildSummarizePrompt(input: WorkloadSummaryRequest): string {
-  const workloadName = input.customWorkload?.workloadName?.trim() || input.workload.name;
+  const workloadName = input.workload.name;
   const focusDirective = workloadSummaryFocus[workloadName];
   return [
     "You are generating a plain-English workload summary for a sales counterpart.",
