@@ -92,7 +92,7 @@ export function buildWorkloadProfile(
 
   const talkTrack = [
     `Executive framing: I start with ${workloadName} because it reveals the data pattern, constraints, and likely infrastructure pressure points before we discuss BOM scope.`,
-    `SE discovery walkthrough: For this ${pattern} flow, I validate data types (${state.dataTypes.join(", ") || "TBD"}), freshness (${state.freshnessRequirement || "TBD"}), latency (${state.latencyRequirement || "TBD"}), concurrency (${state.queryConcurrency || "TBD"}), and governance controls (${state.accessControls || "TBD"}).`,
+    `SE discovery flow: For this ${pattern} pattern, I validate data types (${state.dataTypes.join(", ") || "TBD"}), freshness (${state.freshnessRequirement || "TBD"}), latency (${state.latencyRequirement || "TBD"}), concurrency (${state.queryConcurrency || "TBD"}), and governance controls (${state.accessControls || "TBD"}).`,
     `Next-step questions before BOM: We still need ${missingInputs.length} key inputs. ${nextBestQuestions.join(" ")} This is BOM readiness, not a BOM.`,
   ];
 
