@@ -139,11 +139,143 @@ const fraudHelpByStep = (step: string, state: WorkloadFormState): PipelineStepHe
   }
 };
 
+const tradingHelpByStep = (step: string, state: WorkloadFormState): PipelineStepHelp | null => {
+  switch (step) {
+    case "High-Performance Data Platform":
+      return {
+        title: step,
+        plainEnglish: "This is the market/time-series active data platform where quant teams access hot market data, derived features, and replay windows.",
+        whyItMatters: describeScale(state),
+        questions: [
+          "Which datasets must stay in the lowest-latency tier for intraday research?",
+          "What data retention split is needed between hot replay windows and colder history?",
+          "Which ingest bursts (market-open/close or event spikes) must be absorbed without query degradation?",
+        ],
+      };
+    case "LLM / Model Serving":
+      return {
+        title: step,
+        plainEnglish: "For trading research, this layer usually supports analytics/backtesting execution and optional AI-assisted signal interpretation.",
+        whyItMatters: "Backtest turnaround and model response time directly control research velocity.",
+        questions: [
+          "What p95 latency target is acceptable for interactive research workflows?",
+          "How many concurrent backtests or model-evaluation jobs must run during peak ideation windows?",
+          "Which validation checks gate strategy promotion from research to controlled rollout?",
+        ],
+      };
+    case "Business App":
+      return {
+        title: step,
+        plainEnglish: "This is the quant research workspace: notebooks, dashboards, and review flows where strategies are evaluated and approved.",
+        whyItMatters: "Research value only materializes when strategy evidence and governance are visible to the right reviewers.",
+        questions: [
+          "Which teams can view proprietary strategy outputs and under what controls?",
+          "What evidence must be captured before a strategy moves to next-stage validation?",
+          "Which actions should be automated versus explicitly approved by risk/governance teams?",
+        ],
+      };
+    default:
+      return null;
+  }
+};
+
+const fineTuningHelpByStep = (step: string): PipelineStepHelp | null => {
+  switch (step) {
+    case "Ingestion / Normalization":
+      return {
+        title: step,
+        plainEnglish: "This is where curated training corpora, labels, and policy transforms are prepared into a usable fine-tuning dataset.",
+        whyItMatters: "Data quality and policy checks at this stage determine downstream model quality and governance readiness.",
+        questions: [
+          "Which labeling and quality gates are required before data can enter tuning runs?",
+          "What redaction or residency rules apply to sensitive financial content?",
+          "How frequently should new training examples be promoted into curated datasets?",
+        ],
+      };
+    case "High-Performance Data Platform":
+      return {
+        title: step,
+        plainEnglish: "This is the high-throughput training data path that keeps fine-tuning jobs supplied with curated data and checkpoints.",
+        whyItMatters: "Iteration speed drops quickly if data delivery or checkpoint movement becomes inconsistent.",
+        questions: [
+          "What sustained throughput is required during peak tuning windows?",
+          "What checkpoint cadence is needed for rollback and experiment continuity?",
+          "Which retention windows apply to artifacts, run logs, and promoted models?",
+        ],
+      };
+    case "LLM / Model Serving":
+      return {
+        title: step,
+        plainEnglish: "This layer runs GPU fine-tuning execution, evaluation passes, and candidate model validation.",
+        whyItMatters: "The architecture must support repeatable tuning cycles with lineage and benchmark visibility.",
+        questions: [
+          "What turnaround target is required for each tuning-evaluation cycle?",
+          "Which benchmark gates must pass before a model can be registered as production-candidate?",
+          "What lineage evidence is required for model-risk and audit review?",
+        ],
+      };
+    default:
+      return null;
+  }
+};
+
+const riskHelpByStep = (step: string): PipelineStepHelp | null => {
+  switch (step) {
+    case "Data Sources":
+      return {
+        title: step,
+        plainEnglish: "This is where governed historical portfolio, position, pricing, and market data enters the risk workflow.",
+        whyItMatters: "Scenario credibility depends on complete, reproducible historical inputs.",
+        questions: [
+          "What historical depth is mandatory for stress scenarios and regulatory reporting?",
+          "Which sources refresh intraday versus end-of-day?",
+          "Which ownership boundaries apply across risk, treasury, and market-data teams?",
+        ],
+      };
+    case "High-Performance Data Platform":
+      return {
+        title: step,
+        plainEnglish: "This is the shared risk data platform used for scenario pipelines, parallel analytics runs, and result retrieval.",
+        whyItMatters: "Batch and intraday windows are constrained by how quickly many runs can read and write shared data.",
+        questions: [
+          "What peak concurrent scenario runs must complete inside required windows?",
+          "Which result sets must remain instantly queryable for downstream reporting?",
+          "How should historical risk data be tiered without breaking reproducibility?",
+        ],
+      };
+    case "Business App":
+      return {
+        title: step,
+        plainEnglish: "This is where risk analysts and governance teams review scenario outcomes, exceptions, and validation evidence.",
+        whyItMatters: "Decisions depend on trusted aggregation, clear lineage, and reproducible replay paths.",
+        questions: [
+          "What output aggregations are required for committee/regulatory review?",
+          "What lineage depth is required to reproduce a prior stress result?",
+          "Which alerts should trigger when batch or intraday windows are at risk?",
+        ],
+      };
+    default:
+      return null;
+  }
+};
+
 export function getPipelineStepHelp(args: PipelineStepHelpArgs): PipelineStepHelp {
   const normalizedStep = normalizeStep(args.step);
   if (args.workloadId === "fraud" || args.workloadName?.toLowerCase().includes("fraud")) {
     const fraudHelp = fraudHelpByStep(normalizedStep, args.state);
     if (fraudHelp) return fraudHelp;
+  }
+  if (args.workloadId === "trading") {
+    const tradingHelp = tradingHelpByStep(normalizedStep, args.state);
+    if (tradingHelp) return tradingHelp;
+  }
+  if (args.workloadId === "fsi-ft") {
+    const ftHelp = fineTuningHelpByStep(normalizedStep);
+    if (ftHelp) return ftHelp;
+  }
+  if (args.workloadId === "risk") {
+    const riskHelp = riskHelpByStep(normalizedStep);
+    if (riskHelp) return riskHelp;
   }
 
   return {

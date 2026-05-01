@@ -14,7 +14,7 @@ const workloadBomFocus: Record<string, string> = {
 };
 
 export function buildBomSummaryPrompt(input: BomSummaryRequest): string {
-  const workloadName = input.customWorkload?.workloadName?.trim() || input.workload.name;
+  const workloadName = input.workload.name;
   const focusDirective = workloadBomFocus[workloadName];
   const bomSummaryContext = {
     workload: input.workload,
