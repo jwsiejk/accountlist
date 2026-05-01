@@ -72,7 +72,7 @@ export interface WorkloadProfile {
   readinessPercent: number;
   knownInputs: Array<{ label: string; value: string }>;
   missingInputs: Array<{ label: string; whyItMatters: string }>;
-  talkTrack: string[];
+  whyDdn: string[];
 }
 
 export interface WorkloadExamplePreset {
