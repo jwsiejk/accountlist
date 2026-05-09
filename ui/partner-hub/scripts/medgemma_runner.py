@@ -6,13 +6,14 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import os
 import sys
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 MODEL_ID = "google/medgemma-1.5-4b-it"
-DEFAULT_MAX_NEW_TOKENS = 512
+DEFAULT_MAX_NEW_TOKENS = 192
 MIN_TORCH_VERSION = (2, 6)
 SUPPORTED_FALLBACK_FORMATS = {"JPEG", "PNG", "WEBP"}
 
@@ -34,15 +35,54 @@ def emit(payload: dict[str, object], exit_code: int = 0) -> None:
     raise SystemExit(exit_code)
 
 
+def positive_int(value: str) -> int:
+    parsed_value = int(value)
+    if parsed_value < 1:
+        raise argparse.ArgumentTypeError("must be at least 1")
+    return parsed_value
+
+
+def env_max_new_tokens() -> int:
+    raw_value = os.environ.get("MEDGEMMA_MAX_NEW_TOKENS")
+    if raw_value is None or raw_value.strip() == "":
+        return DEFAULT_MAX_NEW_TOKENS
+
+    try:
+        value = int(raw_value)
+    except ValueError:
+        print(
+            "Ignoring MEDGEMMA_MAX_NEW_TOKENS because it is not an integer; "
+            f"using {DEFAULT_MAX_NEW_TOKENS}.",
+            file=sys.stderr,
+            flush=True,
+        )
+        return DEFAULT_MAX_NEW_TOKENS
+
+    if value < 1:
+        print(
+            "Ignoring MEDGEMMA_MAX_NEW_TOKENS because it must be at least 1; "
+            f"using {DEFAULT_MAX_NEW_TOKENS}.",
+            file=sys.stderr,
+            flush=True,
+        )
+        return DEFAULT_MAX_NEW_TOKENS
+
+    return value
+
+
 def parse_args() -> argparse.Namespace:
+    default_max_new_tokens = env_max_new_tokens()
     parser = argparse.ArgumentParser(description="Run local MedGemma image review.")
     parser.add_argument("--image", required=True, help="Path to a local JPG, PNG, or WebP image.")
     parser.add_argument("--prompt", required=True, help="Prompt to send with the image.")
     parser.add_argument(
         "--max-new-tokens",
-        type=int,
-        default=DEFAULT_MAX_NEW_TOKENS,
-        help=f"Maximum response tokens to generate (default: {DEFAULT_MAX_NEW_TOKENS}).",
+        type=positive_int,
+        default=default_max_new_tokens,
+        help=(
+            "Maximum response tokens to generate "
+            f"(default: MEDGEMMA_MAX_NEW_TOKENS or {DEFAULT_MAX_NEW_TOKENS})."
+        ),
     )
     return parser.parse_args()
 
@@ -212,15 +252,25 @@ def main() -> None:
             from transformers import AutoModelForImageTextToText, AutoProcessor
 
             device = "cuda" if torch.cuda.is_available() else "cpu"
-            dtype = torch.bfloat16 if device == "cuda" else torch.float32
+            dtype = torch.float16 if device == "cuda" else torch.float32
+            model_kwargs: dict[str, Any] = {
+                "torch_dtype": dtype,
+                "low_cpu_mem_usage": True,
+            }
+            if device == "cuda":
+                model_kwargs["device_map"] = "auto"
+                model_kwargs["attn_implementation"] = "sdpa"
 
             log_stage("loading_model")
-            print(f"Loading {MODEL_ID} on {device}...", file=sys.stderr, flush=True)
+            print(
+                f"Loading {MODEL_ID} on {device} with {dtype} and max_new_tokens={args.max_new_tokens}...",
+                file=sys.stderr,
+                flush=True,
+            )
             processor = AutoProcessor.from_pretrained(MODEL_ID)
             model = AutoModelForImageTextToText.from_pretrained(
                 MODEL_ID,
-                torch_dtype=dtype,
-                device_map="auto" if device == "cuda" else None,
+                **model_kwargs,
             )
             if device != "cuda":
                 model = model.to(device)
@@ -242,10 +292,7 @@ def main() -> None:
                 return_dict=True,
                 return_tensors="pt",
             )
-            if device == "cuda":
-                inputs = inputs.to(model.device, dtype=dtype)
-            else:
-                inputs = inputs.to(model.device)
+            inputs = inputs.to(model.device)
             input_token_count = inputs["input_ids"].shape[-1]
 
             log_stage("generating")

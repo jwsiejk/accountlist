@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { withBasePath } from "@/lib/basePath";
 
 const DEFAULT_PROMPT =
-  "Describe visible findings in cautious medical language. List possible benign explanations and red flags that would require a clinician. Do not provide a definitive diagnosis.";
+  "Provide a concise local image review in cautious medical language. Use brief bullets for visible findings, possible benign explanations, and red flags that would require a clinician. Do not provide a definitive diagnosis.";
 
 const acceptedImageTypes = ["image/jpeg", "image/png", "image/webp"];
 
@@ -270,7 +270,8 @@ export function MedGemmaReviewTool() {
                   className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm transition placeholder:text-foreground/40 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
                 />
                 <p className="text-xs text-foreground/60">
-                  Leave blank to use the cautious default prompt.
+                  Leave blank to use the cautious concise default prompt. Set
+                  MEDGEMMA_MAX_NEW_TOKENS if you need a longer local response.
                 </p>
               </div>
 
@@ -308,10 +309,11 @@ export function MedGemmaReviewTool() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-sm text-foreground/70">
-                  Loading MedGemma and generating a response can take several
-                  minutes on the first run while model files are prepared
-                  locally. Status messages are generated locally and omit tokens
-                  and full local paths.
+                  The first run may be slow while model files download and load
+                  into GPU memory. After the model is cached, the concise default
+                  output is intended to finish well before the 10-minute timeout
+                  on a 6 GB laptop GPU. Status messages are generated locally and
+                  omit tokens and full local paths.
                 </p>
                 <ol className="space-y-2 text-sm text-foreground/75">
                   {progressMessages.map((message, index) => (
