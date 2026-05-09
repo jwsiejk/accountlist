@@ -229,20 +229,56 @@ def as_token_id_set(token_id: Any) -> set[int]:
     return set()
 
 
+def move_inputs_to_model_device(inputs: Any, *, device: Any, dtype: Any) -> Any:
+    # Hugging Face's BatchFeature.to() mirrors Tensor.to(): passing dtype casts
+    # only floating tensors such as pixel_values while leaving token IDs as ints.
+    # This keeps MedGemma's vision inputs aligned with the model dtype used for
+    # local inference.
+    try:
+        return inputs.to(device, dtype=dtype)
+    except TypeError:
+        return inputs.to(device)
+
+
+def decode_ids(processor: Any, token_ids: Any) -> str:
+    if getattr(token_ids, "ndim", 0) == 1:
+        token_ids = token_ids.unsqueeze(0)
+    return processor.batch_decode(token_ids, skip_special_tokens=True)[0].strip()
+
+
+def first_token_is_eos(token_ids: Any, eos_token_ids: set[int]) -> bool:
+    if not eos_token_ids or token_ids.shape[-1] <= 0:
+        return False
+    first_token = (
+        token_ids[0]
+        if getattr(token_ids, "ndim", 0) == 1
+        else token_ids[0][0]
+    )
+    return int(first_token.item()) in eos_token_ids
+
+
 def log_generation_debug(
     *,
+    input_keys: list[str],
     input_token_count: int,
-    generated_output_shape: tuple[int, ...],
+    raw_output_shape: tuple[int, ...],
+    output_token_count: int,
     generated_token_count: int,
-    decoded_output_length: int,
+    decoded_full_output_length: int,
+    decoded_sliced_output_length: int,
+    used_sliced_output: bool,
     eos_returned_immediately: bool,
 ) -> None:
     print(
         "GENERATION_DEBUG: "
+        f"input_keys={','.join(input_keys)} "
         f"input_token_count={input_token_count} "
-        f"generated_output_shape={generated_output_shape} "
+        f"raw_output_shape={raw_output_shape} "
+        f"output_token_count={output_token_count} "
         f"generated_token_count={generated_token_count} "
-        f"decoded_output_length={decoded_output_length} "
+        f"decoded_full_output_length={decoded_full_output_length} "
+        f"decoded_sliced_output_length={decoded_sliced_output_length} "
+        f"used_sliced_output={str(used_sliced_output).lower()} "
         f"eos_returned_immediately={str(eos_returned_immediately).lower()}",
         file=sys.stderr,
         flush=True,
@@ -305,6 +341,9 @@ def main() -> None:
             if device != "cuda":
                 model = model.to(device)
 
+            # MedGemma 1.5's model card uses the chat-template path with the
+            # PIL image embedded in the image content item. The processor handles
+            # image extraction/tokenization when tokenize=True and return_dict=True.
             messages = [
                 {
                     "role": "user",
@@ -322,7 +361,12 @@ def main() -> None:
                 return_dict=True,
                 return_tensors="pt",
             )
-            inputs = inputs.to(model.device)
+            input_keys = sorted(str(key) for key in inputs.keys())
+            inputs = move_inputs_to_model_device(
+                inputs,
+                device=model.device,
+                dtype=dtype,
+            )
             input_token_count = inputs["input_ids"].shape[-1]
 
             tokenizer = getattr(processor, "tokenizer", None)
@@ -354,26 +398,44 @@ def main() -> None:
             with torch.inference_mode():
                 generated_ids = model.generate(**inputs, **generation_kwargs)
 
-            # MedGemma image-text models are decoder-only Gemma-family models;
-            # transformers returns the prompt followed by generated tokens. The
-            # official AutoModelForImageTextToText examples therefore decode
-            # only tokens after inputs["input_ids"].shape[-1].
-            output_ids = generated_ids[:, input_token_count:]
-            generated_output_shape = tuple(output_ids.shape)
+            raw_output_shape = tuple(generated_ids.shape)
+            output_token_count = generated_ids.shape[-1]
+            prompt_prefixed_output = (
+                output_token_count > input_token_count
+                and torch.equal(
+                    generated_ids[0, :input_token_count],
+                    inputs["input_ids"][0],
+                )
+            )
+            if prompt_prefixed_output:
+                # Decoder-only Gemma-family model outputs usually contain
+                # prompt+completion. Slice only when the returned sequence is
+                # longer than and starts with the prompt; some Transformers/model
+                # combinations can return generated tokens only, and slicing those
+                # would incorrectly erase the response.
+                output_ids = generated_ids[:, input_token_count:]
+            else:
+                output_ids = generated_ids
+
             generated_token_count = output_ids.shape[-1]
             eos_token_ids = as_token_id_set(eos_token_id)
-            eos_returned_immediately = (
-                generated_token_count > 0
-                and int(output_ids[0][0].item()) in eos_token_ids
+            eos_returned_immediately = first_token_is_eos(output_ids, eos_token_ids)
+            decoded_full_output = decode_ids(processor, generated_ids)
+            decoded_sliced_output = (
+                decode_ids(processor, generated_ids[:, input_token_count:])
+                if prompt_prefixed_output
+                else decoded_full_output
             )
-            result = processor.batch_decode(output_ids, skip_special_tokens=True)[
-                0
-            ].strip()
+            result = decoded_sliced_output
             log_generation_debug(
+                input_keys=input_keys,
                 input_token_count=input_token_count,
-                generated_output_shape=generated_output_shape,
+                raw_output_shape=raw_output_shape,
+                output_token_count=output_token_count,
                 generated_token_count=generated_token_count,
-                decoded_output_length=len(result),
+                decoded_full_output_length=len(decoded_full_output),
+                decoded_sliced_output_length=len(decoded_sliced_output),
+                used_sliced_output=prompt_prefixed_output,
                 eos_returned_immediately=eos_returned_immediately,
             )
 

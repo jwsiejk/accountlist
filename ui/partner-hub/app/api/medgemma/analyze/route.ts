@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
 
 const DEFAULT_PROMPT =
-  "Provide a concise local image review in cautious medical language. Use brief bullets for visible findings, possible benign explanations, and red flags that would require a clinician. Do not provide a definitive diagnosis.";
+  "Describe this image briefly. Include visible findings and red flags. Do not provide a diagnosis.";
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const ALLOWED_TYPES = new Map([
