@@ -15,6 +15,18 @@ from typing import Any, NamedTuple
 
 MODEL_ID = "google/medgemma-1.5-4b-it"
 DEFAULT_MAX_NEW_TOKENS = 192
+DEFAULT_INPUT_MODE = "auto"
+SUPPORTED_INPUT_MODES = {
+    "auto",
+    "text_processor",
+    "chat_template_tokenize",
+    "direct_text_processor",
+}
+DIRECT_PROMPT_TEXT = (
+    "<image>\n"
+    "Describe this image briefly. Include visible findings and red flags. "
+    "Do not provide a diagnosis."
+)
 MIN_TORCH_VERSION = (2, 6)
 SUPPORTED_FALLBACK_FORMATS = {"JPEG", "PNG", "WEBP"}
 
@@ -41,6 +53,28 @@ def positive_int(value: str) -> int:
     if parsed_value < 1:
         raise argparse.ArgumentTypeError("must be at least 1")
     return parsed_value
+
+
+def env_flag(name: str, *, default: bool = False) -> bool:
+    raw_value = os.environ.get(name)
+    if raw_value is None or raw_value.strip() == "":
+        return default
+    return raw_value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def env_input_mode() -> str:
+    raw_value = os.environ.get("MEDGEMMA_INPUT_MODE", DEFAULT_INPUT_MODE)
+    input_mode = raw_value.strip().lower() if raw_value else DEFAULT_INPUT_MODE
+    if input_mode in SUPPORTED_INPUT_MODES:
+        return input_mode
+
+    print(
+        "Ignoring MEDGEMMA_INPUT_MODE because it is not one of "
+        f"{', '.join(sorted(SUPPORTED_INPUT_MODES))}; using {DEFAULT_INPUT_MODE}.",
+        file=sys.stderr,
+        flush=True,
+    )
+    return DEFAULT_INPUT_MODE
 
 
 def env_max_new_tokens() -> int:
@@ -325,43 +359,88 @@ def count_generated_special_tokens(processor: Any, token_ids: Any) -> int:
     return special_count
 
 
-def build_medgemma_inputs(processor: Any, messages: list[dict[str, Any]], image: Any) -> tuple[Any, str]:
-    """Build MedGemma inputs with the text-template multimodal flow.
+def build_medgemma_inputs(
+    processor: Any,
+    messages: list[dict[str, Any]],
+    image: Any,
+    input_mode: str,
+) -> tuple[Any, str]:
+    """Build MedGemma inputs for the requested runner mode."""
 
-    The Google MedGemma card shows ``apply_chat_template(..., tokenize=True)``.
-    The alternate Hugging Face processor flow first renders the chat template to
-    text and then lets the multimodal processor pair that text with the image.
-    Use the alternate flow as the production path because it avoids local runs
-    that decode to only visible role wrappers, while keeping a tokenize=True
-    fallback for compatibility with processor versions that cannot render text
-    templates for multimodal messages.
-    """
-
-    try:
-        chat_text = processor.apply_chat_template(
-            messages,
-            add_generation_prompt=True,
-            tokenize=False,
-        )
-        return processor(images=image, text=chat_text, return_tensors="pt"), "text_processor"
-    except Exception as exc:  # noqa: BLE001 - fall back before strict JSON error handling.
-        print(
-            "MedGemma text-template processor flow failed with "
-            f"{type(exc).__name__}; falling back to tokenize=True flow.",
-            file=sys.stderr,
-            flush=True,
+    if input_mode == "chat_template_tokenize":
+        return (
+            processor.apply_chat_template(
+                messages,
+                add_generation_prompt=True,
+                tokenize=True,
+                return_dict=True,
+                return_tensors="pt",
+            ),
+            "chat_template_tokenize",
         )
 
-    return (
-        processor.apply_chat_template(
-            messages,
-            add_generation_prompt=True,
-            tokenize=True,
-            return_dict=True,
-            return_tensors="pt",
-        ),
-        "chat_template_tokenize",
+    if input_mode == "direct_text_processor":
+        return (
+            processor(images=image, text=DIRECT_PROMPT_TEXT, return_tensors="pt"),
+            "direct_text_processor",
+        )
+
+    if input_mode != "text_processor":
+        raise ValueError(f"Unsupported MedGemma input mode: {input_mode}")
+
+    chat_text = processor.apply_chat_template(
+        messages,
+        add_generation_prompt=True,
+        tokenize=False,
     )
+    return processor(images=image, text=chat_text, return_tensors="pt"), "text_processor"
+
+
+def input_modes_to_try(input_mode: str) -> list[str]:
+    if input_mode != "auto":
+        return [input_mode]
+
+    # Prefer the official tokenize=True chat-template path, then keep the older
+    # text-processor path for compatibility, and finally try a compact direct
+    # prompt if chat templates only produce control/special tokens locally.
+    return ["chat_template_tokenize", "text_processor", "direct_text_processor"]
+
+
+def remove_optional_input_keys(inputs: Any, *, drop_token_type_ids: bool) -> list[str]:
+    removed_input_keys: list[str] = []
+    if drop_token_type_ids and "token_type_ids" in inputs:
+        try:
+            inputs.pop("token_type_ids")
+        except AttributeError:
+            del inputs["token_type_ids"]
+        removed_input_keys.append("token_type_ids")
+    return removed_input_keys
+
+
+def build_generation_kwargs(max_new_tokens: int, model: Any, processor: Any) -> dict[str, Any]:
+    generation_kwargs: dict[str, Any] = {"max_new_tokens": max_new_tokens}
+    if env_flag("MEDGEMMA_USE_DEFAULT_GENERATION_CONFIG", default=True):
+        return generation_kwargs
+
+    generation_kwargs["do_sample"] = False
+    tokenizer = getattr(processor, "tokenizer", None)
+    eos_token_id = getattr(model.generation_config, "eos_token_id", None)
+    if eos_token_id is None:
+        eos_token_id = getattr(model.config, "eos_token_id", None)
+    pad_token_id = getattr(model.generation_config, "pad_token_id", None)
+    if pad_token_id is None:
+        pad_token_id = getattr(tokenizer, "pad_token_id", None)
+    if pad_token_id is None and isinstance(eos_token_id, int):
+        pad_token_id = eos_token_id
+    elif (
+        pad_token_id is None
+        and isinstance(eos_token_id, (list, tuple))
+        and eos_token_id
+    ):
+        pad_token_id = eos_token_id[0]
+    if pad_token_id is not None:
+        generation_kwargs["pad_token_id"] = pad_token_id
+    return generation_kwargs
 
 
 class WrapperStripResult(NamedTuple):
@@ -553,11 +632,10 @@ def main() -> None:
             if device != "cuda":
                 model = model.to(device)
 
-            # MedGemma 1.5's model card shows the chat-template tokenize=True
-            # path with the PIL image embedded in the content item. Build inputs
-            # with the alternate HF multimodal flow first: render chat text, then
-            # pair it with the image through processor(images=..., text=...).
-            # This avoids local runs that only echo visible role wrappers.
+            # The runner supports multiple input flows because local Transformers
+            # releases have differed in how MedGemma handles multimodal chat
+            # templates. Auto mode starts with the official tokenize=True path and
+            # falls back only when a mode produces no displayable assistant text.
             messages = [
                 {
                     "role": "user",
@@ -568,111 +646,144 @@ def main() -> None:
                 }
             ]
 
-            inputs, input_flow = build_medgemma_inputs(processor, messages, image)
-            input_keys = sorted(str(key) for key in inputs.keys())
-            # Keep token_type_ids when the processor supplies them. Gemma 3's
-            # multimodal forward signature accepts token_type_ids, and Google's
-            # MedGemma example passes the complete processor BatchFeature through
-            # to generate. Log removals as "none" so diagnostics make the choice
-            # explicit without exposing raw IDs or prompts.
-            removed_input_keys: list[str] = []
-            inputs = move_inputs_to_model_device(
-                inputs,
-                device=model.device,
-                dtype=dtype,
+            input_mode = env_input_mode()
+            drop_token_type_ids = env_flag("MEDGEMMA_DROP_TOKEN_TYPE_IDS", default=True)
+            use_default_generation_config = env_flag(
+                "MEDGEMMA_USE_DEFAULT_GENERATION_CONFIG",
+                default=True,
             )
-            input_token_count = inputs["input_ids"].shape[-1]
-
-            tokenizer = getattr(processor, "tokenizer", None)
+            generation_kwargs = build_generation_kwargs(
+                args.max_new_tokens,
+                model,
+                processor,
+            )
             eos_token_id = getattr(model.generation_config, "eos_token_id", None)
             if eos_token_id is None:
                 eos_token_id = getattr(model.config, "eos_token_id", None)
-            pad_token_id = getattr(model.generation_config, "pad_token_id", None)
-            if pad_token_id is None:
-                pad_token_id = getattr(tokenizer, "pad_token_id", None)
-            if pad_token_id is None and isinstance(eos_token_id, int):
-                pad_token_id = eos_token_id
-            elif (
-                pad_token_id is None
-                and isinstance(eos_token_id, (list, tuple))
-                and eos_token_id
-            ):
-                pad_token_id = eos_token_id[0]
 
-            generation_kwargs: dict[str, Any] = {
-                "max_new_tokens": args.max_new_tokens,
-                "do_sample": False,
-            }
-            if pad_token_id is not None:
-                generation_kwargs["pad_token_id"] = pad_token_id
-
-            log_stage("generating")
-            with torch.inference_mode():
-                generated_ids = model.generate(**inputs, **generation_kwargs)
-
-            raw_output_shape = tuple(generated_ids.shape)
-            output_token_count = generated_ids.shape[-1]
-            prompt_prefixed_output = (
-                output_token_count > input_token_count
-                and torch.equal(
-                    generated_ids[0, :input_token_count],
-                    inputs["input_ids"][0],
+            result = ""
+            selected_output = "empty"
+            attempted_modes = input_modes_to_try(input_mode)
+            for attempted_mode in attempted_modes:
+                log_stage(f"generating:{attempted_mode}")
+                print(
+                    "Running MedGemma generation with "
+                    f"input_mode={attempted_mode}, "
+                    f"drop_token_type_ids={str(drop_token_type_ids).lower()}, "
+                    "use_default_generation_config="
+                    f"{str(use_default_generation_config).lower()}...",
+                    file=sys.stderr,
+                    flush=True,
                 )
-            )
-            if prompt_prefixed_output:
-                # Decoder-only Gemma-family model outputs usually contain
-                # prompt+completion. Slice only when the returned sequence is
-                # longer than and starts with the prompt; some Transformers/model
-                # combinations can return generated tokens only, and slicing those
-                # would incorrectly erase the response.
-                output_ids = generated_ids[:, input_token_count:]
-            else:
-                output_ids = generated_ids
+                try:
+                    inputs, input_flow = build_medgemma_inputs(
+                        processor,
+                        messages,
+                        image,
+                        attempted_mode,
+                    )
+                except Exception as exc:  # noqa: BLE001 - auto mode should try fallbacks.
+                    if input_mode != "auto":
+                        raise
+                    print(
+                        "MedGemma input mode failed before generation; "
+                        f"input_mode={attempted_mode}, error={type(exc).__name__}.",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                    continue
+                input_keys = sorted(str(key) for key in inputs.keys())
+                removed_input_keys = remove_optional_input_keys(
+                    inputs,
+                    drop_token_type_ids=drop_token_type_ids,
+                )
+                inputs = move_inputs_to_model_device(
+                    inputs,
+                    device=model.device,
+                    dtype=dtype,
+                )
+                input_token_count = inputs["input_ids"].shape[-1]
 
-            generated_token_count = output_ids.shape[-1]
-            eos_token_ids = as_token_id_set(eos_token_id)
-            eos_returned_immediately = first_token_is_eos(output_ids, eos_token_ids)
-            generated_special_token_count = count_generated_special_tokens(processor, output_ids)
-            generated_non_special_decoded_char_count = non_special_decoded_char_count(
-                processor,
-                output_ids,
-            )
-            decoded_full_output, decoded_full_method = decode_ids(processor, generated_ids)
-            if prompt_prefixed_output:
-                decoded_sliced_output, decoded_sliced_method = decode_ids(
+                with torch.inference_mode():
+                    generated_ids = model.generate(**inputs, **generation_kwargs)
+
+                raw_output_shape = tuple(generated_ids.shape)
+                output_token_count = generated_ids.shape[-1]
+                prompt_prefixed_output = (
+                    output_token_count > input_token_count
+                    and torch.equal(
+                        generated_ids[0, :input_token_count],
+                        inputs["input_ids"][0],
+                    )
+                )
+                if prompt_prefixed_output:
+                    # Decoder-only Gemma-family model outputs usually contain
+                    # prompt+completion. Slice only when the returned sequence is
+                    # longer than and starts with the prompt; some Transformers/model
+                    # combinations can return generated tokens only, and slicing those
+                    # would incorrectly erase the response.
+                    output_ids = generated_ids[:, input_token_count:]
+                else:
+                    output_ids = generated_ids
+
+                generated_token_count = output_ids.shape[-1]
+                eos_token_ids = as_token_id_set(eos_token_id)
+                eos_returned_immediately = first_token_is_eos(output_ids, eos_token_ids)
+                generated_special_token_count = count_generated_special_tokens(
                     processor,
-                    generated_ids[:, input_token_count:],
+                    output_ids,
                 )
-            else:
-                decoded_sliced_output = ""
-                decoded_sliced_method = "not_prompt_prefixed"
-            output_selection = select_decoded_output(
-                decoded_full_output=decoded_full_output,
-                decoded_sliced_output=decoded_sliced_output,
-            )
-            result = output_selection.result
-            selected_output = output_selection.selected_output
-            log_generation_debug(
-                input_keys=input_keys,
-                input_token_count=input_token_count,
-                input_flow=input_flow,
-                removed_input_keys=removed_input_keys,
-                raw_output_shape=raw_output_shape,
-                output_token_count=output_token_count,
-                generated_token_count=generated_token_count,
-                generated_special_token_count=generated_special_token_count,
-                generated_non_special_decoded_char_count=generated_non_special_decoded_char_count,
-                decoded_full_output_length=len(decoded_full_output),
-                decoded_sliced_output_length=len(decoded_sliced_output),
-                decoded_full_method=decoded_full_method,
-                decoded_sliced_method=decoded_sliced_method,
-                used_sliced_output=selected_output == "sliced",
-                selected_output=selected_output,
-                wrapper_detected=output_selection.wrapper_detected,
-                prompt_prefixed_output=prompt_prefixed_output,
-                final_response_length=len(result),
-                eos_returned_immediately=eos_returned_immediately,
-            )
+                generated_non_special_decoded_char_count = non_special_decoded_char_count(
+                    processor,
+                    output_ids,
+                )
+                decoded_full_output, decoded_full_method = decode_ids(processor, generated_ids)
+                if prompt_prefixed_output:
+                    decoded_sliced_output, decoded_sliced_method = decode_ids(
+                        processor,
+                        generated_ids[:, input_token_count:],
+                    )
+                else:
+                    decoded_sliced_output = ""
+                    decoded_sliced_method = "not_prompt_prefixed"
+                output_selection = select_decoded_output(
+                    decoded_full_output=decoded_full_output,
+                    decoded_sliced_output=decoded_sliced_output,
+                )
+                result = output_selection.result
+                selected_output = output_selection.selected_output
+                log_generation_debug(
+                    input_keys=input_keys,
+                    input_token_count=input_token_count,
+                    input_flow=input_flow,
+                    removed_input_keys=removed_input_keys,
+                    raw_output_shape=raw_output_shape,
+                    output_token_count=output_token_count,
+                    generated_token_count=generated_token_count,
+                    generated_special_token_count=generated_special_token_count,
+                    generated_non_special_decoded_char_count=(
+                        generated_non_special_decoded_char_count
+                    ),
+                    decoded_full_output_length=len(decoded_full_output),
+                    decoded_sliced_output_length=len(decoded_sliced_output),
+                    decoded_full_method=decoded_full_method,
+                    decoded_sliced_method=decoded_sliced_method,
+                    used_sliced_output=selected_output == "sliced",
+                    selected_output=selected_output,
+                    wrapper_detected=output_selection.wrapper_detected,
+                    prompt_prefixed_output=prompt_prefixed_output,
+                    final_response_length=len(result),
+                    eos_returned_immediately=eos_returned_immediately,
+                )
+                if result.strip():
+                    break
+
+                print(
+                    "MedGemma mode produced no displayable assistant text; "
+                    f"input_mode={attempted_mode}, selected_output={selected_output}.",
+                    file=sys.stderr,
+                    flush=True,
+                )
 
         if not result.strip():
             emit(
@@ -680,9 +791,11 @@ def main() -> None:
                     "ok": False,
                     "errorType": "runner_failed",
                     "error": (
-                        "MedGemma generated no decodable response text. "
-                        "The runner completed generation, but the decoded output was empty; "
-                        "check server stderr for safe generation metadata."
+                        "MedGemma generated no decodable assistant text in the configured "
+                        "local input mode(s). The runner completed generation, but the "
+                        "decoded output was empty or only chat-template wrappers/special "
+                        "tokens. Try MEDGEMMA_INPUT_MODE=direct_text_processor or use "
+                        "another supported local vision-language model path."
                     ),
                 },
                 1,
