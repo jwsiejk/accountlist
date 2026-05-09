@@ -15,7 +15,7 @@ from typing import Any, NamedTuple
 
 MODEL_ID = "google/medgemma-1.5-4b-it"
 DEFAULT_MAX_NEW_TOKENS = 192
-DEFAULT_INPUT_MODE = "auto"
+DEFAULT_INPUT_MODE = "chat_template_tokenize"
 SUPPORTED_INPUT_MODES = {
     "auto",
     "text_processor",
@@ -75,6 +75,27 @@ def env_input_mode() -> str:
         flush=True,
     )
     return DEFAULT_INPUT_MODE
+
+
+def env_dtype(torch_module: Any, *, device: str) -> Any:
+    default_dtype = torch_module.float16 if device == "cuda" else torch_module.float32
+    raw_value = os.environ.get("MEDGEMMA_DTYPE")
+    if raw_value is None or raw_value.strip() == "":
+        return default_dtype
+
+    dtype_name = raw_value.strip().lower()
+    if dtype_name == "bfloat16":
+        return torch_module.bfloat16
+    if dtype_name == "float16":
+        return torch_module.float16
+
+    print(
+        "Ignoring MEDGEMMA_DTYPE because it is not one of bfloat16, float16; "
+        f"using {default_dtype}.",
+        file=sys.stderr,
+        flush=True,
+    )
+    return default_dtype
 
 
 def env_max_new_tokens() -> int:
@@ -400,9 +421,9 @@ def input_modes_to_try(input_mode: str) -> list[str]:
     if input_mode != "auto":
         return [input_mode]
 
-    # Prefer the official tokenize=True chat-template path, then keep the older
-    # text-processor path for compatibility, and finally try a compact direct
-    # prompt if chat templates only produce control/special tokens locally.
+    # Auto is an explicit diagnostic/fallback mode only. The default remains the
+    # official tokenize=True chat-template path and does not silently fall back to
+    # alternate prompt formatting.
     return ["chat_template_tokenize", "text_processor", "direct_text_processor"]
 
 
@@ -417,29 +438,12 @@ def remove_optional_input_keys(inputs: Any, *, drop_token_type_ids: bool) -> lis
     return removed_input_keys
 
 
-def build_generation_kwargs(max_new_tokens: int, model: Any, processor: Any) -> dict[str, Any]:
+def build_generation_kwargs(max_new_tokens: int) -> dict[str, Any]:
     generation_kwargs: dict[str, Any] = {"max_new_tokens": max_new_tokens}
-    if env_flag("MEDGEMMA_USE_DEFAULT_GENERATION_CONFIG", default=True):
+    if env_flag("MEDGEMMA_USE_DEFAULT_GENERATION_CONFIG", default=False):
         return generation_kwargs
 
     generation_kwargs["do_sample"] = False
-    tokenizer = getattr(processor, "tokenizer", None)
-    eos_token_id = getattr(model.generation_config, "eos_token_id", None)
-    if eos_token_id is None:
-        eos_token_id = getattr(model.config, "eos_token_id", None)
-    pad_token_id = getattr(model.generation_config, "pad_token_id", None)
-    if pad_token_id is None:
-        pad_token_id = getattr(tokenizer, "pad_token_id", None)
-    if pad_token_id is None and isinstance(eos_token_id, int):
-        pad_token_id = eos_token_id
-    elif (
-        pad_token_id is None
-        and isinstance(eos_token_id, (list, tuple))
-        and eos_token_id
-    ):
-        pad_token_id = eos_token_id[0]
-    if pad_token_id is not None:
-        generation_kwargs["pad_token_id"] = pad_token_id
     return generation_kwargs
 
 
@@ -533,6 +537,7 @@ def log_generation_debug(
     input_token_count: int,
     input_flow: str,
     removed_input_keys: list[str],
+    dtype_name: str,
     raw_output_shape: tuple[int, ...],
     output_token_count: int,
     generated_token_count: int,
@@ -554,6 +559,7 @@ def log_generation_debug(
         f"input_keys={','.join(input_keys)} "
         f"removed_input_keys={','.join(removed_input_keys) if removed_input_keys else 'none'} "
         f"input_flow={input_flow} "
+        f"dtype={dtype_name} "
         f"input_token_count={input_token_count} "
         f"raw_output_shape={raw_output_shape} "
         f"output_token_count={output_token_count} "
@@ -573,6 +579,46 @@ def log_generation_debug(
         f"eos_returned_immediately={str(eos_returned_immediately).lower()}",
         file=sys.stderr,
         flush=True,
+    )
+
+
+def safe_generation_diagnostics(
+    *,
+    input_flow: str,
+    removed_input_keys: list[str],
+    dtype_name: str,
+    generated_token_count: int,
+    generated_special_token_count: int,
+    generated_non_special_decoded_char_count: int,
+    decoded_full_output_length: int,
+    decoded_sliced_output_length: int,
+    selected_output: str,
+    final_response_length: int,
+) -> str:
+    return (
+        f"input_flow={input_flow}; "
+        f"removed_input_keys={','.join(removed_input_keys) if removed_input_keys else 'none'}; "
+        f"dtype={dtype_name}; "
+        f"generated_token_count={generated_token_count}; "
+        f"generated_special_token_count={generated_special_token_count}; "
+        f"generated_non_special_decoded_char_count={generated_non_special_decoded_char_count}; "
+        f"decoded_full_output_length={decoded_full_output_length}; "
+        f"decoded_sliced_output_length={decoded_sliced_output_length}; "
+        f"selected_output={selected_output}; "
+        f"final_response_length={final_response_length}"
+    )
+
+
+def is_special_token_only_generation(
+    *,
+    generated_token_count: int,
+    generated_special_token_count: int,
+    generated_non_special_decoded_char_count: int,
+) -> bool:
+    return (
+        generated_token_count > 0
+        and generated_special_token_count == generated_token_count
+        and generated_non_special_decoded_char_count == 0
     )
 
 
@@ -609,7 +655,7 @@ def main() -> None:
             from transformers import AutoModelForImageTextToText, AutoProcessor
 
             device = "cuda" if torch.cuda.is_available() else "cpu"
-            dtype = torch.float16 if device == "cuda" else torch.float32
+            dtype = env_dtype(torch, device=device)
             model_kwargs: dict[str, Any] = {
                 "torch_dtype": dtype,
                 "low_cpu_mem_usage": True,
@@ -632,10 +678,9 @@ def main() -> None:
             if device != "cuda":
                 model = model.to(device)
 
-            # The runner supports multiple input flows because local Transformers
-            # releases have differed in how MedGemma handles multimodal chat
-            # templates. Auto mode starts with the official tokenize=True path and
-            # falls back only when a mode produces no displayable assistant text.
+            # The default input flow mirrors the official MedGemma example:
+            # apply_chat_template(..., tokenize=True) with add_generation_prompt.
+            # Alternate flows are available only when MEDGEMMA_INPUT_MODE is set.
             messages = [
                 {
                     "role": "user",
@@ -647,22 +692,21 @@ def main() -> None:
             ]
 
             input_mode = env_input_mode()
-            drop_token_type_ids = env_flag("MEDGEMMA_DROP_TOKEN_TYPE_IDS", default=True)
+            drop_token_type_ids = env_flag("MEDGEMMA_DROP_TOKEN_TYPE_IDS", default=False)
             use_default_generation_config = env_flag(
                 "MEDGEMMA_USE_DEFAULT_GENERATION_CONFIG",
-                default=True,
+                default=False,
             )
-            generation_kwargs = build_generation_kwargs(
-                args.max_new_tokens,
-                model,
-                processor,
-            )
+            generation_kwargs = build_generation_kwargs(args.max_new_tokens)
             eos_token_id = getattr(model.generation_config, "eos_token_id", None)
             if eos_token_id is None:
                 eos_token_id = getattr(model.config, "eos_token_id", None)
 
             result = ""
             selected_output = "empty"
+            dtype_name = str(dtype).replace("torch.", "")
+            last_safe_diagnostics = "none"
+            saw_special_token_only_generation = False
             attempted_modes = input_modes_to_try(input_mode)
             for attempted_mode in attempted_modes:
                 log_stage(f"generating:{attempted_mode}")
@@ -752,11 +796,37 @@ def main() -> None:
                 )
                 result = output_selection.result
                 selected_output = output_selection.selected_output
+                final_response_length = len(result)
+                last_safe_diagnostics = safe_generation_diagnostics(
+                    input_flow=input_flow,
+                    removed_input_keys=removed_input_keys,
+                    dtype_name=dtype_name,
+                    generated_token_count=generated_token_count,
+                    generated_special_token_count=generated_special_token_count,
+                    generated_non_special_decoded_char_count=(
+                        generated_non_special_decoded_char_count
+                    ),
+                    decoded_full_output_length=len(decoded_full_output),
+                    decoded_sliced_output_length=len(decoded_sliced_output),
+                    selected_output=selected_output,
+                    final_response_length=final_response_length,
+                )
+                saw_special_token_only_generation = (
+                    saw_special_token_only_generation
+                    or is_special_token_only_generation(
+                        generated_token_count=generated_token_count,
+                        generated_special_token_count=generated_special_token_count,
+                        generated_non_special_decoded_char_count=(
+                            generated_non_special_decoded_char_count
+                        ),
+                    )
+                )
                 log_generation_debug(
                     input_keys=input_keys,
                     input_token_count=input_token_count,
                     input_flow=input_flow,
                     removed_input_keys=removed_input_keys,
+                    dtype_name=dtype_name,
                     raw_output_shape=raw_output_shape,
                     output_token_count=output_token_count,
                     generated_token_count=generated_token_count,
@@ -772,7 +842,7 @@ def main() -> None:
                     selected_output=selected_output,
                     wrapper_detected=output_selection.wrapper_detected,
                     prompt_prefixed_output=prompt_prefixed_output,
-                    final_response_length=len(result),
+                    final_response_length=final_response_length,
                     eos_returned_immediately=eos_returned_immediately,
                 )
                 if result.strip():
@@ -786,17 +856,24 @@ def main() -> None:
                 )
 
         if not result.strip():
+            if saw_special_token_only_generation:
+                error_message = (
+                    "MedGemma generated only special/control tokens. "
+                    f"Diagnostics: {last_safe_diagnostics}."
+                )
+            else:
+                error_message = (
+                    "MedGemma generated no decodable assistant text in the configured "
+                    "local input mode(s). The runner completed generation, but the "
+                    "decoded output was empty or only chat-template wrappers. "
+                    f"Diagnostics: {last_safe_diagnostics}."
+                )
+
             emit(
                 {
                     "ok": False,
                     "errorType": "runner_failed",
-                    "error": (
-                        "MedGemma generated no decodable assistant text in the configured "
-                        "local input mode(s). The runner completed generation, but the "
-                        "decoded output was empty or only chat-template wrappers/special "
-                        "tokens. Try MEDGEMMA_INPUT_MODE=direct_text_processor or use "
-                        "another supported local vision-language model path."
-                    ),
+                    "error": error_message,
                 },
                 1,
             )
