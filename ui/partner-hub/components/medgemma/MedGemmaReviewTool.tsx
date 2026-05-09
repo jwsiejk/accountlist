@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { withBasePath } from "@/lib/basePath";
 
-const DEFAULT_PROMPT =
-  "Describe this image briefly. Include visible findings and red flags. Do not provide a diagnosis.";
+const DEFAULT_PROMPT_HINT =
+  "Leave blank to use the structured local image review prompt.";
 
 const acceptedImageTypes = ["image/jpeg", "image/png", "image/webp"];
 
@@ -62,6 +62,25 @@ const requireResponseText = (value: string | undefined) => {
   }
 
   return responseText;
+};
+
+const formatReviewText = (value: string) => {
+  const normalized = value.trim().replace(/\r\n/g, "\n");
+  if (!normalized) {
+    return [];
+  }
+
+  const textWithSectionSpacing = normalized.replace(
+    /\n(?=(?:Other possibilities|Concerns \/ red flags|What to do|Disclaimer):)/gi,
+    "\n\n",
+  );
+
+  const sections = textWithSectionSpacing
+    .split(/\n{2,}/)
+    .map((section) => section.trim())
+    .filter(Boolean);
+
+  return sections.length ? sections : [normalized];
 };
 
 const parseSseEvents = (buffer: string): StreamEvent[] => {
@@ -233,8 +252,9 @@ export function MedGemmaReviewTool() {
           </p>
         </div>
         <div className="rounded-2xl border border-amber-300/70 bg-amber-50 p-4 text-sm font-medium text-amber-900 dark:border-amber-400/40 dark:bg-amber-950/40 dark:text-amber-100">
-          This tool is for image description and red-flag review only. It is not
-          a diagnosis and does not replace a clinician.
+          This local educational review gives a likely impression, common
+          alternatives, red flags, and conservative care guidance. It is not a
+          diagnosis and does not replace a clinician.
         </div>
       </section>
 
@@ -280,12 +300,14 @@ export function MedGemmaReviewTool() {
                   rows={7}
                   value={prompt}
                   onChange={(event) => setPrompt(event.target.value)}
-                  placeholder={DEFAULT_PROMPT}
+                  placeholder={DEFAULT_PROMPT_HINT}
                   className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm transition placeholder:text-foreground/40 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
                 />
                 <p className="text-xs text-foreground/60">
-                  Leave blank to use the cautious concise default prompt. Set
-                  MEDGEMMA_MAX_NEW_TOKENS if you need a longer local response.
+                  Leave blank for a structured review with likely impression,
+                  other possibilities, red flags, care steps, and a disclaimer at
+                  the end. Set MEDGEMMA_MAX_NEW_TOKENS if you need a longer local
+                  response.
                 </p>
               </div>
 
@@ -303,11 +325,13 @@ export function MedGemmaReviewTool() {
         <div className="space-y-6">
           <Card className="border-border/70">
             <CardHeader>
-              <CardTitle>Default safety prompt</CardTitle>
+              <CardTitle>Review format</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="rounded-lg bg-muted/50 p-4 text-sm leading-relaxed text-foreground/75">
-                {DEFAULT_PROMPT}
+                The local review is structured as: most likely, other
+                possibilities, concerns / red flags, what to do, and a disclaimer
+                at the end.
               </p>
             </CardContent>
           </Card>
@@ -369,12 +393,19 @@ export function MedGemmaReviewTool() {
           {result ? (
             <Card className="border-emerald-300 bg-emerald-50 dark:border-emerald-900/70 dark:bg-emerald-950/30">
               <CardHeader>
-                <CardTitle>MedGemma response</CardTitle>
+                <CardTitle>Image review</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="whitespace-pre-wrap text-sm leading-relaxed text-emerald-950 dark:text-emerald-50">
-                  {result}
-                </p>
+                <div className="space-y-4 text-sm leading-relaxed text-emerald-950 dark:text-emerald-50">
+                  {formatReviewText(result).map((section, index) => (
+                    <p
+                      key={`${section.slice(0, 32)}-${index}`}
+                      className="whitespace-pre-wrap"
+                    >
+                      {section}
+                    </p>
+                  ))}
+                </div>
               </CardContent>
             </Card>
           ) : null}
