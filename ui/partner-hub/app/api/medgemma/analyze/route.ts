@@ -1,5 +1,5 @@
-import { randomUUID } from "crypto";
 import { spawn } from "child_process";
+import { randomUUID } from "crypto";
 import { existsSync } from "fs";
 import { mkdir, rm, stat, writeFile } from "fs/promises";
 import path from "path";
@@ -21,6 +21,16 @@ const RUNNER_TIMEOUT_MS = Number(
   process.env.MEDGEMMA_RUNNER_TIMEOUT_MS || 10 * 60 * 1000,
 );
 
+const STAGE_MESSAGES: Record<string, string> = {
+  upload_received: "Upload received",
+  validating_image: "Validating image",
+  writing_temp_file: "Writing temporary local file",
+  starting_python_runner: "Starting Python runner",
+  loading_model: "Loading MedGemma model",
+  generating: "Running generation",
+  complete: "Complete",
+};
+
 type RunnerResult = {
   ok: boolean;
   result?: string;
@@ -30,30 +40,30 @@ type RunnerResult = {
     | "runner_failed"
     | "upload_validation_failed"
     | "temp_write_failed";
+  runnerStages?: string[];
 };
+
+type StatusEvent = {
+  stage: string;
+  message: string;
+};
+
+type StatusReporter = (event: StatusEvent) => void;
 
 const jsonResponse = (body: RunnerResult, status = 200) =>
   NextResponse.json(body, { status });
 
-const uploadValidationError = (error: string) =>
-  jsonResponse(
-    {
-      ok: false,
-      error: `Upload validation failed: ${error}`,
-      errorType: "upload_validation_failed",
-    },
-    400,
-  );
-
-const tempWriteError = (error: string) =>
-  jsonResponse(
-    {
-      ok: false,
-      error: `Temporary upload write failed: ${error}`,
-      errorType: "temp_write_failed",
-    },
-    500,
-  );
+const sanitizeStatusText = (value: string) => {
+  return value
+    .replace(/hf_[A-Za-z0-9]{20,}/g, "[redacted token]")
+    .replace(
+      /(?:^|\s)[A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD)=\S+/gi,
+      " [redacted env]",
+    )
+    .replace(/[A-Za-z]:\\(?:[^\\\s]+\\)*[^\\\s]*/g, "[local path]")
+    .replace(/\/(?:[^/\s]+\/)+[^/\s]*/g, "[local path]")
+    .trim();
+};
 
 const isFileLike = (value: FormDataEntryValue | null): value is File => {
   return Boolean(
@@ -109,12 +119,41 @@ const getMedGemmaPythonPath = () => {
   return existsSync(localPythonPath) ? localPythonPath : "python";
 };
 
+const reportStage = (onStatus: StatusReporter | undefined, stage: string) => {
+  onStatus?.({
+    stage,
+    message: STAGE_MESSAGES[stage] || sanitizeStatusText(stage),
+  });
+};
+
+const runnerStageFromLine = (line: string) => {
+  const match = line.match(/^STAGE:\s*([a-z0-9_:-]+)\s*$/i);
+  return match?.[1]?.toLowerCase();
+};
+
+const safeRunnerSummary = (stderr: string) => {
+  const lines = stderr
+    .split(/\r?\n/)
+    .map((line) => sanitizeStatusText(line))
+    .filter(Boolean)
+    .filter(
+      (line) =>
+        line.startsWith("STAGE:") ||
+        /failed|error|requires|could not|unable/i.test(line),
+    );
+
+  return Array.from(new Set(lines)).slice(-8);
+};
+
 const runMedGemma = (
   imagePath: string,
   prompt: string,
+  onStatus?: StatusReporter,
 ): Promise<RunnerResult> => {
   const pythonPath = getMedGemmaPythonPath();
   const runnerPath = path.join(process.cwd(), "scripts", "medgemma_runner.py");
+
+  reportStage(onStatus, "starting_python_runner");
 
   return new Promise((resolve) => {
     const child = spawn(
@@ -129,6 +168,7 @@ const runMedGemma = (
 
     let stdout = "";
     let stderr = "";
+    let stderrRemainder = "";
     let settled = false;
 
     const finish = (result: RunnerResult) => {
@@ -145,6 +185,7 @@ const runMedGemma = (
         ok: false,
         errorType: "runner_failed",
         error: `MedGemma runner timed out after ${Math.round(RUNNER_TIMEOUT_MS / 1000)} seconds.`,
+        runnerStages: safeRunnerSummary(stderr),
       });
     }, RUNNER_TIMEOUT_MS);
 
@@ -153,7 +194,17 @@ const runMedGemma = (
     });
 
     child.stderr.on("data", (chunk: Buffer) => {
-      stderr += chunk.toString("utf8");
+      const text = chunk.toString("utf8");
+      stderr += text;
+      const lines = `${stderrRemainder}${text}`.split(/\r?\n/);
+      stderrRemainder = lines.pop() || "";
+
+      for (const line of lines) {
+        const stage = runnerStageFromLine(line.trim());
+        if (stage) {
+          reportStage(onStatus, stage);
+        }
+      }
     });
 
     child.on("error", (error) => {
@@ -161,7 +212,8 @@ const runMedGemma = (
       finish({
         ok: false,
         errorType: "runner_failed",
-        error: `Unable to start MedGemma runner: ${error.message}`,
+        error: `Unable to start MedGemma runner: ${sanitizeStatusText(error.message)}`,
+        runnerStages: safeRunnerSummary(stderr),
       });
     });
 
@@ -175,55 +227,119 @@ const runMedGemma = (
       try {
         const parsed = JSON.parse(trimmedStdout) as RunnerResult;
         if (!parsed.ok && stderr.trim() && !parsed.error) {
-          parsed.error = stderr.trim();
+          parsed.error = safeRunnerSummary(stderr).join("\n");
+        }
+        if (!parsed.ok) {
+          parsed.error = sanitizeStatusText(
+            parsed.error || "Analysis could not be completed.",
+          );
+          parsed.runnerStages = safeRunnerSummary(stderr);
         }
         finish(parsed);
       } catch {
         const details =
-          stderr.trim() || trimmedStdout || `Runner exited with code ${code}.`;
+          safeRunnerSummary(stderr).join("\n") ||
+          sanitizeStatusText(trimmedStdout) ||
+          `Runner exited with code ${code}.`;
         finish({
           ok: false,
           errorType: "runner_failed",
           error: `MedGemma runner did not return valid JSON. ${details}`,
+          runnerStages: safeRunnerSummary(stderr),
         });
       }
     });
   });
 };
 
-export async function POST(request: NextRequest) {
+const resultForUploadValidationError = (error: string): RunnerResult => ({
+  ok: false,
+  error: `Upload validation failed: ${sanitizeStatusText(error)}`,
+  errorType: "upload_validation_failed",
+});
+
+const resultForTempWriteError = (error: string): RunnerResult => ({
+  ok: false,
+  error: `Temporary upload write failed: ${sanitizeStatusText(error)}`,
+  errorType: "temp_write_failed",
+});
+
+const analyzeMedGemmaRequest = async (
+  request: NextRequest,
+  onStatus?: StatusReporter,
+): Promise<{ result: RunnerResult; status: number }> => {
   let uploadPath = "";
 
   try {
     const formData = await request.formData();
+    reportStage(onStatus, "upload_received");
+
     const image = formData.get("image");
     const rawPrompt = formData.get("prompt");
 
+    reportStage(onStatus, "validating_image");
+
     if (!isFileLike(image)) {
-      return uploadValidationError(
-        "A JPG, PNG, or WebP image upload is required.",
-      );
+      return {
+        result: resultForUploadValidationError(
+          "A JPG, PNG, or WebP image upload is required.",
+        ),
+        status: 400,
+      };
     }
 
     const extension = ALLOWED_TYPES.get(image.type);
     if (!extension) {
-      return uploadValidationError(
-        "Unsupported file type. Upload a JPG, PNG, or WebP image.",
-      );
+      return {
+        result: resultForUploadValidationError(
+          "Unsupported file type. Upload a JPG, PNG, or WebP image.",
+        ),
+        status: 400,
+      };
     }
 
     if (image.size <= 0) {
-      return uploadValidationError("Uploaded image is empty.");
+      return {
+        result: resultForUploadValidationError("Uploaded image is empty."),
+        status: 400,
+      };
     }
 
     if (image.size > MAX_UPLOAD_BYTES) {
-      return uploadValidationError("Uploaded image must be 10 MB or smaller.");
+      return {
+        result: resultForUploadValidationError(
+          "Uploaded image must be 10 MB or smaller.",
+        ),
+        status: 400,
+      };
     }
 
     const prompt =
       typeof rawPrompt === "string" && rawPrompt.trim()
         ? rawPrompt.trim()
         : DEFAULT_PROMPT;
+    const bytes = Buffer.from(await image.arrayBuffer());
+
+    if (bytes.length !== image.size) {
+      return {
+        result: resultForUploadValidationError(
+          `Uploaded image size changed while reading form data (expected ${image.size} bytes, got ${bytes.length} bytes).`,
+        ),
+        status: 400,
+      };
+    }
+
+    if (!hasValidImageSignature(bytes, image.type)) {
+      return {
+        result: resultForUploadValidationError(
+          "Uploaded file content does not match the selected image type.",
+        ),
+        status: 400,
+      };
+    }
+
+    reportStage(onStatus, "writing_temp_file");
+
     const uploadsDir = path.join(process.cwd(), ".medgemma-uploads");
     await mkdir(uploadsDir, { recursive: true });
 
@@ -231,19 +347,6 @@ export async function POST(request: NextRequest) {
       uploadsDir,
       `${Date.now()}-${randomUUID()}${extension}`,
     );
-    const bytes = Buffer.from(await image.arrayBuffer());
-
-    if (bytes.length !== image.size) {
-      return uploadValidationError(
-        `Uploaded image size changed while reading form data (expected ${image.size} bytes, got ${bytes.length} bytes).`,
-      );
-    }
-
-    if (!hasValidImageSignature(bytes, image.type)) {
-      return uploadValidationError(
-        "Uploaded file content does not match the selected image type.",
-      );
-    }
 
     try {
       await writeFile(uploadPath, bytes, { flag: "wx" });
@@ -252,7 +355,7 @@ export async function POST(request: NextRequest) {
         error instanceof Error
           ? error.message
           : "Could not write uploaded image.";
-      return tempWriteError(message);
+      return { result: resultForTempWriteError(message), status: 500 };
     }
 
     let uploadStats;
@@ -263,40 +366,104 @@ export async function POST(request: NextRequest) {
         error instanceof Error
           ? error.message
           : "Temporary upload file is missing.";
-      return tempWriteError(
-        `Temporary file was not readable after write. ${message}`,
-      );
+      return {
+        result: resultForTempWriteError(
+          `Temporary file was not readable after write. ${message}`,
+        ),
+        status: 500,
+      };
     }
 
     if (!uploadStats.isFile() || uploadStats.size !== bytes.length) {
-      return tempWriteError(
-        `Temporary file size mismatch after write (expected ${bytes.length} bytes, got ${uploadStats.size} bytes).`,
-      );
+      return {
+        result: resultForTempWriteError(
+          `Temporary file size mismatch after write (expected ${bytes.length} bytes, got ${uploadStats.size} bytes).`,
+        ),
+        status: 500,
+      };
     }
 
-    const result = await runMedGemma(uploadPath, prompt);
+    const result = await runMedGemma(uploadPath, prompt, onStatus);
     if (!result.ok) {
       const prefix =
         result.errorType === "image_decode_failed"
           ? "Image decode failed"
           : "MedGemma runner failed";
-      return jsonResponse(
-        {
+      return {
+        result: {
           ...result,
-          error: `${prefix}: ${result.error || "Analysis could not be completed."}`,
+          error: `${prefix}: ${sanitizeStatusText(
+            result.error || "Analysis could not be completed.",
+          )}`,
         },
-        500,
-      );
+        status: 500,
+      };
     }
 
-    return jsonResponse(result);
+    reportStage(onStatus, "complete");
+    return { result, status: 200 };
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "MedGemma analysis failed.";
-    return jsonResponse({ ok: false, error: message }, 500);
+    return {
+      result: { ok: false, error: sanitizeStatusText(message) },
+      status: 500,
+    };
   } finally {
     if (uploadPath) {
       await rm(uploadPath, { force: true }).catch(() => undefined);
     }
   }
+};
+
+const wantsStatusStream = (request: NextRequest) => {
+  return request.headers.get("accept")?.includes("text/event-stream");
+};
+
+const encodeSse = (event: string, data: unknown) => {
+  return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+};
+
+const streamResponse = (request: NextRequest) => {
+  const encoder = new TextEncoder();
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (event: string, data: unknown) => {
+        controller.enqueue(encoder.encode(encodeSse(event, data)));
+      };
+
+      const startedAt = Date.now();
+      const onStatus: StatusReporter = (event) => {
+        send("status", {
+          ...event,
+          elapsedMs: Date.now() - startedAt,
+        });
+      };
+
+      const { result, status } = await analyzeMedGemmaRequest(
+        request,
+        onStatus,
+      );
+      send(result.ok ? "result" : "error", { ...result, status });
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "Content-Type": "text/event-stream; charset=utf-8",
+    },
+  });
+};
+
+export async function POST(request: NextRequest) {
+  if (wantsStatusStream(request)) {
+    return streamResponse(request);
+  }
+
+  const { result, status } = await analyzeMedGemmaRequest(request);
+  return jsonResponse(result, status);
 }
