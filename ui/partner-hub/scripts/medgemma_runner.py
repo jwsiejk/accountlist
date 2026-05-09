@@ -7,6 +7,7 @@ import argparse
 import contextlib
 import json
 import os
+import re
 import sys
 from collections.abc import Iterator
 from pathlib import Path
@@ -246,6 +247,47 @@ def decode_ids(processor: Any, token_ids: Any) -> str:
     return processor.batch_decode(token_ids, skip_special_tokens=True)[0].strip()
 
 
+def strip_obvious_chat_template_wrapper(text: str) -> str:
+    """Remove visible chat role wrappers without erasing valid model text."""
+    stripped_text = text.strip()
+    if not stripped_text:
+        return ""
+
+    # Some tokenizers decode a full prompt+completion as role-labeled text after
+    # special-token removal, for example: "user\n...\nmodel\nresponse".
+    # Only strip when a role marker is obvious and the extracted suffix remains
+    # non-empty; otherwise preserve the decoded model content exactly.
+    role_marker_pattern = re.compile(
+        r"(?im)(?:^|\n)\s*(?:assistant|model)\s*(?P<separator>:|\n)"
+    )
+    user_marker_pattern = re.compile(r"(?im)(?:^|\n)\s*user\s*(?::|\n)")
+    matches = list(role_marker_pattern.finditer(stripped_text))
+    for match in reversed(matches):
+        candidate = stripped_text[match.end() :].strip()
+        if not candidate:
+            continue
+
+        prefix = stripped_text[: match.start()]
+        marker_at_start = prefix.strip() == ""
+        marker_uses_role_line = match.group("separator") == "\n"
+        if user_marker_pattern.search(prefix) or (
+            marker_at_start and marker_uses_role_line
+        ):
+            return candidate
+
+    return stripped_text
+
+
+def select_decoded_output(
+    *, decoded_full_output: str, decoded_sliced_output: str
+) -> tuple[str, str]:
+    if decoded_sliced_output.strip():
+        return decoded_sliced_output, "sliced"
+    if decoded_full_output.strip():
+        return strip_obvious_chat_template_wrapper(decoded_full_output), "full"
+    return "", "empty"
+
+
 def first_token_is_eos(token_ids: Any, eos_token_ids: set[int]) -> bool:
     if not eos_token_ids or token_ids.shape[-1] <= 0:
         return False
@@ -267,6 +309,7 @@ def log_generation_debug(
     decoded_full_output_length: int,
     decoded_sliced_output_length: int,
     used_sliced_output: bool,
+    selected_output: str,
     eos_returned_immediately: bool,
 ) -> None:
     print(
@@ -279,6 +322,7 @@ def log_generation_debug(
         f"decoded_full_output_length={decoded_full_output_length} "
         f"decoded_sliced_output_length={decoded_sliced_output_length} "
         f"used_sliced_output={str(used_sliced_output).lower()} "
+        f"selected_output={selected_output} "
         f"eos_returned_immediately={str(eos_returned_immediately).lower()}",
         file=sys.stderr,
         flush=True,
@@ -424,9 +468,12 @@ def main() -> None:
             decoded_sliced_output = (
                 decode_ids(processor, generated_ids[:, input_token_count:])
                 if prompt_prefixed_output
-                else decoded_full_output
+                else ""
             )
-            result = decoded_sliced_output
+            result, selected_output = select_decoded_output(
+                decoded_full_output=decoded_full_output,
+                decoded_sliced_output=decoded_sliced_output,
+            )
             log_generation_debug(
                 input_keys=input_keys,
                 input_token_count=input_token_count,
@@ -435,7 +482,8 @@ def main() -> None:
                 generated_token_count=generated_token_count,
                 decoded_full_output_length=len(decoded_full_output),
                 decoded_sliced_output_length=len(decoded_sliced_output),
-                used_sliced_output=prompt_prefixed_output,
+                used_sliced_output=selected_output == "sliced",
+                selected_output=selected_output,
                 eos_returned_immediately=eos_returned_immediately,
             )
 
