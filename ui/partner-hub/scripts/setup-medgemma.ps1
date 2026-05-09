@@ -14,7 +14,7 @@ if (-not (Test-Path $VenvPython)) {
 }
 
 & $VenvPython -m pip install --upgrade pip
-& $VenvPip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+& $VenvPip install --upgrade "torch>=2.6" torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
 & $VenvPip install transformers accelerate pillow huggingface_hub sentencepiece
 
 Write-Host ""
