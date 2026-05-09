@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
 
 const DEFAULT_PROMPT =
-  "Describe visible findings in cautious medical language. List possible benign explanations and red flags that would require a clinician. Do not provide a definitive diagnosis.";
+  "Provide a concise local image review in cautious medical language. Use brief bullets for visible findings, possible benign explanations, and red flags that would require a clinician. Do not provide a definitive diagnosis.";
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const ALLOWED_TYPES = new Map([
@@ -20,6 +20,7 @@ const ALLOWED_TYPES = new Map([
 const RUNNER_TIMEOUT_MS = Number(
   process.env.MEDGEMMA_RUNNER_TIMEOUT_MS || 10 * 60 * 1000,
 );
+const DEFAULT_MAX_NEW_TOKENS = 192;
 
 const STAGE_MESSAGES: Record<string, string> = {
   upload_received: "Upload received",
@@ -104,6 +105,20 @@ const hasValidImageSignature = (bytes: Buffer, mimeType: string) => {
   return false;
 };
 
+const getMedGemmaMaxNewTokensArg = () => {
+  const rawValue = process.env.MEDGEMMA_MAX_NEW_TOKENS;
+  if (!rawValue) {
+    return String(DEFAULT_MAX_NEW_TOKENS);
+  }
+
+  const value = Number(rawValue);
+  if (!Number.isInteger(value) || value < 1) {
+    return String(DEFAULT_MAX_NEW_TOKENS);
+  }
+
+  return String(value);
+};
+
 const getMedGemmaPythonPath = () => {
   if (process.env.MEDGEMMA_PYTHON_PATH) {
     return process.env.MEDGEMMA_PYTHON_PATH;
@@ -152,13 +167,22 @@ const runMedGemma = (
 ): Promise<RunnerResult> => {
   const pythonPath = getMedGemmaPythonPath();
   const runnerPath = path.join(process.cwd(), "scripts", "medgemma_runner.py");
+  const maxNewTokens = getMedGemmaMaxNewTokensArg();
 
   reportStage(onStatus, "starting_python_runner");
 
   return new Promise((resolve) => {
     const child = spawn(
       pythonPath,
-      [runnerPath, "--image", imagePath, "--prompt", prompt],
+      [
+        runnerPath,
+        "--image",
+        imagePath,
+        "--prompt",
+        prompt,
+        "--max-new-tokens",
+        maxNewTokens,
+      ],
       {
         cwd: process.cwd(),
         env: process.env,

@@ -69,6 +69,18 @@ Accept the Hugging Face model terms for `google/medgemma-1.5-4b-it` before the f
 
 - `MEDGEMMA_RUNNER_TIMEOUT_MS`: Optional API timeout in milliseconds. The default is 10 minutes, which allows for slower first-run model loading.
 
+- `MEDGEMMA_MAX_NEW_TOKENS`: Optional response length override for local generation. The default is 192 tokens so a typical cached run stays practical on a 6 GB RTX 4050 laptop GPU. Increase this only when you need longer detail and can tolerate slower generation. Example for PowerShell:
+
+  ```powershell
+  $env:MEDGEMMA_MAX_NEW_TOKENS = "256"
+  npm run dev
+  ```
+
+## Runtime notes
+
+- The first run can be noticeably slower because Hugging Face downloads gated model files and Transformers loads them into local CPU/GPU memory. After the model is downloaded and cached, generation should not take 10 minutes for a typical image review.
+- CUDA runs prefer `torch.float16`, `low_cpu_mem_usage=True`, and PyTorch SDPA attention to better fit 6 GB laptop GPUs. The default prompt asks for concise bullets to reduce generation time while preserving cautious no-diagnosis language.
+
 ## Local files and caches
 
 - The preferred setup creates `.venv-medgemma/` under `ui/partner-hub` for MedGemma Python dependencies.
