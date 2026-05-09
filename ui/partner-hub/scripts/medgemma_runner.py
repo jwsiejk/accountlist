@@ -11,7 +11,7 @@ import re
 import sys
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 MODEL_ID = "google/medgemma-1.5-4b-it"
 DEFAULT_MAX_NEW_TOKENS = 192
@@ -247,45 +247,77 @@ def decode_ids(processor: Any, token_ids: Any) -> str:
     return processor.batch_decode(token_ids, skip_special_tokens=True)[0].strip()
 
 
-def strip_obvious_chat_template_wrapper(text: str) -> str:
-    """Remove visible chat role wrappers without erasing valid model text."""
+class WrapperStripResult(NamedTuple):
+    text: str
+    wrapper_detected: bool
+
+
+class OutputSelection(NamedTuple):
+    result: str
+    selected_output: str
+    wrapper_detected: bool
+
+
+ASSISTANT_ROLE_MARKER_PATTERN = re.compile(
+    r"(?im)(?:^|\n)[ \t]*(?P<role>assistant|model)[ \t]*"
+    r"(?:(?P<colon>:[ \t]*)(?P<same_line>[^\n]*))?(?=\n|$)"
+)
+USER_ROLE_MARKER_PATTERN = re.compile(
+    r"(?im)(?:^|\n)[ \t]*user[ \t]*(?::[^\n]*)?(?=\n|$)"
+)
+
+
+def strip_obvious_chat_template_wrapper(text: str) -> WrapperStripResult:
+    """Remove visible chat role wrappers without erasing valid model text.
+
+    MedGemma/Gemma chat templates can decode full prompt+completion text as
+    visible role-labeled content after special tokens are removed, for example
+    "user\n...\nmodel\nresponse". In the empty-generation failure mode the
+    decoded text can end at the final "model"/"assistant" marker. Treat that
+    final marker with no suffix as empty assistant output instead of returning
+    the prompt wrapper to the UI as a successful response.
+    """
     stripped_text = text.strip()
     if not stripped_text:
-        return ""
+        return WrapperStripResult("", False)
 
-    # Some tokenizers decode a full prompt+completion as role-labeled text after
-    # special-token removal, for example: "user\n...\nmodel\nresponse".
-    # Only strip when a role marker is obvious and the extracted suffix remains
-    # non-empty; otherwise preserve the decoded model content exactly.
-    role_marker_pattern = re.compile(
-        r"(?im)(?:^|\n)\s*(?:assistant|model)\s*(?P<separator>:|\n)"
-    )
-    user_marker_pattern = re.compile(r"(?im)(?:^|\n)\s*user\s*(?::|\n)")
-    matches = list(role_marker_pattern.finditer(stripped_text))
+    matches = list(ASSISTANT_ROLE_MARKER_PATTERN.finditer(stripped_text))
     for match in reversed(matches):
-        candidate = stripped_text[match.end() :].strip()
-        if not candidate:
-            continue
-
         prefix = stripped_text[: match.start()]
         marker_at_start = prefix.strip() == ""
-        marker_uses_role_line = match.group("separator") == "\n"
-        if user_marker_pattern.search(prefix) or (
-            marker_at_start and marker_uses_role_line
-        ):
-            return candidate
+        prefix_has_user_marker = USER_ROLE_MARKER_PATTERN.search(prefix) is not None
+        if not prefix_has_user_marker and not marker_at_start:
+            continue
 
-    return stripped_text
+        same_line_content = match.group("same_line") if match.group("colon") else None
+        if same_line_content and same_line_content.strip():
+            suffix = f"{same_line_content}{stripped_text[match.end():]}"
+        else:
+            suffix = stripped_text[match.end() :]
+
+        return WrapperStripResult(suffix.strip(), True)
+
+    return WrapperStripResult(stripped_text, False)
 
 
 def select_decoded_output(
     *, decoded_full_output: str, decoded_sliced_output: str
-) -> tuple[str, str]:
+) -> OutputSelection:
     if decoded_sliced_output.strip():
-        return decoded_sliced_output, "sliced"
+        sliced = strip_obvious_chat_template_wrapper(decoded_sliced_output)
+        if sliced.text.strip():
+            return OutputSelection(sliced.text, "sliced", sliced.wrapper_detected)
+        if sliced.wrapper_detected:
+            return OutputSelection("", "sliced_empty_wrapper", True)
+
     if decoded_full_output.strip():
-        return strip_obvious_chat_template_wrapper(decoded_full_output), "full"
-    return "", "empty"
+        full = strip_obvious_chat_template_wrapper(decoded_full_output)
+        if full.text.strip():
+            return OutputSelection(full.text, "full", full.wrapper_detected)
+        if full.wrapper_detected:
+            return OutputSelection("", "full_empty_wrapper", True)
+
+    return OutputSelection("", "empty", False)
 
 
 def first_token_is_eos(token_ids: Any, eos_token_ids: set[int]) -> bool:
@@ -310,6 +342,9 @@ def log_generation_debug(
     decoded_sliced_output_length: int,
     used_sliced_output: bool,
     selected_output: str,
+    wrapper_detected: bool,
+    prompt_prefixed_output: bool,
+    final_response_length: int,
     eos_returned_immediately: bool,
 ) -> None:
     print(
@@ -323,6 +358,10 @@ def log_generation_debug(
         f"decoded_sliced_output_length={decoded_sliced_output_length} "
         f"used_sliced_output={str(used_sliced_output).lower()} "
         f"selected_output={selected_output} "
+        f"wrapper_detected={str(wrapper_detected).lower()} "
+        f"prompt_prefixed_output={str(prompt_prefixed_output).lower()} "
+        f"chat_template_add_generation_prompt=true "
+        f"final_response_length={final_response_length} "
         f"eos_returned_immediately={str(eos_returned_immediately).lower()}",
         file=sys.stderr,
         flush=True,
@@ -470,10 +509,12 @@ def main() -> None:
                 if prompt_prefixed_output
                 else ""
             )
-            result, selected_output = select_decoded_output(
+            output_selection = select_decoded_output(
                 decoded_full_output=decoded_full_output,
                 decoded_sliced_output=decoded_sliced_output,
             )
+            result = output_selection.result
+            selected_output = output_selection.selected_output
             log_generation_debug(
                 input_keys=input_keys,
                 input_token_count=input_token_count,
@@ -484,6 +525,9 @@ def main() -> None:
                 decoded_sliced_output_length=len(decoded_sliced_output),
                 used_sliced_output=selected_output == "sliced",
                 selected_output=selected_output,
+                wrapper_detected=output_selection.wrapper_detected,
+                prompt_prefixed_output=prompt_prefixed_output,
+                final_response_length=len(result),
                 eos_returned_immediately=eos_returned_immediately,
             )
 
