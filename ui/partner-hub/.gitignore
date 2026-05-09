@@ -2,6 +2,7 @@ node_modules/
 .next/
 out/
 # Local MedGemma uploads/model artifacts
+.venv-medgemma/
 .medgemma-uploads/
 .medgemma-cache/
 .cache/huggingface/
