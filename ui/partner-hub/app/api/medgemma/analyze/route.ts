@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { spawn } from "child_process";
+import { existsSync } from "fs";
 import { mkdir, rm, writeFile } from "fs/promises";
 import path from "path";
 
@@ -55,8 +56,23 @@ const hasValidImageSignature = (bytes: Buffer, mimeType: string) => {
   return false;
 };
 
+const getMedGemmaPythonPath = () => {
+  if (process.env.MEDGEMMA_PYTHON_PATH) {
+    return process.env.MEDGEMMA_PYTHON_PATH;
+  }
+
+  const localPythonPath = path.join(
+    process.cwd(),
+    ".venv-medgemma",
+    process.platform === "win32" ? "Scripts" : "bin",
+    process.platform === "win32" ? "python.exe" : "python",
+  );
+
+  return existsSync(localPythonPath) ? localPythonPath : "python";
+};
+
 const runMedGemma = (imagePath: string, prompt: string): Promise<RunnerResult> => {
-  const pythonPath = process.env.MEDGEMMA_PYTHON_PATH || "python";
+  const pythonPath = getMedGemmaPythonPath();
   const runnerPath = path.join(process.cwd(), "scripts", "medgemma_runner.py");
 
   return new Promise((resolve) => {
