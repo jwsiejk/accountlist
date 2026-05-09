@@ -1,8 +1,10 @@
 # Local MedGemma Image Review
 
-The `/medgemma` page adds a local-only image review flow to the existing Next.js app. The browser uploads a JPG, PNG, or WebP image to a Next.js API route, the API route writes the file to an ignored temporary folder, and then it calls `scripts/medgemma_runner.py` with `child_process`. Images are not sent to a remote API by this implementation.
+The `/medgemma` page adds a local-only educational image review flow to the existing Next.js app. The browser uploads a JPG, PNG, or WebP image to a Next.js API route, the API route writes the file to an ignored temporary folder, and then it calls `scripts/medgemma_runner.py` with `child_process`. Images are not sent to a remote API by this implementation.
 
-> Safety note: this tool is for image description and red-flag review only. It is not a diagnosis and does not replace a clinician. Do not deploy it as a public medical diagnostic service.
+The default review is designed to be direct and practical rather than a generic caption. It starts with a likely, non-absolute impression, then gives other reasonable possibilities, concerns / red flags, and conservative care guidance such as keeping an area clean, avoiding irritants, avoiding picking or squeezing, monitoring for worsening, and contacting a clinician or pediatrician when appropriate. The disclaimer is intentionally placed at the end of the generated review.
+
+> Safety note: this tool provides educational image review only. It is not a confirmed diagnosis and does not replace a clinician. Do not deploy it as a public medical diagnostic service.
 
 ## Preferred repo-local setup
 
@@ -69,17 +71,17 @@ Accept the Hugging Face model terms for `google/medgemma-1.5-4b-it` before the f
 
 - `MEDGEMMA_RUNNER_TIMEOUT_MS`: Optional API timeout in milliseconds. The default is 10 minutes, which allows for slower first-run model loading.
 
-- `MEDGEMMA_MAX_NEW_TOKENS`: Optional response length override for local generation. The default is 192 tokens so a typical cached run stays practical on a 6 GB RTX 4050 laptop GPU. Increase this only when you need longer detail and can tolerate slower generation. Example for PowerShell:
+- `MEDGEMMA_MAX_NEW_TOKENS`: Optional response length override for local generation. The default is 384 tokens so the structured local review has room for a likely impression, alternatives, red flags, care guidance, and the final disclaimer while remaining practical on a 6 GB RTX 4050 laptop GPU. Increase this only when you need longer detail and can tolerate slower generation. Example for PowerShell:
 
   ```powershell
-  $env:MEDGEMMA_MAX_NEW_TOKENS = "256"
+  $env:MEDGEMMA_MAX_NEW_TOKENS = "512"
   npm run dev
   ```
 
 ## Runtime notes
 
 - The first run can be noticeably slower because Hugging Face downloads gated model files and Transformers loads them into local CPU/GPU memory. After the model is downloaded and cached, generation should not take 10 minutes for a typical image review.
-- CUDA runs prefer `torch.float16`, `low_cpu_mem_usage=True`, and PyTorch SDPA attention to better fit 6 GB laptop GPUs. The default prompt asks for a brief image description with visible findings and red flags while preserving cautious no-diagnosis language.
+- CUDA runs prefer `torch.float16`, `low_cpu_mem_usage=True`, and PyTorch SDPA attention to better fit 6 GB laptop GPUs. The default prompt asks for a structured educational image review with these sections: most likely, other possibilities, concerns / red flags, what to do, and disclaimer. It asks the model to avoid absolute certainty and to avoid prescribing medication, dosing, or clinician-only treatment.
 
 ## Local files and caches
 

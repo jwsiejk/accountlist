@@ -8,8 +8,28 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const DEFAULT_PROMPT =
-  "Describe this image briefly. Include visible findings and red flags. Do not provide a diagnosis.";
+const DEFAULT_PROMPT = `You are reviewing a medical or health-related image locally for educational purposes.
+
+Be direct and useful. Start with the most likely impression based on the visible image. Do not start with a disclaimer.
+
+Return the response in this exact structure:
+
+Most likely:
+State what the image appears most consistent with. Use direct but non-absolute language such as “This appears most consistent with...” or “Most likely...”.
+
+Other possibilities:
+Briefly list other reasonable possibilities if the image could fit more than one common condition. Use phrasing such as “Other possibilities include...”.
+
+Concerns / red flags:
+List signs or symptoms that would make this more concerning or require urgent medical care. Use phrasing such as “I would be more concerned if...”. If the image involves an infant, the eye area, spreading redness, swelling, drainage, fever, poor feeding, lethargy, breathing trouble, or the child acting very ill are important red flags.
+
+What to do:
+Give practical, conservative care guidance, such as keeping the area clean, avoiding irritants/fragranced products, avoiding squeezing or picking, monitoring for worsening, and contacting a clinician or pediatrician when appropriate. Do not prescribe medication, dosing, or treatment that requires a clinician.
+
+Disclaimer:
+This is an AI image review, not a confirmed diagnosis. A clinician should evaluate symptoms that are severe, worsening, persistent, or concerning.
+
+Keep the answer concise, practical, and easy for a non-medical person to understand. Do not claim absolute certainty.`;
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const ALLOWED_TYPES = new Map([
@@ -20,7 +40,7 @@ const ALLOWED_TYPES = new Map([
 const RUNNER_TIMEOUT_MS = Number(
   process.env.MEDGEMMA_RUNNER_TIMEOUT_MS || 10 * 60 * 1000,
 );
-const DEFAULT_MAX_NEW_TOKENS = 192;
+const DEFAULT_MAX_NEW_TOKENS = 384;
 
 const STAGE_MESSAGES: Record<string, string> = {
   upload_received: "Upload received",
