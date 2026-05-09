@@ -17,6 +17,10 @@ MIN_TORCH_VERSION = (2, 6)
 SUPPORTED_FALLBACK_FORMATS = {"JPEG", "PNG", "WEBP"}
 
 
+def log_stage(stage: str) -> None:
+    print(f"STAGE: {stage}", file=sys.stderr, flush=True)
+
+
 class ImageDecodeFailure(Exception):
     """Raised when PIL cannot safely decode the uploaded image."""
 
@@ -111,7 +115,8 @@ def load_verified_rgb_image(
     image_file: Any,
     unidentified_error: type[Exception],
 ) -> Any:
-    print(f"Validating image file {image_path}...", file=sys.stderr, flush=True)
+    log_stage("validating_image")
+    print("Validating uploaded image file...", file=sys.stderr, flush=True)
 
     image_format = "unknown"
     try:
@@ -183,7 +188,7 @@ def main() -> None:
             {
                 "ok": False,
                 "errorType": "image_decode_failed",
-                "error": f"Image file not found: {image_path}",
+                "error": "Image file not found.",
             },
             2,
         )
@@ -209,6 +214,7 @@ def main() -> None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
             dtype = torch.bfloat16 if device == "cuda" else torch.float32
 
+            log_stage("loading_model")
             print(f"Loading {MODEL_ID} on {device}...", file=sys.stderr, flush=True)
             processor = AutoProcessor.from_pretrained(MODEL_ID)
             model = AutoModelForImageTextToText.from_pretrained(
@@ -242,12 +248,14 @@ def main() -> None:
                 inputs = inputs.to(model.device)
             input_token_count = inputs["input_ids"].shape[-1]
 
+            log_stage("generating")
             with torch.inference_mode():
                 generated_ids = model.generate(**inputs, max_new_tokens=args.max_new_tokens)
 
             generated_ids = generated_ids[:, input_token_count:]
             result = processor.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
 
+        log_stage("complete")
         emit({"ok": True, "result": result})
     except ImageDecodeFailure as exc:
         print(f"MedGemma image decode failed: {exc}", file=sys.stderr, flush=True)
