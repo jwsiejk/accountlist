@@ -241,10 +241,127 @@ def move_inputs_to_model_device(inputs: Any, *, device: Any, dtype: Any) -> Any:
         return inputs.to(device)
 
 
-def decode_ids(processor: Any, token_ids: Any) -> str:
+def decode_ids_with_processor_batch_decode(processor: Any, token_ids: Any) -> str:
     if getattr(token_ids, "ndim", 0) == 1:
         token_ids = token_ids.unsqueeze(0)
     return processor.batch_decode(token_ids, skip_special_tokens=True)[0].strip()
+
+
+def decode_ids_with_processor_decode(processor: Any, token_ids: Any) -> str:
+    if getattr(token_ids, "ndim", 0) > 1:
+        token_ids = token_ids[0]
+    return processor.decode(token_ids, skip_special_tokens=True).strip()
+
+
+def decode_ids_with_tokenizer(processor: Any, token_ids: Any) -> str:
+    tokenizer = getattr(processor, "tokenizer", None)
+    if tokenizer is None:
+        return ""
+    if getattr(token_ids, "ndim", 0) > 1:
+        token_ids = token_ids[0]
+    return tokenizer.decode(token_ids, skip_special_tokens=True).strip()
+
+
+def decode_ids(processor: Any, token_ids: Any) -> tuple[str, str]:
+    """Decode with the safest available HF helpers and report which one won.
+
+    MedGemma's official model card decodes generated IDs with
+    ``processor.decode(..., skip_special_tokens=True)``. Older local runners used
+    ``processor.batch_decode``. Try both, plus tokenizer.decode when available,
+    and choose the first non-empty decode in that official-to-legacy order. The
+    caller logs method names and lengths only; no prompt or raw token IDs leave
+    the process.
+    """
+
+    attempts = [
+        ("processor_decode", decode_ids_with_processor_decode),
+        ("processor_batch_decode", decode_ids_with_processor_batch_decode),
+        ("tokenizer_decode", decode_ids_with_tokenizer),
+    ]
+    last_method = "empty"
+    last_text = ""
+    for method, decoder in attempts:
+        try:
+            text = decoder(processor, token_ids)
+        except Exception as exc:  # noqa: BLE001 - diagnostics must not break JSON stdout.
+            print(
+                f"Decode method {method} failed with {type(exc).__name__}.",
+                file=sys.stderr,
+                flush=True,
+            )
+            continue
+        last_method = method
+        last_text = text
+        if text.strip():
+            return text, method
+
+    return last_text, last_method
+
+
+def non_special_decoded_char_count(processor: Any, token_ids: Any) -> int:
+    decoded, _method = decode_ids(processor, token_ids)
+    return len(decoded)
+
+
+def count_generated_special_tokens(processor: Any, token_ids: Any) -> int:
+    tokenizer = getattr(processor, "tokenizer", None)
+    all_special_ids = getattr(tokenizer, "all_special_ids", None)
+    if not all_special_ids:
+        return 0
+
+    special_ids = {int(token_id) for token_id in all_special_ids if isinstance(token_id, int)}
+    if not special_ids:
+        return 0
+
+    flattened = token_ids.reshape(-1) if hasattr(token_ids, "reshape") else token_ids
+    special_count = 0
+    for token_id in flattened:
+        try:
+            value = int(token_id.item())
+        except AttributeError:
+            value = int(token_id)
+        if value in special_ids:
+            special_count += 1
+    return special_count
+
+
+def build_medgemma_inputs(processor: Any, messages: list[dict[str, Any]], image: Any) -> tuple[Any, str]:
+    """Build MedGemma inputs with the text-template multimodal flow.
+
+    The Google MedGemma card shows ``apply_chat_template(..., tokenize=True)``.
+    The alternate Hugging Face processor flow first renders the chat template to
+    text and then lets the multimodal processor pair that text with the image.
+    Use the alternate flow as the production path because it avoids local runs
+    that decode to only visible role wrappers, while keeping a tokenize=True
+    fallback for compatibility with processor versions that cannot render text
+    templates for multimodal messages.
+    """
+
+    try:
+        chat_text = processor.apply_chat_template(
+            messages,
+            add_generation_prompt=True,
+            tokenize=False,
+        )
+        return processor(images=image, text=chat_text, return_tensors="pt"), "text_processor"
+    except Exception as exc:  # noqa: BLE001 - fall back before strict JSON error handling.
+        print(
+            "MedGemma text-template processor flow failed with "
+            f"{type(exc).__name__}; falling back to tokenize=True flow.",
+            file=sys.stderr,
+            flush=True,
+        )
+
+    return (
+        processor.apply_chat_template(
+            messages,
+            add_generation_prompt=True,
+            tokenize=True,
+            return_dict=True,
+            return_tensors="pt",
+        ),
+        "chat_template_tokenize",
+    )
 
 
 class WrapperStripResult(NamedTuple):
@@ -335,11 +452,17 @@ def log_generation_debug(
     *,
     input_keys: list[str],
     input_token_count: int,
+    input_flow: str,
+    removed_input_keys: list[str],
     raw_output_shape: tuple[int, ...],
     output_token_count: int,
     generated_token_count: int,
+    generated_special_token_count: int,
+    generated_non_special_decoded_char_count: int,
     decoded_full_output_length: int,
     decoded_sliced_output_length: int,
+    decoded_full_method: str,
+    decoded_sliced_method: str,
     used_sliced_output: bool,
     selected_output: str,
     wrapper_detected: bool,
@@ -350,12 +473,18 @@ def log_generation_debug(
     print(
         "GENERATION_DEBUG: "
         f"input_keys={','.join(input_keys)} "
+        f"removed_input_keys={','.join(removed_input_keys) if removed_input_keys else 'none'} "
+        f"input_flow={input_flow} "
         f"input_token_count={input_token_count} "
         f"raw_output_shape={raw_output_shape} "
         f"output_token_count={output_token_count} "
         f"generated_token_count={generated_token_count} "
+        f"generated_special_token_count={generated_special_token_count} "
+        f"generated_non_special_decoded_char_count={generated_non_special_decoded_char_count} "
         f"decoded_full_output_length={decoded_full_output_length} "
         f"decoded_sliced_output_length={decoded_sliced_output_length} "
+        f"decoded_full_method={decoded_full_method} "
+        f"decoded_sliced_method={decoded_sliced_method} "
         f"used_sliced_output={str(used_sliced_output).lower()} "
         f"selected_output={selected_output} "
         f"wrapper_detected={str(wrapper_detected).lower()} "
@@ -424,9 +553,11 @@ def main() -> None:
             if device != "cuda":
                 model = model.to(device)
 
-            # MedGemma 1.5's model card uses the chat-template path with the
-            # PIL image embedded in the image content item. The processor handles
-            # image extraction/tokenization when tokenize=True and return_dict=True.
+            # MedGemma 1.5's model card shows the chat-template tokenize=True
+            # path with the PIL image embedded in the content item. Build inputs
+            # with the alternate HF multimodal flow first: render chat text, then
+            # pair it with the image through processor(images=..., text=...).
+            # This avoids local runs that only echo visible role wrappers.
             messages = [
                 {
                     "role": "user",
@@ -437,14 +568,14 @@ def main() -> None:
                 }
             ]
 
-            inputs = processor.apply_chat_template(
-                messages,
-                add_generation_prompt=True,
-                tokenize=True,
-                return_dict=True,
-                return_tensors="pt",
-            )
+            inputs, input_flow = build_medgemma_inputs(processor, messages, image)
             input_keys = sorted(str(key) for key in inputs.keys())
+            # Keep token_type_ids when the processor supplies them. Gemma 3's
+            # multimodal forward signature accepts token_type_ids, and Google's
+            # MedGemma example passes the complete processor BatchFeature through
+            # to generate. Log removals as "none" so diagnostics make the choice
+            # explicit without exposing raw IDs or prompts.
+            removed_input_keys: list[str] = []
             inputs = move_inputs_to_model_device(
                 inputs,
                 device=model.device,
@@ -474,8 +605,6 @@ def main() -> None:
             }
             if pad_token_id is not None:
                 generation_kwargs["pad_token_id"] = pad_token_id
-            if eos_token_id is not None:
-                generation_kwargs["eos_token_id"] = eos_token_id
 
             log_stage("generating")
             with torch.inference_mode():
@@ -503,12 +632,20 @@ def main() -> None:
             generated_token_count = output_ids.shape[-1]
             eos_token_ids = as_token_id_set(eos_token_id)
             eos_returned_immediately = first_token_is_eos(output_ids, eos_token_ids)
-            decoded_full_output = decode_ids(processor, generated_ids)
-            decoded_sliced_output = (
-                decode_ids(processor, generated_ids[:, input_token_count:])
-                if prompt_prefixed_output
-                else ""
+            generated_special_token_count = count_generated_special_tokens(processor, output_ids)
+            generated_non_special_decoded_char_count = non_special_decoded_char_count(
+                processor,
+                output_ids,
             )
+            decoded_full_output, decoded_full_method = decode_ids(processor, generated_ids)
+            if prompt_prefixed_output:
+                decoded_sliced_output, decoded_sliced_method = decode_ids(
+                    processor,
+                    generated_ids[:, input_token_count:],
+                )
+            else:
+                decoded_sliced_output = ""
+                decoded_sliced_method = "not_prompt_prefixed"
             output_selection = select_decoded_output(
                 decoded_full_output=decoded_full_output,
                 decoded_sliced_output=decoded_sliced_output,
@@ -518,11 +655,17 @@ def main() -> None:
             log_generation_debug(
                 input_keys=input_keys,
                 input_token_count=input_token_count,
+                input_flow=input_flow,
+                removed_input_keys=removed_input_keys,
                 raw_output_shape=raw_output_shape,
                 output_token_count=output_token_count,
                 generated_token_count=generated_token_count,
+                generated_special_token_count=generated_special_token_count,
+                generated_non_special_decoded_char_count=generated_non_special_decoded_char_count,
                 decoded_full_output_length=len(decoded_full_output),
                 decoded_sliced_output_length=len(decoded_sliced_output),
+                decoded_full_method=decoded_full_method,
+                decoded_sliced_method=decoded_sliced_method,
                 used_sliced_output=selected_output == "sliced",
                 selected_output=selected_output,
                 wrapper_detected=output_selection.wrapper_detected,
