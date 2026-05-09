@@ -146,11 +146,12 @@ const runnerStageFromLine = (line: string) => {
   return match?.[1]?.toLowerCase();
 };
 
-const resultForEmptyRunnerOutput = (): RunnerResult => ({
+const resultForEmptyRunnerOutput = (runnerStages?: string[]): RunnerResult => ({
   ok: false,
   errorType: "runner_failed",
   error:
     "MedGemma runner returned an empty response. The model generated no displayable text; check server stderr for safe generation metadata.",
+  ...(runnerStages?.length ? { runnerStages } : {}),
 });
 
 const safeRunnerSummary = (stderr: string) => {
@@ -161,6 +162,7 @@ const safeRunnerSummary = (stderr: string) => {
     .filter(
       (line) =>
         line.startsWith("STAGE:") ||
+        line.startsWith("GENERATION_DEBUG:") ||
         /failed|error|requires|could not|unable/i.test(line),
     );
 
@@ -258,9 +260,7 @@ const runMedGemma = (
       try {
         const parsed = JSON.parse(trimmedStdout) as RunnerResult;
         if (parsed.ok && !parsed.result?.trim()) {
-          const emptyResult = resultForEmptyRunnerOutput();
-          emptyResult.runnerStages = safeRunnerSummary(stderr);
-          finish(emptyResult);
+          finish(resultForEmptyRunnerOutput(safeRunnerSummary(stderr)));
           return;
         }
         if (!parsed.ok && stderr.trim() && !parsed.error) {
@@ -423,7 +423,7 @@ const analyzeMedGemmaRequest = async (
     const result = await runMedGemma(uploadPath, prompt, onStatus);
     if (result.ok && !result.result?.trim()) {
       return {
-        result: resultForEmptyRunnerOutput(),
+        result: resultForEmptyRunnerOutput(result.runnerStages),
         status: 500,
       };
     }

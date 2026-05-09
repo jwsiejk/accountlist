@@ -45,6 +45,14 @@ const formatElapsed = (elapsedMs: number) => {
   return `${seconds}s`;
 };
 
+const formatAnalysisError = (data: AnalysisResponse) => {
+  const runnerDetails = data.runnerStages?.length
+    ? `\n\nRunner status:\n${data.runnerStages.join("\n")}`
+    : "";
+
+  return `${data.error || "MedGemma analysis failed."}${runnerDetails}`;
+};
+
 const requireResponseText = (value: string | undefined) => {
   const responseText = value?.trim();
   if (!responseText) {
@@ -110,7 +118,7 @@ export function MedGemmaReviewTool() {
     if (!response.body) {
       const data = (await response.json()) as AnalysisResponse;
       if (!response.ok || !data.ok) {
-        throw new Error(data.error || "MedGemma analysis failed.");
+        throw new Error(formatAnalysisError(data));
       }
       setResult(requireResponseText(data.result));
       return;
@@ -143,18 +151,13 @@ export function MedGemmaReviewTool() {
 
         if (event.event === "result") {
           if (!event.data.ok) {
-            throw new Error(event.data.error || "MedGemma analysis failed.");
+            throw new Error(formatAnalysisError(event.data));
           }
           setResult(requireResponseText(event.data.result));
         }
 
         if (event.event === "error") {
-          const runnerDetails = event.data.runnerStages?.length
-            ? `\n\nRunner status:\n${event.data.runnerStages.join("\n")}`
-            : "";
-          throw new Error(
-            `${event.data.error || "MedGemma analysis failed."}${runnerDetails}`,
-          );
+          throw new Error(formatAnalysisError(event.data));
         }
       }
 
