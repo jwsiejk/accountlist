@@ -77,6 +77,11 @@ const caseStudies = [
 
 const toolCards = [
   {
+    title: "MedGemma Image Review",
+    description: "Upload an image for local medical-image description and red-flag review.",
+    href: "/medgemma",
+  },
+  {
     title: "Account Mapping",
     description: "Normalize and match account lists to streamline partner alignment.",
     href: "/accountmap",
