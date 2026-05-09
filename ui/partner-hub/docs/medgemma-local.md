@@ -79,7 +79,7 @@ Accept the Hugging Face model terms for `google/medgemma-1.5-4b-it` before the f
 ## Runtime notes
 
 - The first run can be noticeably slower because Hugging Face downloads gated model files and Transformers loads them into local CPU/GPU memory. After the model is downloaded and cached, generation should not take 10 minutes for a typical image review.
-- CUDA runs prefer `torch.float16`, `low_cpu_mem_usage=True`, and PyTorch SDPA attention to better fit 6 GB laptop GPUs. The default prompt asks for concise bullets to reduce generation time while preserving cautious no-diagnosis language.
+- CUDA runs prefer `torch.float16`, `low_cpu_mem_usage=True`, and PyTorch SDPA attention to better fit 6 GB laptop GPUs. The default prompt asks for a brief image description with visible findings and red flags while preserving cautious no-diagnosis language.
 
 ## Local files and caches
 

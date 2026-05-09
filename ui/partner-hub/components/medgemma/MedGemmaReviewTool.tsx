@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { withBasePath } from "@/lib/basePath";
 
 const DEFAULT_PROMPT =
-  "Provide a concise local image review in cautious medical language. Use brief bullets for visible findings, possible benign explanations, and red flags that would require a clinician. Do not provide a definitive diagnosis.";
+  "Describe this image briefly. Include visible findings and red flags. Do not provide a diagnosis.";
 
 const acceptedImageTypes = ["image/jpeg", "image/png", "image/webp"];
 
