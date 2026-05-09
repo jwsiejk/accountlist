@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { spawn } from "child_process";
 import { existsSync } from "fs";
-import { mkdir, rm, writeFile } from "fs/promises";
+import { mkdir, rm, stat, writeFile } from "fs/promises";
 import path from "path";
 
 import { NextRequest, NextResponse } from "next/server";
@@ -17,23 +17,61 @@ const ALLOWED_TYPES = new Map([
   ["image/png", ".png"],
   ["image/webp", ".webp"],
 ]);
-const RUNNER_TIMEOUT_MS = Number(process.env.MEDGEMMA_RUNNER_TIMEOUT_MS || 10 * 60 * 1000);
+const RUNNER_TIMEOUT_MS = Number(
+  process.env.MEDGEMMA_RUNNER_TIMEOUT_MS || 10 * 60 * 1000,
+);
 
 type RunnerResult = {
   ok: boolean;
   result?: string;
   error?: string;
+  errorType?:
+    | "image_decode_failed"
+    | "runner_failed"
+    | "upload_validation_failed"
+    | "temp_write_failed";
 };
 
-const jsonResponse = (body: RunnerResult, status = 200) => NextResponse.json(body, { status });
+const jsonResponse = (body: RunnerResult, status = 200) =>
+  NextResponse.json(body, { status });
+
+const uploadValidationError = (error: string) =>
+  jsonResponse(
+    {
+      ok: false,
+      error: `Upload validation failed: ${error}`,
+      errorType: "upload_validation_failed",
+    },
+    400,
+  );
+
+const tempWriteError = (error: string) =>
+  jsonResponse(
+    {
+      ok: false,
+      error: `Temporary upload write failed: ${error}`,
+      errorType: "temp_write_failed",
+    },
+    500,
+  );
 
 const isFileLike = (value: FormDataEntryValue | null): value is File => {
-  return Boolean(value && typeof value === "object" && "arrayBuffer" in value && "type" in value);
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    "arrayBuffer" in value &&
+    "type" in value,
+  );
 };
 
 const hasValidImageSignature = (bytes: Buffer, mimeType: string) => {
   if (mimeType === "image/jpeg") {
-    return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+    return (
+      bytes.length >= 3 &&
+      bytes[0] === 0xff &&
+      bytes[1] === 0xd8 &&
+      bytes[2] === 0xff
+    );
   }
 
   if (mimeType === "image/png") {
@@ -71,16 +109,23 @@ const getMedGemmaPythonPath = () => {
   return existsSync(localPythonPath) ? localPythonPath : "python";
 };
 
-const runMedGemma = (imagePath: string, prompt: string): Promise<RunnerResult> => {
+const runMedGemma = (
+  imagePath: string,
+  prompt: string,
+): Promise<RunnerResult> => {
   const pythonPath = getMedGemmaPythonPath();
   const runnerPath = path.join(process.cwd(), "scripts", "medgemma_runner.py");
 
   return new Promise((resolve) => {
-    const child = spawn(pythonPath, [runnerPath, "--image", imagePath, "--prompt", prompt], {
-      cwd: process.cwd(),
-      env: process.env,
-      windowsHide: true,
-    });
+    const child = spawn(
+      pythonPath,
+      [runnerPath, "--image", imagePath, "--prompt", prompt],
+      {
+        cwd: process.cwd(),
+        env: process.env,
+        windowsHide: true,
+      },
+    );
 
     let stdout = "";
     let stderr = "";
@@ -98,6 +143,7 @@ const runMedGemma = (imagePath: string, prompt: string): Promise<RunnerResult> =
       child.kill("SIGTERM");
       finish({
         ok: false,
+        errorType: "runner_failed",
         error: `MedGemma runner timed out after ${Math.round(RUNNER_TIMEOUT_MS / 1000)} seconds.`,
       });
     }, RUNNER_TIMEOUT_MS);
@@ -112,7 +158,11 @@ const runMedGemma = (imagePath: string, prompt: string): Promise<RunnerResult> =
 
     child.on("error", (error) => {
       clearTimeout(timeout);
-      finish({ ok: false, error: `Unable to start MedGemma runner: ${error.message}` });
+      finish({
+        ok: false,
+        errorType: "runner_failed",
+        error: `Unable to start MedGemma runner: ${error.message}`,
+      });
     });
 
     child.on("close", (code) => {
@@ -129,8 +179,13 @@ const runMedGemma = (imagePath: string, prompt: string): Promise<RunnerResult> =
         }
         finish(parsed);
       } catch {
-        const details = stderr.trim() || trimmedStdout || `Runner exited with code ${code}.`;
-        finish({ ok: false, error: `MedGemma runner did not return valid JSON. ${details}` });
+        const details =
+          stderr.trim() || trimmedStdout || `Runner exited with code ${code}.`;
+        finish({
+          ok: false,
+          errorType: "runner_failed",
+          error: `MedGemma runner did not return valid JSON. ${details}`,
+        });
       }
     });
   });
@@ -145,49 +200,99 @@ export async function POST(request: NextRequest) {
     const rawPrompt = formData.get("prompt");
 
     if (!isFileLike(image)) {
-      return jsonResponse(
-        { ok: false, error: "A JPG, PNG, or WebP image upload is required." },
-        400,
+      return uploadValidationError(
+        "A JPG, PNG, or WebP image upload is required.",
       );
     }
 
     const extension = ALLOWED_TYPES.get(image.type);
     if (!extension) {
-      return jsonResponse(
-        { ok: false, error: "Unsupported file type. Upload a JPG, PNG, or WebP image." },
-        400,
+      return uploadValidationError(
+        "Unsupported file type. Upload a JPG, PNG, or WebP image.",
       );
     }
 
     if (image.size <= 0) {
-      return jsonResponse({ ok: false, error: "Uploaded image is empty." }, 400);
+      return uploadValidationError("Uploaded image is empty.");
     }
 
     if (image.size > MAX_UPLOAD_BYTES) {
-      return jsonResponse({ ok: false, error: "Uploaded image must be 10 MB or smaller." }, 400);
+      return uploadValidationError("Uploaded image must be 10 MB or smaller.");
     }
 
     const prompt =
-      typeof rawPrompt === "string" && rawPrompt.trim() ? rawPrompt.trim() : DEFAULT_PROMPT;
+      typeof rawPrompt === "string" && rawPrompt.trim()
+        ? rawPrompt.trim()
+        : DEFAULT_PROMPT;
     const uploadsDir = path.join(process.cwd(), ".medgemma-uploads");
     await mkdir(uploadsDir, { recursive: true });
 
-    uploadPath = path.join(uploadsDir, `${Date.now()}-${randomUUID()}${extension}`);
+    uploadPath = path.join(
+      uploadsDir,
+      `${Date.now()}-${randomUUID()}${extension}`,
+    );
     const bytes = Buffer.from(await image.arrayBuffer());
 
-    if (!hasValidImageSignature(bytes, image.type)) {
-      return jsonResponse(
-        { ok: false, error: "Uploaded file content does not match the selected image type." },
-        400,
+    if (bytes.length !== image.size) {
+      return uploadValidationError(
+        `Uploaded image size changed while reading form data (expected ${image.size} bytes, got ${bytes.length} bytes).`,
       );
     }
 
-    await writeFile(uploadPath, bytes, { flag: "wx" });
+    if (!hasValidImageSignature(bytes, image.type)) {
+      return uploadValidationError(
+        "Uploaded file content does not match the selected image type.",
+      );
+    }
+
+    try {
+      await writeFile(uploadPath, bytes, { flag: "wx" });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Could not write uploaded image.";
+      return tempWriteError(message);
+    }
+
+    let uploadStats;
+    try {
+      uploadStats = await stat(uploadPath);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Temporary upload file is missing.";
+      return tempWriteError(
+        `Temporary file was not readable after write. ${message}`,
+      );
+    }
+
+    if (!uploadStats.isFile() || uploadStats.size !== bytes.length) {
+      return tempWriteError(
+        `Temporary file size mismatch after write (expected ${bytes.length} bytes, got ${uploadStats.size} bytes).`,
+      );
+    }
 
     const result = await runMedGemma(uploadPath, prompt);
-    return jsonResponse(result, result.ok ? 200 : 500);
+    if (!result.ok) {
+      const prefix =
+        result.errorType === "image_decode_failed"
+          ? "Image decode failed"
+          : "MedGemma runner failed";
+      return jsonResponse(
+        {
+          ...result,
+          error: `${prefix}: ${result.error || "Analysis could not be completed."}`,
+        },
+        500,
+      );
+    }
+
+    return jsonResponse(result);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "MedGemma analysis failed.";
+    const message =
+      error instanceof Error ? error.message : "MedGemma analysis failed.";
     return jsonResponse({ ok: false, error: message }, 500);
   } finally {
     if (uploadPath) {
