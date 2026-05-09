@@ -219,6 +219,36 @@ def load_verified_rgb_image(
         return fallback_image
 
 
+def as_token_id_set(token_id: Any) -> set[int]:
+    if token_id is None:
+        return set()
+    if isinstance(token_id, int):
+        return {token_id}
+    if isinstance(token_id, (list, tuple, set)):
+        return {item for item in token_id if isinstance(item, int)}
+    return set()
+
+
+def log_generation_debug(
+    *,
+    input_token_count: int,
+    generated_output_shape: tuple[int, ...],
+    generated_token_count: int,
+    decoded_output_length: int,
+    eos_returned_immediately: bool,
+) -> None:
+    print(
+        "GENERATION_DEBUG: "
+        f"input_token_count={input_token_count} "
+        f"generated_output_shape={generated_output_shape} "
+        f"generated_token_count={generated_token_count} "
+        f"decoded_output_length={decoded_output_length} "
+        f"eos_returned_immediately={str(eos_returned_immediately).lower()}",
+        file=sys.stderr,
+        flush=True,
+    )
+
+
 def main() -> None:
     args = parse_args()
     image_path = Path(args.image).expanduser().resolve()
@@ -295,12 +325,71 @@ def main() -> None:
             inputs = inputs.to(model.device)
             input_token_count = inputs["input_ids"].shape[-1]
 
+            tokenizer = getattr(processor, "tokenizer", None)
+            eos_token_id = getattr(model.generation_config, "eos_token_id", None)
+            if eos_token_id is None:
+                eos_token_id = getattr(model.config, "eos_token_id", None)
+            pad_token_id = getattr(model.generation_config, "pad_token_id", None)
+            if pad_token_id is None:
+                pad_token_id = getattr(tokenizer, "pad_token_id", None)
+            if pad_token_id is None and isinstance(eos_token_id, int):
+                pad_token_id = eos_token_id
+            elif (
+                pad_token_id is None
+                and isinstance(eos_token_id, (list, tuple))
+                and eos_token_id
+            ):
+                pad_token_id = eos_token_id[0]
+
+            generation_kwargs: dict[str, Any] = {
+                "max_new_tokens": args.max_new_tokens,
+                "do_sample": False,
+            }
+            if pad_token_id is not None:
+                generation_kwargs["pad_token_id"] = pad_token_id
+            if eos_token_id is not None:
+                generation_kwargs["eos_token_id"] = eos_token_id
+
             log_stage("generating")
             with torch.inference_mode():
-                generated_ids = model.generate(**inputs, max_new_tokens=args.max_new_tokens)
+                generated_ids = model.generate(**inputs, **generation_kwargs)
 
-            generated_ids = generated_ids[:, input_token_count:]
-            result = processor.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
+            # MedGemma image-text models are decoder-only Gemma-family models;
+            # transformers returns the prompt followed by generated tokens. The
+            # official AutoModelForImageTextToText examples therefore decode
+            # only tokens after inputs["input_ids"].shape[-1].
+            output_ids = generated_ids[:, input_token_count:]
+            generated_output_shape = tuple(output_ids.shape)
+            generated_token_count = output_ids.shape[-1]
+            eos_token_ids = as_token_id_set(eos_token_id)
+            eos_returned_immediately = (
+                generated_token_count > 0
+                and int(output_ids[0][0].item()) in eos_token_ids
+            )
+            result = processor.batch_decode(output_ids, skip_special_tokens=True)[
+                0
+            ].strip()
+            log_generation_debug(
+                input_token_count=input_token_count,
+                generated_output_shape=generated_output_shape,
+                generated_token_count=generated_token_count,
+                decoded_output_length=len(result),
+                eos_returned_immediately=eos_returned_immediately,
+            )
+
+        if not result.strip():
+            emit(
+                {
+                    "ok": False,
+                    "errorType": "runner_failed",
+                    "error": (
+                        "MedGemma generated no decodable response text. "
+                        "The runner completed generation, but the decoded output was empty; "
+                        "check server stderr for safe generation metadata."
+                    ),
+                },
+                1,
+            )
 
         log_stage("complete")
         emit({"ok": True, "result": result})

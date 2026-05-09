@@ -45,6 +45,17 @@ const formatElapsed = (elapsedMs: number) => {
   return `${seconds}s`;
 };
 
+const requireResponseText = (value: string | undefined) => {
+  const responseText = value?.trim();
+  if (!responseText) {
+    throw new Error(
+      "MedGemma analysis completed without response text. Treating the empty output as a runner error; check the server log for safe generation diagnostics.",
+    );
+  }
+
+  return responseText;
+};
+
 const parseSseEvents = (buffer: string): StreamEvent[] => {
   return buffer
     .split("\n\n")
@@ -101,7 +112,7 @@ export function MedGemmaReviewTool() {
       if (!response.ok || !data.ok) {
         throw new Error(data.error || "MedGemma analysis failed.");
       }
-      setResult(data.result || "No response text was returned.");
+      setResult(requireResponseText(data.result));
       return;
     }
 
@@ -134,7 +145,7 @@ export function MedGemmaReviewTool() {
           if (!event.data.ok) {
             throw new Error(event.data.error || "MedGemma analysis failed.");
           }
-          setResult(event.data.result || "No response text was returned.");
+          setResult(requireResponseText(event.data.result));
         }
 
         if (event.event === "error") {
