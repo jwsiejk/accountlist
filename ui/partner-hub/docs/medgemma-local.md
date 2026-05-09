@@ -2,7 +2,7 @@
 
 The `/medgemma` page adds a local-only educational image review flow to the existing Next.js app. The browser uploads a JPG, PNG, or WebP image to a Next.js API route, the API route writes the file to an ignored temporary folder, and then it calls `scripts/medgemma_runner.py` with `child_process`. Images are not sent to a remote API by this implementation.
 
-The default review is designed to be direct and practical rather than a generic caption. It starts with a likely, non-absolute impression, then gives other reasonable possibilities, concerns / red flags, and conservative care guidance such as keeping an area clean, avoiding irritants, avoiding picking or squeezing, monitoring for worsening, and contacting a clinician or pediatrician when appropriate. The disclaimer is intentionally placed at the end of the generated review.
+The default review is designed to be direct and practical rather than a generic caption. It asks the model to evaluate visible morphology, distribution, and any supplied symptoms or context before choosing a likely, non-absolute impression. The generated response uses the sections **Most likely**, **Why**, **Other possibilities**, **Concerns**, **What to do**, and **Disclaimer** so the visual reasoning appears before alternatives and care guidance. The disclaimer is intentionally placed only at the end of the generated review.
 
 > Safety note: this tool provides educational image review only. It is not a confirmed diagnosis and does not replace a clinician. Do not deploy it as a public medical diagnostic service.
 
@@ -81,7 +81,8 @@ Accept the Hugging Face model terms for `google/medgemma-1.5-4b-it` before the f
 ## Runtime notes
 
 - The first run can be noticeably slower because Hugging Face downloads gated model files and Transformers loads them into local CPU/GPU memory. After the model is downloaded and cached, generation should not take 10 minutes for a typical image review.
-- CUDA runs prefer `torch.float16`, `low_cpu_mem_usage=True`, and PyTorch SDPA attention to better fit 6 GB laptop GPUs. The default prompt asks for a structured educational image review with these sections: most likely, other possibilities, concerns / red flags, what to do, and disclaimer. It asks the model to avoid absolute certainty and to avoid prescribing medication, dosing, or clinician-only treatment.
+- CUDA runs prefer `torch.float16`, `low_cpu_mem_usage=True`, and PyTorch SDPA attention to better fit 6 GB laptop GPUs. The default prompt asks for a structured educational image review with these sections: most likely, why, other possibilities, concerns, what to do, and disclaimer. It asks the model to reason from visible morphology and distribution before the impression, avoid overcalling broad or systemic rash categories from a localized image alone, avoid absolute certainty, and avoid prescribing medication, dosing, or clinician-only treatment.
+- Prompt wording can improve output style and reasoning, but it cannot fully correct every model-quality issue. If MedGemma still performs poorly on known examples after the morphology/distribution prompt is in place, treat that as a model-quality limitation rather than continuing endless prompt tuning.
 
 ## Local files and caches
 
