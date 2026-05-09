@@ -146,6 +146,13 @@ const runnerStageFromLine = (line: string) => {
   return match?.[1]?.toLowerCase();
 };
 
+const resultForEmptyRunnerOutput = (): RunnerResult => ({
+  ok: false,
+  errorType: "runner_failed",
+  error:
+    "MedGemma runner returned an empty response. The model generated no displayable text; check server stderr for safe generation metadata.",
+});
+
 const safeRunnerSummary = (stderr: string) => {
   const lines = stderr
     .split(/\r?\n/)
@@ -250,6 +257,12 @@ const runMedGemma = (
       const trimmedStdout = stdout.trim();
       try {
         const parsed = JSON.parse(trimmedStdout) as RunnerResult;
+        if (parsed.ok && !parsed.result?.trim()) {
+          const emptyResult = resultForEmptyRunnerOutput();
+          emptyResult.runnerStages = safeRunnerSummary(stderr);
+          finish(emptyResult);
+          return;
+        }
         if (!parsed.ok && stderr.trim() && !parsed.error) {
           parsed.error = safeRunnerSummary(stderr).join("\n");
         }
@@ -408,6 +421,13 @@ const analyzeMedGemmaRequest = async (
     }
 
     const result = await runMedGemma(uploadPath, prompt, onStatus);
+    if (result.ok && !result.result?.trim()) {
+      return {
+        result: resultForEmptyRunnerOutput(),
+        status: 500,
+      };
+    }
+
     if (!result.ok) {
       const prefix =
         result.errorType === "image_decode_failed"
