@@ -13,11 +13,16 @@ from typing import Any
 
 MODEL_ID = "google/medgemma-1.5-4b-it"
 DEFAULT_MAX_NEW_TOKENS = 512
+MIN_TORCH_VERSION = (2, 6)
 SUPPORTED_FALLBACK_FORMATS = {"JPEG", "PNG", "WEBP"}
 
 
 class ImageDecodeFailure(Exception):
     """Raised when PIL cannot safely decode the uploaded image."""
+
+
+class TorchVersionFailure(Exception):
+    """Raised when the installed PyTorch version is too old for MedGemma."""
 
 
 def emit(payload: dict[str, object], exit_code: int = 0) -> None:
@@ -36,6 +41,33 @@ def parse_args() -> argparse.Namespace:
         help=f"Maximum response tokens to generate (default: {DEFAULT_MAX_NEW_TOKENS}).",
     )
     return parser.parse_args()
+
+
+def parse_torch_version(version: str) -> tuple[int, ...]:
+    release = version.split("+", 1)[0]
+    parts: list[int] = []
+    for part in release.split("."):
+        digits = ""
+        for char in part:
+            if not char.isdigit():
+                break
+            digits += char
+        if digits == "":
+            break
+        parts.append(int(digits))
+    return tuple(parts)
+
+
+def ensure_supported_torch_version(torch_module: Any) -> None:
+    installed_version = getattr(torch_module, "__version__", "unknown")
+    parsed_version = parse_torch_version(installed_version)
+    if parsed_version < MIN_TORCH_VERSION:
+        min_version = ".".join(str(part) for part in MIN_TORCH_VERSION)
+        raise TorchVersionFailure(
+            f"PyTorch {installed_version} is installed, but MedGemma requires torch>={min_version}. "
+            "Rerun scripts/setup-medgemma.ps1 from ui/partner-hub to upgrade the repo-local "
+            ".venv-medgemma environment with a compatible CUDA PyTorch build."
+        )
 
 
 def is_truncated_image_error(exc: BaseException) -> bool:
@@ -169,6 +201,9 @@ def main() -> None:
             )
 
             import torch
+
+            ensure_supported_torch_version(torch)
+
             from transformers import AutoModelForImageTextToText, AutoProcessor
 
             device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -217,6 +252,9 @@ def main() -> None:
     except ImageDecodeFailure as exc:
         print(f"MedGemma image decode failed: {exc}", file=sys.stderr, flush=True)
         emit({"ok": False, "errorType": "image_decode_failed", "error": str(exc)}, 1)
+    except TorchVersionFailure as exc:
+        print(f"MedGemma runner failed: {exc}", file=sys.stderr, flush=True)
+        emit({"ok": False, "errorType": "runner_failed", "error": str(exc)}, 1)
     # CLI must convert all failures to JSON for the API route.
     except Exception as exc:  # noqa: BLE001
         print(f"MedGemma runner failed: {exc}", file=sys.stderr, flush=True)

@@ -16,7 +16,7 @@ Run MedGemma setup from `ui/partner-hub` so the Python environment is self-conta
    powershell -ExecutionPolicy Bypass -File scripts/setup-medgemma.ps1
    ```
 
-   The helper creates `.venv-medgemma`, upgrades pip, installs CUDA-enabled PyTorch for CUDA 12.1, and installs the MedGemma runner dependencies.
+   The helper creates `.venv-medgemma`, upgrades pip, installs or upgrades CUDA-enabled PyTorch from the CUDA 12.4 wheel index with `torch>=2.6`, and installs the MedGemma runner dependencies.
 
 2. Activate the repo-local MedGemma environment:
 
@@ -49,7 +49,7 @@ From `ui/partner-hub`, create a repo-local environment named `.venv-medgemma` an
 python -m venv .venv-medgemma
 source .venv-medgemma/bin/activate
 python -m pip install --upgrade pip
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+pip install --upgrade "torch>=2.6" torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
 pip install transformers accelerate pillow huggingface_hub sentencepiece
 hf auth login
 npm install
