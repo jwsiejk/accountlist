@@ -14,6 +14,7 @@ export function LeftNav() {
   const toolLinks = [
     { name: "Energy Tool", href: "/tools/energy" },
     { name: "AI Workload Mapper", href: "/tools/workload-mapper" },
+    { name: "Skin Image Review", href: "/skin-review" },
     ...(aiInterviewEnabled ? [{ name: "AI Interview", href: "/tools/interview" }] : []),
   ];
   const links = [
