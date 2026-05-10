@@ -18,6 +18,8 @@ type SkinReviewMatch = {
   label: string;
   score: number;
   percent: number;
+  rawScore?: number;
+  rawMarginFromTop?: number;
   plainEnglish: string;
   whatSupports: string[];
   whatArguesAgainst: string[];
@@ -34,6 +36,8 @@ type AnalysisResponse = {
   ok: boolean;
   model?: string;
   imageCount?: number;
+  scoringMode?: string;
+  displayTemperature?: number;
   topMatches?: SkinReviewMatch[];
   perImageMatches?: PerImageMatches[];
   reviewText?: string;
@@ -43,6 +47,7 @@ type AnalysisResponse = {
     | "weak/mixed visual match";
   mixedEvidence?: boolean;
   topMargin?: number;
+  topRawMargin?: number;
   agreementSummary?: string;
   error?: string;
   runnerStages?: string[];
@@ -95,7 +100,9 @@ const requireReview = (data: AnalysisResponse) => {
     topMatches: data.topMatches,
     confidenceLabel: data.confidenceLabel || "weak/mixed visual match",
     mixedEvidence: Boolean(data.mixedEvidence),
-    topMargin: data.topMargin ?? 0,
+    topRawMargin: data.topRawMargin ?? data.topMargin ?? 0,
+    displayTemperature: data.displayTemperature ?? 0.7,
+    scoringMode: data.scoringMode || "raw-margin-calibrated",
     agreementSummary:
       data.agreementSummary ||
       "Agreement summary was not returned by the local runner.",
@@ -162,7 +169,9 @@ export function SkinReviewTool() {
   const [confidenceLabel, setConfidenceLabel] = useState("");
   const [mixedEvidence, setMixedEvidence] = useState(false);
   const [agreementSummary, setAgreementSummary] = useState("");
-  const [topMargin, setTopMargin] = useState(0);
+  const [topRawMargin, setTopRawMargin] = useState(0);
+  const [displayTemperature, setDisplayTemperature] = useState(0.7);
+  const [scoringMode, setScoringMode] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [progressMessages, setProgressMessages] = useState<ProgressMessage[]>(
@@ -218,7 +227,9 @@ export function SkinReviewTool() {
     setConfidenceLabel(review.confidenceLabel);
     setMixedEvidence(review.mixedEvidence);
     setAgreementSummary(review.agreementSummary);
-    setTopMargin(review.topMargin);
+    setTopRawMargin(review.topRawMargin);
+    setDisplayTemperature(review.displayTemperature);
+    setScoringMode(review.scoringMode);
   };
 
   const readStreamingResponse = async (response: Response) => {
@@ -285,7 +296,9 @@ export function SkinReviewTool() {
     setConfidenceLabel("");
     setMixedEvidence(false);
     setAgreementSummary("");
-    setTopMargin(0);
+    setTopRawMargin(0);
+    setDisplayTemperature(0.7);
+    setScoringMode("");
 
     if (!images.length) {
       setError(
@@ -459,7 +472,8 @@ export function SkinReviewTool() {
                 possibilities, plain-English context, other possibilities, red
                 flags, confidence/agreement calibration, conservative care
                 guidance, and a bottom disclaimer. Scores are relative visual
-                similarity rankings rather than diagnosis confidence, and the UI
+                similarity rankings rather than diagnosis confidence. Confidence
+                uses raw ranking separation and cross-image agreement, and the UI
                 does not show raw prompts or embeddings.
               </p>
             </CardContent>
@@ -524,9 +538,9 @@ export function SkinReviewTool() {
                 <CardTitle>Combined top ranked possibilities</CardTitle>
                 <p className="text-sm text-emerald-950/70 dark:text-emerald-50/70">
                   Model: {model}. Image count:{" "}
-                  {imageCount || images.length || 1}. Scores are averaged visual
-                  similarity rankings, not diagnosis confidence. All image
-                  processing stays local.
+                  {imageCount || images.length || 1}. Percentages are
+                  display-scaled visual ranking scores, not diagnosis
+                  confidence. All image processing stays local.
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -538,15 +552,23 @@ export function SkinReviewTool() {
                     {agreementSummary}
                   </p>
                   <p className="mt-1 text-xs text-emerald-950/65 dark:text-emerald-50/65">
-                    Margin over #2: {topMargin.toFixed(4)}. This margin is a
-                    relative ranking gap, not a medical probability.
+                    Ranking separation from #2: {topRawMargin.toFixed(4)}.
+                    Confidence is calibrated from this raw separation plus
+                    per-image agreement, not from the display percentage.
                   </p>
                 </div>
 
+                <p className="text-xs leading-relaxed text-emerald-950/65 dark:text-emerald-50/65">
+                  Scoring mode: {scoringMode || "raw-margin-calibrated"}. Display
+                  temperature: {displayTemperature.toFixed(2)}. Lower display
+                  temperatures make visible ranking-score differences sharper;
+                  they do not change raw confidence calibration.
+                </p>
+
                 {mixedEvidence || confidenceLabel === "weak/mixed visual match" ? (
                   <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm font-medium text-amber-950 dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-50">
-                    The uploaded images do not strongly agree. Treat this as a
-                    weak visual match.
+                    The uploaded images have close rankings or do not strongly
+                    agree. Treat this as a mixed visual match, not a conclusion.
                   </div>
                 ) : null}
 
@@ -566,9 +588,14 @@ export function SkinReviewTool() {
                           </p>
                         </div>
                         <span className="shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-900 dark:bg-emerald-900 dark:text-emerald-50">
-                          {match.percent.toFixed(1)}%
+                          {match.percent.toFixed(1)}% display
                         </span>
                       </div>
+                      <p className="mt-2 text-xs text-emerald-950/60 dark:text-emerald-50/60">
+                        Raw similarity signal: {match.rawScore?.toFixed(4) ?? "n/a"};
+                        separation from top: {match.rawMarginFromTop?.toFixed(4) ?? "n/a"}.
+                        These are model ranking signals, not medical probabilities.
+                      </p>
                     </li>
                   ))}
                 </ol>
@@ -582,7 +609,8 @@ export function SkinReviewTool() {
                 <CardTitle>Per-image top matches</CardTitle>
                 <p className="text-sm text-emerald-950/70 dark:text-emerald-50/70">
                   These local-only per-image rankings are shown for visibility
-                  when images disagree.
+                  when images disagree. Percentages are display-scaled; raw
+                  separation drives confidence calibration.
                 </p>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -603,8 +631,11 @@ export function SkinReviewTool() {
                           <span>
                             {index + 1}. {match.label}
                           </span>
-                          <span className="font-semibold">
-                            {match.percent.toFixed(1)}%
+                          <span className="text-right font-semibold">
+                            {match.percent.toFixed(1)}% display
+                            <span className="block text-xs font-normal text-emerald-950/60 dark:text-emerald-50/60">
+                              raw gap {match.rawMarginFromTop?.toFixed(4) ?? "n/a"}
+                            </span>
                           </span>
                         </li>
                       ))}

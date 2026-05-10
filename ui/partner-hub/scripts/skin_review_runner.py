@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 from dataclasses import dataclass
@@ -14,8 +15,11 @@ from typing import Any
 DEFAULT_MODEL_ID = "redlessone/DermLIP_ViT-B-16"
 DEFAULT_MAX_MATCHES = 5
 PER_IMAGE_MATCHES = 3
-STRONG_MARGIN = 0.12
-MODERATE_MARGIN = 0.05
+DEFAULT_DISPLAY_TEMPERATURE = 0.7
+MIN_DISPLAY_TEMPERATURE = 0.1
+MAX_DISPLAY_TEMPERATURE = 5.0
+STRONG_RAW_MARGIN = 2.0
+MODERATE_RAW_MARGIN = 0.75
 MAX_IMAGE_COUNT = 5
 MAX_IMAGE_PIXELS = 40_000_000
 GENERAL_RED_FLAGS = [
@@ -33,6 +37,7 @@ DISCLAIMER = (
     "This is an AI image review, not a confirmed diagnosis. A clinician should "
     "evaluate symptoms that are severe, worsening, persistent, or concerning."
 )
+_DISPLAY_TEMPERATURE_CACHE: float | None = None
 
 
 @dataclass(frozen=True)
@@ -158,7 +163,12 @@ LABELS: tuple[SkinLabel, ...] = (
             "fever",
             "thick yellow crusting",
         ),
-        red_flags=("skin breakdown", "drainage", "rapid spread", "swelling near the eye"),
+        red_flags=(
+            "skin breakdown",
+            "drainage",
+            "rapid spread",
+            "swelling near the eye",
+        ),
     ),
     SkinLabel(
         id="atopic_dermatitis",
@@ -195,7 +205,11 @@ LABELS: tuple[SkinLabel, ...] = (
             "scalp eyebrow or fold involvement",
             "mild redness under scale",
         ),
-        what_argues_against=("clear grouped blisters", "rapid spread", "marked swelling"),
+        what_argues_against=(
+            "clear grouped blisters",
+            "rapid spread",
+            "marked swelling",
+        ),
         red_flags=("oozing", "bad smell", "fever", "baby acting ill"),
     ),
     SkinLabel(
@@ -207,8 +221,16 @@ LABELS: tuple[SkinLabel, ...] = (
             "fine prickly heat rash bumps in areas of heat sweating or occlusion",
         ),
         plain_english="Heat rash can show many tiny bumps in warm, sweaty, or covered areas.",
-        what_supports=("many tiny bumps", "warm or occluded area", "recent heat or sweating context"),
-        what_argues_against=("yellow crusting", "localized eye swelling", "grouped blisters"),
+        what_supports=(
+            "many tiny bumps",
+            "warm or occluded area",
+            "recent heat or sweating context",
+        ),
+        what_argues_against=(
+            "yellow crusting",
+            "localized eye swelling",
+            "grouped blisters",
+        ),
         red_flags=("fever", "rapid spread", "painful swelling", "baby acting ill"),
     ),
     SkinLabel(
@@ -220,9 +242,22 @@ LABELS: tuple[SkinLabel, ...] = (
             "drainage weeping erosions and golden crust on superficial skin lesions",
         ),
         plain_english="Impetigo is a contagious superficial skin infection that often has honey-yellow crusting, oozing, or drainage.",
-        what_supports=("honey-colored crust", "oozing or drainage", "sores around nose mouth or irritated skin"),
-        what_argues_against=("only dry non-crusted bumps", "uniform tiny white bumps", "no drainage or crust"),
-        red_flags=("spreading redness", "fever", "swelling near the eye", "baby acting ill"),
+        what_supports=(
+            "honey-colored crust",
+            "oozing or drainage",
+            "sores around nose mouth or irritated skin",
+        ),
+        what_argues_against=(
+            "only dry non-crusted bumps",
+            "uniform tiny white bumps",
+            "no drainage or crust",
+        ),
+        red_flags=(
+            "spreading redness",
+            "fever",
+            "swelling near the eye",
+            "baby acting ill",
+        ),
         high_consequence=True,
     ),
     SkinLabel(
@@ -234,8 +269,16 @@ LABELS: tuple[SkinLabel, ...] = (
             "scattered pustules around hair follicles without diffuse flat rash",
         ),
         plain_english="Folliculitis can look like small inflamed bumps or pustules centered on hair follicles.",
-        what_supports=("pustules around follicles", "hair-bearing area", "similar small inflamed bumps"),
-        what_argues_against=("flat diffuse rash", "greasy scale", "grouped clear blisters"),
+        what_supports=(
+            "pustules around follicles",
+            "hair-bearing area",
+            "similar small inflamed bumps",
+        ),
+        what_argues_against=(
+            "flat diffuse rash",
+            "greasy scale",
+            "grouped clear blisters",
+        ),
         red_flags=("painful boil", "spreading redness", "fever"),
     ),
     SkinLabel(
@@ -247,9 +290,22 @@ LABELS: tuple[SkinLabel, ...] = (
             "many similar red spots on widespread skin distribution with fever or viral symptoms",
         ),
         plain_english="A viral rash is usually considered when there is a more widespread pattern or illness symptoms along with the rash.",
-        what_supports=("widespread trunk or body rash", "many similar red spots", "fever or viral symptoms if present"),
-        what_argues_against=("single localized face patch", "only a few infant facial bumps", "yellow crusting"),
-        red_flags=("fever in a young infant", "breathing trouble", "lethargy", "non-blanching purple spots"),
+        what_supports=(
+            "widespread trunk or body rash",
+            "many similar red spots",
+            "fever or viral symptoms if present",
+        ),
+        what_argues_against=(
+            "single localized face patch",
+            "only a few infant facial bumps",
+            "yellow crusting",
+        ),
+        red_flags=(
+            "fever in a young infant",
+            "breathing trouble",
+            "lethargy",
+            "non-blanching purple spots",
+        ),
         high_consequence=True,
     ),
     SkinLabel(
@@ -261,9 +317,22 @@ LABELS: tuple[SkinLabel, ...] = (
             "small blisters erosions or red spots on palms soles mouth area or diaper area",
         ),
         plain_english="Hand-foot-mouth pattern is more likely when spots or blisters involve the hands, feet, mouth, or diaper area with illness symptoms.",
-        what_supports=("hands feet or mouth involvement", "small blisters or erosions", "compatible distribution"),
-        what_argues_against=("only localized cheek bumps", "no hand foot or mouth distribution", "greasy scale"),
-        red_flags=("dehydration", "breathing trouble", "lethargy", "fever in a young infant"),
+        what_supports=(
+            "hands feet or mouth involvement",
+            "small blisters or erosions",
+            "compatible distribution",
+        ),
+        what_argues_against=(
+            "only localized cheek bumps",
+            "no hand foot or mouth distribution",
+            "greasy scale",
+        ),
+        red_flags=(
+            "dehydration",
+            "breathing trouble",
+            "lethargy",
+            "fever in a young infant",
+        ),
         high_consequence=True,
     ),
     SkinLabel(
@@ -275,9 +344,23 @@ LABELS: tuple[SkinLabel, ...] = (
             "localized painful-looking grouped vesicles or punched-out erosions on infant skin",
         ),
         plain_english="Grouped clear blisters, especially near the eye or in a young infant, need prompt clinician review.",
-        what_supports=("clustered clear blisters", "erosions after blisters", "localized painful-looking grouped lesions"),
-        what_argues_against=("solid acne-like papules", "tiny uniform white bumps", "dry scale without blisters"),
-        red_flags=("grouped clear blisters", "eye-area involvement", "fever", "poor feeding", "lethargy"),
+        what_supports=(
+            "clustered clear blisters",
+            "erosions after blisters",
+            "localized painful-looking grouped lesions",
+        ),
+        what_argues_against=(
+            "solid acne-like papules",
+            "tiny uniform white bumps",
+            "dry scale without blisters",
+        ),
+        red_flags=(
+            "grouped clear blisters",
+            "eye-area involvement",
+            "fever",
+            "poor feeding",
+            "lethargy",
+        ),
         high_consequence=True,
     ),
     SkinLabel(
@@ -289,9 +372,22 @@ LABELS: tuple[SkinLabel, ...] = (
             "diffuse hot tender swollen red skin area rather than tiny stable bumps",
         ),
         plain_english="Cellulitis is a deeper spreading infection pattern with expanding redness, warmth, swelling, pain, or fever.",
-        what_supports=("spreading redness", "swelling", "warmth or tenderness if present"),
-        what_argues_against=("stable tiny bumps", "no swelling", "dry scaly patch only"),
-        red_flags=("rapidly spreading redness", "fever", "swelling near the eye", "baby acting ill"),
+        what_supports=(
+            "spreading redness",
+            "swelling",
+            "warmth or tenderness if present",
+        ),
+        what_argues_against=(
+            "stable tiny bumps",
+            "no swelling",
+            "dry scaly patch only",
+        ),
+        red_flags=(
+            "rapidly spreading redness",
+            "fever",
+            "swelling near the eye",
+            "baby acting ill",
+        ),
         high_consequence=True,
     ),
     SkinLabel(
@@ -303,9 +399,18 @@ LABELS: tuple[SkinLabel, ...] = (
             "transient-looking puffy red plaques with face or lip swelling concern",
         ),
         plain_english="Hives are raised welts that often move around and can occur with allergic reactions or viral illnesses.",
-        what_supports=("raised welts", "changing or migrating spots", "itchy-looking swelling"),
+        what_supports=(
+            "raised welts",
+            "changing or migrating spots",
+            "itchy-looking swelling",
+        ),
         what_argues_against=("fixed pustules", "yellow crusting", "tiny white bumps"),
-        red_flags=("breathing trouble", "face or lip swelling", "vomiting with hives", "baby acting ill"),
+        red_flags=(
+            "breathing trouble",
+            "face or lip swelling",
+            "vomiting with hives",
+            "baby acting ill",
+        ),
         high_consequence=True,
     ),
     SkinLabel(
@@ -317,8 +422,16 @@ LABELS: tuple[SkinLabel, ...] = (
             "clustered but discrete itchy papules on arms legs face or other exposed areas",
         ),
         plain_english="Bites often appear as separate itchy red bumps and may have a central dot or occur in exposed areas.",
-        what_supports=("discrete separated bumps", "central punctum if visible", "exposed skin distribution"),
-        what_argues_against=("widespread viral pattern", "greasy scale", "uniform tiny white facial bumps"),
+        what_supports=(
+            "discrete separated bumps",
+            "central punctum if visible",
+            "exposed skin distribution",
+        ),
+        what_argues_against=(
+            "widespread viral pattern",
+            "greasy scale",
+            "uniform tiny white facial bumps",
+        ),
         red_flags=("rapid swelling", "spreading redness", "drainage", "fever"),
     ),
     SkinLabel(
@@ -330,11 +443,20 @@ LABELS: tuple[SkinLabel, ...] = (
             "low detail or ambiguous rash image without clear papules pustules vesicles scale crusting or distribution",
         ),
         plain_english="Some images do not have enough distinctive visual information for a confident visual category.",
-        what_supports=("mixed or subtle findings", "limited image context", "no single distinctive pattern"),
-        what_argues_against=("classic honey crust", "classic grouped blisters", "classic tiny white milia"),
+        what_supports=(
+            "mixed or subtle findings",
+            "limited image context",
+            "no single distinctive pattern",
+        ),
+        what_argues_against=(
+            "classic honey crust",
+            "classic grouped blisters",
+            "classic tiny white milia",
+        ),
         red_flags=tuple(GENERAL_RED_FLAGS),
     ),
 )
+
 
 class ImageDecodeError(Exception):
     """Raised when PIL cannot safely decode the uploaded image."""
@@ -346,6 +468,37 @@ class RunnerFailure(Exception):
 
 def emit_stage(stage: str) -> None:
     print(f"STAGE: {stage}", file=sys.stderr, flush=True)
+
+
+def display_temperature_from_env() -> float:
+    global _DISPLAY_TEMPERATURE_CACHE
+    if _DISPLAY_TEMPERATURE_CACHE is not None:
+        return _DISPLAY_TEMPERATURE_CACHE
+
+    raw_value = os.environ.get("SKIN_REVIEW_DISPLAY_TEMPERATURE")
+    if not raw_value:
+        _DISPLAY_TEMPERATURE_CACHE = DEFAULT_DISPLAY_TEMPERATURE
+        return _DISPLAY_TEMPERATURE_CACHE
+    try:
+        value = float(raw_value)
+    except ValueError:
+        print(
+            "Ignoring SKIN_REVIEW_DISPLAY_TEMPERATURE because it is not a number.",
+            file=sys.stderr,
+            flush=True,
+        )
+        _DISPLAY_TEMPERATURE_CACHE = DEFAULT_DISPLAY_TEMPERATURE
+        return _DISPLAY_TEMPERATURE_CACHE
+    if not MIN_DISPLAY_TEMPERATURE <= value <= MAX_DISPLAY_TEMPERATURE:
+        print(
+            "Ignoring SKIN_REVIEW_DISPLAY_TEMPERATURE because it is outside the 0.1 to 5.0 range.",
+            file=sys.stderr,
+            flush=True,
+        )
+        _DISPLAY_TEMPERATURE_CACHE = DEFAULT_DISPLAY_TEMPERATURE
+        return _DISPLAY_TEMPERATURE_CACHE
+    _DISPLAY_TEMPERATURE_CACHE = value
+    return _DISPLAY_TEMPERATURE_CACHE
 
 
 def default_max_matches_from_env() -> int:
@@ -463,14 +616,30 @@ def choose_device(torch_module: Any) -> str:
     return "cuda" if torch_module.cuda.is_available() else "cpu"
 
 
-def match_from_score(index: int, score: float) -> dict[str, Any]:
+def softmax_display_scores(raw_scores: list[float], temperature: float) -> list[float]:
+    if not raw_scores:
+        return []
+    scaled_scores = [score / temperature for score in raw_scores]
+    max_scaled_score = max(scaled_scores)
+    exp_scores = [math.exp(score - max_scaled_score) for score in scaled_scores]
+    total = sum(exp_scores)
+    if total <= 0.0:
+        return [1.0 / len(raw_scores) for _score in raw_scores]
+    return [score / total for score in exp_scores]
+
+
+def match_from_scores(
+    index: int, raw_score: float, display_score: float, top_raw_score: float
+) -> dict[str, Any]:
     label = LABELS[index]
-    percent = round(float(score) * 100.0, 1)
+    percent = round(float(display_score) * 100.0, 1)
     return {
         "id": label.id,
         "label": label.label,
-        "score": round(float(score), 4),
+        "score": round(float(display_score), 4),
         "percent": percent,
+        "rawScore": round(float(raw_score), 4),
+        "rawMarginFromTop": round(max(0.0, float(top_raw_score) - float(raw_score)), 4),
         "plainEnglish": label.plain_english,
         "whatSupports": list(label.what_supports),
         "whatArguesAgainst": list(label.what_argues_against),
@@ -479,13 +648,19 @@ def match_from_score(index: int, score: float) -> dict[str, Any]:
     }
 
 
-def top_matches_from_scores(
-    scores: list[float], max_matches: int
+def top_matches_from_raw_scores(
+    raw_scores: list[float], display_scores: list[float], max_matches: int
 ) -> list[dict[str, Any]]:
     ranked_indices = sorted(
-        range(len(scores)), key=lambda index: scores[index], reverse=True
+        range(len(raw_scores)), key=lambda index: raw_scores[index], reverse=True
     )[:max_matches]
-    return [match_from_score(index, scores[index]) for index in ranked_indices]
+    top_raw_score = raw_scores[ranked_indices[0]] if ranked_indices else 0.0
+    return [
+        match_from_scores(
+            index, raw_scores[index], display_scores[index], top_raw_score
+        )
+        for index in ranked_indices
+    ]
 
 
 def classify_images(
@@ -523,7 +698,9 @@ def classify_images(
         for label_index, label in enumerate(LABELS)
         for _prompt in label.prompts
     ]
-    all_scores: list[list[float]] = []
+    display_temperature = display_temperature_from_env()
+    all_raw_scores: list[list[float]] = []
+    all_display_scores: list[list[float]] = []
 
     with torch.no_grad():
         text_tokens = tokenizer(prompts).to(device)
@@ -544,41 +721,58 @@ def classify_images(
             for label_index in range(len(LABELS)):
                 variant_indices = [
                     prompt_index
-                    for prompt_index, prompt_label_index in enumerate(prompt_label_indices)
+                    for prompt_index, prompt_label_index in enumerate(
+                        prompt_label_indices
+                    )
                     if prompt_label_index == label_index
                 ]
                 label_logits.append(prompt_logits[variant_indices].max())
 
-            label_scores = torch.stack(label_logits).softmax(dim=-1)
-            all_scores.append(
-                [float(score) for score in label_scores.detach().cpu().tolist()]
+            label_raw_scores = [
+                float(score)
+                for score in torch.stack(label_logits).detach().cpu().tolist()
+            ]
+            all_raw_scores.append(label_raw_scores)
+            all_display_scores.append(
+                softmax_display_scores(label_raw_scores, display_temperature)
             )
 
-    average_scores = [
-        sum(image_scores[label_index] for image_scores in all_scores) / len(all_scores)
+    average_raw_scores = [
+        sum(image_scores[label_index] for image_scores in all_raw_scores)
+        / len(all_raw_scores)
         for label_index in range(len(LABELS))
     ]
-    combined_matches = top_matches_from_scores(average_scores, max_matches)
+    combined_display_scores = softmax_display_scores(
+        average_raw_scores, display_temperature
+    )
+    combined_matches = top_matches_from_raw_scores(
+        average_raw_scores, combined_display_scores, max_matches
+    )
     per_image_matches = [
         {
             "imageIndex": image_index + 1,
-            "topMatches": top_matches_from_scores(
-                image_scores, min(PER_IMAGE_MATCHES, max_matches)
+            "topMatches": top_matches_from_raw_scores(
+                image_raw_scores,
+                all_display_scores[image_index],
+                min(PER_IMAGE_MATCHES, max_matches),
             ),
         }
-        for image_index, image_scores in enumerate(all_scores)
+        for image_index, image_raw_scores in enumerate(all_raw_scores)
     ]
     return combined_matches, per_image_matches
 
 
 def smoke_matches(max_matches: int) -> list[dict[str, Any]]:
-    scores = [0.0 for _ in LABELS]
-    return top_matches_from_scores(scores, max_matches)
+    raw_scores = [0.0 for _ in LABELS]
+    display_scores = softmax_display_scores(raw_scores, display_temperature_from_env())
+    return top_matches_from_raw_scores(raw_scores, display_scores, max_matches)
 
 
 def smoke_per_image_matches(image_count: int, max_matches: int) -> list[dict[str, Any]]:
-    top_matches = top_matches_from_scores(
-        [0.0 for _ in LABELS], min(PER_IMAGE_MATCHES, max_matches)
+    raw_scores = [0.0 for _ in LABELS]
+    display_scores = softmax_display_scores(raw_scores, display_temperature_from_env())
+    top_matches = top_matches_from_raw_scores(
+        raw_scores, display_scores, min(PER_IMAGE_MATCHES, max_matches)
     )
     return [
         {"imageIndex": image_index + 1, "topMatches": top_matches}
@@ -605,8 +799,10 @@ def calibration_summary(
     matches: list[dict[str, Any]], per_image_matches: list[dict[str, Any]]
 ) -> dict[str, Any]:
     top = matches[0]
-    second_score = float(matches[1]["score"]) if len(matches) > 1 else 0.0
-    top_margin = round(max(0.0, float(top["score"]) - second_score), 4)
+    second_raw_score = (
+        float(matches[1]["rawScore"]) if len(matches) > 1 else float(top["rawScore"])
+    )
+    top_raw_margin = round(max(0.0, float(top["rawScore"]) - second_raw_score), 4)
     image_count = max(1, len(per_image_matches))
     top1_count, top3_count = per_image_agreement(top["id"], per_image_matches)
     most_images_threshold = image_count if image_count <= 2 else image_count - 1
@@ -622,10 +818,14 @@ def calibration_summary(
     # and clear separation from #2; moderate requires at least half agreement and
     # non-tiny separation. High-consequence labels are downgraded unless strongly
     # supported because weak CLIP-style similarity should not read like a diagnosis.
-    strong_agreement = top3_count >= most_images_threshold and top_margin >= STRONG_MARGIN
-    moderate_agreement = top3_count >= half_images_threshold and top_margin >= MODERATE_MARGIN
+    strong_agreement = (
+        top3_count >= most_images_threshold and top_raw_margin >= STRONG_RAW_MARGIN
+    )
+    moderate_agreement = (
+        top3_count >= half_images_threshold and top_raw_margin >= MODERATE_RAW_MARGIN
+    )
     weak_reasons = [
-        top_margin < MODERATE_MARGIN,
+        top_raw_margin < MODERATE_RAW_MARGIN,
         top3_count < half_images_threshold,
         image_count > 1 and top1_count <= 1,
         len(top_labels) > 1 and top3_count < most_images_threshold,
@@ -646,13 +846,14 @@ def calibration_summary(
     agreement_summary = (
         f"Combined #1 appeared as the per-image #1 in {top1_count}/{image_count} "
         f"{image_word} and within the per-image top 3 in {top3_count}/{image_count}; "
-        f"margin over #2 was {top_margin:.4f}."
+        f"raw ranking separation from #2 was {top_raw_margin:.4f}."
     )
 
     return {
         "confidenceLabel": confidence_label,
         "mixedEvidence": mixed_evidence,
-        "topMargin": top_margin,
+        "topMargin": top_raw_margin,
+        "topRawMargin": top_raw_margin,
         "agreementSummary": agreement_summary,
     }
 
@@ -680,16 +881,15 @@ def build_review_text(
     mixed_evidence = bool(calibration["mixedEvidence"])
     support_text = "; ".join(top["whatSupports"][:3])
     high_consequence_weak = (
-        bool(top.get("highConsequence"))
-        and confidence_label != "strong visual match"
+        bool(top.get("highConsequence")) and confidence_label != "strong visual match"
     )
     image_word = "image" if image_count == 1 else "images"
 
     if mixed_evidence:
         impression = (
-            f"The visual evidence is mixed. Based on {image_count} {image_word}, "
-            f"{top['label']} is the highest relative visual-similarity ranking, "
-            "but this is a weak visual match rather than a diagnosis-like conclusion."
+            f"The visual matches are close together or the uploaded views disagree. "
+            f"Based on {image_count} {image_word}, {top['label']} is the highest "
+            "relative visual-similarity ranking, but this is not a diagnosis-like conclusion."
         )
     elif high_consequence_weak:
         impression = (
@@ -699,14 +899,17 @@ def build_review_text(
         )
     else:
         impression = (
-            f"Based on {image_count} {image_word}, the combined top visual match is "
+            f"Based on {image_count} {image_word}, the strongest visual match is "
             f"{top['label']}. This is a {confidence_label}, not a confirmed diagnosis."
         )
 
-    alternative_text = " ".join(
-        f"{match['label']} would be more likely with {', '.join(match['whatSupports'][:2])}."
-        for match in alternatives
-    ) or "No additional ranked alternatives were returned."
+    alternative_text = (
+        " ".join(
+            f"{match['label']} would be more likely with {', '.join(match['whatSupports'][:2])}."
+            for match in alternatives
+        )
+        or "No additional ranked alternatives were returned."
+    )
 
     concern_texts = high_consequence_concerns(
         matches[:4] if mixed_evidence else alternatives
@@ -726,7 +929,7 @@ def build_review_text(
         [
             "Most likely visual match / combined impression:\n"
             + impression
-            + " Scores are relative visual-similarity rankings against curated local labels, not diagnosis confidence.",
+            + " Percentages are display-scaled relative visual-similarity rankings against curated local labels, not diagnosis confidence.",
             "Confidence / agreement:\n"
             + f"{confidence_label}. {calibration['agreementSummary']}",
             "Why it may fit:\n"
@@ -750,11 +953,14 @@ def success_payload(
         "ok": True,
         "model": selected_model_id,
         "imageCount": image_count,
+        "scoringMode": "raw-margin-calibrated",
+        "displayTemperature": display_temperature_from_env(),
         "topMatches": matches,
         "perImageMatches": per_image_matches,
         "confidenceLabel": calibration["confidenceLabel"],
         "mixedEvidence": calibration["mixedEvidence"],
         "topMargin": calibration["topMargin"],
+        "topRawMargin": calibration["topRawMargin"],
         "agreementSummary": calibration["agreementSummary"],
         "reviewText": build_review_text(
             matches, image_count, per_image_matches, calibration
