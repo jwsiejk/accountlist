@@ -22,6 +22,7 @@ type SkinReviewMatch = {
   whatSupports: string[];
   whatArguesAgainst: string[];
   redFlags: string[];
+  highConsequence?: boolean;
 };
 
 type PerImageMatches = {
@@ -36,6 +37,13 @@ type AnalysisResponse = {
   topMatches?: SkinReviewMatch[];
   perImageMatches?: PerImageMatches[];
   reviewText?: string;
+  confidenceLabel?:
+    | "strong visual match"
+    | "moderate visual match"
+    | "weak/mixed visual match";
+  mixedEvidence?: boolean;
+  topMargin?: number;
+  agreementSummary?: string;
   error?: string;
   runnerStages?: string[];
 };
@@ -85,6 +93,12 @@ const requireReview = (data: AnalysisResponse) => {
     perImageMatches: data.perImageMatches || [],
     reviewText,
     topMatches: data.topMatches,
+    confidenceLabel: data.confidenceLabel || "weak/mixed visual match",
+    mixedEvidence: Boolean(data.mixedEvidence),
+    topMargin: data.topMargin ?? 0,
+    agreementSummary:
+      data.agreementSummary ||
+      "Agreement summary was not returned by the local runner.",
   };
 };
 
@@ -94,8 +108,21 @@ const formatReviewText = (value: string) => {
     return [];
   }
 
+  const sectionHeadings = [
+    "Most likely visual match / combined impression",
+    "Confidence / agreement",
+    "Why it may fit",
+    "Other possibilities",
+    "Concerns / red flags",
+    "What to do",
+    "Disclaimer",
+  ];
+  const sectionHeadingPattern = new RegExp(
+    `\\n(?=(?:${sectionHeadings.join("|")}):)`,
+    "gi",
+  );
   const textWithSectionSpacing = normalized.replace(
-    /\n(?=(?:Plain-English read|Why it may fit|Other possibilities|Concerns \/ red flags|What to do|Disclaimer):)/gi,
+    sectionHeadingPattern,
     "\n\n",
   );
 
@@ -132,6 +159,10 @@ export function SkinReviewTool() {
   const [perImageMatches, setPerImageMatches] = useState<PerImageMatches[]>([]);
   const [imageCount, setImageCount] = useState(0);
   const [model, setModel] = useState("");
+  const [confidenceLabel, setConfidenceLabel] = useState("");
+  const [mixedEvidence, setMixedEvidence] = useState(false);
+  const [agreementSummary, setAgreementSummary] = useState("");
+  const [topMargin, setTopMargin] = useState(0);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [progressMessages, setProgressMessages] = useState<ProgressMessage[]>(
@@ -184,6 +215,10 @@ export function SkinReviewTool() {
     setPerImageMatches(review.perImageMatches);
     setImageCount(review.imageCount);
     setModel(review.model);
+    setConfidenceLabel(review.confidenceLabel);
+    setMixedEvidence(review.mixedEvidence);
+    setAgreementSummary(review.agreementSummary);
+    setTopMargin(review.topMargin);
   };
 
   const readStreamingResponse = async (response: Response) => {
@@ -247,6 +282,10 @@ export function SkinReviewTool() {
     setPerImageMatches([]);
     setImageCount(0);
     setModel("");
+    setConfidenceLabel("");
+    setMixedEvidence(false);
+    setAgreementSummary("");
+    setTopMargin(0);
 
     if (!images.length) {
       setError(
@@ -418,7 +457,9 @@ export function SkinReviewTool() {
               <p className="rounded-lg bg-muted/50 p-4 text-sm leading-relaxed text-foreground/75">
                 The local review returns combined top ranked visual
                 possibilities, plain-English context, other possibilities, red
-                flags, conservative care guidance, and a bottom disclaimer. It
+                flags, confidence/agreement calibration, conservative care
+                guidance, and a bottom disclaimer. Scores are relative visual
+                similarity rankings rather than diagnosis confidence, and the UI
                 does not show raw prompts or embeddings.
               </p>
             </CardContent>
@@ -488,7 +529,27 @@ export function SkinReviewTool() {
                   processing stays local.
                 </p>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                <div className="rounded-xl border border-emerald-200 bg-white/70 p-4 text-sm text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-50">
+                  <p className="font-semibold capitalize">
+                    Confidence: {confidenceLabel || "visual match"}
+                  </p>
+                  <p className="mt-1 text-emerald-950/75 dark:text-emerald-50/75">
+                    {agreementSummary}
+                  </p>
+                  <p className="mt-1 text-xs text-emerald-950/65 dark:text-emerald-50/65">
+                    Margin over #2: {topMargin.toFixed(4)}. This margin is a
+                    relative ranking gap, not a medical probability.
+                  </p>
+                </div>
+
+                {mixedEvidence || confidenceLabel === "weak/mixed visual match" ? (
+                  <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm font-medium text-amber-950 dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-50">
+                    The uploaded images do not strongly agree. Treat this as a
+                    weak visual match.
+                  </div>
+                ) : null}
+
                 <ol className="space-y-3">
                   {topMatches.map((match, index) => (
                     <li
