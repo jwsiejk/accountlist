@@ -5,6 +5,12 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { withBasePath } from "@/lib/basePath";
+import {
+  buildInfantFacialRashGuidance,
+  hasRequiredInfantRashContext,
+  isInfantFacialRashReview,
+  type InfantRashContext,
+} from "@/lib/skin-review/infantRashContext";
 
 const acceptedImageTypes = ["image/jpeg", "image/png", "image/webp"];
 const maxImageCount = 5;
@@ -12,6 +18,11 @@ const maxImageCount = 5;
 const initialProgressMessages: ProgressMessage[] = [
   { stage: "waiting", message: "Waiting for image(s)", elapsedMs: 0 },
 ];
+
+type BooleanInfantRashContextKey = Exclude<
+  keyof InfantRashContext,
+  "babyAge" | "rashDuration"
+>;
 
 type SkinReviewMatch = {
   id: string;
@@ -131,7 +142,7 @@ const formatReviewText = (value: string) => {
 
   const sectionHeadings = [
     "Most likely visual match / combined impression",
-    "Confidence / agreement",
+    "Visual match strength / ranking agreement",
     "Why it may fit",
     "Other possibilities",
     "Other visual categories",
@@ -177,6 +188,25 @@ const parseSseEvents = (buffer: string): StreamEvent[] => {
 export function SkinReviewTool() {
   const [images, setImages] = useState<File[]>([]);
   const [reviewText, setReviewText] = useState("");
+  const [needsInfantContext, setNeedsInfantContext] = useState(false);
+  const [infantContext, setInfantContext] = useState<InfantRashContext>({
+    babyAge: "",
+    rashDuration: "",
+    dryRoughScaly: false,
+    itchingScratchingRubbing: false,
+    oozingDrainageHoneyCrust: false,
+    blistersVesicles: false,
+    fever: false,
+    poorFeeding: false,
+    actingIllLethargic: false,
+    eyeSwellingOrEyeRash: false,
+    rapidSpreadingWorseningRedness: false,
+    newSkinProducts: false,
+    formulaFoodChanges: false,
+    worseWithHeatDroolMilkFriction: false,
+    eczemaAllergyAsthmaHistory: false,
+    greasyFlakyScalpEyebrowsEars: false,
+  });
   const [topMatches, setTopMatches] = useState<SkinReviewMatch[]>([]);
   const [topCategories, setTopCategories] = useState<SkinReviewCategory[]>([]);
   const [perImageMatches, setPerImageMatches] = useState<PerImageMatches[]>([]);
@@ -247,7 +277,13 @@ export function SkinReviewTool() {
 
   const applyReviewResponse = (data: AnalysisResponse) => {
     const review = requireReview(data);
-    setReviewText(review.reviewText);
+    const visualItems = review.topCategories.length
+      ? review.topCategories
+      : review.topMatches;
+    const infantReview = isInfantFacialRashReview(visualItems);
+
+    setNeedsInfantContext(infantReview);
+    setReviewText(infantReview ? "" : review.reviewText);
     setTopMatches(review.topMatches);
     setTopCategories(review.topCategories);
     setPerImageMatches(review.perImageMatches);
@@ -315,10 +351,76 @@ export function SkinReviewTool() {
     }
   };
 
+  const setInfantContextValue = <K extends keyof InfantRashContext>(
+    key: K,
+    value: InfantRashContext[K],
+  ) => {
+    setInfantContext((current) => ({ ...current, [key]: value }));
+  };
+
+  const onInfantContextSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError("");
+
+    if (!hasRequiredInfantRashContext(infantContext)) {
+      setError(
+        "Please provide baby age and rash duration/onset before showing infant facial rash guidance.",
+      );
+      return;
+    }
+
+    setReviewText(
+      buildInfantFacialRashGuidance(combinedVisualCategories, infantContext),
+    );
+    setNeedsInfantContext(false);
+  };
+
+  const yesNoField = (
+    key: BooleanInfantRashContextKey,
+    label: string,
+    helper?: string,
+  ) => (
+    <label className="space-y-1 rounded-lg border border-border bg-background/70 p-3 text-sm">
+      <span className="block font-medium text-foreground">{label}</span>
+      {helper ? (
+        <span className="block text-xs text-foreground/60">{helper}</span>
+      ) : null}
+      <select
+        className="mt-2 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+        value={infantContext[key] ? "yes" : "no"}
+        onChange={(event) =>
+          setInfantContextValue(key, event.target.value === "yes")
+        }
+      >
+        <option value="no">No / not known</option>
+        <option value="yes">Yes</option>
+      </select>
+    </label>
+  );
+
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
     setReviewText("");
+    setNeedsInfantContext(false);
+    setInfantContext({
+      babyAge: "",
+      rashDuration: "",
+      dryRoughScaly: false,
+      itchingScratchingRubbing: false,
+      oozingDrainageHoneyCrust: false,
+      blistersVesicles: false,
+      fever: false,
+      poorFeeding: false,
+      actingIllLethargic: false,
+      eyeSwellingOrEyeRash: false,
+      rapidSpreadingWorseningRedness: false,
+      newSkinProducts: false,
+      formulaFoodChanges: false,
+      worseWithHeatDroolMilkFriction: false,
+      eczemaAllergyAsthmaHistory: false,
+      greasyFlakyScalpEyebrowsEars: false,
+    });
     setTopMatches([]);
     setTopCategories([]);
     setPerImageMatches([]);
@@ -502,9 +604,9 @@ export function SkinReviewTool() {
               <p className="rounded-lg bg-muted/50 p-4 text-sm leading-relaxed text-foreground/75">
                 The local review returns combined top ranked visual
                 possibilities, plain-English context, other possibilities, red
-                flags, confidence/agreement calibration, conservative care
-                guidance, and a bottom disclaimer. Scores are relative visual
-                similarity rankings rather than diagnosis confidence. Confidence
+                flags, visual match strength/ranking agreement calibration, conservative care
+                guidance, and a bottom disclaimer. Scores are relative image match
+                rankings rather than medical likelihoods. Ranking agreement
                 uses raw ranking separation and cross-image agreement, and the UI
                 does not show raw prompts or embeddings.
               </p>
@@ -564,15 +666,110 @@ export function SkinReviewTool() {
             </Card>
           ) : null}
 
+          {needsInfantContext && combinedVisualCategories.length ? (
+            <Card className="border-sky-300 bg-sky-50 dark:border-sky-900/70 dark:bg-sky-950/30">
+              <CardHeader>
+                <CardTitle>Required infant facial rash context</CardTitle>
+                <p className="text-sm text-sky-950/75 dark:text-sky-50/75">
+                  Images alone often cannot reliably distinguish infant acne
+                  from eczema or irritant dermatitis. The questions below help
+                  identify red flags and common context patterns. Final guidance
+                  is held until this context is provided.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <form className="space-y-4" onSubmit={onInfantContextSubmit}>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="space-y-1 text-sm font-medium text-foreground">
+                      Baby age in days/weeks/months
+                      <input
+                        className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-normal"
+                        value={infantContext.babyAge}
+                        onChange={(event) =>
+                          setInfantContextValue("babyAge", event.target.value)
+                        }
+                        placeholder="e.g. 6 weeks"
+                        required
+                      />
+                    </label>
+                    <label className="space-y-1 text-sm font-medium text-foreground">
+                      Rash duration/onset
+                      <input
+                        className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-normal"
+                        value={infantContext.rashDuration}
+                        onChange={(event) =>
+                          setInfantContextValue("rashDuration", event.target.value)
+                        }
+                        placeholder="e.g. started 3 days ago"
+                        required
+                      />
+                    </label>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {yesNoField("dryRoughScaly", "Dry, rough, or scaly skin")}
+                    {yesNoField(
+                      "itchingScratchingRubbing",
+                      "Itching, scratching, or rubbing if known",
+                    )}
+                    {yesNoField(
+                      "oozingDrainageHoneyCrust",
+                      "Oozing, drainage, yellow or honey-colored crust",
+                    )}
+                    {yesNoField("blistersVesicles", "Blisters or vesicles")}
+                    {yesNoField("fever", "Fever")}
+                    {yesNoField("poorFeeding", "Poor feeding")}
+                    {yesNoField(
+                      "actingIllLethargic",
+                      "Baby acting ill or lethargic",
+                    )}
+                    {yesNoField(
+                      "eyeSwellingOrEyeRash",
+                      "Swelling around eye or rash involving eye",
+                    )}
+                    {yesNoField(
+                      "rapidSpreadingWorseningRedness",
+                      "Rapid spreading or worsening redness",
+                    )}
+                    {yesNoField(
+                      "newSkinProducts",
+                      "New soaps, wipes, detergents, or lotions",
+                    )}
+                    {yesNoField(
+                      "formulaFoodChanges",
+                      "Formula or food changes if age-appropriate",
+                    )}
+                    {yesNoField(
+                      "worseWithHeatDroolMilkFriction",
+                      "Worse with heat, drool, milk residue, or friction",
+                    )}
+                    {yesNoField(
+                      "eczemaAllergyAsthmaHistory",
+                      "History/family history of eczema, allergies, or asthma if known",
+                    )}
+                    {yesNoField(
+                      "greasyFlakyScalpEyebrowsEars",
+                      "Greasy/flaky scalp, eyebrows, ears, or face",
+                    )}
+                  </div>
+
+                  <Button type="submit" className="w-full sm:w-auto">
+                    Show context-refined guidance
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          ) : null}
+
           {combinedVisualCategories.length ? (
             <Card className="border-emerald-300 bg-emerald-50 dark:border-emerald-900/70 dark:bg-emerald-950/30">
               <CardHeader>
                 <CardTitle>Combined visual categories</CardTitle>
                 <p className="text-sm text-emerald-950/70 dark:text-emerald-50/70">
                   Model: {model}. Image count:{" "}
-                  {imageCount || images.length || 1}. Percentages are
-                  display-scaled visual-similarity rollups, not diagnosis
-                  confidence. Child labels remain visible so
+                  {imageCount || images.length || 1}. Scores are
+                  display-scaled image match rollups, not medical likelihoods.
+                  Child labels remain visible so
                   related subtypes do not split the broader visual signal. All
                   image processing stays local.
                 </p>
@@ -580,16 +777,16 @@ export function SkinReviewTool() {
               <CardContent className="space-y-4">
                 <div className="rounded-xl border border-emerald-200 bg-white/70 p-4 text-sm text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-50">
                   <p className="font-semibold capitalize">
-                    Confidence: {confidenceLabel || "visual match"}
+                    Visual match strength: {confidenceLabel || "visual match"}
                   </p>
                   <p className="mt-1 text-emerald-950/75 dark:text-emerald-50/75">
                     {agreementSummary}
                   </p>
                   <p className="mt-1 text-xs text-emerald-950/65 dark:text-emerald-50/65">
                     Ranking separation from #2: {topRawMargin.toFixed(4)}.
-                    Confidence is calibrated from this parent-category raw
+                    Ranking agreement is calibrated from this parent-category raw
                     separation plus per-image parent agreement, not from the
-                    display percentage.
+                    display-scaled image match score.
                   </p>
                 </div>
 
@@ -597,7 +794,7 @@ export function SkinReviewTool() {
                   Scoring mode: {scoringMode || "raw-margin-calibrated"}. Display
                   temperature: {displayTemperature.toFixed(2)}. Lower display
                   temperatures make visible ranking-score differences sharper;
-                  they do not change raw confidence calibration.
+                  they do not change raw ranking agreement calibration.
                 </p>
 
                 {mixedEvidence || confidenceLabel === "weak/mixed visual match" ? (
@@ -623,13 +820,14 @@ export function SkinReviewTool() {
                           </p>
                         </div>
                         <span className="shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-900 dark:bg-emerald-900 dark:text-emerald-50">
-                          {match.percent.toFixed(1)}% display
+                          {match.percent.toFixed(1)}% image match score
                         </span>
                       </div>
                       <p className="mt-2 text-xs text-emerald-950/60 dark:text-emerald-50/60">
                         Raw similarity signal: {match.rawScore?.toFixed(4) ?? "n/a"};
                         separation from top: {match.rawMarginFromTop?.toFixed(4) ?? "n/a"}.
-                        These are model ranking signals, not medical probabilities.
+                        These are model ranking signals, not medical likelihoods.
+                        Not shown does not mean ruled out.
                       </p>
                       {match.childMatches?.length ? (
                         <p className="mt-2 text-xs text-emerald-950/70 dark:text-emerald-50/70">
@@ -652,8 +850,8 @@ export function SkinReviewTool() {
                 <CardTitle>Per-image visual categories</CardTitle>
                 <p className="text-sm text-emerald-950/70 dark:text-emerald-50/70">
                   These local-only per-image parent-category rankings are shown
-                  for visibility when images disagree. Percentages are
-                  display-scaled; raw separation drives confidence calibration.
+                  for visibility when images disagree. Scores are
+                  display-scaled; raw separation drives ranking agreement calibration.
                 </p>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -675,7 +873,7 @@ export function SkinReviewTool() {
                             {index + 1}. {match.label}
                           </span>
                           <span className="text-right font-semibold">
-                            {match.percent.toFixed(1)}% display
+                            {match.percent.toFixed(1)}% image match score
                             <span className="block text-xs font-normal text-emerald-950/60 dark:text-emerald-50/60">
                               raw gap {match.rawMarginFromTop?.toFixed(4) ?? "n/a"}
                             </span>
