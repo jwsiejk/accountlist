@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const MAX_IMAGE_COUNT = 5;
 const ALLOWED_TYPES = new Map([
   ["image/jpeg", ".jpg"],
   ["image/png", ".png"],
@@ -40,10 +41,17 @@ type SkinReviewMatch = {
   redFlags: string[];
 };
 
+type PerImageMatches = {
+  imageIndex: number;
+  topMatches: SkinReviewMatch[];
+};
+
 type RunnerResult = {
   ok: boolean;
   model?: string;
+  imageCount?: number;
   topMatches?: SkinReviewMatch[];
+  perImageMatches?: PerImageMatches[];
   reviewText?: string;
   error?: string;
   errorType?:
@@ -79,9 +87,9 @@ const sanitizeStatusText = (value: string) => {
 const isFileLike = (value: FormDataEntryValue | null): value is File => {
   return Boolean(
     value &&
-      typeof value === "object" &&
-      "arrayBuffer" in value &&
-      "type" in value,
+    typeof value === "object" &&
+    "arrayBuffer" in value &&
+    "type" in value,
   );
 };
 
@@ -171,25 +179,35 @@ const safeRunnerSummary = (stderr: string) => {
     .filter(Boolean)
     .filter(
       (line) =>
-        line.startsWith("STAGE:") || /failed|error|requires|could not|unable/i.test(line),
+        line.startsWith("STAGE:") ||
+        /failed|error|requires|could not|unable/i.test(line),
     );
 
   return Array.from(new Set(lines)).slice(-8);
 };
 
 const runSkinReview = (
-  imagePath: string,
+  imagePaths: string[],
   onStatus?: StatusReporter,
 ): Promise<RunnerResult> => {
   const pythonPath = getSkinReviewPythonPath();
-  const runnerPath = path.join(process.cwd(), "scripts", "skin_review_runner.py");
+  const runnerPath = path.join(
+    process.cwd(),
+    "scripts",
+    "skin_review_runner.py",
+  );
 
   reportStage(onStatus, "starting_python_runner");
 
   return new Promise((resolve) => {
     const child = spawn(
       pythonPath,
-      [runnerPath, "--image", imagePath, "--max-matches", getMaxMatchesArg()],
+      [
+        runnerPath,
+        ...imagePaths.flatMap((imagePath) => ["--image", imagePath]),
+        "--max-matches",
+        getMaxMatchesArg(),
+      ],
       {
         cwd: process.cwd(),
         env: process.env,
@@ -257,7 +275,10 @@ const runSkinReview = (
       const trimmedStdout = stdout.trim();
       try {
         const parsed = JSON.parse(trimmedStdout) as RunnerResult;
-        if (parsed.ok && (!parsed.reviewText?.trim() || !parsed.topMatches?.length)) {
+        if (
+          parsed.ok &&
+          (!parsed.reviewText?.trim() || !parsed.topMatches?.length)
+        ) {
           finish(resultForEmptyRunnerOutput(safeRunnerSummary(stderr)));
           return;
         }
@@ -299,73 +320,125 @@ const resultForTempWriteError = (error: string): RunnerResult => ({
   errorType: "temp_write_failed",
 });
 
+type ValidatedUpload = {
+  bytes: Buffer;
+  extension: string;
+};
+
+const getRequestedImages = (formData: FormData) => {
+  const images = formData.getAll("images");
+  if (images.length) {
+    return images;
+  }
+
+  const legacyImage = formData.get("image");
+  return legacyImage ? [legacyImage] : [];
+};
+
+const validateUpload = async (
+  image: FormDataEntryValue,
+  index: number,
+): Promise<ValidatedUpload | RunnerResult> => {
+  const label = `Image ${index + 1}`;
+
+  if (!isFileLike(image)) {
+    return resultForUploadValidationError(
+      `${label} must be a JPG, PNG, or WebP image upload.`,
+    );
+  }
+
+  const extension = ALLOWED_TYPES.get(image.type);
+  if (!extension) {
+    return resultForUploadValidationError(
+      `${label} has an unsupported file type. Upload JPG, PNG, or WebP image(s).`,
+    );
+  }
+
+  if (image.size <= 0) {
+    return resultForUploadValidationError(`${label} is empty.`);
+  }
+
+  if (image.size > MAX_UPLOAD_BYTES) {
+    return resultForUploadValidationError(`${label} must be 10 MB or smaller.`);
+  }
+
+  const bytes = Buffer.from(await image.arrayBuffer());
+
+  if (bytes.length !== image.size) {
+    return resultForUploadValidationError(
+      `${label} size changed while reading form data (expected ${image.size} bytes, got ${bytes.length} bytes).`,
+    );
+  }
+
+  if (!hasValidImageSignature(bytes, image.type)) {
+    return resultForUploadValidationError(
+      `${label} content does not match the selected image type.`,
+    );
+  }
+
+  return { bytes, extension };
+};
+
+const writeValidatedUpload = async (
+  upload: ValidatedUpload,
+  uploadsDir: string,
+) => {
+  const uploadPath = path.join(
+    uploadsDir,
+    `${Date.now()}-${randomUUID()}${upload.extension}`,
+  );
+
+  await writeFile(uploadPath, upload.bytes, { flag: "wx" });
+
+  const uploadStats = await stat(uploadPath);
+  if (!uploadStats.isFile() || uploadStats.size !== upload.bytes.length) {
+    throw new Error(
+      `Temporary file size mismatch after write (expected ${upload.bytes.length} bytes, got ${uploadStats.size} bytes).`,
+    );
+  }
+
+  return uploadPath;
+};
+
 const analyzeSkinReviewRequest = async (
   request: NextRequest,
   onStatus?: StatusReporter,
 ): Promise<{ result: RunnerResult; status: number }> => {
-  let uploadPath = "";
+  const uploadPaths: string[] = [];
 
   try {
     const formData = await request.formData();
     reportStage(onStatus, "upload_received");
 
-    const image = formData.get("image");
+    const requestedImages = getRequestedImages(formData);
 
     reportStage(onStatus, "validating_image");
 
-    if (!isFileLike(image)) {
+    if (!requestedImages.length) {
       return {
         result: resultForUploadValidationError(
-          "A JPG, PNG, or WebP image upload is required.",
+          "At least one JPG, PNG, or WebP image upload is required.",
         ),
         status: 400,
       };
     }
 
-    const extension = ALLOWED_TYPES.get(image.type);
-    if (!extension) {
+    if (requestedImages.length > MAX_IMAGE_COUNT) {
       return {
         result: resultForUploadValidationError(
-          "Unsupported file type. Upload a JPG, PNG, or WebP image.",
+          "Upload no more than 5 image(s) for one skin review.",
         ),
         status: 400,
       };
     }
 
-    if (image.size <= 0) {
-      return {
-        result: resultForUploadValidationError("Uploaded image is empty."),
-        status: 400,
-      };
-    }
-
-    if (image.size > MAX_UPLOAD_BYTES) {
-      return {
-        result: resultForUploadValidationError(
-          "Uploaded image must be 10 MB or smaller.",
-        ),
-        status: 400,
-      };
-    }
-
-    const bytes = Buffer.from(await image.arrayBuffer());
-
-    if (bytes.length !== image.size) {
-      return {
-        result: resultForUploadValidationError(
-          `Uploaded image size changed while reading form data (expected ${image.size} bytes, got ${bytes.length} bytes).`,
-        ),
-        status: 400,
-      };
-    }
-
-    if (!hasValidImageSignature(bytes, image.type)) {
-      return {
-        result: resultForUploadValidationError(
-          "Uploaded file content does not match the selected image type.",
-        ),
-        status: 400,
-      };
+    const validatedUploads: ValidatedUpload[] = [];
+    for (const [index, image] of requestedImages.entries()) {
+      const validation = await validateUpload(image, index);
+      if ("ok" in validation) {
+        return { result: validation, status: 400 };
+      }
+      validatedUploads.push(validation);
     }
 
     reportStage(onStatus, "writing_temp_file");
@@ -373,48 +446,23 @@ const analyzeSkinReviewRequest = async (
     const uploadsDir = path.join(process.cwd(), ".skin-review-uploads");
     await mkdir(uploadsDir, { recursive: true });
 
-    uploadPath = path.join(
-      uploadsDir,
-      `${Date.now()}-${randomUUID()}${extension}`,
-    );
-
     try {
-      await writeFile(uploadPath, bytes, { flag: "wx" });
+      for (const upload of validatedUploads) {
+        uploadPaths.push(await writeValidatedUpload(upload, uploadsDir));
+      }
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
-          : "Could not write uploaded image.";
+          : "Could not write uploaded image(s).";
       return { result: resultForTempWriteError(message), status: 500 };
     }
 
-    let uploadStats;
-    try {
-      uploadStats = await stat(uploadPath);
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Temporary upload file is missing.";
-      return {
-        result: resultForTempWriteError(
-          `Temporary file was not readable after write. ${message}`,
-        ),
-        status: 500,
-      };
-    }
-
-    if (!uploadStats.isFile() || uploadStats.size !== bytes.length) {
-      return {
-        result: resultForTempWriteError(
-          `Temporary file size mismatch after write (expected ${bytes.length} bytes, got ${uploadStats.size} bytes).`,
-        ),
-        status: 500,
-      };
-    }
-
-    const result = await runSkinReview(uploadPath, onStatus);
-    if (result.ok && (!result.reviewText?.trim() || !result.topMatches?.length)) {
+    const result = await runSkinReview(uploadPaths, onStatus);
+    if (
+      result.ok &&
+      (!result.reviewText?.trim() || !result.topMatches?.length)
+    ) {
       return {
         result: resultForEmptyRunnerOutput(result.runnerStages),
         status: 500,
@@ -447,9 +495,11 @@ const analyzeSkinReviewRequest = async (
       status: 500,
     };
   } finally {
-    if (uploadPath) {
-      await rm(uploadPath, { force: true }).catch(() => undefined);
-    }
+    await Promise.all(
+      uploadPaths.map((uploadPath) =>
+        rm(uploadPath, { force: true }).catch(() => undefined),
+      ),
+    );
   }
 };
 
