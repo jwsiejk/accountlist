@@ -35,6 +35,8 @@ type SkinReviewMatch = {
   label: string;
   score: number;
   percent: number;
+  rawScore?: number;
+  rawMarginFromTop?: number;
   plainEnglish: string;
   whatSupports: string[];
   whatArguesAgainst: string[];
@@ -51,6 +53,8 @@ type RunnerResult = {
   ok: boolean;
   model?: string;
   imageCount?: number;
+  scoringMode?: string;
+  displayTemperature?: number;
   topMatches?: SkinReviewMatch[];
   perImageMatches?: PerImageMatches[];
   reviewText?: string;
@@ -60,6 +64,7 @@ type RunnerResult = {
     | "weak/mixed visual match";
   mixedEvidence?: boolean;
   topMargin?: number;
+  topRawMargin?: number;
   agreementSummary?: string;
   error?: string;
   errorType?:

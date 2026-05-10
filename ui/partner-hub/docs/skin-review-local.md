@@ -6,9 +6,17 @@ The first target model is `redlessone/DermLIP_ViT-B-16`, loaded through `open_cl
 
 ## Important interpretation limits
 
-DermLIP returns visual similarity between the uploaded image and local dermatology label prompts. The displayed percentages are normalized ranking scores relative to the labels offered to the model; they are **not diagnosis confidence, probabilities of disease, or a substitute for a clinician**. A high score only means that, among the local labels, the image looked most similar to that label's prompt variants.
+DermLIP returns visual similarity between the uploaded image and local dermatology label prompts. The displayed percentages are normalized, temperature-scaled ranking scores relative to the labels offered to the model; they are **not diagnosis confidence, probabilities of disease, or a substitute for a clinician**. A high displayed percentage only means that, among the local labels, the image looked more similar to that label's prompt variants after display scaling.
 
-The runner now uses multiple clinically distinct prompt variants per label and max-pools those variants into one label score before ranking labels. The prompt set includes morphology and distribution concepts such as papules, pustules, vesicles/blisters, crusting/drainage, scaling/dryness, swelling, flat/diffuse rash, localized cheek/forehead/face findings, trunk/widespread patterns, and hands/feet/mouth patterns. Raw prompts are intentionally not exposed in the UI.
+The runner uses multiple clinically distinct prompt variants per label and max-pools those variants into one raw label score before ranking labels. The prompt set includes morphology and distribution concepts such as papules, pustules, vesicles/blisters, crusting/drainage, scaling/dryness, swelling, flat/diffuse rash, localized cheek/forehead/face findings, trunk/widespread patterns, and hands/feet/mouth patterns. Raw prompts are intentionally not exposed in the UI.
+
+Each returned match includes display-safe scoring fields:
+
+- `score` and `percent`: display-scaled relative ranking scores. These may look sharper or flatter depending on `SKIN_REVIEW_DISPLAY_TEMPERATURE`.
+- `rawScore`: the rounded pooled model similarity/logit for that label after prompt-variant max pooling.
+- `rawMarginFromTop`: the rounded raw gap between the top label and that label.
+
+Raw scores are still model similarity signals, not medical probabilities. They are returned only as rounded ranking/debug metadata; the runner does not return raw embeddings, prompt text, local image paths, tokens, or environment secrets.
 
 ## Confidence labels and mixed evidence
 
@@ -16,14 +24,16 @@ Each successful runner response includes:
 
 - `confidenceLabel`: `strong visual match`, `moderate visual match`, or `weak/mixed visual match`.
 - `mixedEvidence`: true when rankings are close, image views disagree, the top condition appears in too few per-image rankings, or a high-consequence label is not strongly supported.
-- `topMargin`: the score gap between the combined #1 and #2 labels.
-- `agreementSummary`: how often the combined #1 appeared as per-image #1 or in each image's top 3.
+- `topRawMargin`: the raw pooled-score gap between the combined #1 and #2 labels. `topMargin` is retained as a compatibility alias for the same raw-margin value.
+- `agreementSummary`: how often the combined #1 appeared as per-image #1 or in each image's top 3, plus the raw ranking separation from #2.
+- `scoringMode`: currently `raw-margin-calibrated`.
+- `displayTemperature`: the temperature used only to convert raw scores into display percentages.
 
-These fields calibrate the UI language. Strong or moderate results still describe only a visual match, not a diagnosis. Weak/mixed results explicitly say the visual evidence is mixed and avoid leading with a diagnosis-like statement.
+These fields calibrate the UI language. Confidence labels are based on raw rank separation plus cross-image agreement, not on softmax-normalized display percentages alone. Strong or moderate results still describe only a visual match, not a diagnosis. Weak/mixed results explicitly say the visual matches are close together or image views disagree and avoid leading with a diagnosis-like statement.
 
 ## Multi-image aggregation
 
-For each image, the runner encodes the image and compares it with every prompt variant. Prompt variants are collapsed into label scores by max-pooling the best variant for each label, then labels are normalized for display ranking. For multi-image reviews, label scores are averaged across images to create the combined top matches. Per-image top matches remain visible so reviewers can see when submitted views disagree.
+For each image, the runner encodes the image and compares it with every prompt variant. Prompt variants are collapsed into raw label scores by max-pooling the best variant for each label. For multi-image reviews, raw label scores are averaged across images to create the combined top matches. Display percentages are then computed from the raw scores with the configured display temperature. Per-image top matches remain visible so reviewers can see when submitted views disagree.
 
 ## High-consequence labels
 
@@ -75,6 +85,7 @@ npm run dev
 - `SKIN_REVIEW_MODEL_ID`: Optional Hugging Face model ID. Defaults to `redlessone/DermLIP_ViT-B-16`.
 - `SKIN_REVIEW_DEVICE`: Optional device selection. Use `auto`, `cuda`, or `cpu`. Defaults to `auto`, which uses CUDA when PyTorch reports that CUDA is available and otherwise uses CPU.
 - `SKIN_REVIEW_MAX_MATCHES`: Optional number of ranked matches returned to the UI. Defaults to `5`; values are clamped to a safe range.
+- `SKIN_REVIEW_DISPLAY_TEMPERATURE`: Optional display-only softmax temperature for percentages. Defaults to `0.7`; valid values are `0.1` to `5.0`. Lower values make visible percentage differences sharper, while higher values make percentages flatter. This does not change raw ranking margins, confidence labels, or agreement calibration. Invalid values fall back to the default and write a safe stderr diagnostic.
 - `SKIN_REVIEW_PYTHON_PATH`: Optional Python interpreter override. By default, the API route first uses `.venv-skin-review/Scripts/python.exe` on Windows or `.venv-skin-review/bin/python` on macOS/Linux, then falls back to `python`.
 - `SKIN_REVIEW_RUNNER_TIMEOUT_MS`: Optional API timeout in milliseconds. The default is 10 minutes, which allows for slower first-run model loading.
 
@@ -118,7 +129,7 @@ python scripts/skin_review_runner.py --image ../../.skin-review-test-images/exam
 python scripts/skin_review_runner.py --image ../../.skin-review-test-images/example-1.png --image ../../.skin-review-test-images/example-2.jpg --max-matches 5
 ```
 
-Review the combined matches, per-image matches, confidence label, mixed-evidence flag, top margin, agreement summary, and red-flag language. Keep the images private and remove them when no longer needed.
+Review the combined matches, per-image matches, confidence label, mixed-evidence flag, raw top margin (`topRawMargin`), display temperature, agreement summary, and red-flag language. Keep the images private and remove them when no longer needed.
 
 ## Limitations
 
