@@ -33,6 +33,8 @@ const STAGE_MESSAGES: Record<string, string> = {
 type SkinReviewMatch = {
   id: string;
   label: string;
+  parentId?: string;
+  parentLabel?: string;
   score: number;
   percent: number;
   rawScore?: number;
@@ -42,11 +44,19 @@ type SkinReviewMatch = {
   whatArguesAgainst: string[];
   redFlags: string[];
   highConsequence?: boolean;
+  childMatches?: SkinReviewMatch[];
 };
+
+type SkinReviewCategory = SkinReviewMatch;
 
 type PerImageMatches = {
   imageIndex: number;
   topMatches: SkinReviewMatch[];
+};
+
+type PerImageCategoryMatches = {
+  imageIndex: number;
+  topCategories: SkinReviewCategory[];
 };
 
 type RunnerResult = {
@@ -56,7 +66,9 @@ type RunnerResult = {
   scoringMode?: string;
   displayTemperature?: number;
   topMatches?: SkinReviewMatch[];
+  topCategories?: SkinReviewCategory[];
   perImageMatches?: PerImageMatches[];
+  perImageCategoryMatches?: PerImageCategoryMatches[];
   reviewText?: string;
   confidenceLabel?:
     | "strong visual match"

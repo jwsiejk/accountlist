@@ -16,6 +16,8 @@ const initialProgressMessages: ProgressMessage[] = [
 type SkinReviewMatch = {
   id: string;
   label: string;
+  parentId?: string;
+  parentLabel?: string;
   score: number;
   percent: number;
   rawScore?: number;
@@ -25,11 +27,19 @@ type SkinReviewMatch = {
   whatArguesAgainst: string[];
   redFlags: string[];
   highConsequence?: boolean;
+  childMatches?: SkinReviewMatch[];
 };
+
+type SkinReviewCategory = SkinReviewMatch;
 
 type PerImageMatches = {
   imageIndex: number;
   topMatches: SkinReviewMatch[];
+};
+
+type PerImageCategoryMatches = {
+  imageIndex: number;
+  topCategories: SkinReviewCategory[];
 };
 
 type AnalysisResponse = {
@@ -39,7 +49,9 @@ type AnalysisResponse = {
   scoringMode?: string;
   displayTemperature?: number;
   topMatches?: SkinReviewMatch[];
+  topCategories?: SkinReviewCategory[];
   perImageMatches?: PerImageMatches[];
+  perImageCategoryMatches?: PerImageCategoryMatches[];
   reviewText?: string;
   confidenceLabel?:
     | "strong visual match"
@@ -96,6 +108,8 @@ const requireReview = (data: AnalysisResponse) => {
     model: data.model || "local DermLIP skin review model",
     imageCount: data.imageCount || 1,
     perImageMatches: data.perImageMatches || [],
+    topCategories: data.topCategories || [],
+    perImageCategoryMatches: data.perImageCategoryMatches || [],
     reviewText,
     topMatches: data.topMatches,
     confidenceLabel: data.confidenceLabel || "weak/mixed visual match",
@@ -120,6 +134,7 @@ const formatReviewText = (value: string) => {
     "Confidence / agreement",
     "Why it may fit",
     "Other possibilities",
+    "Other visual categories",
     "Concerns / red flags",
     "What to do",
     "Disclaimer",
@@ -163,7 +178,11 @@ export function SkinReviewTool() {
   const [images, setImages] = useState<File[]>([]);
   const [reviewText, setReviewText] = useState("");
   const [topMatches, setTopMatches] = useState<SkinReviewMatch[]>([]);
+  const [topCategories, setTopCategories] = useState<SkinReviewCategory[]>([]);
   const [perImageMatches, setPerImageMatches] = useState<PerImageMatches[]>([]);
+  const [perImageCategoryMatches, setPerImageCategoryMatches] = useState<
+    PerImageCategoryMatches[]
+  >([]);
   const [imageCount, setImageCount] = useState(0);
   const [model, setModel] = useState("");
   const [confidenceLabel, setConfidenceLabel] = useState("");
@@ -205,6 +224,15 @@ export function SkinReviewTool() {
   }, [images]);
 
   const latestProgress = progressMessages[progressMessages.length - 1];
+  const combinedVisualCategories = topCategories.length
+    ? topCategories
+    : topMatches;
+  const perImageVisualCategories = perImageCategoryMatches.length
+    ? perImageCategoryMatches
+    : perImageMatches.map((imageResult) => ({
+        imageIndex: imageResult.imageIndex,
+        topCategories: imageResult.topMatches,
+      }));
 
   const addProgressMessage = (message: ProgressMessage) => {
     setProgressMessages((current) => {
@@ -221,7 +249,9 @@ export function SkinReviewTool() {
     const review = requireReview(data);
     setReviewText(review.reviewText);
     setTopMatches(review.topMatches);
+    setTopCategories(review.topCategories);
     setPerImageMatches(review.perImageMatches);
+    setPerImageCategoryMatches(review.perImageCategoryMatches);
     setImageCount(review.imageCount);
     setModel(review.model);
     setConfidenceLabel(review.confidenceLabel);
@@ -290,7 +320,9 @@ export function SkinReviewTool() {
     setError("");
     setReviewText("");
     setTopMatches([]);
+    setTopCategories([]);
     setPerImageMatches([]);
+    setPerImageCategoryMatches([]);
     setImageCount(0);
     setModel("");
     setConfidenceLabel("");
@@ -532,15 +564,17 @@ export function SkinReviewTool() {
             </Card>
           ) : null}
 
-          {topMatches.length ? (
+          {combinedVisualCategories.length ? (
             <Card className="border-emerald-300 bg-emerald-50 dark:border-emerald-900/70 dark:bg-emerald-950/30">
               <CardHeader>
-                <CardTitle>Combined top ranked possibilities</CardTitle>
+                <CardTitle>Combined visual categories</CardTitle>
                 <p className="text-sm text-emerald-950/70 dark:text-emerald-50/70">
                   Model: {model}. Image count:{" "}
                   {imageCount || images.length || 1}. Percentages are
-                  display-scaled visual ranking scores, not diagnosis
-                  confidence. All image processing stays local.
+                  display-scaled visual-similarity rollups, not diagnosis
+                  confidence. Child labels remain visible so
+                  related subtypes do not split the broader visual signal. All
+                  image processing stays local.
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -553,8 +587,9 @@ export function SkinReviewTool() {
                   </p>
                   <p className="mt-1 text-xs text-emerald-950/65 dark:text-emerald-50/65">
                     Ranking separation from #2: {topRawMargin.toFixed(4)}.
-                    Confidence is calibrated from this raw separation plus
-                    per-image agreement, not from the display percentage.
+                    Confidence is calibrated from this parent-category raw
+                    separation plus per-image parent agreement, not from the
+                    display percentage.
                   </p>
                 </div>
 
@@ -573,7 +608,7 @@ export function SkinReviewTool() {
                 ) : null}
 
                 <ol className="space-y-3">
-                  {topMatches.map((match, index) => (
+                  {combinedVisualCategories.map((match, index) => (
                     <li
                       key={match.id}
                       className="rounded-xl border border-emerald-200 bg-white/70 p-4 text-sm text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-50"
@@ -596,6 +631,14 @@ export function SkinReviewTool() {
                         separation from top: {match.rawMarginFromTop?.toFixed(4) ?? "n/a"}.
                         These are model ranking signals, not medical probabilities.
                       </p>
+                      {match.childMatches?.length ? (
+                        <p className="mt-2 text-xs text-emerald-950/70 dark:text-emerald-50/70">
+                          Includes:{" "}
+                          {match.childMatches
+                            .map((child) => child.label)
+                            .join(", ")}
+                        </p>
+                      ) : null}
                     </li>
                   ))}
                 </ol>
@@ -603,27 +646,27 @@ export function SkinReviewTool() {
             </Card>
           ) : null}
 
-          {perImageMatches.length ? (
+          {perImageVisualCategories.length ? (
             <Card className="border-emerald-300 bg-emerald-50 dark:border-emerald-900/70 dark:bg-emerald-950/30">
               <CardHeader>
-                <CardTitle>Per-image top matches</CardTitle>
+                <CardTitle>Per-image visual categories</CardTitle>
                 <p className="text-sm text-emerald-950/70 dark:text-emerald-50/70">
-                  These local-only per-image rankings are shown for visibility
-                  when images disagree. Percentages are display-scaled; raw
-                  separation drives confidence calibration.
+                  These local-only per-image parent-category rankings are shown
+                  for visibility when images disagree. Percentages are
+                  display-scaled; raw separation drives confidence calibration.
                 </p>
               </CardHeader>
               <CardContent className="space-y-3">
-                {perImageMatches.map((imageResult) => (
+                {perImageVisualCategories.map((imageResult) => (
                   <details
                     key={imageResult.imageIndex}
                     className="rounded-xl border border-emerald-200 bg-white/70 p-4 text-sm text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-50"
                   >
                     <summary className="cursor-pointer font-semibold">
-                      Image {imageResult.imageIndex} top matches
+                      Image {imageResult.imageIndex} top categories
                     </summary>
                     <ol className="mt-3 space-y-2">
-                      {imageResult.topMatches.map((match, index) => (
+                      {imageResult.topCategories.map((match, index) => (
                         <li
                           key={match.id}
                           className="flex justify-between gap-3"
@@ -636,6 +679,14 @@ export function SkinReviewTool() {
                             <span className="block text-xs font-normal text-emerald-950/60 dark:text-emerald-50/60">
                               raw gap {match.rawMarginFromTop?.toFixed(4) ?? "n/a"}
                             </span>
+                            {match.childMatches?.length ? (
+                              <span className="block max-w-xs text-xs font-normal text-emerald-950/60 dark:text-emerald-50/60">
+                                Includes:{" "}
+                                {match.childMatches
+                                  .map((child) => child.label)
+                                  .join(", ")}
+                              </span>
+                            ) : null}
                           </span>
                         </li>
                       ))}
