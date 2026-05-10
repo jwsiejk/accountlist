@@ -8,39 +8,6 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const DEFAULT_PROMPT = `You are reviewing a medical or health-related image locally for educational purposes.
-
-Write like a professional clinician explaining the image to a patient or parent in plain English. Be direct and useful. Do not start with a disclaimer. Give the most likely impression first, then explain why.
-
-Before choosing the most likely impression, evaluate the image findings:
-- Visible morphology: papules, pustules, vesicles, crusting, scaling, swelling, or flat/diffuse rash.
-- Distribution: localized face/cheek/forehead/eye area versus trunk, hands, feet, mouth, or widespread body involvement.
-- User-provided symptoms/context, if any.
-
-Do not guess a broad/systemic rash category from a localized image alone. If the image is localized to an infant's face and shows clustered small bumps, papules, or pustules without visible hand, foot, mouth, trunk, or widespread body involvement, common localized infant facial patterns such as baby acne/neonatal acne or localized irritation/contact dermatitis should be considered before viral rash categories. Viral rash categories should be the most likely impression only when the visible distribution or user-provided symptoms support them.
-
-Return the response in this exact structure:
-
-Most likely:
-State the most likely impression in direct plain English. Use wording like “This looks most consistent with...” or “This is most likely...”. Do not claim absolute certainty.
-
-Why:
-Briefly explain what visible features and distribution support that impression.
-
-Other possibilities:
-Briefly list other reasonable possibilities, if any, and explain what would make them more or less likely.
-
-Concerns:
-List the specific findings or symptoms that would make this more concerning. For infants, include fever, rapidly spreading redness, swelling near the eye, drainage/crusting, poor feeding, unusual sleepiness/lethargy, breathing trouble, or the baby acting very ill when relevant.
-
-What to do:
-Give practical conservative care guidance. Do not prescribe medication or dosing. Recommend gentle care, avoiding irritants, avoiding squeezing/picking, monitoring, and contacting a pediatrician/clinician when appropriate.
-
-Disclaimer:
-This is an AI image review, not a confirmed diagnosis. A clinician should evaluate symptoms that are severe, worsening, persistent, or concerning.
-
-Keep the answer concise, professional, and easy for a non-medical person to understand.`;
-
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const ALLOWED_TYPES = new Map([
   ["image/jpeg", ".jpg"],
@@ -48,23 +15,36 @@ const ALLOWED_TYPES = new Map([
   ["image/webp", ".webp"],
 ]);
 const RUNNER_TIMEOUT_MS = Number(
-  process.env.MEDGEMMA_RUNNER_TIMEOUT_MS || 10 * 60 * 1000,
+  process.env.SKIN_REVIEW_RUNNER_TIMEOUT_MS || 10 * 60 * 1000,
 );
-const DEFAULT_MAX_NEW_TOKENS = 384;
+const DEFAULT_MAX_MATCHES = 5;
 
 const STAGE_MESSAGES: Record<string, string> = {
   upload_received: "Upload received",
   validating_image: "Validating image",
   writing_temp_file: "Writing temporary local file",
   starting_python_runner: "Starting Python runner",
-  loading_model: "Loading MedGemma model",
-  generating: "Running generation",
+  loading_model: "Loading DermLIP model",
+  running_classification: "Running local dermatology ranking",
   complete: "Complete",
+};
+
+type SkinReviewMatch = {
+  id: string;
+  label: string;
+  score: number;
+  percent: number;
+  plainEnglish: string;
+  whatSupports: string[];
+  whatArguesAgainst: string[];
+  redFlags: string[];
 };
 
 type RunnerResult = {
   ok: boolean;
-  result?: string;
+  model?: string;
+  topMatches?: SkinReviewMatch[];
+  reviewText?: string;
   error?: string;
   errorType?:
     | "image_decode_failed"
@@ -99,9 +79,9 @@ const sanitizeStatusText = (value: string) => {
 const isFileLike = (value: FormDataEntryValue | null): value is File => {
   return Boolean(
     value &&
-    typeof value === "object" &&
-    "arrayBuffer" in value &&
-    "type" in value,
+      typeof value === "object" &&
+      "arrayBuffer" in value &&
+      "type" in value,
   );
 };
 
@@ -135,28 +115,28 @@ const hasValidImageSignature = (bytes: Buffer, mimeType: string) => {
   return false;
 };
 
-const getMedGemmaMaxNewTokensArg = () => {
-  const rawValue = process.env.MEDGEMMA_MAX_NEW_TOKENS;
+const getMaxMatchesArg = () => {
+  const rawValue = process.env.SKIN_REVIEW_MAX_MATCHES;
   if (!rawValue) {
-    return String(DEFAULT_MAX_NEW_TOKENS);
+    return String(DEFAULT_MAX_MATCHES);
   }
 
   const value = Number(rawValue);
-  if (!Number.isInteger(value) || value < 1) {
-    return String(DEFAULT_MAX_NEW_TOKENS);
+  if (!Number.isInteger(value) || value < 1 || value > 10) {
+    return String(DEFAULT_MAX_MATCHES);
   }
 
   return String(value);
 };
 
-const getMedGemmaPythonPath = () => {
-  if (process.env.MEDGEMMA_PYTHON_PATH) {
-    return process.env.MEDGEMMA_PYTHON_PATH;
+const getSkinReviewPythonPath = () => {
+  if (process.env.SKIN_REVIEW_PYTHON_PATH) {
+    return process.env.SKIN_REVIEW_PYTHON_PATH;
   }
 
   const localPythonPath = path.join(
     process.cwd(),
-    ".venv-medgemma",
+    ".venv-skin-review",
     process.platform === "win32" ? "Scripts" : "bin",
     process.platform === "win32" ? "python.exe" : "python",
   );
@@ -180,7 +160,7 @@ const resultForEmptyRunnerOutput = (runnerStages?: string[]): RunnerResult => ({
   ok: false,
   errorType: "runner_failed",
   error:
-    "MedGemma runner returned an empty response. The model generated no displayable text; check server stderr for safe generation metadata.",
+    "Skin review runner returned no displayable ranked matches or review text; check server stderr for local runner diagnostics.",
   ...(runnerStages?.length ? { runnerStages } : {}),
 });
 
@@ -191,37 +171,25 @@ const safeRunnerSummary = (stderr: string) => {
     .filter(Boolean)
     .filter(
       (line) =>
-        line.startsWith("STAGE:") ||
-        line.startsWith("GENERATION_DEBUG:") ||
-        /failed|error|requires|could not|unable/i.test(line),
+        line.startsWith("STAGE:") || /failed|error|requires|could not|unable/i.test(line),
     );
 
   return Array.from(new Set(lines)).slice(-8);
 };
 
-const runMedGemma = (
+const runSkinReview = (
   imagePath: string,
-  prompt: string,
   onStatus?: StatusReporter,
 ): Promise<RunnerResult> => {
-  const pythonPath = getMedGemmaPythonPath();
-  const runnerPath = path.join(process.cwd(), "scripts", "medgemma_runner.py");
-  const maxNewTokens = getMedGemmaMaxNewTokensArg();
+  const pythonPath = getSkinReviewPythonPath();
+  const runnerPath = path.join(process.cwd(), "scripts", "skin_review_runner.py");
 
   reportStage(onStatus, "starting_python_runner");
 
   return new Promise((resolve) => {
     const child = spawn(
       pythonPath,
-      [
-        runnerPath,
-        "--image",
-        imagePath,
-        "--prompt",
-        prompt,
-        "--max-new-tokens",
-        maxNewTokens,
-      ],
+      [runnerPath, "--image", imagePath, "--max-matches", getMaxMatchesArg()],
       {
         cwd: process.cwd(),
         env: process.env,
@@ -247,7 +215,7 @@ const runMedGemma = (
       finish({
         ok: false,
         errorType: "runner_failed",
-        error: `MedGemma runner timed out after ${Math.round(RUNNER_TIMEOUT_MS / 1000)} seconds.`,
+        error: `Skin review runner timed out after ${Math.round(RUNNER_TIMEOUT_MS / 1000)} seconds.`,
         runnerStages: safeRunnerSummary(stderr),
       });
     }, RUNNER_TIMEOUT_MS);
@@ -275,7 +243,7 @@ const runMedGemma = (
       finish({
         ok: false,
         errorType: "runner_failed",
-        error: `Unable to start MedGemma runner: ${sanitizeStatusText(error.message)}`,
+        error: `Unable to start skin review runner: ${sanitizeStatusText(error.message)}`,
         runnerStages: safeRunnerSummary(stderr),
       });
     });
@@ -289,7 +257,7 @@ const runMedGemma = (
       const trimmedStdout = stdout.trim();
       try {
         const parsed = JSON.parse(trimmedStdout) as RunnerResult;
-        if (parsed.ok && !parsed.result?.trim()) {
+        if (parsed.ok && (!parsed.reviewText?.trim() || !parsed.topMatches?.length)) {
           finish(resultForEmptyRunnerOutput(safeRunnerSummary(stderr)));
           return;
         }
@@ -298,7 +266,7 @@ const runMedGemma = (
         }
         if (!parsed.ok) {
           parsed.error = sanitizeStatusText(
-            parsed.error || "Analysis could not be completed.",
+            parsed.error || "Skin image review could not be completed.",
           );
           parsed.runnerStages = safeRunnerSummary(stderr);
         }
@@ -311,7 +279,7 @@ const runMedGemma = (
         finish({
           ok: false,
           errorType: "runner_failed",
-          error: `MedGemma runner did not return valid JSON. ${details}`,
+          error: `Skin review runner did not return valid JSON. ${details}`,
           runnerStages: safeRunnerSummary(stderr),
         });
       }
@@ -331,7 +299,7 @@ const resultForTempWriteError = (error: string): RunnerResult => ({
   errorType: "temp_write_failed",
 });
 
-const analyzeMedGemmaRequest = async (
+const analyzeSkinReviewRequest = async (
   request: NextRequest,
   onStatus?: StatusReporter,
 ): Promise<{ result: RunnerResult; status: number }> => {
@@ -342,7 +310,6 @@ const analyzeMedGemmaRequest = async (
     reportStage(onStatus, "upload_received");
 
     const image = formData.get("image");
-    const rawPrompt = formData.get("prompt");
 
     reportStage(onStatus, "validating_image");
 
@@ -381,10 +348,6 @@ const analyzeMedGemmaRequest = async (
       };
     }
 
-    const prompt =
-      typeof rawPrompt === "string" && rawPrompt.trim()
-        ? rawPrompt.trim()
-        : DEFAULT_PROMPT;
     const bytes = Buffer.from(await image.arrayBuffer());
 
     if (bytes.length !== image.size) {
@@ -407,7 +370,7 @@ const analyzeMedGemmaRequest = async (
 
     reportStage(onStatus, "writing_temp_file");
 
-    const uploadsDir = path.join(process.cwd(), ".medgemma-uploads");
+    const uploadsDir = path.join(process.cwd(), ".skin-review-uploads");
     await mkdir(uploadsDir, { recursive: true });
 
     uploadPath = path.join(
@@ -450,8 +413,8 @@ const analyzeMedGemmaRequest = async (
       };
     }
 
-    const result = await runMedGemma(uploadPath, prompt, onStatus);
-    if (result.ok && !result.result?.trim()) {
+    const result = await runSkinReview(uploadPath, onStatus);
+    if (result.ok && (!result.reviewText?.trim() || !result.topMatches?.length)) {
       return {
         result: resultForEmptyRunnerOutput(result.runnerStages),
         status: 500,
@@ -462,12 +425,12 @@ const analyzeMedGemmaRequest = async (
       const prefix =
         result.errorType === "image_decode_failed"
           ? "Image decode failed"
-          : "MedGemma runner failed";
+          : "Skin review runner failed";
       return {
         result: {
           ...result,
           error: `${prefix}: ${sanitizeStatusText(
-            result.error || "Analysis could not be completed.",
+            result.error || "Skin image review could not be completed.",
           )}`,
         },
         status: 500,
@@ -478,7 +441,7 @@ const analyzeMedGemmaRequest = async (
     return { result, status: 200 };
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "MedGemma analysis failed.";
+      error instanceof Error ? error.message : "Skin image review failed.";
     return {
       result: { ok: false, error: sanitizeStatusText(message) },
       status: 500,
@@ -515,7 +478,7 @@ const streamResponse = (request: NextRequest) => {
         });
       };
 
-      const { result, status } = await analyzeMedGemmaRequest(
+      const { result, status } = await analyzeSkinReviewRequest(
         request,
         onStatus,
       );
@@ -538,6 +501,6 @@ export async function POST(request: NextRequest) {
     return streamResponse(request);
   }
 
-  const { result, status } = await analyzeMedGemmaRequest(request);
+  const { result, status } = await analyzeSkinReviewRequest(request);
   return jsonResponse(result, status);
 }

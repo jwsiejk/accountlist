@@ -6,18 +6,28 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { withBasePath } from "@/lib/basePath";
 
-const DEFAULT_PROMPT_HINT =
-  "Leave blank to use the structured local image review prompt.";
-
 const acceptedImageTypes = ["image/jpeg", "image/png", "image/webp"];
 
 const initialProgressMessages: ProgressMessage[] = [
   { stage: "waiting", message: "Waiting for an image", elapsedMs: 0 },
 ];
 
+type SkinReviewMatch = {
+  id: string;
+  label: string;
+  score: number;
+  percent: number;
+  plainEnglish: string;
+  whatSupports: string[];
+  whatArguesAgainst: string[];
+  redFlags: string[];
+};
+
 type AnalysisResponse = {
   ok: boolean;
-  result?: string;
+  model?: string;
+  topMatches?: SkinReviewMatch[];
+  reviewText?: string;
   error?: string;
   runnerStages?: string[];
 };
@@ -50,18 +60,22 @@ const formatAnalysisError = (data: AnalysisResponse) => {
     ? `\n\nRunner status:\n${data.runnerStages.join("\n")}`
     : "";
 
-  return `${data.error || "MedGemma analysis failed."}${runnerDetails}`;
+  return `${data.error || "Skin image review failed."}${runnerDetails}`;
 };
 
-const requireResponseText = (value: string | undefined) => {
-  const responseText = value?.trim();
-  if (!responseText) {
+const requireReview = (data: AnalysisResponse) => {
+  const reviewText = data.reviewText?.trim();
+  if (!reviewText || !data.topMatches?.length) {
     throw new Error(
-      "MedGemma analysis completed without response text. Treating the empty output as a runner error; check the server log for safe generation diagnostics.",
+      "Skin image review completed without ranked matches or review text. Check the server log for local runner diagnostics.",
     );
   }
 
-  return responseText;
+  return {
+    model: data.model || "local DermLIP skin review model",
+    reviewText,
+    topMatches: data.topMatches,
+  };
 };
 
 const formatReviewText = (value: string) => {
@@ -71,7 +85,7 @@ const formatReviewText = (value: string) => {
   }
 
   const textWithSectionSpacing = normalized.replace(
-    /\n(?=(?:Other possibilities|Concerns \/ red flags|What to do|Disclaimer):)/gi,
+    /\n(?=(?:Plain-English read|Why it may fit|Other possibilities|Concerns \/ red flags|What to do|Disclaimer):)/gi,
     "\n\n",
   );
 
@@ -101,10 +115,11 @@ const parseSseEvents = (buffer: string): StreamEvent[] => {
     });
 };
 
-export function MedGemmaReviewTool() {
+export function SkinReviewTool() {
   const [image, setImage] = useState<File | null>(null);
-  const [prompt, setPrompt] = useState("");
-  const [result, setResult] = useState("");
+  const [reviewText, setReviewText] = useState("");
+  const [topMatches, setTopMatches] = useState<SkinReviewMatch[]>([]);
+  const [model, setModel] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [progressMessages, setProgressMessages] = useState<ProgressMessage[]>(
@@ -133,13 +148,20 @@ export function MedGemmaReviewTool() {
     });
   };
 
+  const applyReviewResponse = (data: AnalysisResponse) => {
+    const review = requireReview(data);
+    setReviewText(review.reviewText);
+    setTopMatches(review.topMatches);
+    setModel(review.model);
+  };
+
   const readStreamingResponse = async (response: Response) => {
     if (!response.body) {
       const data = (await response.json()) as AnalysisResponse;
       if (!response.ok || !data.ok) {
         throw new Error(formatAnalysisError(data));
       }
-      setResult(requireResponseText(data.result));
+      applyReviewResponse(data);
       return;
     }
 
@@ -172,7 +194,7 @@ export function MedGemmaReviewTool() {
           if (!event.data.ok) {
             throw new Error(formatAnalysisError(event.data));
           }
-          setResult(requireResponseText(event.data.result));
+          applyReviewResponse(event.data);
         }
 
         if (event.event === "error") {
@@ -189,10 +211,12 @@ export function MedGemmaReviewTool() {
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
-    setResult("");
+    setReviewText("");
+    setTopMatches([]);
+    setModel("");
 
     if (!image) {
-      setError("Please select a JPG, PNG, or WebP image before analyzing.");
+      setError("Please select a JPG, PNG, or WebP image before reviewing.");
       return;
     }
 
@@ -207,7 +231,7 @@ export function MedGemmaReviewTool() {
     setProgressMessages([
       {
         stage: "queued",
-        message: "Preparing local analysis request",
+        message: "Preparing local skin review request",
         elapsedMs: 0,
       },
     ]);
@@ -215,9 +239,8 @@ export function MedGemmaReviewTool() {
     try {
       const formData = new FormData();
       formData.append("image", image);
-      formData.append("prompt", prompt.trim());
 
-      const response = await fetch(withBasePath("/api/medgemma/analyze"), {
+      const response = await fetch(withBasePath("/api/skin-review/analyze"), {
         method: "POST",
         headers: {
           Accept: "text/event-stream",
@@ -228,7 +251,7 @@ export function MedGemmaReviewTool() {
       await readStreamingResponse(response);
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "MedGemma analysis failed.";
+        err instanceof Error ? err.message : "Skin image review failed.";
       setError(message);
     } finally {
       setIsLoading(false);
@@ -243,28 +266,30 @@ export function MedGemmaReviewTool() {
         </p>
         <div className="space-y-3">
           <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
-            Local MedGemma Image Review
+            Skin Image Review
           </h1>
           <p className="max-w-3xl text-base leading-relaxed text-foreground/70">
-            Upload an image and run a local MedGemma review from this Next.js
-            app. Images are passed only to the local Python runner and are not
-            sent to a remote API.
+            Upload a skin image and run a local dermatology-focused visual
+            ranking workflow. Images are passed only to the local Python runner
+            and are not sent to a remote image API.
           </p>
         </div>
         <div className="rounded-2xl border border-amber-300/70 bg-amber-50 p-4 text-sm font-medium text-amber-900 dark:border-amber-400/40 dark:bg-amber-950/40 dark:text-amber-100">
-          This local educational review gives a likely impression, common
-          alternatives, red flags, and conservative care guidance. It is not a
-          diagnosis and does not replace a clinician.
+          This local educational review ranks visual possibilities, explains
+          what may fit or argue against them, lists red flags, and gives
+          conservative next steps. It is not a diagnosis and does not replace a
+          clinician.
         </div>
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
         <Card className="border-border/70">
           <CardHeader>
-            <CardTitle>Analyze an image</CardTitle>
+            <CardTitle>Review an image</CardTitle>
             <p className="text-sm text-foreground/60">
               The API route stores the upload in a temporary ignored folder,
-              calls the local Python runner, then removes the temporary file.
+              calls the local DermLIP ranking runner, then removes the temporary
+              file.
             </p>
           </CardHeader>
           <CardContent>
@@ -272,12 +297,12 @@ export function MedGemmaReviewTool() {
               <div className="space-y-2">
                 <label
                   className="text-sm font-semibold text-foreground"
-                  htmlFor="medgemma-image"
+                  htmlFor="skin-review-image"
                 >
                   Image file
                 </label>
                 <input
-                  id="medgemma-image"
+                  id="skin-review-image"
                   type="file"
                   accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
                   className="block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground file:mr-4 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-2 file:text-sm file:font-semibold file:text-foreground hover:file:bg-muted/80"
@@ -288,35 +313,12 @@ export function MedGemmaReviewTool() {
                 <p className="text-xs text-foreground/60">{helperText}</p>
               </div>
 
-              <div className="space-y-2">
-                <label
-                  className="text-sm font-semibold text-foreground"
-                  htmlFor="medgemma-prompt"
-                >
-                  Optional prompt
-                </label>
-                <textarea
-                  id="medgemma-prompt"
-                  rows={7}
-                  value={prompt}
-                  onChange={(event) => setPrompt(event.target.value)}
-                  placeholder={DEFAULT_PROMPT_HINT}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm transition placeholder:text-foreground/40 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
-                />
-                <p className="text-xs text-foreground/60">
-                  Leave blank for a structured review with likely impression,
-                  other possibilities, red flags, care steps, and a disclaimer at
-                  the end. Set MEDGEMMA_MAX_NEW_TOKENS if you need a longer local
-                  response.
-                </p>
-              </div>
-
               <Button
                 type="submit"
                 disabled={isLoading}
                 className="w-full sm:w-auto"
               >
-                {isLoading ? "Analyzing locally..." : "Analyze image"}
+                {isLoading ? "Reviewing locally..." : "Review image"}
               </Button>
             </form>
           </CardContent>
@@ -329,9 +331,10 @@ export function MedGemmaReviewTool() {
             </CardHeader>
             <CardContent>
               <p className="rounded-lg bg-muted/50 p-4 text-sm leading-relaxed text-foreground/75">
-                The local review is structured as: most likely, other
-                possibilities, concerns / red flags, what to do, and a disclaimer
-                at the end.
+                The local review returns top ranked visual possibilities,
+                plain-English context, other possibilities, red flags,
+                conservative care guidance, and a bottom disclaimer. It does not
+                show raw prompts or embeddings.
               </p>
             </CardContent>
           </Card>
@@ -348,10 +351,8 @@ export function MedGemmaReviewTool() {
               <CardContent className="space-y-4">
                 <p className="text-sm text-foreground/70">
                   The first run may be slow while model files download and load
-                  into GPU memory. After the model is cached, the concise default
-                  output is intended to finish well before the 10-minute timeout
-                  on a 6 GB laptop GPU. Status messages are generated locally and
-                  omit tokens and full local paths.
+                  into GPU memory. Status messages are generated locally and
+                  omit tokens, raw embeddings, raw prompts, and full local paths.
                 </p>
                 <ol className="space-y-2 text-sm text-foreground/75">
                   {progressMessages.map((message, index) => (
@@ -390,14 +391,50 @@ export function MedGemmaReviewTool() {
             </Card>
           ) : null}
 
-          {result ? (
+          {topMatches.length ? (
             <Card className="border-emerald-300 bg-emerald-50 dark:border-emerald-900/70 dark:bg-emerald-950/30">
               <CardHeader>
-                <CardTitle>Image review</CardTitle>
+                <CardTitle>Top ranked possibilities</CardTitle>
+                <p className="text-sm text-emerald-950/70 dark:text-emerald-50/70">
+                  Model: {model}. Scores are visual similarity rankings, not
+                  diagnosis confidence.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <ol className="space-y-3">
+                  {topMatches.map((match, index) => (
+                    <li
+                      key={match.id}
+                      className="rounded-xl border border-emerald-200 bg-white/70 p-4 text-sm text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-50"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="font-semibold">
+                            {index + 1}. {match.label}
+                          </p>
+                          <p className="mt-1 text-emerald-950/75 dark:text-emerald-50/75">
+                            {match.plainEnglish}
+                          </p>
+                        </div>
+                        <span className="shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-900 dark:bg-emerald-900 dark:text-emerald-50">
+                          {match.percent.toFixed(1)}%
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {reviewText ? (
+            <Card className="border-emerald-300 bg-emerald-50 dark:border-emerald-900/70 dark:bg-emerald-950/30">
+              <CardHeader>
+                <CardTitle>Plain-English review</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4 text-sm leading-relaxed text-emerald-950 dark:text-emerald-50">
-                  {formatReviewText(result).map((section, index) => (
+                  {formatReviewText(reviewText).map((section, index) => (
                     <p
                       key={`${section.slice(0, 32)}-${index}`}
                       className="whitespace-pre-wrap"

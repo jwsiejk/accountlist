@@ -1,9 +1,9 @@
 node_modules/
 .next/
 out/
-# Local MedGemma uploads/model artifacts
-.venv-medgemma/
-.medgemma-uploads/
-.medgemma-cache/
+# Local Skin Image Review uploads/model artifacts
+.venv-skin-review/
+.skin-review-uploads/
+.skin-review-cache/
 .cache/huggingface/
 hf_cache/
