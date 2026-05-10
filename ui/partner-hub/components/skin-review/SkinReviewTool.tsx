@@ -1,15 +1,16 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { withBasePath } from "@/lib/basePath";
 
 const acceptedImageTypes = ["image/jpeg", "image/png", "image/webp"];
+const maxImageCount = 5;
 
 const initialProgressMessages: ProgressMessage[] = [
-  { stage: "waiting", message: "Waiting for an image", elapsedMs: 0 },
+  { stage: "waiting", message: "Waiting for image(s)", elapsedMs: 0 },
 ];
 
 type SkinReviewMatch = {
@@ -23,10 +24,17 @@ type SkinReviewMatch = {
   redFlags: string[];
 };
 
+type PerImageMatches = {
+  imageIndex: number;
+  topMatches: SkinReviewMatch[];
+};
+
 type AnalysisResponse = {
   ok: boolean;
   model?: string;
+  imageCount?: number;
   topMatches?: SkinReviewMatch[];
+  perImageMatches?: PerImageMatches[];
   reviewText?: string;
   error?: string;
   runnerStages?: string[];
@@ -73,6 +81,8 @@ const requireReview = (data: AnalysisResponse) => {
 
   return {
     model: data.model || "local DermLIP skin review model",
+    imageCount: data.imageCount || 1,
+    perImageMatches: data.perImageMatches || [],
     reviewText,
     topMatches: data.topMatches,
   };
@@ -116,9 +126,11 @@ const parseSseEvents = (buffer: string): StreamEvent[] => {
 };
 
 export function SkinReviewTool() {
-  const [image, setImage] = useState<File | null>(null);
+  const [images, setImages] = useState<File[]>([]);
   const [reviewText, setReviewText] = useState("");
   const [topMatches, setTopMatches] = useState<SkinReviewMatch[]>([]);
+  const [perImageMatches, setPerImageMatches] = useState<PerImageMatches[]>([]);
+  const [imageCount, setImageCount] = useState(0);
   const [model, setModel] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -126,14 +138,31 @@ export function SkinReviewTool() {
     initialProgressMessages,
   );
 
+  const selectedImagePreviews = useMemo(
+    () =>
+      images.map((image) => ({
+        name: image.name,
+        sizeInMb: image.size / (1024 * 1024),
+        url: URL.createObjectURL(image),
+      })),
+    [images],
+  );
+
+  useEffect(() => {
+    return () => {
+      selectedImagePreviews.forEach((preview) =>
+        URL.revokeObjectURL(preview.url),
+      );
+    };
+  }, [selectedImagePreviews]);
+
   const helperText = useMemo(() => {
-    if (!image) {
-      return "Choose a JPG, PNG, or WebP image to review locally.";
+    if (!images.length) {
+      return "Choose 1–5 JPG, PNG, or WebP image(s) to review locally.";
     }
 
-    const sizeInMb = image.size / (1024 * 1024);
-    return `${image.name} • ${sizeInMb.toFixed(2)} MB`;
-  }, [image]);
+    return `${images.length} selected image${images.length === 1 ? "" : "s"}`;
+  }, [images]);
 
   const latestProgress = progressMessages[progressMessages.length - 1];
 
@@ -152,6 +181,8 @@ export function SkinReviewTool() {
     const review = requireReview(data);
     setReviewText(review.reviewText);
     setTopMatches(review.topMatches);
+    setPerImageMatches(review.perImageMatches);
+    setImageCount(review.imageCount);
     setModel(review.model);
   };
 
@@ -213,16 +244,25 @@ export function SkinReviewTool() {
     setError("");
     setReviewText("");
     setTopMatches([]);
+    setPerImageMatches([]);
+    setImageCount(0);
     setModel("");
 
-    if (!image) {
-      setError("Please select a JPG, PNG, or WebP image before reviewing.");
+    if (!images.length) {
+      setError(
+        "Please select 1–5 JPG, PNG, or WebP image(s) before reviewing.",
+      );
       return;
     }
 
-    if (!acceptedImageTypes.includes(image.type)) {
+    if (images.length > maxImageCount) {
+      setError("Please select no more than 5 image(s) for one review.");
+      return;
+    }
+
+    if (images.some((image) => !acceptedImageTypes.includes(image.type))) {
       setError(
-        "Unsupported file type. Please upload a JPG, PNG, or WebP image.",
+        "Unsupported file type. Please upload JPG, PNG, or WebP image(s).",
       );
       return;
     }
@@ -238,7 +278,7 @@ export function SkinReviewTool() {
 
     try {
       const formData = new FormData();
-      formData.append("image", image);
+      images.forEach((image) => formData.append("images", image));
 
       const response = await fetch(withBasePath("/api/skin-review/analyze"), {
         method: "POST",
@@ -269,7 +309,7 @@ export function SkinReviewTool() {
             Skin Image Review
           </h1>
           <p className="max-w-3xl text-base leading-relaxed text-foreground/70">
-            Upload a skin image and run a local dermatology-focused visual
+            Upload 1–5 skin images and run one local dermatology-focused visual
             ranking workflow. Images are passed only to the local Python runner
             and are not sent to a remote image API.
           </p>
@@ -285,11 +325,11 @@ export function SkinReviewTool() {
       <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
         <Card className="border-border/70">
           <CardHeader>
-            <CardTitle>Review an image</CardTitle>
+            <CardTitle>Review image(s)</CardTitle>
             <p className="text-sm text-foreground/60">
-              The API route stores the upload in a temporary ignored folder,
-              calls the local DermLIP ranking runner, then removes the temporary
-              file.
+              The API route stores uploads in a temporary ignored folder, calls
+              the local DermLIP ranking runner, then removes the temporary
+              files.
             </p>
           </CardHeader>
           <CardContent>
@@ -299,18 +339,63 @@ export function SkinReviewTool() {
                   className="text-sm font-semibold text-foreground"
                   htmlFor="skin-review-image"
                 >
-                  Image file
+                  Image file(s)
                 </label>
                 <input
                   id="skin-review-image"
                   type="file"
                   accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                  multiple
                   className="block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground file:mr-4 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-2 file:text-sm file:font-semibold file:text-foreground hover:file:bg-muted/80"
-                  onChange={(event) =>
-                    setImage(event.target.files?.[0] ?? null)
-                  }
+                  onChange={(event) => {
+                    const selectedFiles = Array.from(event.target.files ?? []);
+                    const limitedFiles = selectedFiles.slice(0, maxImageCount);
+                    setImages(limitedFiles);
+                    if (selectedFiles.length > maxImageCount) {
+                      setError(
+                        "Only the first 5 image(s) will be included in one local review.",
+                      );
+                    } else if (error.startsWith("Only the first 5")) {
+                      setError("");
+                    }
+                  }}
                 />
                 <p className="text-xs text-foreground/60">{helperText}</p>
+                <div className="rounded-lg bg-muted/50 p-3 text-xs leading-relaxed text-foreground/65">
+                  <p className="font-semibold text-foreground/75">
+                    Recommended image set:
+                  </p>
+                  <ul className="mt-2 list-disc space-y-1 pl-5">
+                    <li>context/orientation shot</li>
+                    <li>close-up</li>
+                    <li>side angle if raised or swollen</li>
+                    <li>another affected area</li>
+                    <li>normal nearby skin if useful for comparison</li>
+                  </ul>
+                </div>
+                {selectedImagePreviews.length ? (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {selectedImagePreviews.map((preview, index) => (
+                      <div
+                        key={`${preview.name}-${index}`}
+                        className="rounded-xl border border-border bg-background p-3"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element -- Local object URL previews are not remote optimized assets. */}
+                        <img
+                          src={preview.url}
+                          alt={`Selected skin review image ${index + 1}`}
+                          className="h-32 w-full rounded-lg object-cover"
+                        />
+                        <p className="mt-2 truncate text-sm font-medium text-foreground">
+                          {index + 1}. {preview.name}
+                        </p>
+                        <p className="text-xs text-foreground/60">
+                          {preview.sizeInMb.toFixed(2)} MB
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </div>
 
               <Button
@@ -318,7 +403,7 @@ export function SkinReviewTool() {
                 disabled={isLoading}
                 className="w-full sm:w-auto"
               >
-                {isLoading ? "Reviewing locally..." : "Review image"}
+                {isLoading ? "Reviewing locally..." : "Review image(s)"}
               </Button>
             </form>
           </CardContent>
@@ -331,10 +416,10 @@ export function SkinReviewTool() {
             </CardHeader>
             <CardContent>
               <p className="rounded-lg bg-muted/50 p-4 text-sm leading-relaxed text-foreground/75">
-                The local review returns top ranked visual possibilities,
-                plain-English context, other possibilities, red flags,
-                conservative care guidance, and a bottom disclaimer. It does not
-                show raw prompts or embeddings.
+                The local review returns combined top ranked visual
+                possibilities, plain-English context, other possibilities, red
+                flags, conservative care guidance, and a bottom disclaimer. It
+                does not show raw prompts or embeddings.
               </p>
             </CardContent>
           </Card>
@@ -352,7 +437,8 @@ export function SkinReviewTool() {
                 <p className="text-sm text-foreground/70">
                   The first run may be slow while model files download and load
                   into GPU memory. Status messages are generated locally and
-                  omit tokens, raw embeddings, raw prompts, and full local paths.
+                  omit tokens, raw embeddings, raw prompts, and full local
+                  paths.
                 </p>
                 <ol className="space-y-2 text-sm text-foreground/75">
                   {progressMessages.map((message, index) => (
@@ -394,10 +480,12 @@ export function SkinReviewTool() {
           {topMatches.length ? (
             <Card className="border-emerald-300 bg-emerald-50 dark:border-emerald-900/70 dark:bg-emerald-950/30">
               <CardHeader>
-                <CardTitle>Top ranked possibilities</CardTitle>
+                <CardTitle>Combined top ranked possibilities</CardTitle>
                 <p className="text-sm text-emerald-950/70 dark:text-emerald-50/70">
-                  Model: {model}. Scores are visual similarity rankings, not
-                  diagnosis confidence.
+                  Model: {model}. Image count:{" "}
+                  {imageCount || images.length || 1}. Scores are averaged visual
+                  similarity rankings, not diagnosis confidence. All image
+                  processing stays local.
                 </p>
               </CardHeader>
               <CardContent>
@@ -423,6 +511,45 @@ export function SkinReviewTool() {
                     </li>
                   ))}
                 </ol>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {perImageMatches.length ? (
+            <Card className="border-emerald-300 bg-emerald-50 dark:border-emerald-900/70 dark:bg-emerald-950/30">
+              <CardHeader>
+                <CardTitle>Per-image top matches</CardTitle>
+                <p className="text-sm text-emerald-950/70 dark:text-emerald-50/70">
+                  These local-only per-image rankings are shown for visibility
+                  when images disagree.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {perImageMatches.map((imageResult) => (
+                  <details
+                    key={imageResult.imageIndex}
+                    className="rounded-xl border border-emerald-200 bg-white/70 p-4 text-sm text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-50"
+                  >
+                    <summary className="cursor-pointer font-semibold">
+                      Image {imageResult.imageIndex} top matches
+                    </summary>
+                    <ol className="mt-3 space-y-2">
+                      {imageResult.topMatches.map((match, index) => (
+                        <li
+                          key={match.id}
+                          className="flex justify-between gap-3"
+                        >
+                          <span>
+                            {index + 1}. {match.label}
+                          </span>
+                          <span className="font-semibold">
+                            {match.percent.toFixed(1)}%
+                          </span>
+                        </li>
+                      ))}
+                    </ol>
+                  </details>
+                ))}
               </CardContent>
             </Card>
           ) : null}
