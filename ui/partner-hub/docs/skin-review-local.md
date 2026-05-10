@@ -1,8 +1,35 @@
 # Local Skin Image Review
 
-The `/skin-review` page replaces the previous MedGemma image-review flow with a dermatology-specific local ranking workflow. The browser uploads a JPG, PNG, or WebP image to a Next.js API route, the API route writes the file to an ignored temporary folder, and then it calls `scripts/skin_review_runner.py` with `child_process`. Images are not sent to a remote image API by this implementation.
+The `/skin-review` page replaces the previous MedGemma image-review flow with a dermatology-specific local ranking workflow. The browser uploads 1–5 JPG, PNG, or WebP images to a Next.js API route, the API route writes each file to an ignored temporary folder, and then it calls `scripts/skin_review_runner.py` with `child_process`. Images are not sent to a remote image API by this implementation.
 
 The first target model is `redlessone/DermLIP_ViT-B-16`, loaded through `open_clip` as a CLIP-style dermatology vision-language model. It is used for zero-shot visual label ranking against a curated local prompt set. It is not a chat model and does not generate free-form medical judgments.
+
+## Important interpretation limits
+
+DermLIP returns visual similarity between the uploaded image and local dermatology label prompts. The displayed percentages are normalized ranking scores relative to the labels offered to the model; they are **not diagnosis confidence, probabilities of disease, or a substitute for a clinician**. A high score only means that, among the local labels, the image looked most similar to that label's prompt variants.
+
+The runner now uses multiple clinically distinct prompt variants per label and max-pools those variants into one label score before ranking labels. The prompt set includes morphology and distribution concepts such as papules, pustules, vesicles/blisters, crusting/drainage, scaling/dryness, swelling, flat/diffuse rash, localized cheek/forehead/face findings, trunk/widespread patterns, and hands/feet/mouth patterns. Raw prompts are intentionally not exposed in the UI.
+
+## Confidence labels and mixed evidence
+
+Each successful runner response includes:
+
+- `confidenceLabel`: `strong visual match`, `moderate visual match`, or `weak/mixed visual match`.
+- `mixedEvidence`: true when rankings are close, image views disagree, the top condition appears in too few per-image rankings, or a high-consequence label is not strongly supported.
+- `topMargin`: the score gap between the combined #1 and #2 labels.
+- `agreementSummary`: how often the combined #1 appeared as per-image #1 or in each image's top 3.
+
+These fields calibrate the UI language. Strong or moderate results still describe only a visual match, not a diagnosis. Weak/mixed results explicitly say the visual evidence is mixed and avoid leading with a diagnosis-like statement.
+
+## Multi-image aggregation
+
+For each image, the runner encodes the image and compares it with every prompt variant. Prompt variants are collapsed into label scores by max-pooling the best variant for each label, then labels are normalized for display ranking. For multi-image reviews, label scores are averaged across images to create the combined top matches. Per-image top matches remain visible so reviewers can see when submitted views disagree.
+
+## High-consequence labels
+
+Some labels are marked high-consequence because weak visual similarity should not be presented as the main likely impression without stronger support. Examples include herpes simplex / grouped vesicles, cellulitis / spreading bacterial skin infection, impetigo, allergic reaction / urticaria, viral exanthem, and hand-foot-mouth pattern.
+
+When a high-consequence label ranks highly but the confidence label is weak/mixed, the plain-English review treats it as a red-flag concern to check for rather than a likely diagnosis. The combined ranking remains visible for transparency, but the narrative says what findings would make that condition more concerning.
 
 ## Windows setup
 
@@ -70,14 +97,31 @@ A validation-only smoke check is available when you need to confirm local image 
 python scripts/skin_review_runner.py --image path/to/local-image.png --smoke-validation-only
 ```
 
-A full local model run uses:
+A full local model run uses one or more `--image` arguments:
 
 ```bash
-python scripts/skin_review_runner.py --image path/to/local-image.png --max-matches 5
+python scripts/skin_review_runner.py --image path/to/local-image-1.png --image path/to/local-image-2.jpg --max-matches 5
 ```
+
+## Manual validation with private local images
+
+Do not commit private medical images. For local validation, create an ignored folder at the repo root:
+
+```bash
+mkdir -p .skin-review-test-images
+```
+
+Place known private test images in `.skin-review-test-images/` only on your machine. Then run from `ui/partner-hub` using relative paths back to the ignored folder:
+
+```bash
+python scripts/skin_review_runner.py --image ../../.skin-review-test-images/example-1.png --smoke-validation-only
+python scripts/skin_review_runner.py --image ../../.skin-review-test-images/example-1.png --image ../../.skin-review-test-images/example-2.jpg --max-matches 5
+```
+
+Review the combined matches, per-image matches, confidence label, mixed-evidence flag, top margin, agreement summary, and red-flag language. Keep the images private and remove them when no longer needed.
 
 ## Limitations
 
-DermLIP is better aligned to dermatology images than the previous general medical-image flow, but this implementation still requires validation on representative images and clinical review before relying on it. The output is ranked visual similarity to curated text labels, not a confirmed diagnosis. Similar-looking rashes can have different causes, and important context such as age, symptoms, timing, exposures, fever, pain, itch, medications, vaccination status, and whether the child appears ill may not be visible in an image.
+DermLIP is better aligned to dermatology images than the previous general medical-image flow, but this implementation still requires validation on representative images and clinical review before relying on it. Similar-looking rashes can have different causes, and important context such as age, symptoms, timing, exposures, fever, pain, itch, medications, vaccination status, and whether the child appears ill may not be visible in an image.
 
-The UI intentionally presents top possibilities, reasons a category may fit, alternatives, red flags, conservative next steps, and a bottom disclaimer instead of presenting one overconfident diagnosis. A clinician should evaluate symptoms that are severe, worsening, persistent, near the eye, associated with fever or illness, or otherwise concerning.
+The UI intentionally presents top possibilities, confidence/agreement context, reasons a category may fit, alternatives, red flags, conservative next steps, and a bottom disclaimer instead of presenting one overconfident diagnosis. A clinician should evaluate symptoms that are severe, worsening, persistent, near the eye, associated with fever or illness, or otherwise concerning.

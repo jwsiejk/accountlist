@@ -39,6 +39,7 @@ type SkinReviewMatch = {
   whatSupports: string[];
   whatArguesAgainst: string[];
   redFlags: string[];
+  highConsequence?: boolean;
 };
 
 type PerImageMatches = {
@@ -53,6 +54,13 @@ type RunnerResult = {
   topMatches?: SkinReviewMatch[];
   perImageMatches?: PerImageMatches[];
   reviewText?: string;
+  confidenceLabel?:
+    | "strong visual match"
+    | "moderate visual match"
+    | "weak/mixed visual match";
+  mixedEvidence?: boolean;
+  topMargin?: number;
+  agreementSummary?: string;
   error?: string;
   errorType?:
     | "image_decode_failed"
