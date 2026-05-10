@@ -77,9 +77,9 @@ const caseStudies = [
 
 const toolCards = [
   {
-    title: "MedGemma Image Review",
-    description: "Upload an image for local medical-image description and red-flag review.",
-    href: "/medgemma",
+    title: "Skin Image Review",
+    description: "Upload a skin image for local dermatology-focused visual ranking and red-flag review.",
+    href: "/skin-review",
   },
   {
     title: "Account Mapping",
