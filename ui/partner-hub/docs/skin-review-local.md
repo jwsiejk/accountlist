@@ -6,24 +6,24 @@ The first target model is `redlessone/DermLIP_ViT-B-16`, loaded through `open_cl
 
 ## Important interpretation limits
 
-DermLIP returns visual similarity between the uploaded image and local dermatology label prompts. The displayed percentages are normalized, temperature-scaled ranking scores relative to the labels offered to the model; they are **not diagnosis confidence, probabilities of disease, or a substitute for a clinician**. A high displayed percentage only means that, among the local labels, the image looked more similar to that label's prompt variants after display scaling.
+DermLIP returns visual similarity between the uploaded image and local dermatology label prompts. The displayed image match scores are normalized, temperature-scaled ranking scores relative to the labels offered to the model; they are **not medical likelihoods or a substitute for a clinician**. A high displayed image match score only means that, among the local labels, the image looked more similar to that label's prompt variants after display scaling.
 
 The runner uses multiple clinically distinct prompt variants per child label and max-pools those variants into one raw child-label score before ranking labels. The prompt set includes morphology and distribution concepts such as papules, pustules, vesicles/blisters, crusting/drainage, scaling/dryness, swelling, flat/diffuse rash, localized cheek/forehead/face findings, trunk/widespread patterns, and hands/feet/mouth patterns. Raw prompts are intentionally not exposed in the UI.
 
-The runner also rolls child labels into broader parent visual categories. These parent categories keep related labels from splitting visual confidence across near-duplicate or clinically overlapping possibilities. For example, `neonatal acne / baby acne`, `infantile acne`, and `neonatal cephalic pustulosis` all roll up under `infant facial acne-like bumps`. The app can therefore show that the broader acne-like visual family is strong while still explaining that the subtype may be indistinguishable from image alone. Age, timing, symptoms, and course are needed to separate subtypes.
+The runner also rolls child labels into broader parent visual categories. These parent categories keep related labels from splitting visual ranking strength across near-duplicate or clinically overlapping possibilities. For example, `neonatal acne / baby acne`, `infantile acne`, and `neonatal cephalic pustulosis` all roll up under `infant facial acne-like bumps`. The app can therefore show that the broader acne-like visual family is strong while still explaining that the subtype may be indistinguishable from image alone. Age, timing, symptoms, and course are needed to separate subtypes.
 
 Each returned match includes display-safe scoring fields:
 
 - `score` and `percent`: display-scaled relative ranking scores. These may look sharper or flatter depending on `SKIN_REVIEW_DISPLAY_TEMPERATURE`.
 - `rawScore`: the rounded pooled model similarity/logit for that label after prompt-variant max pooling.
 - `rawMarginFromTop`: the rounded raw gap between the top child label or parent category and that item.
-- `topCategories`: display-ranked parent visual categories. Parent raw scores use the maximum child raw score in the category rather than summing child percentages, so categories with more children are not unfairly inflated.
+- `topCategories`: display-ranked parent visual categories. Parent raw scores use the maximum child raw score in the category rather than summing child image match scores, so categories with more children are not unfairly inflated.
 - `childMatches`: the child labels under each returned parent category, sorted by raw score.
 - `perImageCategoryMatches`: per-image parent visual categories used to show agreement or disagreement across uploaded views.
 
-Raw scores are still model similarity signals, not medical probabilities. They are returned only as rounded ranking/debug metadata; the runner does not return raw embeddings, prompt text, local image paths, tokens, or environment secrets.
+Raw scores are still model similarity signals, not medical likelihoods. They are returned only as rounded ranking/debug metadata; the runner does not return raw embeddings, prompt text, local image paths, tokens, or environment secrets.
 
-## Confidence labels and mixed evidence
+## Visual match strength labels and mixed evidence
 
 Each successful runner response includes:
 
@@ -32,15 +32,17 @@ Each successful runner response includes:
 - `topRawMargin`: the raw pooled-score gap between the combined #1 and #2 labels. `topMargin` is retained as a compatibility alias for the same raw-margin value.
 - `agreementSummary`: how often the combined #1 appeared as per-image #1 or in each image's top 3, plus the raw ranking separation from #2.
 - `scoringMode`: currently `raw-margin-calibrated`.
-- `displayTemperature`: the temperature used only to convert raw scores into display percentages.
+- `displayTemperature`: the temperature used only to convert raw scores into display-scaled image match scores.
 
-These fields calibrate the UI language. Confidence labels are based on parent-category raw rank separation plus cross-image parent-category agreement, not on softmax-normalized display percentages alone. This means two images can still agree when their top child labels differ but share the same parent category, such as one image favoring neonatal acne and another favoring infantile acne inside `infant facial acne-like bumps`. Strong or moderate results still describe only a visual match, not a diagnosis. Weak/mixed results explicitly say the visual categories are close together or image views disagree and avoid leading with a diagnosis-like statement.
+These fields calibrate the UI language. Visual match strength labels are based on parent-category raw rank separation plus cross-image parent-category agreement, not on softmax-normalized display-scaled image match scores alone. This means two images can still agree when their top child labels differ but share the same parent category, such as one image favoring neonatal acne and another favoring infantile acne inside `infant facial acne-like bumps`. Strong or moderate results still describe only a visual match, not a diagnosis. Weak/mixed results explicitly say the visual categories are close together or image views disagree and avoid leading with a diagnosis-like statement.
 
 ## Multi-image aggregation
 
-For each image, the runner encodes the image and compares it with every prompt variant. Prompt variants are collapsed into raw child-label scores by max-pooling the best variant for each label. Child labels are then rolled up into parent categories using the maximum child raw score for each category. For multi-image reviews, raw child-label scores are averaged across images to create the combined child matches, then parent categories are computed from those averaged raw scores. Display percentages are computed separately for child labels and parent categories with the configured display temperature. Per-image child matches and per-image parent categories remain visible so reviewers can see whether disagreement is true category disagreement or only subtype-level overlap.
+For each image, the runner encodes the image and compares it with every prompt variant. Prompt variants are collapsed into raw child-label scores by max-pooling the best variant for each label. Child labels are then rolled up into parent categories using the maximum child raw score for each category. For multi-image reviews, raw child-label scores are averaged across images to create the combined child matches, then parent categories are computed from those averaged raw scores. Display image match scores are computed separately for child labels and parent categories with the configured display temperature. Per-image child matches and per-image parent categories remain visible so reviewers can see whether disagreement is true category disagreement or only subtype-level overlap.
 
 A practical example is neonatal acne versus infantile acne. These can be visually close in a single image, and neonatal cephalic pustulosis can also look acne-like on the newborn face or scalp. The parent rollup lets the app rank the broader `infant facial acne-like bumps` category higher when those child labels are clustered, while the plain-English review notes that age and timing are needed before leaning toward a subtype.
+
+For infant facial rash reviews, the UI now holds final guidance after upload until required context is entered. The context step asks baby age, rash duration/onset, dryness/scaling, itching/rubbing, oozing or honey-colored crust, vesicles, fever, feeding/ill appearance, eye involvement, rapid worsening, new products, formula/food changes when age-appropriate, heat/drool/milk/friction patterns, eczema/allergy/asthma history, and greasy/flaky scalp/eyebrow/ear findings. The final guidance is presented as visual differential plus context-informed safety triage rather than an image-only diagnosis-like output.
 
 ## High-consequence labels
 
@@ -92,7 +94,7 @@ npm run dev
 - `SKIN_REVIEW_MODEL_ID`: Optional Hugging Face model ID. Defaults to `redlessone/DermLIP_ViT-B-16`.
 - `SKIN_REVIEW_DEVICE`: Optional device selection. Use `auto`, `cuda`, or `cpu`. Defaults to `auto`, which uses CUDA when PyTorch reports that CUDA is available and otherwise uses CPU.
 - `SKIN_REVIEW_MAX_MATCHES`: Optional number of ranked matches returned to the UI. Defaults to `5`; values are clamped to a safe range.
-- `SKIN_REVIEW_DISPLAY_TEMPERATURE`: Optional display-only softmax temperature for percentages. Defaults to `0.7`; valid values are `0.1` to `5.0`. Lower values make visible percentage differences sharper, while higher values make percentages flatter. This does not change raw ranking margins, confidence labels, or agreement calibration. Invalid values fall back to the default and write a safe stderr diagnostic.
+- `SKIN_REVIEW_DISPLAY_TEMPERATURE`: Optional display-only softmax temperature for image match scores. Defaults to `0.7`; valid values are `0.1` to `5.0`. Lower values make visible score differences sharper, while higher values make image match scores flatter. This does not change raw ranking margins, visual match strength labels, or agreement calibration. Invalid values fall back to the default and write a safe stderr diagnostic.
 - `SKIN_REVIEW_PYTHON_PATH`: Optional Python interpreter override. By default, the API route first uses `.venv-skin-review/Scripts/python.exe` on Windows or `.venv-skin-review/bin/python` on macOS/Linux, then falls back to `python`.
 - `SKIN_REVIEW_RUNNER_TIMEOUT_MS`: Optional API timeout in milliseconds. The default is 10 minutes, which allows for slower first-run model loading.
 
@@ -136,10 +138,10 @@ python scripts/skin_review_runner.py --image ../../.skin-review-test-images/exam
 python scripts/skin_review_runner.py --image ../../.skin-review-test-images/example-1.png --image ../../.skin-review-test-images/example-2.jpg --max-matches 5
 ```
 
-Review the combined parent categories (`topCategories`), child-label matches (`topMatches`), per-image category matches, per-image child matches, confidence label, mixed-evidence flag, raw top margin (`topRawMargin`), display temperature, agreement summary, and red-flag language. Keep the images private and remove them when no longer needed.
+Review the combined parent categories (`topCategories`), child-label matches (`topMatches`), per-image category matches, per-image child matches, visual match strength label, mixed-evidence flag, raw top margin (`topRawMargin`), display temperature, agreement summary, and red-flag language. Keep the images private and remove them when no longer needed.
 
 ## Limitations
 
 DermLIP is better aligned to dermatology images than the previous general medical-image flow, but this implementation still requires validation on representative images and clinical review before relying on it. Similar-looking rashes can have different causes, and important context such as age, symptoms, timing, exposures, fever, pain, itch, medications, vaccination status, and whether the child appears ill may not be visible in an image.
 
-The UI intentionally presents top possibilities, confidence/agreement context, reasons a category may fit, alternatives, red flags, conservative next steps, and a bottom disclaimer instead of presenting one overconfident diagnosis. A clinician should evaluate symptoms that are severe, worsening, persistent, near the eye, associated with fever or illness, or otherwise concerning.
+The UI intentionally presents top possibilities, visual match strength/ranking agreement context, reasons a category may fit, alternatives, red flags, conservative next steps, and a bottom disclaimer instead of presenting one overconfident diagnosis. A clinician should evaluate symptoms that are severe, worsening, persistent, near the eye, associated with fever or illness, or otherwise concerning.

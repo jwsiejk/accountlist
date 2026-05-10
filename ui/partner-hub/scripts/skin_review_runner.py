@@ -875,7 +875,7 @@ def classify_images(
             # Collapse clinically distinct prompt variants into one score per label
             # by max-pooling the raw similarities, then softmax across labels for
             # display ranking. These normalized values are relative visual
-            # similarities, not diagnosis probabilities.
+            # similarities, not medical likelihoods.
             label_logits = []
             for label_index in range(len(LABELS)):
                 variant_indices = [
@@ -1159,8 +1159,8 @@ def build_review_text(
         [
             "Most likely visual match / combined impression:\n"
             + impression
-            + " Percentages are display-scaled parent-category rollups against curated local labels, not diagnosis confidence.",
-            "Confidence / agreement:\n"
+            + " Scores are display-scaled visual ranking score rollups against curated local labels, not medical likelihoods. Not shown does not mean ruled out.",
+            "Visual match strength / ranking agreement:\n"
             + f"{confidence_label}. {calibration['agreementSummary']}",
             "Why it may fit:\n"
             + f"{top['plainEnglish']} Visual features that can support this category include {support_text}.",
