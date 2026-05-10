@@ -44,6 +44,8 @@ _DISPLAY_TEMPERATURE_CACHE: float | None = None
 class SkinLabel:
     id: str
     label: str
+    parent_id: str
+    parent_label: str
     prompts: tuple[str, ...]
     plain_english: str
     what_supports: tuple[str, ...]
@@ -62,6 +64,8 @@ LABELS: tuple[SkinLabel, ...] = (
     SkinLabel(
         id="neonatal_acne",
         label="neonatal acne / baby acne",
+        parent_id="infant_acneiform_facial_bumps",
+        parent_label="infant facial acne-like bumps",
         prompts=(
             "a clinical skin image showing neonatal acne with small red papules on an infant face",
             "a clinical skin image showing baby acne with small pustules on the cheeks of a newborn",
@@ -88,6 +92,8 @@ LABELS: tuple[SkinLabel, ...] = (
     SkinLabel(
         id="infantile_acne",
         label="infantile acne",
+        parent_id="infant_acneiform_facial_bumps",
+        parent_label="infant facial acne-like bumps",
         prompts=(
             "a clinical skin image showing infantile acne with comedones papules or pustules on a baby's face",
             "acne-like inflamed bumps and pustules on the cheeks forehead or chin of an infant",
@@ -109,6 +115,8 @@ LABELS: tuple[SkinLabel, ...] = (
     SkinLabel(
         id="milia",
         label="milia",
+        parent_id="white_bump_benign_infant_patterns",
+        parent_label="benign infant white-bump patterns",
         prompts=(
             "a clinical skin image showing milia with tiny white bumps on an infant face",
             "tiny firm white cyst-like bumps on a newborn nose cheeks or forehead",
@@ -126,6 +134,8 @@ LABELS: tuple[SkinLabel, ...] = (
     SkinLabel(
         id="neonatal_cephalic_pustulosis",
         label="neonatal cephalic pustulosis",
+        parent_id="infant_acneiform_facial_bumps",
+        parent_label="infant facial acne-like bumps",
         prompts=(
             "a clinical skin image showing neonatal cephalic pustulosis with facial pustules on a newborn scalp or face",
             "newborn face scalp or neck with many small pustules and acne-like papules",
@@ -147,6 +157,8 @@ LABELS: tuple[SkinLabel, ...] = (
     SkinLabel(
         id="irritant_contact_dermatitis",
         label="irritant contact dermatitis",
+        parent_id="irritation_eczema_like",
+        parent_label="irritation or eczema-like rash",
         prompts=(
             "localized red irritated skin from rubbing saliva wipes detergent or skin products",
             "patchy irritated redness without blisters or honey crusting",
@@ -173,6 +185,8 @@ LABELS: tuple[SkinLabel, ...] = (
     SkinLabel(
         id="atopic_dermatitis",
         label="atopic dermatitis / eczema",
+        parent_id="irritation_eczema_like",
+        parent_label="irritation or eczema-like rash",
         prompts=(
             "a clinical skin image showing atopic dermatitis or eczema with dry red scaly itchy patches",
             "rough scaling dryness and patchy redness on infant cheeks folds or body",
@@ -194,6 +208,8 @@ LABELS: tuple[SkinLabel, ...] = (
     SkinLabel(
         id="seborrheic_dermatitis",
         label="seborrheic dermatitis / cradle cap",
+        parent_id="irritation_eczema_like",
+        parent_label="irritation or eczema-like rash",
         prompts=(
             "a clinical skin image showing seborrheic dermatitis or cradle cap with greasy scale and redness on infant scalp face or folds",
             "greasy yellow-white scale on scalp eyebrows forehead ears or skin folds of a baby",
@@ -215,6 +231,8 @@ LABELS: tuple[SkinLabel, ...] = (
     SkinLabel(
         id="miliaria",
         label="heat rash / miliaria",
+        parent_id="irritation_eczema_like",
+        parent_label="irritation or eczema-like rash",
         prompts=(
             "a clinical skin image showing heat rash or miliaria with tiny red bumps in warm occluded skin areas",
             "many tiny red papules or vesicles on neck folds trunk or covered sweaty skin",
@@ -236,6 +254,8 @@ LABELS: tuple[SkinLabel, ...] = (
     SkinLabel(
         id="impetigo",
         label="impetigo",
+        parent_id="infection_crusting_concern",
+        parent_label="infection or crusting concern pattern",
         prompts=(
             "honey-colored crusting or oozing superficial skin infection",
             "yellow crusted sores around the mouth nose or irritated skin",
@@ -263,6 +283,8 @@ LABELS: tuple[SkinLabel, ...] = (
     SkinLabel(
         id="folliculitis",
         label="folliculitis",
+        parent_id="infection_crusting_concern",
+        parent_label="infection or crusting concern pattern",
         prompts=(
             "a clinical skin image showing folliculitis with small pustules centered around hair follicles",
             "multiple small inflamed follicle-centered bumps or pustules on hair-bearing skin",
@@ -284,6 +306,8 @@ LABELS: tuple[SkinLabel, ...] = (
     SkinLabel(
         id="viral_exanthem",
         label="viral exanthem",
+        parent_id="widespread_systemic_pattern",
+        parent_label="widespread or systemic rash pattern",
         prompts=(
             "widespread red macules or papules on trunk and body with viral illness",
             "flat or slightly raised diffuse red rash over the trunk and body",
@@ -311,6 +335,8 @@ LABELS: tuple[SkinLabel, ...] = (
     SkinLabel(
         id="hand_foot_mouth",
         label="hand-foot-mouth pattern",
+        parent_id="vesicle_blister_pattern",
+        parent_label="vesicle or blister pattern",
         prompts=(
             "vesicles or spots involving hands feet mouth or diaper area",
             "a clinical skin image showing hand foot and mouth disease pattern with vesicles on hands feet or around the mouth",
@@ -338,6 +364,8 @@ LABELS: tuple[SkinLabel, ...] = (
     SkinLabel(
         id="herpes_simplex_grouped_vesicles",
         label="herpes simplex / grouped vesicles",
+        parent_id="vesicle_blister_pattern",
+        parent_label="vesicle or blister pattern",
         prompts=(
             "grouped clear fluid-filled vesicles on red skin",
             "clustered blisters with erosions or crusting near the mouth or eye",
@@ -366,6 +394,8 @@ LABELS: tuple[SkinLabel, ...] = (
     SkinLabel(
         id="cellulitis_spreading_bacterial_infection",
         label="cellulitis / spreading bacterial skin infection",
+        parent_id="infection_crusting_concern",
+        parent_label="infection or crusting concern pattern",
         prompts=(
             "spreading redness swelling warmth and tenderness suggesting bacterial skin infection",
             "a clinical skin image showing cellulitis with expanding red swollen skin",
@@ -393,6 +423,8 @@ LABELS: tuple[SkinLabel, ...] = (
     SkinLabel(
         id="urticaria_allergic_reaction",
         label="allergic reaction / urticaria",
+        parent_id="widespread_systemic_pattern",
+        parent_label="widespread or systemic rash pattern",
         prompts=(
             "a clinical skin image showing allergic reaction or urticaria with raised wheals or hives",
             "raised swollen welts hives or wheals with itching on the skin",
@@ -416,6 +448,8 @@ LABELS: tuple[SkinLabel, ...] = (
     SkinLabel(
         id="insect_bites",
         label="insect bites",
+        parent_id="bite_or_external_exposure",
+        parent_label="bite or external exposure pattern",
         prompts=(
             "a clinical skin image showing insect bites with discrete itchy red papules possibly with central puncta",
             "separate red bumps on exposed skin with a central dot or punctum",
@@ -437,6 +471,8 @@ LABELS: tuple[SkinLabel, ...] = (
     SkinLabel(
         id="nonspecific_unclear_rash",
         label="nonspecific rash / unclear",
+        parent_id="unclear",
+        parent_label="nonspecific or unclear rash pattern",
         prompts=(
             "a clinical skin image showing a nonspecific unclear rash without a definitive visual pattern",
             "subtle mixed skin findings that do not clearly match one dermatology pattern",
@@ -456,6 +492,35 @@ LABELS: tuple[SkinLabel, ...] = (
         red_flags=tuple(GENERAL_RED_FLAGS),
     ),
 )
+
+
+PARENT_CATEGORY_PLAIN_ENGLISH: dict[str, str] = {
+    "infant_acneiform_facial_bumps": (
+        "This broader visual family covers acne-like papules or pustules on an infant face. "
+        "Image review alone may not reliably separate neonatal acne, infantile acne, and neonatal cephalic pustulosis."
+    ),
+    "white_bump_benign_infant_patterns": (
+        "This broader visual family covers tiny, usually benign infant facial white-bump patterns such as milia."
+    ),
+    "irritation_eczema_like": (
+        "This broader visual family covers irritated, dry, scaly, or heat/occlusion-related rash patterns that can overlap visually."
+    ),
+    "infection_crusting_concern": (
+        "This broader visual family covers crusting, follicle-centered, or spreading-redness patterns where infection signs or red flags matter."
+    ),
+    "vesicle_blister_pattern": (
+        "This broader visual family covers grouped clear blisters or hand-foot-mouth-type vesicle patterns that need symptom and distribution context."
+    ),
+    "widespread_systemic_pattern": (
+        "This broader visual family covers widespread rash or hive-like patterns where fever, illness symptoms, swelling, or trigger history matter."
+    ),
+    "bite_or_external_exposure": (
+        "This broader visual family covers discrete bump patterns that can fit bites or external exposures."
+    ),
+    "unclear": (
+        "This category means the image does not strongly resolve into one distinctive visual family."
+    ),
+}
 
 
 class ImageDecodeError(Exception):
@@ -636,6 +701,8 @@ def match_from_scores(
     return {
         "id": label.id,
         "label": label.label,
+        "parentId": label.parent_id,
+        "parentLabel": label.parent_label,
         "score": round(float(display_score), 4),
         "percent": percent,
         "rawScore": round(float(raw_score), 4),
@@ -663,9 +730,101 @@ def top_matches_from_raw_scores(
     ]
 
 
+def parent_category_matches_from_raw_scores(
+    raw_scores: list[float], display_scores: list[float], max_matches: int
+) -> list[dict[str, Any]]:
+    top_child_raw_score = max(raw_scores) if raw_scores else 0.0
+    child_matches = [
+        match_from_scores(
+            index, raw_scores[index], display_scores[index], top_child_raw_score
+        )
+        for index in range(len(LABELS))
+    ]
+    category_children: dict[str, list[dict[str, Any]]] = {}
+    category_labels: dict[str, str] = {}
+    for child in child_matches:
+        parent_id = child["parentId"]
+        category_children.setdefault(parent_id, []).append(child)
+        category_labels[parent_id] = child["parentLabel"]
+
+    ranked_parent_ids = sorted(
+        category_children,
+        key=lambda parent_id: max(
+            float(child["rawScore"]) for child in category_children[parent_id]
+        ),
+        reverse=True,
+    )
+    parent_raw_scores = [
+        max(float(child["rawScore"]) for child in category_children[parent_id])
+        for parent_id in ranked_parent_ids
+    ]
+    parent_display_scores = softmax_display_scores(
+        parent_raw_scores, display_temperature_from_env()
+    )
+    top_parent_raw_score = parent_raw_scores[0] if parent_raw_scores else 0.0
+
+    categories = []
+    for parent_id, raw_score, display_score in zip(
+        ranked_parent_ids, parent_raw_scores, parent_display_scores
+    ):
+        sorted_children = sorted(
+            category_children[parent_id],
+            key=lambda child: float(child["rawScore"]),
+            reverse=True,
+        )
+        strongest_child = sorted_children[0]
+        categories.append(
+            {
+                "id": parent_id,
+                "label": category_labels[parent_id],
+                "score": round(float(display_score), 4),
+                "percent": round(float(display_score) * 100.0, 1),
+                "rawScore": round(float(raw_score), 4),
+                "rawMarginFromTop": round(
+                    max(0.0, float(top_parent_raw_score) - float(raw_score)), 4
+                ),
+                "childMatches": sorted_children,
+                "highConsequence": any(
+                    bool(child.get("highConsequence")) for child in sorted_children
+                ),
+                "plainEnglish": PARENT_CATEGORY_PLAIN_ENGLISH.get(
+                    parent_id, strongest_child["plainEnglish"]
+                ),
+                "whatSupports": list(
+                    dict.fromkeys(
+                        support
+                        for child in sorted_children
+                        for support in child.get("whatSupports", [])
+                    )
+                )[:5],
+                "whatArguesAgainst": list(
+                    dict.fromkeys(
+                        argument
+                        for child in sorted_children
+                        for argument in child.get("whatArguesAgainst", [])
+                    )
+                )[:5],
+                "redFlags": list(
+                    dict.fromkeys(
+                        flag
+                        for child in sorted_children
+                        for flag in child.get("redFlags", [])
+                    )
+                ),
+            }
+        )
+
+    return categories[:max_matches]
+
+
 def classify_images(
     images: list[Any], max_matches: int
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+) -> tuple[
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+]:
     emit_stage("loading_model")
     try:
         import open_clip
@@ -748,6 +907,9 @@ def classify_images(
     combined_matches = top_matches_from_raw_scores(
         average_raw_scores, combined_display_scores, max_matches
     )
+    combined_categories = parent_category_matches_from_raw_scores(
+        average_raw_scores, combined_display_scores, max_matches
+    )
     per_image_matches = [
         {
             "imageIndex": image_index + 1,
@@ -759,7 +921,23 @@ def classify_images(
         }
         for image_index, image_raw_scores in enumerate(all_raw_scores)
     ]
-    return combined_matches, per_image_matches
+    per_image_category_matches = [
+        {
+            "imageIndex": image_index + 1,
+            "topCategories": parent_category_matches_from_raw_scores(
+                image_raw_scores,
+                all_display_scores[image_index],
+                min(PER_IMAGE_MATCHES, max_matches),
+            ),
+        }
+        for image_index, image_raw_scores in enumerate(all_raw_scores)
+    ]
+    return (
+        combined_matches,
+        per_image_matches,
+        combined_categories,
+        per_image_category_matches,
+    )
 
 
 def smoke_matches(max_matches: int) -> list[dict[str, Any]]:
@@ -780,13 +958,33 @@ def smoke_per_image_matches(image_count: int, max_matches: int) -> list[dict[str
     ]
 
 
+def smoke_categories(max_matches: int) -> list[dict[str, Any]]:
+    raw_scores = [0.0 for _ in LABELS]
+    display_scores = softmax_display_scores(raw_scores, display_temperature_from_env())
+    return parent_category_matches_from_raw_scores(raw_scores, display_scores, max_matches)
+
+
+def smoke_per_image_category_matches(
+    image_count: int, max_matches: int
+) -> list[dict[str, Any]]:
+    raw_scores = [0.0 for _ in LABELS]
+    display_scores = softmax_display_scores(raw_scores, display_temperature_from_env())
+    top_categories = parent_category_matches_from_raw_scores(
+        raw_scores, display_scores, min(PER_IMAGE_MATCHES, max_matches)
+    )
+    return [
+        {"imageIndex": image_index + 1, "topCategories": top_categories}
+        for image_index in range(image_count)
+    ]
+
+
 def per_image_agreement(
-    top_id: str, per_image_matches: list[dict[str, Any]]
+    top_id: str, per_image_matches: list[dict[str, Any]], match_key: str = "topMatches"
 ) -> tuple[int, int]:
     top1_count = 0
     top3_count = 0
     for image_result in per_image_matches:
-        image_matches = image_result.get("topMatches", [])
+        image_matches = image_result.get(match_key, [])
         ids = [match.get("id") for match in image_matches]
         if ids[:1] == [top_id]:
             top1_count += 1
@@ -796,7 +994,9 @@ def per_image_agreement(
 
 
 def calibration_summary(
-    matches: list[dict[str, Any]], per_image_matches: list[dict[str, Any]]
+    matches: list[dict[str, Any]],
+    per_image_matches: list[dict[str, Any]],
+    match_key: str = "topMatches",
 ) -> dict[str, Any]:
     top = matches[0]
     second_raw_score = (
@@ -804,13 +1004,15 @@ def calibration_summary(
     )
     top_raw_margin = round(max(0.0, float(top["rawScore"]) - second_raw_score), 4)
     image_count = max(1, len(per_image_matches))
-    top1_count, top3_count = per_image_agreement(top["id"], per_image_matches)
+    top1_count, top3_count = per_image_agreement(
+        top["id"], per_image_matches, match_key
+    )
     most_images_threshold = image_count if image_count <= 2 else image_count - 1
     half_images_threshold = (image_count + 1) // 2
     top_labels = {
-        image_result["topMatches"][0]["id"]
+        image_result[match_key][0]["id"]
         for image_result in per_image_matches
-        if image_result.get("topMatches")
+        if image_result.get(match_key)
     }
 
     # Simple calibration constants for relative visual-similarity output:
@@ -844,8 +1046,9 @@ def calibration_summary(
     mixed_evidence = confidence_label == "weak/mixed visual match" or any(weak_reasons)
     image_word = "image" if image_count == 1 else "images"
     agreement_summary = (
-        f"Combined #1 appeared as the per-image #1 in {top1_count}/{image_count} "
-        f"{image_word} and within the per-image top 3 in {top3_count}/{image_count}; "
+        "Combined #1 parent category appeared as the per-image #1 category "
+        f"in {top1_count}/{image_count} "
+        f"{image_word} and within the per-image top 3 categories in {top3_count}/{image_count}; "
         f"raw ranking separation from #2 was {top_raw_margin:.4f}."
     )
 
@@ -869,14 +1072,24 @@ def high_consequence_concerns(matches: list[dict[str, Any]]) -> list[str]:
     return concerns
 
 
+def child_label_summary(category: dict[str, Any]) -> str:
+    child_labels = [child["label"] for child in category.get("childMatches", [])[:4]]
+    if not child_labels:
+        return "No child labels were returned for this category."
+    return "Child labels under this category: " + "; ".join(child_labels) + "."
+
+
 def build_review_text(
     matches: list[dict[str, Any]],
     image_count: int,
     per_image_matches: list[dict[str, Any]],
     calibration: dict[str, Any],
+    categories: list[dict[str, Any]] | None = None,
 ) -> str:
-    top = matches[0]
-    alternatives = matches[1:4]
+    ranked_items = categories or matches
+    top = ranked_items[0]
+    alternatives = ranked_items[1:4]
+    child_matches = top.get("childMatches", [])
     confidence_label = calibration["confidenceLabel"]
     mixed_evidence = bool(calibration["mixedEvidence"])
     support_text = "; ".join(top["whatSupports"][:3])
@@ -887,9 +1100,9 @@ def build_review_text(
 
     if mixed_evidence:
         impression = (
-            f"The visual matches are close together or the uploaded views disagree. "
-            f"Based on {image_count} {image_word}, {top['label']} is the highest "
-            "relative visual-similarity ranking, but this is not a diagnosis-like conclusion."
+            f"The visual categories are close together or the uploaded views disagree. "
+            f"Based on {image_count} {image_word}, the strongest visual category is {top['label']}, "
+            "but this is not a diagnosis-like conclusion."
         )
     elif high_consequence_weak:
         impression = (
@@ -899,9 +1112,25 @@ def build_review_text(
         )
     else:
         impression = (
-            f"Based on {image_count} {image_word}, the strongest visual match is "
+            f"Based on {image_count} {image_word}, the strongest visual category is "
             f"{top['label']}. This is a {confidence_label}, not a confirmed diagnosis."
         )
+
+    if child_matches:
+        child_labels = [child["label"] for child in child_matches[:4]]
+        impression += " " + child_label_summary(top)
+        if top.get("id") == "infant_acneiform_facial_bumps":
+            impression += (
+                " The image review cannot reliably distinguish neonatal acne from "
+                "infantile acne or neonatal cephalic pustulosis from image alone; "
+                "age, timing, and course matter. In a newborn or very young infant, "
+                "the subtype would usually lean more toward baby acne/neonatal acne."
+            )
+        elif len(child_labels) > 1:
+            impression += (
+                " The child labels are related visual patterns; subtype details may need "
+                "age, timing, symptoms, distribution, and clinical course."
+            )
 
     alternative_text = (
         " ".join(
@@ -911,9 +1140,10 @@ def build_review_text(
         or "No additional ranked alternatives were returned."
     )
 
-    concern_texts = high_consequence_concerns(
-        matches[:4] if mixed_evidence else alternatives
+    concern_items = (
+        ranked_items[:4] if mixed_evidence or high_consequence_weak else alternatives
     )
+    concern_texts = high_consequence_concerns(concern_items)
     red_flags = list(dict.fromkeys([*top.get("redFlags", []), *GENERAL_RED_FLAGS]))
     if concern_texts:
         concerns = (
@@ -929,7 +1159,7 @@ def build_review_text(
         [
             "Most likely visual match / combined impression:\n"
             + impression
-            + " Percentages are display-scaled relative visual-similarity rankings against curated local labels, not diagnosis confidence.",
+            + " Percentages are display-scaled parent-category rollups against curated local labels, not diagnosis confidence.",
             "Confidence / agreement:\n"
             + f"{confidence_label}. {calibration['agreementSummary']}",
             "Why it may fit:\n"
@@ -947,8 +1177,16 @@ def success_payload(
     selected_model_id: str,
     image_count: int,
     per_image_matches: list[dict[str, Any]],
+    categories: list[dict[str, Any]] | None = None,
+    per_image_category_matches: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    calibration = calibration_summary(matches, per_image_matches)
+    category_matches = categories or matches
+    image_category_matches = per_image_category_matches or per_image_matches
+    calibration = calibration_summary(
+        category_matches,
+        image_category_matches,
+        "topCategories" if per_image_category_matches else "topMatches",
+    )
     return {
         "ok": True,
         "model": selected_model_id,
@@ -956,14 +1194,16 @@ def success_payload(
         "scoringMode": "raw-margin-calibrated",
         "displayTemperature": display_temperature_from_env(),
         "topMatches": matches,
+        "topCategories": category_matches,
         "perImageMatches": per_image_matches,
+        "perImageCategoryMatches": image_category_matches,
         "confidenceLabel": calibration["confidenceLabel"],
         "mixedEvidence": calibration["mixedEvidence"],
         "topMargin": calibration["topMargin"],
         "topRawMargin": calibration["topRawMargin"],
         "agreementSummary": calibration["agreementSummary"],
         "reviewText": build_review_text(
-            matches, image_count, per_image_matches, calibration
+            matches, image_count, per_image_matches, calibration, category_matches
         ),
     }
 
@@ -990,7 +1230,11 @@ def main() -> int:
             for image_path in image_paths:
                 validate_image_signature_for_smoke(image_path)
             matches = smoke_matches(max_matches)
+            categories = smoke_categories(max_matches)
             per_image_matches = smoke_per_image_matches(len(image_paths), max_matches)
+            per_image_category_matches = smoke_per_image_category_matches(
+                len(image_paths), max_matches
+            )
             emit_stage("running_classification")
             emit_stage("complete")
             print(
@@ -1000,6 +1244,8 @@ def main() -> int:
                         "smoke-validation-only",
                         len(image_paths),
                         per_image_matches,
+                        categories,
+                        per_image_category_matches,
                     ),
                     separators=(",", ":"),
                 ),
@@ -1008,11 +1254,23 @@ def main() -> int:
             return 0
 
         images = [load_image(image_path) for image_path in image_paths]
-        matches, per_image_matches = classify_images(images, max_matches)
+        (
+            matches,
+            per_image_matches,
+            categories,
+            per_image_category_matches,
+        ) = classify_images(images, max_matches)
         emit_stage("complete")
         print(
             json.dumps(
-                success_payload(matches, model_id(), len(images), per_image_matches),
+                success_payload(
+                    matches,
+                    model_id(),
+                    len(images),
+                    per_image_matches,
+                    categories,
+                    per_image_category_matches,
+                ),
                 separators=(",", ":"),
             ),
             flush=True,
