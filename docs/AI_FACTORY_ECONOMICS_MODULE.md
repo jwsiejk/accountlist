@@ -1,12 +1,16 @@
 # AI Factory Economics Module Plan
 
-## Phase 0 status
-This document is the Phase 0 architecture plan for a future local-only AI FinOps / AI Factory Economics module in Partner Hub. No UI, API routes, dependencies, migrations, or persistent storage are added in this phase.
+## Phase 1 status
+Phase 1 is implemented as a local-only static/mock feature shell in Partner Hub. The route, mock dashboard UI, feature-scoped components, feature-scoped mock data/types, navigation links, and documentation updates have been added without API routes, Ollama calls, NVIDIA telemetry calls, dependencies, migrations, database changes, prompt execution, or persistent storage.
+
+Phase 0 remains the source architecture plan for future phases. Phase 1 intentionally renders demo/mock values only, with visible metric classification labels on every dashboard metric.
 
 ## Repository discovery summary
 - Partner Hub is a Next.js App Router application under `ui/partner-hub` with route groups in `app/(routes)` and API route handlers in `app/api`.
+- Phase 1 adds the page at `ui/partner-hub/app/(routes)/ai-factory-economics/page.tsx` and delegates rendering to feature-scoped components under `ui/partner-hub/components/ai-factory-economics/`.
 - The app is served under a configurable base path that defaults to `/partner-hub`, so user-facing links should be written as application-relative paths such as `/ai-factory-economics` and will render beneath the base path at runtime.
 - Current pages use route-level `page.tsx` files that delegate most feature logic to feature folders under `components/<feature>` and `lib/<feature>`.
+- Phase 1 mock data and types live under `ui/partner-hub/lib/ai-factory-economics/`.
 - Styling uses Tailwind CSS utility classes, shared CSS variables in `styles/globals.css`, and reusable UI primitives in `components/ui`.
 - Existing local-AI patterns already proxy to local Ollama from API routes and return graceful JSON errors when the local service is unavailable.
 - Tests are currently package-script based: `npm run typecheck`, `npm run lint`, and a long `npm test` command that compiles selected TypeScript modules into `.tmp-tests` and runs Node's built-in test runner.
@@ -228,10 +232,45 @@ When `nvidia-smi` is missing, fails, times out, or returns unsupported fields:
 
 ## Phase roadmap
 ### Phase 1: Feature shell with static/mock dashboard only
-- Add `/ai-factory-economics` route behind an optional feature flag.
-- Build static dashboard cards with mock values.
-- Add local-only and measured-vs-estimated education copy.
-- No real Ollama or GPU calls yet.
+Status: **implemented**.
+
+- Added `/ai-factory-economics` route as an active Phase 1 shell. It is not feature-flag gated because this phase is static/mock only and needs to be directly accessible for local review.
+- Built static dashboard cards with mock values for selected model, time to first token, total latency, estimated tokens/sec, GPU utilization, GPU memory, GPU watts, GPU temperature, estimated tokens per watt, and estimated cost per run.
+- Added local-only notice explaining that no cloud services are required, Phase 1 uses mock data only, and Ollama plus NVIDIA telemetry arrive later.
+- Added setup/readiness and phase-status panels showing Ollama, NVIDIA telemetry, run history, Phase 1, Phase 2, Phase 3, and Phase 5 status.
+- Added a home-page card and left-nav link because existing Partner Hub conventions expose local demo modules from those surfaces when the route is active.
+- No real Ollama calls, `nvidia-smi` calls, API routes, telemetry collectors, prompt execution, persistent storage, database migrations, new frameworks, cloud dependencies, or package dependencies were added.
+
+Phase 1 files added:
+
+```text
+ui/partner-hub/app/(routes)/ai-factory-economics/page.tsx
+ui/partner-hub/components/ai-factory-economics/ai-factory-economics-tool.tsx
+ui/partner-hub/components/ai-factory-economics/executive-summary-cards.tsx
+ui/partner-hub/components/ai-factory-economics/metric-card.tsx
+ui/partner-hub/components/ai-factory-economics/metric-label.tsx
+ui/partner-hub/components/ai-factory-economics/readiness-panel.tsx
+ui/partner-hub/components/ai-factory-economics/phase-status-panel.tsx
+ui/partner-hub/lib/ai-factory-economics/types.ts
+ui/partner-hub/lib/ai-factory-economics/mock-data.ts
+```
+
+Phase 1 files updated:
+
+```text
+docs/AI_FACTORY_ECONOMICS_MODULE.md
+ui/partner-hub/docs/ai-factory-economics.md
+ui/partner-hub/app/page.tsx
+ui/partner-hub/components/left-nav.tsx
+```
+
+Open locally from `ui/partner-hub`:
+
+```bash
+npm run dev
+```
+
+Then visit `http://localhost:3000/partner-hub/ai-factory-economics` when using the default Partner Hub base path.
 
 ### Phase 2: Ollama health and model discovery
 - Add health and model API routes.
@@ -298,8 +337,8 @@ When `nvidia-smi` is missing, fails, times out, or returns unsupported fields:
 - Optional static screenshots or mock-data mode for presentations.
 
 ## Open questions
-- Should the route be visible by default or gated behind `NEXT_PUBLIC_ENABLE_AI_FACTORY_ECONOMICS` initially?
-- Should Phase 1 put the card on the home page immediately or keep the route unlinked until Phase 2?
-- Which default demo models should mock mode show?
-- What default electricity rate should be used for estimated cost per run, if any?
-- Should prompt history remain completely absent, or should users get an opt-in local-only browser setting later?
+- Future phases can decide whether to add `NEXT_PUBLIC_ENABLE_AI_FACTORY_ECONOMICS`; Phase 1 is visible by default because it is static/mock only.
+- Phase 1 includes home-page and left-nav entries because active Partner Hub tool routes are already discoverable through those surfaces.
+- The current mock selected model is `llama3.1:8b-instruct`; Phase 2 should replace or validate demo model choices through Ollama discovery when connected.
+- The current static energy-rate display assumption is `$0.16/kWh`; future phases should decide whether this becomes user-configurable.
+- Prompt history remains absent in Phase 1; future phases should keep any run-history work in memory first and continue excluding prompt content from stored summaries by default.

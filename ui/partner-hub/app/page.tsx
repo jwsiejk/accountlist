@@ -92,6 +92,11 @@ const toolCards = [
     href: "/tools/energy",
   },
   {
+    title: "AI Factory Economics",
+    description: "Preview local AI inference economics with clearly labeled static mock metrics.",
+    href: "/ai-factory-economics",
+  },
+  {
     title: "Office Schedule",
     description: "Browse offices and book time slots.",
     href: "/offices/schedule",
