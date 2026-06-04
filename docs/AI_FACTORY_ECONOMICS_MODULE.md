@@ -70,6 +70,60 @@ http://localhost:3000/partner-hub/ai-factory-economics
 
 Use the refresh buttons on the Ollama status and model discovery cards after starting Ollama or pulling a model.
 
+
+## Phase 3 status
+Phase 3 is implemented as a local-only Ollama prompt runner and streaming proxy in Partner Hub. The Phase 1 demo/mock economics dashboard remains visible, while users can now select or manually enter a local Ollama model, enter a prompt, submit it to the local Ollama `/api/generate` endpoint through the Partner Hub proxy, and see streamed response content in the UI.
+
+Phase 3 intentionally does **not** add official TTFT calculation, official tokens/sec calculation, real cost-per-run calculation, GPU telemetry, `nvidia-smi` calls, run history, persistent storage, database migrations, dependencies, cloud services, secrets, prompt persistence, or response persistence. Prompt and response content remain in request/browser memory for the active run only.
+
+Phase 3 files added:
+
+```text
+ui/partner-hub/app/api/ai-factory-economics/run/route.ts
+ui/partner-hub/components/ai-factory-economics/prompt-runner.tsx
+```
+
+Phase 3 files updated:
+
+```text
+ui/partner-hub/components/ai-factory-economics/ai-factory-economics-tool.tsx
+ui/partner-hub/components/ai-factory-economics/model-discovery-panel.tsx
+ui/partner-hub/components/ai-factory-economics/ollama-status-card.tsx
+ui/partner-hub/lib/ai-factory-economics/mock-data.ts
+ui/partner-hub/lib/ai-factory-economics/ollama.ts
+ui/partner-hub/lib/ai-factory-economics/ollama.test.ts
+ui/partner-hub/lib/ai-factory-economics/types.ts
+docs/AI_FACTORY_ECONOMICS_MODULE.md
+ui/partner-hub/docs/ai-factory-economics.md
+```
+
+Phase 3 runtime behavior:
+
+- `AI_FACTORY_OLLAMA_URL` configures the local Ollama base URL and still defaults to `http://127.0.0.1:11434`.
+- `/api/ai-factory-economics/run` accepts `POST` JSON with `model` and `prompt`, validates both fields, rejects empty prompts, rejects missing model names, enforces a prompt length limit, and calls local Ollama only.
+- The run route requests Ollama streaming with `stream: true` and relays response chunks as server-sent events to the browser.
+- Validation and pre-stream Ollama failures return graceful JSON errors without stack traces. Streaming-time failures emit safe stream error events.
+- The prompt runner supports discovered models from Phase 2, manual model entry when discovery is unavailable, idle/running/completed/failed/canceled state, reset/clear, and cancel through `AbortController`.
+- Streamed response content is labeled **Measured** for local runtime availability, not as measured economics.
+- Existing TTFT, tokens/sec, cost/run, and GPU dashboard cards remain **Demo/mock** and are not updated from live prompt runs in Phase 3.
+
+Local Phase 3 test flow:
+
+```bash
+cd ui/partner-hub
+ollama serve
+ollama pull llama3.2:3b
+npm run dev
+```
+
+Then open:
+
+```text
+http://localhost:3000/partner-hub/ai-factory-economics
+```
+
+Select a discovered model or enter one manually, enter a prompt, click **Run local prompt**, and verify the response streams into the prompt runner.
+
 ## Purpose
 The AI Factory Economics module should demonstrate the economics and operational signals of local AI inference using a laptop or workstation as the demo environment. It will combine local Ollama inference timing with local NVIDIA GPU telemetry to help users explain:
 
@@ -336,10 +390,13 @@ Status: **implemented**.
 - Does not execute prompts, stream responses, calculate TTFT, calculate real tokens/sec, call `nvidia-smi`, collect GPU telemetry, persist data, add dependencies, or call cloud services.
 
 ### Phase 3: Prompt runner and streaming proxy
-- Add prompt runner UI.
-- Add server-side run proxy to Ollama.
-- Stream response chunks where practical.
-- Add cancel/stop only if it remains simple and reliable.
+Status: **implemented**.
+
+- Added a prompt runner UI that uses discovered local models when available and supports manual model entry when discovery is unavailable.
+- Added a server-side run proxy to local Ollama at `/api/ai-factory-economics/run`.
+- Streams Ollama response chunks to the browser as server-sent events.
+- Supports cancel/stop through `AbortController` without adding persistence or run history.
+- Keeps official TTFT, tokens/sec, real cost/run, and GPU telemetry out of scope until later phases.
 
 ### Phase 4: TTFT, latency, token estimate, tokens/sec calculations
 - Add server-side run timing.
@@ -396,6 +453,6 @@ Status: **implemented**.
 ## Open questions
 - Future phases can decide whether to add `NEXT_PUBLIC_ENABLE_AI_FACTORY_ECONOMICS`; Phase 1 is visible by default because it is static/mock only.
 - Phase 1 includes home-page and left-nav entries because active Partner Hub tool routes are already discoverable through those surfaces.
-- The current mock selected model is `llama3.1:8b-instruct`; Phase 2 should replace or validate demo model choices through Ollama discovery when connected.
+- The current mock selected model is `llama3.1:8b-instruct`; discovered and manually entered Phase 3 runtime models are displayed separately from the demo/mock dashboard model.
 - The current static energy-rate display assumption is `$0.16/kWh`; future phases should decide whether this becomes user-configurable.
 - Prompt history remains absent in Phase 1; future phases should keep any run-history work in memory first and continue excluding prompt content from stored summaries by default.

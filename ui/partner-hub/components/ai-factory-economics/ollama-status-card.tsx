@@ -79,13 +79,13 @@ export function OllamaStatusCard() {
           </div>
           <div className="rounded-xl border border-border/60 bg-background p-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-foreground/50">NVIDIA telemetry</p>
-            <p className="mt-1 font-semibold text-foreground">Not connected in Phase 2</p>
+            <p className="mt-1 font-semibold text-foreground">Not connected in Phase 3</p>
           </div>
         </div>
 
         <p>
-          Phase 2 checks only health and local model discovery. It does not execute prompts, stream responses, calculate TTFT,
-          calculate tokens/sec from real runs, or collect GPU telemetry.
+          Phase 3 checks health, discovers local models, and can stream prompt responses. It does not calculate official TTFT,
+          calculate tokens/sec from real runs, estimate cost per run, or collect GPU telemetry.
         </p>
 
         <button
