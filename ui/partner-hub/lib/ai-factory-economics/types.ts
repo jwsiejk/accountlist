@@ -11,7 +11,7 @@ export type AiFactoryMetric = {
   tone?: MetricTone;
 };
 
-export type ReadinessStatus = "Planned" | "Not connected" | "Not persistent";
+export type ReadinessStatus = "Planned" | "Checked" | "Unavailable" | "Not connected" | "Not persistent";
 
 export type ReadinessItem = {
   title: string;
@@ -36,3 +36,60 @@ export type AiFactoryEconomicsMockDashboard = {
   readiness: ReadinessItem[];
   phases: PhaseStatus[];
 };
+
+export type AiFactorySafeError = {
+  code: string;
+  message: string;
+  detail?: string;
+};
+
+export type AiFactoryServiceStatus = "available" | "unavailable" | "not_connected";
+
+export type OllamaAvailability = {
+  status: AiFactoryServiceStatus;
+  reachable: boolean;
+  baseUrl: string;
+  timeoutMs: number;
+  classification: "Measured";
+  checkedAt: string;
+  error?: AiFactorySafeError;
+};
+
+export type AiFactoryNvidiaTelemetryStatus = {
+  status: "not_connected";
+  classification: "Demo/mock";
+  message: string;
+};
+
+export type AiFactoryHealthStatus = {
+  ok: boolean;
+  phase: "Phase 2";
+  ollama: OllamaAvailability;
+  demoModeAvailable: boolean;
+  nvidiaTelemetry: AiFactoryNvidiaTelemetryStatus;
+  promptExecution: "not_enabled";
+  streaming: "not_enabled";
+};
+
+export type AiFactoryModelDiscoverySuccess = {
+  ok: true;
+  phase: "Phase 2";
+  baseUrl: string;
+  timeoutMs: number;
+  classification: "Measured";
+  models: string[];
+  checkedAt: string;
+};
+
+export type AiFactoryModelDiscoveryFailure = {
+  ok: false;
+  phase: "Phase 2";
+  baseUrl: string;
+  timeoutMs: number;
+  classification: "Measured";
+  models: [];
+  checkedAt: string;
+  error: AiFactorySafeError;
+};
+
+export type AiFactoryModelDiscoveryResult = AiFactoryModelDiscoverySuccess | AiFactoryModelDiscoveryFailure;

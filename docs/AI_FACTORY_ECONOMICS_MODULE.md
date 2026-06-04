@@ -16,6 +16,60 @@ Phase 0 remains the source architecture plan for future phases. Phase 1 intentio
 - Tests are currently package-script based: `npm run typecheck`, `npm run lint`, and a long `npm test` command that compiles selected TypeScript modules into `.tmp-tests` and runs Node's built-in test runner.
 - Documentation conventions are Markdown files with practical sections in `ui/partner-hub/docs`; this canonical plan remains at `docs/AI_FACTORY_ECONOMICS_MODULE.md`, with a Partner Hub docs pointer maintained at `ui/partner-hub/docs/ai-factory-economics.md` so the module is discoverable from the existing app docs area.
 
+## Phase 2 status
+Phase 2 is implemented as local-only Ollama health and model discovery in Partner Hub. The Phase 1 demo/mock economics dashboard remains visible, while the page now calls feature-scoped API routes that check the configured local Ollama service and discover model names from `/api/tags`.
+
+Phase 2 intentionally does **not** add prompt execution, streaming, TTFT calculation, real tokens/sec calculation, `nvidia-smi`, NVIDIA telemetry, run history, persistent storage, database migrations, dependencies, cloud services, secrets, or external APIs.
+
+Phase 2 files added:
+
+```text
+ui/partner-hub/app/api/ai-factory-economics/health/route.ts
+ui/partner-hub/app/api/ai-factory-economics/models/route.ts
+ui/partner-hub/components/ai-factory-economics/ollama-status-card.tsx
+ui/partner-hub/components/ai-factory-economics/model-discovery-panel.tsx
+ui/partner-hub/lib/ai-factory-economics/ollama.ts
+ui/partner-hub/lib/ai-factory-economics/ollama.test.ts
+```
+
+Phase 2 files updated:
+
+```text
+ui/partner-hub/components/ai-factory-economics/ai-factory-economics-tool.tsx
+ui/partner-hub/lib/ai-factory-economics/mock-data.ts
+ui/partner-hub/lib/ai-factory-economics/types.ts
+ui/partner-hub/package.json (test/typecheck script maintenance and AI Factory helper test inclusion)
+docs/AI_FACTORY_ECONOMICS_MODULE.md
+ui/partner-hub/docs/ai-factory-economics.md
+```
+
+Phase 2 runtime behavior:
+
+- `AI_FACTORY_OLLAMA_URL` configures the local Ollama base URL.
+- The default local Ollama URL is `http://127.0.0.1:11434`.
+- `/api/ai-factory-economics/health` performs a short-timeout local Ollama check and returns clean JSON with demo-mode availability and a Phase 2 NVIDIA telemetry `not_connected` status.
+- `/api/ai-factory-economics/models` performs a short-timeout local Ollama `/api/tags` call and returns normalized model names.
+- Both routes return graceful JSON errors without stack traces when Ollama is unavailable or returns unexpected data.
+- Live Ollama health and discovered model names are labeled **Measured**.
+- Demo dashboard values and fallback model names remain labeled **Demo/mock** or **Configured**.
+
+Local Phase 2 test flow:
+
+```bash
+cd ui/partner-hub
+ollama serve
+ollama pull llama3.2:3b
+npm run dev
+```
+
+Then open:
+
+```text
+http://localhost:3000/partner-hub/ai-factory-economics
+```
+
+Use the refresh buttons on the Ollama status and model discovery cards after starting Ollama or pulling a model.
+
 ## Purpose
 The AI Factory Economics module should demonstrate the economics and operational signals of local AI inference using a laptop or workstation as the demo environment. It will combine local Ollama inference timing with local NVIDIA GPU telemetry to help users explain:
 
@@ -273,10 +327,13 @@ npm run dev
 Then visit `http://localhost:3000/partner-hub/ai-factory-economics` when using the default Partner Hub base path.
 
 ### Phase 2: Ollama health and model discovery
-- Add health and model API routes.
-- Detect local Ollama availability.
-- Populate model selector from `/api/tags`.
-- Keep demo mode fallback.
+Status: **implemented**.
+
+- Added local-only health and model API routes.
+- Detects configured local Ollama availability with `AI_FACTORY_OLLAMA_URL` defaulting to `http://127.0.0.1:11434`.
+- Discovers local model names from Ollama `/api/tags` and displays them as read-only measured values.
+- Keeps demo mode fallback and all Phase 1 demo/mock dashboard values visible.
+- Does not execute prompts, stream responses, calculate TTFT, calculate real tokens/sec, call `nvidia-smi`, collect GPU telemetry, persist data, add dependencies, or call cloud services.
 
 ### Phase 3: Prompt runner and streaming proxy
 - Add prompt runner UI.
