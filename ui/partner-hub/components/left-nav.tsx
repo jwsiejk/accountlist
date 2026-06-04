@@ -15,6 +15,7 @@ export function LeftNav() {
     { name: "Energy Tool", href: "/tools/energy" },
     { name: "AI Workload Mapper", href: "/tools/workload-mapper" },
     { name: "Skin Image Review", href: "/skin-review" },
+    { name: "AI Factory Economics", href: "/ai-factory-economics" },
     ...(aiInterviewEnabled ? [{ name: "AI Interview", href: "/tools/interview" }] : []),
   ];
   const links = [
