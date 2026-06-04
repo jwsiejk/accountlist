@@ -3,14 +3,14 @@ import type { AiFactoryEconomicsMockDashboard } from "./types";
 export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = {
   scenarioName: "Local workstation inference economics demo",
   summary:
-    "A static Phase 1 dashboard that previews how local model latency, GPU telemetry, throughput, power, and per-run cost will be explained in later phases.",
+    "A Phase 2 dashboard that keeps demo/mock economics visible while checking local Ollama health and model discovery without running prompts.",
   assumptions: [
     {
       id: "energy-rate",
       label: "Energy rate assumption",
       value: "$0.16/kWh",
       classification: "Configured",
-      description: "Static display assumption only; not used by a live collector in Phase 1.",
+      description: "Static display assumption only; not used by a live collector in Phase 2.",
       tone: "info",
     },
     {
@@ -18,7 +18,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = 
       label: "Demo mode",
       value: "On",
       classification: "Configured",
-      description: "Phase 1 intentionally renders without local services, storage, or hardware probes.",
+      description: "Phase 2 renders with demo/mock metrics plus optional local Ollama health and model discovery.",
       tone: "good",
     },
   ],
@@ -28,7 +28,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = 
       label: "Selected model",
       value: "llama3.1:8b-instruct",
       classification: "Demo/mock",
-      description: "Placeholder model name; no Ollama discovery or local model validation runs in Phase 1.",
+      description: "Placeholder model name for demo fallback; discovered local Ollama models are shown separately as Measured in Phase 2.",
       tone: "info",
     },
     {
@@ -36,7 +36,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = 
       label: "Time to first token",
       value: "420 ms",
       classification: "Demo/mock",
-      description: "Mock first-token timing for the dashboard shell; streaming is planned for a later phase.",
+      description: "Mock first-token timing for the dashboard shell; Phase 2 does not stream responses or calculate TTFT.",
       tone: "good",
     },
     {
@@ -44,7 +44,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = 
       label: "Total latency",
       value: "2.8 s",
       classification: "Demo/mock",
-      description: "Mock end-to-end run duration; no real prompt execution happens in Phase 1.",
+      description: "Mock end-to-end run duration; no real prompt execution happens in Phase 2.",
       tone: "good",
     },
     {
@@ -60,7 +60,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = 
       label: "GPU utilization",
       value: "68%",
       classification: "Demo/mock",
-      description: "Mock GPU utilization; Phase 1 does not call nvidia-smi or sample hardware telemetry.",
+      description: "Mock GPU utilization; Phase 2 does not call nvidia-smi or sample hardware telemetry.",
       tone: "info",
     },
     {
@@ -76,7 +76,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = 
       label: "GPU watts",
       value: "146 W",
       classification: "Demo/mock",
-      description: "Mock power draw; no local process or hardware probe is used in Phase 1.",
+      description: "Mock power draw; no local process or hardware probe is used in Phase 2.",
       tone: "warning",
     },
     {
@@ -100,43 +100,43 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = 
       label: "Estimated cost per run",
       value: "$0.000018",
       classification: "Demo/mock",
-      description: "Mock economics preview using a static energy-rate assumption; no persisted cost model exists in Phase 1.",
+      description: "Mock economics preview using a static energy-rate assumption; no persisted cost model exists in Phase 2.",
       tone: "good",
     },
   ],
   readiness: [
     {
       title: "Ollama",
-      status: "Planned",
-      classification: "Demo/mock",
-      description: "Planned for Phase 2 health checks and model discovery; not connected in Phase 1.",
+      status: "Checked",
+      classification: "Measured",
+      description: "Phase 2 checks local Ollama health and /api/tags model discovery with graceful fallback when unavailable.",
     },
     {
       title: "NVIDIA telemetry",
       status: "Planned",
       classification: "Demo/mock",
-      description: "Planned for Phase 5; this shell does not call nvidia-smi.",
+      description: "Planned for Phase 5; Phase 2 does not call nvidia-smi.",
     },
     {
       title: "Run history",
       status: "Not persistent",
       classification: "Demo/mock",
-      description: "Planned as in-memory summaries first; no database or persistent storage is added in Phase 1.",
+      description: "Planned as in-memory summaries first; no database or persistent storage is added in Phase 2.",
     },
   ],
   phases: [
     {
       phase: "Phase 1",
       title: "Static shell",
-      status: "Active",
+      status: "Complete",
       description: "Dashboard shell, local-only copy, mock metrics, readiness guidance, and documentation updates.",
-      active: true,
     },
     {
       phase: "Phase 2",
       title: "Ollama health/model discovery",
-      status: "Next",
-      description: "Add local health checks and model list discovery while retaining demo fallback behavior.",
+      status: "Active",
+      description: "Local health checks and model list discovery while retaining demo fallback behavior.",
+      active: true,
     },
     {
       phase: "Phase 3",

@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { aiFactoryEconomicsMockDashboard } from "@/lib/ai-factory-economics/mock-data";
 import { ExecutiveSummaryCards } from "./executive-summary-cards";
 import { MetricCard } from "./metric-card";
+import { ModelDiscoveryPanel } from "./model-discovery-panel";
+import { OllamaStatusCard } from "./ollama-status-card";
 import { PhaseStatusPanel } from "./phase-status-panel";
 import { ReadinessPanel } from "./readiness-panel";
 
@@ -17,7 +19,7 @@ export function AiFactoryEconomicsTool() {
         <div className="relative grid gap-8 lg:grid-cols-[1.25fr_0.75fr] lg:items-end">
           <div className="space-y-5">
             <div className="inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
-              Local-only Phase 1
+              Local-only Phase 2
             </div>
             <div className="space-y-3">
               <h1 className="text-3xl font-semibold tracking-tight md:text-5xl">AI Factory Economics</h1>
@@ -31,13 +33,13 @@ export function AiFactoryEconomicsTool() {
               </div>
               <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
                 <Gauge className="mb-3 h-5 w-5 text-blue-200" aria-hidden />
-                <p className="font-semibold">Mock metrics only</p>
-                <p className="mt-1 text-white/65">No real telemetry, prompt execution, or persistence yet.</p>
+                <p className="font-semibold">Demo metrics remain</p>
+                <p className="mt-1 text-white/65">Dashboard economics remain demo/mock while health/models are measured locally.</p>
               </div>
               <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
                 <Cpu className="mb-3 h-5 w-5 text-amber-200" aria-hidden />
-                <p className="font-semibold">Hardware later</p>
-                <p className="mt-1 text-white/65">Ollama and NVIDIA telemetry arrive in future phases.</p>
+                <p className="font-semibold">Prompt runs later</p>
+                <p className="mt-1 text-white/65">No prompt execution, streaming, TTFT, or GPU telemetry is added in Phase 2.</p>
               </div>
             </div>
           </div>
@@ -50,7 +52,7 @@ export function AiFactoryEconomicsTool() {
             </CardHeader>
             <CardContent className="space-y-3 text-sm leading-relaxed text-white/75">
               <p>This is a local demo module. No cloud services, accounts, secrets, or external APIs are required.</p>
-              <p>Phase 1 uses static mock data only. Ollama connectivity and NVIDIA telemetry are planned for later phases.</p>
+              <p>Phase 2 adds local Ollama health and model discovery only. Demo/mock dashboard values remain visible, and NVIDIA telemetry is still not connected.</p>
             </CardContent>
           </Card>
         </div>
@@ -63,6 +65,11 @@ export function AiFactoryEconomicsTool() {
       </section>
 
       <ExecutiveSummaryCards metrics={dashboard.metrics} />
+
+      <section className="grid gap-4 lg:grid-cols-2">
+        <OllamaStatusCard />
+        <ModelDiscoveryPanel />
+      </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
         <ReadinessPanel items={dashboard.readiness} />
