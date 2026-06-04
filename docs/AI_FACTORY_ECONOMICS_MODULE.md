@@ -10,7 +10,7 @@ This document is the Phase 0 architecture plan for a future local-only AI FinOps
 - Styling uses Tailwind CSS utility classes, shared CSS variables in `styles/globals.css`, and reusable UI primitives in `components/ui`.
 - Existing local-AI patterns already proxy to local Ollama from API routes and return graceful JSON errors when the local service is unavailable.
 - Tests are currently package-script based: `npm run typecheck`, `npm run lint`, and a long `npm test` command that compiles selected TypeScript modules into `.tmp-tests` and runs Node's built-in test runner.
-- Documentation conventions are Markdown files with practical sections in `ui/partner-hub/docs`; this file is placed at the requested repository path `docs/AI_FACTORY_ECONOMICS_MODULE.md` and should be mirrored or linked from `ui/partner-hub/docs` only if a future docs-index convention is added.
+- Documentation conventions are Markdown files with practical sections in `ui/partner-hub/docs`; this canonical plan remains at `docs/AI_FACTORY_ECONOMICS_MODULE.md`, with a Partner Hub docs pointer maintained at `ui/partner-hub/docs/ai-factory-economics.md` so the module is discoverable from the existing app docs area.
 
 ## Purpose
 The AI Factory Economics module should demonstrate the economics and operational signals of local AI inference using a laptop or workstation as the demo environment. It will combine local Ollama inference timing with local NVIDIA GPU telemetry to help users explain:
