@@ -3,14 +3,14 @@ import type { AiFactoryEconomicsMockDashboard } from "./types";
 export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = {
   scenarioName: "Local workstation inference economics demo",
   summary:
-    "A Phase 2 dashboard that keeps demo/mock economics visible while checking local Ollama health and model discovery without running prompts.",
+    "A Phase 3 dashboard that keeps demo/mock economics visible while running local Ollama prompts through a streaming proxy.",
   assumptions: [
     {
       id: "energy-rate",
       label: "Energy rate assumption",
       value: "$0.16/kWh",
       classification: "Configured",
-      description: "Static display assumption only; not used by a live collector in Phase 2.",
+      description: "Static display assumption only; not used by a live collector in Phase 3.",
       tone: "info",
     },
     {
@@ -18,7 +18,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = 
       label: "Demo mode",
       value: "On",
       classification: "Configured",
-      description: "Phase 2 renders with demo/mock metrics plus optional local Ollama health and model discovery.",
+      description: "Phase 3 renders demo/mock economics plus optional local Ollama health, model discovery, and prompt streaming.",
       tone: "good",
     },
   ],
@@ -28,7 +28,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = 
       label: "Selected model",
       value: "llama3.1:8b-instruct",
       classification: "Demo/mock",
-      description: "Placeholder model name for demo fallback; discovered local Ollama models are shown separately as Measured in Phase 2.",
+      description: "Placeholder model name for demo fallback; discovered local Ollama models and prompt streams are shown separately as Measured in Phase 3.",
       tone: "info",
     },
     {
@@ -36,7 +36,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = 
       label: "Time to first token",
       value: "420 ms",
       classification: "Demo/mock",
-      description: "Mock first-token timing for the dashboard shell; Phase 2 does not stream responses or calculate TTFT.",
+      description: "Mock first-token timing for the dashboard shell; Phase 3 streams responses but does not calculate official TTFT.",
       tone: "good",
     },
     {
@@ -44,7 +44,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = 
       label: "Total latency",
       value: "2.8 s",
       classification: "Demo/mock",
-      description: "Mock end-to-end run duration; no real prompt execution happens in Phase 2.",
+      description: "Mock end-to-end economics placeholder; Phase 3 does not calculate official total latency metrics from runs.",
       tone: "good",
     },
     {
@@ -60,7 +60,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = 
       label: "GPU utilization",
       value: "68%",
       classification: "Demo/mock",
-      description: "Mock GPU utilization; Phase 2 does not call nvidia-smi or sample hardware telemetry.",
+      description: "Mock GPU utilization; Phase 3 does not call nvidia-smi or sample hardware telemetry.",
       tone: "info",
     },
     {
@@ -76,7 +76,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = 
       label: "GPU watts",
       value: "146 W",
       classification: "Demo/mock",
-      description: "Mock power draw; no local process or hardware probe is used in Phase 2.",
+      description: "Mock power draw; no local process or hardware probe is used in Phase 3.",
       tone: "warning",
     },
     {
@@ -100,7 +100,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = 
       label: "Estimated cost per run",
       value: "$0.000018",
       classification: "Demo/mock",
-      description: "Mock economics preview using a static energy-rate assumption; no persisted cost model exists in Phase 2.",
+      description: "Mock economics preview using a static energy-rate assumption; no persisted cost model exists in Phase 3.",
       tone: "good",
     },
   ],
@@ -109,19 +109,19 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = 
       title: "Ollama",
       status: "Checked",
       classification: "Measured",
-      description: "Phase 2 checks local Ollama health and /api/tags model discovery with graceful fallback when unavailable.",
+      description: "Phase 3 checks local Ollama health, discovers /api/tags models, and runs local prompt streams with graceful fallback when unavailable.",
     },
     {
       title: "NVIDIA telemetry",
       status: "Planned",
       classification: "Demo/mock",
-      description: "Planned for Phase 5; Phase 2 does not call nvidia-smi.",
+      description: "Planned for Phase 5; Phase 3 does not call nvidia-smi.",
     },
     {
       title: "Run history",
       status: "Not persistent",
       classification: "Demo/mock",
-      description: "Planned as in-memory summaries first; no database or persistent storage is added in Phase 2.",
+      description: "Planned as in-memory summaries first; no database or persistent storage is added in Phase 3.",
     },
   ],
   phases: [
@@ -132,17 +132,17 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = 
       description: "Dashboard shell, local-only copy, mock metrics, readiness guidance, and documentation updates.",
     },
     {
-      phase: "Phase 2",
+      phase: "Phase 3",
       title: "Ollama health/model discovery",
-      status: "Active",
+      status: "Complete",
       description: "Local health checks and model list discovery while retaining demo fallback behavior.",
-      active: true,
     },
     {
       phase: "Phase 3",
       title: "Prompt runner",
-      status: "Later",
-      description: "Introduce prompt execution and latency timing without persisting prompt content.",
+      status: "Active",
+      description: "Run local Ollama prompts and stream responses without persisting prompt or response content; official metrics wait for Phase 4.",
+      active: true,
     },
     {
       phase: "Phase 5",

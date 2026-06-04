@@ -63,17 +63,17 @@ export type AiFactoryNvidiaTelemetryStatus = {
 
 export type AiFactoryHealthStatus = {
   ok: boolean;
-  phase: "Phase 2";
+  phase: "Phase 3";
   ollama: OllamaAvailability;
   demoModeAvailable: boolean;
   nvidiaTelemetry: AiFactoryNvidiaTelemetryStatus;
-  promptExecution: "not_enabled";
-  streaming: "not_enabled";
+  promptExecution: "enabled";
+  streaming: "enabled";
 };
 
 export type AiFactoryModelDiscoverySuccess = {
   ok: true;
-  phase: "Phase 2";
+  phase: "Phase 3";
   baseUrl: string;
   timeoutMs: number;
   classification: "Measured";
@@ -83,7 +83,7 @@ export type AiFactoryModelDiscoverySuccess = {
 
 export type AiFactoryModelDiscoveryFailure = {
   ok: false;
-  phase: "Phase 2";
+  phase: "Phase 3";
   baseUrl: string;
   timeoutMs: number;
   classification: "Measured";
@@ -93,3 +93,45 @@ export type AiFactoryModelDiscoveryFailure = {
 };
 
 export type AiFactoryModelDiscoveryResult = AiFactoryModelDiscoverySuccess | AiFactoryModelDiscoveryFailure;
+
+export type AiFactoryRunStatus = "idle" | "running" | "completed" | "failed" | "canceled";
+
+export type AiFactoryRunRequest = {
+  model: string;
+  prompt: string;
+};
+
+export type AiFactoryRunValidationSuccess = {
+  ok: true;
+  request: AiFactoryRunRequest;
+};
+
+export type AiFactoryRunValidationFailure = {
+  ok: false;
+  error: AiFactorySafeError;
+  status: number;
+};
+
+export type AiFactoryRunValidationResult = AiFactoryRunValidationSuccess | AiFactoryRunValidationFailure;
+
+export type AiFactoryRunErrorCode =
+  | "INVALID_JSON"
+  | "MODEL_REQUIRED"
+  | "MODEL_TOO_LONG"
+  | "MODEL_INVALID"
+  | "PROMPT_REQUIRED"
+  | "PROMPT_TOO_LONG"
+  | "OLLAMA_TIMEOUT"
+  | "OLLAMA_UNAVAILABLE"
+  | "OLLAMA_BAD_RESPONSE";
+
+export type AiFactoryRunError = AiFactorySafeError & {
+  code: AiFactoryRunErrorCode;
+};
+
+export type AiFactoryRunStreamEvent = "meta" | "chunk" | "done" | "error";
+
+export type AiFactoryRunStreamChunk = {
+  response: string;
+  done: boolean;
+};
