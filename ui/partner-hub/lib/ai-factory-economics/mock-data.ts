@@ -66,9 +66,9 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = 
     {
       id: "gpu-memory",
       label: "GPU memory",
-      value: "9.7 / 16 GB",
+      value: "4.8 / 6 GB",
       classification: "Demo/mock",
-      description: "Mock memory pressure preview for future NVIDIA telemetry panels.",
+      description: "Mock memory pressure preview aligned to the local 6 GB laptop GPU demo target until live telemetry replaces it.",
       tone: "info",
     },
     {
