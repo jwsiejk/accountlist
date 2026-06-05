@@ -41,6 +41,7 @@ ui/partner-hub/components/ai-factory-economics/prompt-runner.tsx
 ui/partner-hub/lib/ai-factory-economics/mock-data.ts
 ui/partner-hub/lib/ai-factory-economics/ollama.ts
 ui/partner-hub/lib/ai-factory-economics/types.ts
+ui/partner-hub/lib/ai-factory-economics/mock-data.ts
 ui/partner-hub/package.json
 docs/AI_FACTORY_ECONOMICS_MODULE.md
 ui/partner-hub/docs/ai-factory-economics.md
@@ -169,6 +170,7 @@ ui/partner-hub/components/ai-factory-economics/ai-factory-economics-tool.tsx
 ui/partner-hub/lib/ai-factory-economics/mock-data.ts
 ui/partner-hub/lib/ai-factory-economics/ollama.ts
 ui/partner-hub/lib/ai-factory-economics/types.ts
+ui/partner-hub/lib/ai-factory-economics/mock-data.ts
 ui/partner-hub/package.json
 docs/AI_FACTORY_ECONOMICS_MODULE.md
 ui/partner-hub/docs/ai-factory-economics.md
@@ -224,6 +226,103 @@ npm run dev
 Then open `http://localhost:3000/partner-hub/ai-factory-economics`, refresh GPU telemetry, and confirm utilization, memory, watts, temperature, GPU index, and sample timestamp appear when available.
 
 Verification commands:
+
+```bash
+npm run typecheck
+npm test
+npm run lint
+```
+
+## Phase 6: in-memory run history and model comparison
+
+Phase 6 adds sanitized browser-memory run history and a derived model comparison table to `/partner-hub/ai-factory-economics`.
+
+### Files added
+
+```text
+ui/partner-hub/lib/ai-factory-economics/history.ts
+ui/partner-hub/lib/ai-factory-economics/history.test.ts
+ui/partner-hub/components/ai-factory-economics/run-history-panel.tsx
+ui/partner-hub/components/ai-factory-economics/model-comparison-table.tsx
+```
+
+### Files updated
+
+```text
+ui/partner-hub/components/ai-factory-economics/ai-factory-economics-tool.tsx
+ui/partner-hub/components/ai-factory-economics/prompt-runner.tsx
+ui/partner-hub/lib/ai-factory-economics/types.ts
+ui/partner-hub/lib/ai-factory-economics/mock-data.ts
+ui/partner-hub/package.json
+docs/AI_FACTORY_ECONOMICS_MODULE.md
+ui/partner-hub/docs/ai-factory-economics.md
+```
+
+### Runtime behavior
+
+- Recent run history lives in React state in the AI Factory Economics page only.
+- History is limited to the most recent 20 sanitized summaries.
+- History disappears on page reload.
+- A **Clear in-memory history** button clears the current page-session history.
+- Partner Hub does not use localStorage, sessionStorage, IndexedDB, a database, migrations, backend storage, cloud services, or secrets for Phase 6 history.
+- Prompt content is not stored in history.
+- Response content is not stored in history.
+- Raw stream chunks, raw request bodies, raw filesystem paths, and raw stack traces are not stored in history.
+
+### Run history fields
+
+Each sanitized summary may include safe metadata only:
+
+- id
+- started timestamp
+- completed timestamp
+- model
+- run status
+- measured TTFT
+- measured total latency
+- measured generation duration
+- estimated prompt tokens
+- estimated response tokens
+- derived estimated tokens/sec
+- metric classification labels
+- a note that prompt and response content are excluded
+
+GPU snapshot summary support remains a typed future extension in Phase 6. If a GPU snapshot is associated with a run in a future phase, it must be labeled as sampled snapshot telemetry and not exact per-run or per-process attribution.
+
+### Model comparison
+
+The model comparison table aggregates the in-memory sanitized history by model. It shows run count, completed count, failed/canceled/incomplete counts, average TTFT, average total latency, average estimated tokens/sec, best estimated tokens/sec, fastest TTFT, and most recent run time.
+
+All comparison values are labeled **Derived**. Missing metrics are excluded from averages and are never treated as zero; unavailable aggregate values display as **Unavailable**.
+
+### Metric labels
+
+- TTFT: **Measured**
+- Total latency: **Measured**
+- Generation duration: **Measured**
+- Prompt tokens: **Estimated**
+- Response tokens: **Estimated**
+- Tokens/sec: **Derived**
+- Model comparison aggregates: **Derived**
+- GPU telemetry: **Measured** snapshot telemetry only, not exact per-run attribution
+- Demo dashboard economics: **Demo/mock**
+
+### Local manual test flow
+
+1. Start Ollama: `ollama serve`.
+2. Pull at least one local model: `ollama pull llama3.2:3b`.
+3. Run Partner Hub from `ui/partner-hub`: `npm run dev`.
+4. Open `http://localhost:3000/partner-hub/ai-factory-economics`.
+5. Run several prompts across one or more models.
+6. Confirm recent run summaries appear.
+7. Confirm model comparison aggregates appear.
+8. Confirm prompt and response content are not stored in history.
+9. Confirm **Clear in-memory history** works.
+10. Refresh the page and confirm the in-memory history disappears.
+
+### Verification commands
+
+Run from `ui/partner-hub`:
 
 ```bash
 npm run typecheck

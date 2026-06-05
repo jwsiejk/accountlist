@@ -1,11 +1,13 @@
 # AI Factory Economics Module Plan
 
 ## Phase 1 status
+
 Phase 1 is implemented as a local-only static/mock feature shell in Partner Hub. The route, mock dashboard UI, feature-scoped components, feature-scoped mock data/types, navigation links, and documentation updates have been added without API routes, Ollama calls, NVIDIA telemetry calls, dependencies, migrations, database changes, prompt execution, or persistent storage.
 
 Phase 0 remains the source architecture plan for future phases. Phase 1 intentionally renders demo/mock values only, with visible metric classification labels on every dashboard metric.
 
 ## Repository discovery summary
+
 - Partner Hub is a Next.js App Router application under `ui/partner-hub` with route groups in `app/(routes)` and API route handlers in `app/api`.
 - Phase 1 adds the page at `ui/partner-hub/app/(routes)/ai-factory-economics/page.tsx` and delegates rendering to feature-scoped components under `ui/partner-hub/components/ai-factory-economics/`.
 - The app is served under a configurable base path that defaults to `/partner-hub`, so user-facing links should be written as application-relative paths such as `/ai-factory-economics` and will render beneath the base path at runtime.
@@ -17,6 +19,7 @@ Phase 0 remains the source architecture plan for future phases. Phase 1 intentio
 - Documentation conventions are Markdown files with practical sections in `ui/partner-hub/docs`; this canonical plan remains at `docs/AI_FACTORY_ECONOMICS_MODULE.md`, with a Partner Hub docs pointer maintained at `ui/partner-hub/docs/ai-factory-economics.md` so the module is discoverable from the existing app docs area.
 
 ## Phase 2 status
+
 Phase 2 is implemented as local-only Ollama health and model discovery in Partner Hub. The Phase 1 demo/mock economics dashboard remains visible, while the page now calls feature-scoped API routes that check the configured local Ollama service and discover model names from `/api/tags`.
 
 Phase 2 intentionally does **not** add prompt execution, streaming, TTFT calculation, real tokens/sec calculation, `nvidia-smi`, NVIDIA telemetry, run history, persistent storage, database migrations, dependencies, cloud services, secrets, or external APIs.
@@ -38,6 +41,7 @@ Phase 2 files updated:
 ui/partner-hub/components/ai-factory-economics/ai-factory-economics-tool.tsx
 ui/partner-hub/lib/ai-factory-economics/mock-data.ts
 ui/partner-hub/lib/ai-factory-economics/types.ts
+ui/partner-hub/lib/ai-factory-economics/mock-data.ts
 ui/partner-hub/package.json (test/typecheck script maintenance and AI Factory helper test inclusion)
 docs/AI_FACTORY_ECONOMICS_MODULE.md
 ui/partner-hub/docs/ai-factory-economics.md
@@ -70,8 +74,8 @@ http://localhost:3000/partner-hub/ai-factory-economics
 
 Use the refresh buttons on the Ollama status and model discovery cards after starting Ollama or pulling a model.
 
-
 ## Phase 3 status
+
 Phase 3 is implemented as a local-only Ollama prompt runner and streaming proxy in Partner Hub. The Phase 1 demo/mock economics dashboard remains visible, while users can now select or manually enter a local Ollama model, enter a prompt, submit it to the local Ollama `/api/generate` endpoint through the Partner Hub proxy, and see streamed response content in the UI.
 
 Phase 3 intentionally does **not** add official TTFT calculation, official tokens/sec calculation, real cost-per-run calculation, GPU telemetry, `nvidia-smi` calls, run history, persistent storage, database migrations, dependencies, cloud services, secrets, prompt persistence, or response persistence. Prompt and response content remain in request/browser memory for the active run only.
@@ -125,6 +129,7 @@ http://localhost:3000/partner-hub/ai-factory-economics
 Select a discovered model or enter one manually, enter a prompt, click **Run local prompt**, and verify the response streams into the prompt runner.
 
 ## Purpose
+
 The AI Factory Economics module should demonstrate the economics and operational signals of local AI inference using a laptop or workstation as the demo environment. It will combine local Ollama inference timing with local NVIDIA GPU telemetry to help users explain:
 
 - How model choice affects latency, throughput, power, and estimated per-run cost.
@@ -135,6 +140,7 @@ The AI Factory Economics module should demonstrate the economics and operational
 The module is not intended to become a cloud SaaS metering product. It is a local demo and education asset.
 
 ## Why this belongs in Partner Hub
+
 Partner Hub already contains practical enablement tools, local demo utilities, and infrastructure-oriented explainers. AI Factory Economics fits because it can:
 
 - Turn abstract AI infrastructure economics into a runnable local demonstration.
@@ -143,6 +149,7 @@ Partner Hub already contains practical enablement tools, local demo utilities, a
 - Complement existing infrastructure learning modules by showing inference economics from the application, model, and workstation telemetry layers.
 
 ## Local-only architecture
+
 The smallest safe architecture is:
 
 ```text
@@ -165,6 +172,7 @@ Design rules:
 - Clearly label every metric as **Measured**, **Estimated**, **Configured**, **Derived**, or **Demo/mock**.
 
 ## Proposed route
+
 Use `/ai-factory-economics`.
 
 Rationale:
@@ -175,6 +183,7 @@ Rationale:
 - It can later be optionally gated by `NEXT_PUBLIC_ENABLE_AI_FACTORY_ECONOMICS=true`, following the existing feature-flag pattern used by larger local demo modules.
 
 ## Proposed folder and module structure
+
 Planned files for future phases:
 
 ```text
@@ -204,14 +213,15 @@ ui/partner-hub/lib/ai-factory-economics/*.test.ts
 Keep the first implementation small. Avoid cross-feature coupling except for shared UI primitives.
 
 ## Planned API endpoints
+
 All endpoints should be local-only and should fail closed with clear JSON messages.
 
-| Endpoint | Method | Purpose | External dependency |
-| --- | --- | --- | --- |
-| `/api/ai-factory-economics/health` | `GET` | Report module readiness, Ollama reachability, mock-mode status, and optional GPU telemetry availability. | Ollama and `nvidia-smi`, both optional |
-| `/api/ai-factory-economics/models` | `GET` | Return locally available Ollama models. | Ollama `/api/tags` |
-| `/api/ai-factory-economics/run` | `POST` | Run one prompt against selected local model, optionally streaming, and return timing plus token estimates. | Ollama `/api/generate` or `/api/chat` |
-| `/api/ai-factory-economics/gpu` | `GET` | Return current NVIDIA telemetry snapshot. | `nvidia-smi` |
+| Endpoint                           | Method | Purpose                                                                                                    | External dependency                    |
+| ---------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `/api/ai-factory-economics/health` | `GET`  | Report module readiness, Ollama reachability, mock-mode status, and optional GPU telemetry availability.   | Ollama and `nvidia-smi`, both optional |
+| `/api/ai-factory-economics/models` | `GET`  | Return locally available Ollama models.                                                                    | Ollama `/api/tags`                     |
+| `/api/ai-factory-economics/run`    | `POST` | Run one prompt against selected local model, optionally streaming, and return timing plus token estimates. | Ollama `/api/generate` or `/api/chat`  |
+| `/api/ai-factory-economics/gpu`    | `GET`  | Return current NVIDIA telemetry snapshot.                                                                  | `nvidia-smi`                           |
 
 Future endpoint candidates:
 
@@ -219,6 +229,7 @@ Future endpoint candidates:
 - `/api/ai-factory-economics/export` only after run history exists and excludes prompt content by default.
 
 ## Planned UI components
+
 - **Feature shell:** Page header, local-only notice, setup checklist, and status summary.
 - **Executive summary cards:** Selected model, run status, TTFT, total latency, tokens/sec, GPU watts, estimated tokens per watt, estimated cost per run.
 - **Ollama status card:** Reachability, configured base URL, model count, selected model, last error.
@@ -232,27 +243,29 @@ Future endpoint candidates:
 - **Recommendation card:** Human-readable interpretation for executive demos, clearly labeled as generated from local measurements and estimates.
 
 ## Planned metric definitions
-| Metric | Definition | Source label |
-| --- | --- | --- |
-| Ollama health | Whether the configured local Ollama base URL responds within timeout. | Measured |
-| Available models | Models returned by local Ollama model listing. | Measured |
-| Selected model | Model chosen by the user or demo fallback. | Configured |
-| Prompt run status | Current state of the run lifecycle. | Measured/Derived |
-| TTFT | Time from request start to first streamed response token/chunk. | Measured when streaming; Estimated/Unavailable otherwise |
-| Total latency | Time from request start to completed response or error. | Measured |
-| Estimated prompt tokens | Approximation of prompt token count when exact tokenizer is not available. | Estimated |
-| Estimated response tokens | Approximation of response token count when exact tokenizer is not available. | Estimated |
-| Estimated tokens/sec | Estimated response tokens divided by generation duration. | Derived from estimated and measured values |
-| GPU utilization | Percent utilization from `nvidia-smi`. | Measured |
-| GPU memory usage | Used and total framebuffer memory from `nvidia-smi`. | Measured |
-| GPU watts | Current power draw from `nvidia-smi`. | Measured |
-| GPU temperature | Current GPU temperature from `nvidia-smi`. | Measured |
-| Estimated tokens per watt | Estimated response tokens per measured average watts during the run. | Derived/Estimated |
-| Estimated cost per run | Configurable local estimate based on energy usage and optional cost rate. | Estimated |
-| Run history | Recent in-memory run summaries excluding prompt content. | Derived |
-| Model comparison | Aggregation of recent run summaries by model. | Derived |
+
+| Metric                    | Definition                                                                   | Source label                                             |
+| ------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Ollama health             | Whether the configured local Ollama base URL responds within timeout.        | Measured                                                 |
+| Available models          | Models returned by local Ollama model listing.                               | Measured                                                 |
+| Selected model            | Model chosen by the user or demo fallback.                                   | Configured                                               |
+| Prompt run status         | Current state of the run lifecycle.                                          | Measured/Derived                                         |
+| TTFT                      | Time from request start to first streamed response token/chunk.              | Measured when streaming; Estimated/Unavailable otherwise |
+| Total latency             | Time from request start to completed response or error.                      | Measured                                                 |
+| Estimated prompt tokens   | Approximation of prompt token count when exact tokenizer is not available.   | Estimated                                                |
+| Estimated response tokens | Approximation of response token count when exact tokenizer is not available. | Estimated                                                |
+| Estimated tokens/sec      | Estimated response tokens divided by generation duration.                    | Derived from estimated and measured values               |
+| GPU utilization           | Percent utilization from `nvidia-smi`.                                       | Measured                                                 |
+| GPU memory usage          | Used and total framebuffer memory from `nvidia-smi`.                         | Measured                                                 |
+| GPU watts                 | Current power draw from `nvidia-smi`.                                        | Measured                                                 |
+| GPU temperature           | Current GPU temperature from `nvidia-smi`.                                   | Measured                                                 |
+| Estimated tokens per watt | Estimated response tokens per measured average watts during the run.         | Derived/Estimated                                        |
+| Estimated cost per run    | Configurable local estimate based on energy usage and optional cost rate.    | Estimated                                                |
+| Run history               | Recent in-memory run summaries excluding prompt content.                     | Derived                                                  |
+| Model comparison          | Aggregation of recent run summaries by model.                                | Derived                                                  |
 
 ## Measured vs estimated rules
+
 Measured values are values directly observed from local services or process timers. Estimated values are approximations used for demo economics when exact instrumentation is unavailable.
 
 Rules for future implementation:
@@ -265,6 +278,7 @@ Rules for future implementation:
 - Cost per run must display the configured assumptions, such as energy rate and whether idle baseline was subtracted.
 
 ## Ollama connectivity plan
+
 Default local configuration:
 
 ```text
@@ -285,6 +299,7 @@ Implementation plan:
 7. Keep prompt text in request memory only; do not log or persist it.
 
 ## NVIDIA telemetry plan
+
 Use `nvidia-smi` because it is already present on many NVIDIA developer workstations and avoids new dependencies.
 
 Planned command shape:
@@ -304,6 +319,7 @@ Implementation plan:
 7. Do not require admin permissions.
 
 ## Graceful failure: Ollama not running
+
 When Ollama is unavailable:
 
 - The page should still render.
@@ -315,6 +331,7 @@ When Ollama is unavailable:
 - Metrics from demo mode must be labeled `Demo/mock`, never `Measured`.
 
 ## Graceful failure: `nvidia-smi` unavailable
+
 When `nvidia-smi` is missing, fails, times out, or returns unsupported fields:
 
 - The page should still render.
@@ -325,6 +342,7 @@ When `nvidia-smi` is missing, fails, times out, or returns unsupported fields:
 - Mock telemetry can be shown only when demo mode is enabled and must be clearly labeled `Demo/mock`.
 
 ## Guardrails
+
 - Local-only by default; no cloud dependency.
 - No secrets, API keys, or external account requirements.
 - No dependency additions in early phases unless explicitly justified later.
@@ -339,7 +357,9 @@ When `nvidia-smi` is missing, fails, times out, or returns unsupported fields:
 - Keep files under 800 lines.
 
 ## Phase roadmap
+
 ### Phase 1: Feature shell with static/mock dashboard only
+
 Status: **implemented**.
 
 - Added `/ai-factory-economics` route as an active Phase 1 shell. It is not feature-flag gated because this phase is static/mock only and needs to be directly accessible for local review.
@@ -381,6 +401,7 @@ npm run dev
 Then visit `http://localhost:3000/partner-hub/ai-factory-economics` when using the default Partner Hub base path.
 
 ### Phase 2: Ollama health and model discovery
+
 Status: **implemented**.
 
 - Added local-only health and model API routes.
@@ -390,6 +411,7 @@ Status: **implemented**.
 - Does not execute prompts, stream responses, calculate TTFT, calculate real tokens/sec, call `nvidia-smi`, collect GPU telemetry, persist data, add dependencies, or call cloud services.
 
 ### Phase 3: Prompt runner and streaming proxy
+
 Status: **implemented**.
 
 - Added a prompt runner UI that uses discovered local models when available and supports manual model entry when discovery is unavailable.
@@ -399,6 +421,7 @@ Status: **implemented**.
 - Keeps official TTFT, tokens/sec, real cost/run, and GPU telemetry out of scope until later phases.
 
 ### Phase 4: TTFT, latency, token estimate, tokens/sec calculations
+
 Status: **implemented**.
 
 - Added server-side run timing.
@@ -408,30 +431,35 @@ Status: **implemented**.
 - Added tests for metric calculations and incomplete/missing-duration behavior.
 
 ### Phase 5: NVIDIA telemetry collector using `nvidia-smi`
+
 - Add GPU telemetry API route.
 - Parse `nvidia-smi` CSV output.
 - Display utilization, memory, watts, and temperature.
 - Sample around prompt runs and calculate sampled/estimated power economics.
 
 ### Phase 6: Run history and model comparison
+
 - Add in-memory browser run history.
 - Exclude prompt content from stored summaries by default.
 - Compare recent runs by model, latency, throughput, watts, and estimated cost.
 - Add export only if it excludes prompt content by default.
 
 ### Phase 7: Executive dashboard polish and recommendations
+
 - Improve summary cards and explanations for executive demos.
 - Add recommendations based on local run patterns.
 - Make assumptions visible and editable where safe.
 - Keep recommendation copy clearly tied to local measurements and estimates.
 
 ### Phase 8: Documentation, hardening, validation, and test cleanup
+
 - Update docs with setup and troubleshooting.
 - Harden error handling and timeouts.
 - Add/clean tests for metric math, parsers, and API behavior.
 - Validate no prompt content is persisted by default.
 
 ## Known limitations
+
 - Ollama token counts may not match model-specific tokenizer counts unless future phases add exact tokenizer support.
 - `nvidia-smi` availability and fields vary by GPU, driver, operating system, and permissions.
 - GPU telemetry sampling is not equivalent to lab-grade power measurement.
@@ -442,6 +470,7 @@ Status: **implemented**.
 - Apple Silicon, AMD, and CPU-only telemetry are out of the smallest safe initial scope.
 
 ## Future enhancement ideas
+
 - Optional exact token accounting if Ollama or model metadata exposes reliable counts.
 - Optional process-level GPU attribution when safe and portable.
 - Optional baseline idle power subtraction.
@@ -453,6 +482,7 @@ Status: **implemented**.
 - Optional static screenshots or mock-data mode for presentations.
 
 ## Open questions
+
 - Future phases can decide whether to add `NEXT_PUBLIC_ENABLE_AI_FACTORY_ECONOMICS`; Phase 1 is visible by default because it is static/mock only.
 - Phase 1 includes home-page and left-nav entries because active Partner Hub tool routes are already discoverable through those surfaces.
 - The current mock selected model is `llama3.1:8b-instruct`; discovered and manually entered Phase 3 runtime models are displayed separately from the demo/mock dashboard model.
@@ -460,6 +490,7 @@ Status: **implemented**.
 - Prompt history remains absent in Phase 1; future phases should keep any run-history work in memory first and continue excluding prompt content from stored summaries by default.
 
 ## Phase 4 status
+
 Phase 4 is implemented as measured local Ollama run timing plus estimated response-efficiency metrics. The prompt runner still sends prompts only to local Ollama through the Partner Hub server-side streaming proxy, keeps response content in memory only for the active browser session, and does not add run history or persistent storage.
 
 Phase 4 adds measured TTFT, measured total latency, measured generation duration when Ollama sends `done`, estimated prompt tokens, estimated response tokens, and derived estimated tokens/sec. Token counts use a documented local approximation of roughly four normalized characters per token; they are not exact tokenizer counts.
@@ -484,6 +515,7 @@ ui/partner-hub/components/ai-factory-economics/prompt-runner.tsx
 ui/partner-hub/lib/ai-factory-economics/mock-data.ts
 ui/partner-hub/lib/ai-factory-economics/ollama.ts
 ui/partner-hub/lib/ai-factory-economics/types.ts
+ui/partner-hub/lib/ai-factory-economics/mock-data.ts
 ui/partner-hub/package.json
 docs/AI_FACTORY_ECONOMICS_MODULE.md
 ui/partner-hub/docs/ai-factory-economics.md
@@ -527,6 +559,7 @@ Run a prompt and confirm:
 - Prompt and response content are not saved by Partner Hub.
 
 ## Phase 5 status
+
 Phase 5 is implemented as local-only NVIDIA GPU telemetry snapshots using `nvidia-smi`. The module now exposes a server-side API route that invokes `nvidia-smi` with safe argument passing, parses one or more GPU rows, and displays a manually refreshable snapshot panel in Partner Hub.
 
 Phase 5 intentionally does **not** add run history, persistent storage, prompt persistence, response persistence, database migrations, dependencies, background daemons, long-running collectors, cloud services, secrets, non-NVIDIA telemetry, per-process GPU attribution, lab-grade power measurement claims, or real cost-per-run calculations from telemetry.
@@ -547,6 +580,7 @@ ui/partner-hub/components/ai-factory-economics/ai-factory-economics-tool.tsx
 ui/partner-hub/lib/ai-factory-economics/mock-data.ts
 ui/partner-hub/lib/ai-factory-economics/ollama.ts
 ui/partner-hub/lib/ai-factory-economics/types.ts
+ui/partner-hub/lib/ai-factory-economics/mock-data.ts
 ui/partner-hub/package.json
 docs/AI_FACTORY_ECONOMICS_MODULE.md
 ui/partner-hub/docs/ai-factory-economics.md
@@ -601,6 +635,116 @@ Confirm:
 8. No database migrations or persistent stores are added.
 9. Telemetry is snapshot-based, not lab-grade power measurement.
 10. Multi-GPU attribution to a specific Ollama process remains out of scope.
+
+Verification commands from `ui/partner-hub`:
+
+```bash
+npm run typecheck
+npm test
+npm run lint
+```
+
+## Phase 6 in-memory run history and model comparison
+
+Phase 6 is implemented as browser-memory-only sanitized run history and derived model comparison for `/ai-factory-economics`. It does not add persistent storage, localStorage, database migrations, backend storage, cloud services, new dependencies, background daemons, long-running collectors, exact tokenizers, exact per-process GPU attribution, or lab-grade power measurement.
+
+Files added in Phase 6:
+
+```text
+ui/partner-hub/lib/ai-factory-economics/history.ts
+ui/partner-hub/lib/ai-factory-economics/history.test.ts
+ui/partner-hub/components/ai-factory-economics/run-history-panel.tsx
+ui/partner-hub/components/ai-factory-economics/model-comparison-table.tsx
+```
+
+Files updated in Phase 6:
+
+```text
+ui/partner-hub/components/ai-factory-economics/ai-factory-economics-tool.tsx
+ui/partner-hub/components/ai-factory-economics/prompt-runner.tsx
+ui/partner-hub/lib/ai-factory-economics/types.ts
+ui/partner-hub/lib/ai-factory-economics/mock-data.ts
+ui/partner-hub/package.json
+docs/AI_FACTORY_ECONOMICS_MODULE.md
+ui/partner-hub/docs/ai-factory-economics.md
+```
+
+### What Phase 6 stores
+
+Phase 6 stores only sanitized run summaries in React state owned by the AI Factory Economics tool. The history length is limited to the most recent 20 runs and is cleared by page reload or by the **Clear in-memory history** button.
+
+Run summaries may include:
+
+- Generated run summary id.
+- Started and completed timestamps.
+- Local model name.
+- Terminal run status: completed, failed, canceled, or incomplete.
+- TTFT, total latency, and generation duration when available (**Measured**).
+- Estimated prompt tokens and estimated response tokens when supplied by the run metrics stream (**Estimated**).
+- Estimated tokens/sec when available (**Derived**).
+- Metric classification labels.
+- A note that prompt and response content are excluded.
+- Optional shape for sampled GPU snapshot summaries, labeled as measured snapshot telemetry only; Phase 6 does not wire GPU snapshots into run summaries yet to avoid unnecessary coupling.
+
+Run summaries do **not** include prompt text, response text, generated answers, raw request bodies, raw stream chunks, raw local filesystem paths, raw stack traces, secrets, or API keys.
+
+### Model comparison behavior
+
+The model comparison table aggregates the current in-memory run history by model and shows:
+
+- Run count.
+- Completed count.
+- Failed, canceled, and incomplete counts.
+- Average TTFT.
+- Average total latency.
+- Average estimated tokens/sec.
+- Best estimated tokens/sec.
+- Fastest TTFT.
+- Most recent run timestamp.
+
+All model comparison values are labeled **Derived**. Missing metric values are excluded from averages and are never substituted with zero. If no valid value exists, the UI shows **Unavailable**.
+
+### Phase 6 metric labels
+
+- TTFT remains **Measured**.
+- Total latency remains **Measured**.
+- Generation duration remains **Measured**.
+- Prompt tokens remain **Estimated**.
+- Response tokens remain **Estimated**.
+- Tokens/sec remains **Derived**.
+- Model comparison aggregates are **Derived**.
+- GPU telemetry remains **Measured** only as refresh-time snapshot telemetry and is not exact per-run attribution.
+- Demo/mock dashboard economics remain **Demo/mock**.
+
+### Local Phase 6 test flow
+
+From `ui/partner-hub`:
+
+```bash
+ollama serve
+ollama pull llama3.2:3b
+npm run dev
+```
+
+Then open:
+
+```text
+http://localhost:3000/partner-hub/ai-factory-economics
+```
+
+Manual verification steps:
+
+1. Start Ollama.
+2. Pull at least one local model.
+3. Run Partner Hub.
+4. Open `/partner-hub/ai-factory-economics`.
+5. Run several prompts across one or more local models.
+6. Confirm recent sanitized run summaries appear.
+7. Confirm model comparison aggregates appear and are labeled **Derived**.
+8. Confirm prompt and response content remain visible only for the active run and are not stored in history.
+9. Confirm **Clear in-memory history** clears only the browser-memory history.
+10. Refresh the page and confirm history disappears.
+11. Confirm Ollama unavailable and incomplete stream states remain graceful and do not expose stack traces.
 
 Verification commands from `ui/partner-hub`:
 

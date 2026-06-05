@@ -5,11 +5,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { withBasePath } from "@/lib/basePath";
+import { createRunSummary } from "@/lib/ai-factory-economics/history";
 import type {
   AiFactoryModelDiscoveryResult,
   AiFactoryRunMetrics,
   AiFactoryRunMetricsEventPayload,
   AiFactoryRunStatus,
+  AiFactoryRunSummary,
   AiFactorySafeError,
 } from "@/lib/ai-factory-economics/types";
 import { MetricLabel } from "./metric-label";
@@ -28,15 +30,22 @@ function parseSseEvents(input: string): SseEvent[] {
     .map((block) => block.trim())
     .filter(Boolean)
     .map((block) => {
-      const eventLine = block.split("\n").find((line) => line.startsWith("event:"));
-      const dataLine = block.split("\n").find((line) => line.startsWith("data:"));
+      const eventLine = block
+        .split("\n")
+        .find((line) => line.startsWith("event:"));
+      const dataLine = block
+        .split("\n")
+        .find((line) => line.startsWith("data:"));
       const event = eventLine?.replace(/^event:\s*/, "") || "message";
       const rawData = dataLine?.replace(/^data:\s*/, "") || "{}";
 
       try {
         return { event, data: JSON.parse(rawData) as Record<string, unknown> };
       } catch {
-        return { event: "error", data: { message: "The local stream returned an unreadable event." } };
+        return {
+          event: "error",
+          data: { message: "The local stream returned an unreadable event." },
+        };
       }
     });
 }
@@ -44,7 +53,9 @@ function parseSseEvents(input: string): SseEvent[] {
 function formatRunError(error: unknown) {
   const safeError = error as Partial<AiFactorySafeError> | null;
   if (safeError?.message) {
-    return safeError.detail ? `${safeError.message} ${safeError.detail}` : safeError.message;
+    return safeError.detail
+      ? `${safeError.message} ${safeError.detail}`
+      : safeError.message;
   }
 
   if (error instanceof Error && error.message) {
@@ -54,7 +65,11 @@ function formatRunError(error: unknown) {
   return "The local prompt run failed.";
 }
 
-export function PromptRunner() {
+type PromptRunnerProps = {
+  onRunSummary: (summary: AiFactoryRunSummary) => void;
+};
+
+export function PromptRunner({ onRunSummary }: PromptRunnerProps) {
   const [models, setModels] = useState<string[]>([]);
   const [modelDiscoveryError, setModelDiscoveryError] = useState("");
   const [model, setModel] = useState("");
@@ -66,14 +81,21 @@ export function PromptRunner() {
   const [metrics, setMetrics] = useState<AiFactoryRunMetrics | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const selectedModel = model === "__manual__" ? manualModel.trim() : model.trim();
-  const canRun = status !== "running" && selectedModel.length > 0 && prompt.trim().length > 0;
+  const selectedModel =
+    model === "__manual__" ? manualModel.trim() : model.trim();
+  const canRun =
+    status !== "running" &&
+    selectedModel.length > 0 &&
+    prompt.trim().length > 0;
 
   const loadModels = useCallback(async () => {
     setModelDiscoveryError("");
 
     try {
-      const response = await fetch(withBasePath("/api/ai-factory-economics/models"), { cache: "no-store" });
+      const response = await fetch(
+        withBasePath("/api/ai-factory-economics/models"),
+        { cache: "no-store" },
+      );
       const data = (await response.json()) as AiFactoryModelDiscoveryResult;
       if (data.ok && data.models.length > 0) {
         setModels(data.models);
@@ -83,11 +105,17 @@ export function PromptRunner() {
 
       setModels([]);
       setModel((current) => current || "__manual__");
-      setModelDiscoveryError(data.ok ? "No local models were discovered. Enter a model manually after pulling it with Ollama." : data.error.message);
+      setModelDiscoveryError(
+        data.ok
+          ? "No local models were discovered. Enter a model manually after pulling it with Ollama."
+          : data.error.message,
+      );
     } catch {
       setModels([]);
       setModel((current) => current || "__manual__");
-      setModelDiscoveryError("Could not load local model discovery. Enter a local Ollama model manually.");
+      setModelDiscoveryError(
+        "Could not load local model discovery. Enter a local Ollama model manually.",
+      );
     }
   }, []);
 
@@ -109,7 +137,9 @@ export function PromptRunner() {
     abortRef.current?.abort();
     abortRef.current = null;
     setStatus("canceled");
-    setError("Prompt run canceled locally. Ollama may need a moment to stop the in-flight generation. No prompt or response content was persisted by the app.");
+    setError(
+      "Prompt run canceled locally. Ollama may need a moment to stop the in-flight generation. No prompt or response content was persisted by the app.",
+    );
   };
 
   const runPrompt = async () => {
@@ -128,11 +158,36 @@ export function PromptRunner() {
 
     if (trimmedPrompt.length > promptMaxLength) {
       setStatus("failed");
-      setError(`Prompts must be ${promptMaxLength.toLocaleString()} characters or fewer for Phase 5.`);
+      setError(
+        `Prompts must be ${promptMaxLength.toLocaleString()} characters or fewer for Phase 6.`,
+      );
       return;
     }
 
     const controller = new AbortController();
+    const runStartedAt = new Date().toISOString();
+    let latestMetrics: AiFactoryRunMetrics | null = null;
+    let historyRecorded = false;
+    const recordHistory = (
+      runStatus: Exclude<AiFactoryRunStatus, "idle" | "running">,
+      runMetrics: AiFactoryRunMetrics | null,
+    ) => {
+      if (historyRecorded) {
+        return;
+      }
+
+      historyRecorded = true;
+      onRunSummary(
+        createRunSummary({
+          startedAt: runStartedAt,
+          completedAt: new Date().toISOString(),
+          model: selectedModel,
+          status: runStatus,
+          metrics: runMetrics,
+        }),
+      );
+    };
+
     abortRef.current = controller;
     setStatus("running");
     setError("");
@@ -140,19 +195,24 @@ export function PromptRunner() {
     setMetrics(null);
 
     try {
-      const response = await fetch(withBasePath("/api/ai-factory-economics/run"), {
-        method: "POST",
-        headers: {
-          Accept: "text/event-stream",
-          "Content-Type": "application/json",
+      const response = await fetch(
+        withBasePath("/api/ai-factory-economics/run"),
+        {
+          method: "POST",
+          headers: {
+            Accept: "text/event-stream",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ model: selectedModel, prompt: trimmedPrompt }),
+          cache: "no-store",
+          signal: controller.signal,
         },
-        body: JSON.stringify({ model: selectedModel, prompt: trimmedPrompt }),
-        cache: "no-store",
-        signal: controller.signal,
-      });
+      );
 
       if (!response.ok || !response.body) {
-        const data = (await response.json().catch(() => null)) as { error?: AiFactorySafeError } | null;
+        const data = (await response.json().catch(() => null)) as {
+          error?: AiFactorySafeError;
+        } | null;
         throw new Error(formatRunError(data?.error));
       }
 
@@ -169,11 +229,15 @@ export function PromptRunner() {
 
         for (const event of parseSseEvents(eventBlocks.join("\n\n"))) {
           if (event.event === "chunk") {
-            setOutput((current) => `${current}${typeof event.data.response === "string" ? event.data.response : ""}`);
+            setOutput(
+              (current) =>
+                `${current}${typeof event.data.response === "string" ? event.data.response : ""}`,
+            );
           }
 
           if (event.event === "metrics") {
-            setMetrics(event.data as AiFactoryRunMetricsEventPayload);
+            latestMetrics = event.data as AiFactoryRunMetricsEventPayload;
+            setMetrics(latestMetrics);
           }
 
           if (event.event === "done") {
@@ -189,10 +253,14 @@ export function PromptRunner() {
           if (buffer.trim()) {
             for (const event of parseSseEvents(buffer)) {
               if (event.event === "chunk") {
-                setOutput((current) => `${current}${typeof event.data.response === "string" ? event.data.response : ""}`);
+                setOutput(
+                  (current) =>
+                    `${current}${typeof event.data.response === "string" ? event.data.response : ""}`,
+                );
               }
               if (event.event === "metrics") {
-                setMetrics(event.data as AiFactoryRunMetricsEventPayload);
+                latestMetrics = event.data as AiFactoryRunMetricsEventPayload;
+                setMetrics(latestMetrics);
               }
               if (event.event === "done") {
                 completed = true;
@@ -208,16 +276,24 @@ export function PromptRunner() {
 
       if (completed) {
         setStatus("completed");
+        recordHistory("completed", latestMetrics);
       } else {
-        setStatus("failed");
-        setError("Local stream ended before Ollama sent a completion signal. The partial response remains visible, but this run should not be treated as complete.");
+        setStatus("incomplete");
+        recordHistory("incomplete", latestMetrics);
+        setError(
+          "Local stream ended before Ollama sent a completion signal. The partial response remains visible, but this run should not be treated as complete.",
+        );
       }
     } catch (runError) {
       if (controller.signal.aborted) {
         setStatus("canceled");
-        setError("Prompt run canceled locally. No prompt or response content was persisted by the app.");
+        recordHistory("canceled", latestMetrics);
+        setError(
+          "Prompt run canceled locally. No prompt or response content was persisted by the app.",
+        );
       } else {
         setStatus("failed");
+        recordHistory("failed", latestMetrics);
         setError(formatRunError(runError));
       }
     } finally {
@@ -232,10 +308,12 @@ export function PromptRunner() {
       <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground/50">Measured local runtime availability</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground/50">
+              Measured local runtime availability
+            </p>
             <CardTitle className="mt-1 flex items-center gap-2 text-xl">
               <Terminal className="h-5 w-5 text-primary" aria-hidden />
-              Phase 5 prompt runner
+              Phase 6 prompt runner
             </CardTitle>
           </div>
           <MetricLabel classification="Measured" />
@@ -243,17 +321,23 @@ export function PromptRunner() {
       </CardHeader>
       <CardContent className="space-y-5 text-sm leading-relaxed text-foreground/70">
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-800 dark:text-amber-200">
-          <p className="font-semibold">Phase 5 boundary</p>
+          <p className="font-semibold">Phase 6 boundary</p>
           <p className="mt-1">
-            This runner sends prompts only to local Ollama, streams the response into this browser session, measures server-side TTFT
-            and latency, estimates token counts, and derives tokens/sec. GPU telemetry, watts, tokens/watt, and real cost/run are not
-            measured in Phase 5. Prompt and response content are not persisted by the app.
+            This runner sends prompts only to local Ollama, streams the response
+            into this browser session, measures server-side TTFT and latency,
+            estimates token counts, derives tokens/sec, and records sanitized
+            in-memory run summaries. GPU telemetry, watts, tokens/watt, and real
+            cost/run are not exact per-run values in Phase 6. Prompt and
+            response content are not persisted by the app or stored in history.
           </p>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
           <div className="space-y-2">
-            <label className="text-xs font-semibold uppercase tracking-wide text-foreground/60" htmlFor="ai-factory-model">
+            <label
+              className="text-xs font-semibold uppercase tracking-wide text-foreground/60"
+              htmlFor="ai-factory-model"
+            >
               Local model
             </label>
             <select
@@ -280,7 +364,11 @@ export function PromptRunner() {
                 disabled={status === "running"}
               />
             ) : null}
-            {modelDiscoveryError ? <p className="text-xs text-amber-700 dark:text-amber-300">{modelDiscoveryError}</p> : null}
+            {modelDiscoveryError ? (
+              <p className="text-xs text-amber-700 dark:text-amber-300">
+                {modelDiscoveryError}
+              </p>
+            ) : null}
             <button
               type="button"
               onClick={() => void loadModels()}
@@ -293,7 +381,10 @@ export function PromptRunner() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-semibold uppercase tracking-wide text-foreground/60" htmlFor="ai-factory-prompt">
+            <label
+              className="text-xs font-semibold uppercase tracking-wide text-foreground/60"
+              htmlFor="ai-factory-prompt"
+            >
               Prompt
             </label>
             <textarea
@@ -306,8 +397,9 @@ export function PromptRunner() {
               maxLength={promptMaxLength}
             />
             <p className="text-xs text-foreground/50">
-              {prompt.length.toLocaleString()} / {promptMaxLength.toLocaleString()} characters. Content stays in request/browser
-              memory only and is not saved by Partner Hub.
+              {prompt.length.toLocaleString()} /{" "}
+              {promptMaxLength.toLocaleString()} characters. Content stays in
+              request/browser memory only and is not saved by Partner Hub.
             </p>
           </div>
         </div>
@@ -345,15 +437,24 @@ export function PromptRunner() {
           </span>
         </div>
 
-        {error ? <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-amber-800 dark:text-amber-200">{error}</p> : null}
+        {error ? (
+          <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-amber-800 dark:text-amber-200">
+            {error}
+          </p>
+        ) : null}
 
         <RunMetricsPanel metrics={metrics} status={status} />
 
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">Generated response</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
+              Generated response
+            </p>
             <MetricLabel classification="Measured" />
-            <span className="text-xs text-foreground/50">Runtime response content only; Phase 5 metrics are measured/estimated/derived and content is not persisted.</span>
+            <span className="text-xs text-foreground/50">
+              Runtime response content only; Phase 6 history stores sanitized
+              metrics/metadata without prompt or response content.
+            </span>
           </div>
           <pre className="min-h-40 whitespace-pre-wrap rounded-xl border border-border bg-muted/30 p-4 text-sm text-foreground">
             {output || "Local Ollama response stream will appear here."}

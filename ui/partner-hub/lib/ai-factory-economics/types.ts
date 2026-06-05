@@ -1,4 +1,9 @@
-export type MetricClassification = "Measured" | "Estimated" | "Derived" | "Configured" | "Demo/mock";
+export type MetricClassification =
+  | "Measured"
+  | "Estimated"
+  | "Derived"
+  | "Configured"
+  | "Demo/mock";
 
 export type MetricTone = "default" | "good" | "warning" | "info";
 
@@ -11,7 +16,12 @@ export type AiFactoryMetric = {
   tone?: MetricTone;
 };
 
-export type ReadinessStatus = "Planned" | "Checked" | "Unavailable" | "Not connected" | "Not persistent";
+export type ReadinessStatus =
+  | "Planned"
+  | "Checked"
+  | "Unavailable"
+  | "Not connected"
+  | "Not persistent";
 
 export type ReadinessItem = {
   title: string;
@@ -43,9 +53,14 @@ export type AiFactorySafeError = {
   detail?: string;
 };
 
-export type AiFactoryServiceStatus = "available" | "unavailable" | "not_connected";
+export type AiFactoryServiceStatus =
+  | "available"
+  | "unavailable"
+  | "not_connected";
 
-export type AiFactoryGpuTelemetryAvailabilityStatus = "available" | "unavailable";
+export type AiFactoryGpuTelemetryAvailabilityStatus =
+  | "available"
+  | "unavailable";
 
 export type OllamaAvailability = {
   status: AiFactoryServiceStatus;
@@ -118,7 +133,9 @@ export type AiFactoryGpuTelemetryUnavailable = {
   error: AiFactorySafeGpuError;
 };
 
-export type AiFactoryGpuTelemetryResult = AiFactoryGpuTelemetrySuccess | AiFactoryGpuTelemetryUnavailable;
+export type AiFactoryGpuTelemetryResult =
+  | AiFactoryGpuTelemetrySuccess
+  | AiFactoryGpuTelemetryUnavailable;
 
 export type AiFactoryHealthStatus = {
   ok: boolean;
@@ -151,10 +168,16 @@ export type AiFactoryModelDiscoveryFailure = {
   error: AiFactorySafeError;
 };
 
-export type AiFactoryModelDiscoveryResult = AiFactoryModelDiscoverySuccess | AiFactoryModelDiscoveryFailure;
+export type AiFactoryModelDiscoveryResult =
+  | AiFactoryModelDiscoverySuccess
+  | AiFactoryModelDiscoveryFailure;
 
-
-export type AiFactoryRunMetricsStatus = "running" | "completed" | "failed" | "canceled" | "incomplete";
+export type AiFactoryRunMetricsStatus =
+  | "running"
+  | "completed"
+  | "failed"
+  | "canceled"
+  | "incomplete";
 
 export type AiFactoryRunMetricClassifications = {
   ttft: "Measured";
@@ -189,6 +212,71 @@ export type AiFactoryRunMetrics = {
   note: string;
 };
 
+export type AiFactoryRunSummaryClassifications = {
+  ttft: "Measured";
+  totalLatency: "Measured";
+  generationDuration: "Measured";
+  promptTokens: "Estimated";
+  responseTokens: "Estimated";
+  tokensPerSecond: "Derived";
+  gpuSnapshot: "Measured";
+  comparison: "Derived";
+};
+
+export type AiFactoryRunGpuSnapshotSummary = {
+  sampledAt: string;
+  utilizationGpuPercent: number | null;
+  memoryUsedMb: number | null;
+  memoryTotalMb: number | null;
+  powerDrawWatts: number | null;
+  temperatureGpuCelsius: number | null;
+  note: "Sampled NVIDIA snapshot near run completion; not exact per-run attribution.";
+};
+
+export type AiFactoryRunSummary = {
+  id: string;
+  startedAt: string;
+  completedAt: string | null;
+  model: string;
+  status: AiFactoryRunMetricsStatus;
+  ttftMs: number | null;
+  totalLatencyMs: number | null;
+  generationDurationMs: number | null;
+  estimatedPromptTokens: number | null;
+  estimatedResponseTokens: number | null;
+  estimatedTokensPerSecond: number | null;
+  classifications: AiFactoryRunSummaryClassifications;
+  gpuSnapshot: AiFactoryRunGpuSnapshotSummary | null;
+  contentExcludedNote: "Prompt and response content are excluded from this in-memory run summary.";
+  storageScope: "Browser memory only; cleared on page reload or when the user clears history.";
+};
+
+export type AiFactoryRunSummaryInput = {
+  id?: string;
+  startedAt: string;
+  completedAt?: string | null;
+  model: string;
+  status: AiFactoryRunMetricsStatus;
+  metrics?: AiFactoryRunMetrics | null;
+  gpuSnapshot?: AiFactoryRunGpuSnapshotSummary | null;
+};
+
+export type AiFactoryModelComparisonSummary = {
+  model: string;
+  runCount: number;
+  completedCount: number;
+  failedCount: number;
+  canceledCount: number;
+  incompleteCount: number;
+  averageTtftMs: number | null;
+  averageTotalLatencyMs: number | null;
+  averageEstimatedTokensPerSecond: number | null;
+  bestEstimatedTokensPerSecond: number | null;
+  fastestTtftMs: number | null;
+  mostRecentRunAt: string | null;
+  classification: "Derived";
+};
+
 export type AiFactoryRunMetricsEventPayload = AiFactoryRunMetrics & {
   eventGeneratedAt: string;
 };
@@ -203,7 +291,13 @@ export type AiFactoryRunMetaEventPayload = {
   message: string;
 };
 
-export type AiFactoryRunStatus = "idle" | "running" | "completed" | "failed" | "canceled";
+export type AiFactoryRunStatus =
+  | "idle"
+  | "running"
+  | "completed"
+  | "failed"
+  | "canceled"
+  | "incomplete";
 
 export type AiFactoryRunRequest = {
   model: string;
@@ -221,7 +315,9 @@ export type AiFactoryRunValidationFailure = {
   status: number;
 };
 
-export type AiFactoryRunValidationResult = AiFactoryRunValidationSuccess | AiFactoryRunValidationFailure;
+export type AiFactoryRunValidationResult =
+  | AiFactoryRunValidationSuccess
+  | AiFactoryRunValidationFailure;
 
 export type AiFactoryRunErrorCode =
   | "INVALID_JSON"
@@ -238,7 +334,12 @@ export type AiFactoryRunError = AiFactorySafeError & {
   code: AiFactoryRunErrorCode;
 };
 
-export type AiFactoryRunStreamEvent = "meta" | "chunk" | "metrics" | "done" | "error";
+export type AiFactoryRunStreamEvent =
+  | "meta"
+  | "chunk"
+  | "metrics"
+  | "done"
+  | "error";
 
 export type AiFactoryRunStreamChunk = {
   response: string;
