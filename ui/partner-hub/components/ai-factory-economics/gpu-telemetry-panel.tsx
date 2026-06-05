@@ -130,7 +130,7 @@ export function GpuTelemetryPanel() {
             <div className="rounded-xl border border-dashed border-border bg-muted/30 p-4 text-xs">
               <p className="font-semibold text-foreground">Snapshot guardrails</p>
               <p className="mt-1">
-                Phase 5 samples nvidia-smi only on refresh. It does not persist telemetry, does not create run history, does not
+                Phase 8 samples nvidia-smi only on refresh. It does not persist telemetry, does not create run history, does not
                 attribute GPU power to a specific Ollama process, and does not claim lab-grade power measurement.
               </p>
             </div>

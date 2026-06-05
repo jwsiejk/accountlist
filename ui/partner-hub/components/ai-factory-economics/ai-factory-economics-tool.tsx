@@ -34,14 +34,14 @@ export function AiFactoryEconomicsTool() {
         <div className="relative grid gap-8 lg:grid-cols-[1.25fr_0.75fr] lg:items-end">
           <div className="space-y-5">
             <div className="inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
-              Local-only Phase 7
+              Local-only Phase 8
             </div>
             <div className="space-y-3">
               <h1 className="text-3xl font-semibold tracking-tight md:text-5xl">
                 AI Factory Economics
               </h1>
               <p className="max-w-3xl text-sm leading-relaxed text-white/75 md:text-base">
-                Phase 7 turns the local AI Factory demo into an executive-ready
+                Phase 8 turns the local AI Factory demo into an executive-ready
                 view: measured local runtime, estimated token counts, derived
                 model comparison/recommendations, and no persisted prompt or
                 response content.
@@ -90,7 +90,7 @@ export function AiFactoryEconomicsTool() {
                 secrets, or external APIs are required.
               </p>
               <p>
-                Phase 7 adds executive scorecards and safe Derived
+                Phase 8 adds executive scorecards and safe Derived
                 recommendations from current in-memory summaries. Demo/mock
                 economics remain visible; GPU telemetry is optional snapshot
                 data and is not exact per-run attribution.

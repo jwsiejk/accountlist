@@ -79,12 +79,12 @@ export function OllamaStatusCard() {
           </div>
           <div className="rounded-xl border border-border/60 bg-background p-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-foreground/50">NVIDIA telemetry</p>
-            <p className="mt-1 font-semibold text-foreground">GPU snapshots separate in Phase 5</p>
+            <p className="mt-1 font-semibold text-foreground">GPU snapshots separate in Phase 8</p>
           </div>
         </div>
 
         <p>
-          Phase 5 checks health, discovers local models, streams prompt responses, measures TTFT/latency, estimates token counts,
+          Phase 8 checks health, discovers local models, streams prompt responses, measures TTFT/latency, estimates token counts,
           derives tokens/sec, and exposes GPU telemetry in a separate snapshot panel. It still does not calculate tokens/watt or real cost/run.
         </p>
 

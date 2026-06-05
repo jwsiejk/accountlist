@@ -126,7 +126,7 @@ export async function getNvidiaGpuTelemetry(runner: ExecFileRunner = defaultExec
     if (gpus.length === 0) {
       return {
         ok: false,
-        phase: "Phase 5",
+        phase: "Phase 8",
         status: "unavailable",
         available: false,
         timeoutMs: AI_FACTORY_NVIDIA_SMI_TIMEOUT_MS,
@@ -142,7 +142,7 @@ export async function getNvidiaGpuTelemetry(runner: ExecFileRunner = defaultExec
 
     return {
       ok: true,
-      phase: "Phase 5",
+      phase: "Phase 8",
       status: "available",
       available: true,
       timeoutMs: AI_FACTORY_NVIDIA_SMI_TIMEOUT_MS,
@@ -154,7 +154,7 @@ export async function getNvidiaGpuTelemetry(runner: ExecFileRunner = defaultExec
   } catch (error) {
     return {
       ok: false,
-      phase: "Phase 5",
+      phase: "Phase 8",
       status: "unavailable",
       available: false,
       timeoutMs: AI_FACTORY_NVIDIA_SMI_TIMEOUT_MS,

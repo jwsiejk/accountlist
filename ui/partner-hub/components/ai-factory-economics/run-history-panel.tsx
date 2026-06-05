@@ -51,7 +51,7 @@ export function RunHistoryPanel({
             Prompt and response content are not stored.
           </p>
           <p className="mt-1">
-            Phase 6 stores sanitized run summaries in React/browser memory only.
+            Phase 8 stores sanitized run summaries in React/browser memory only.
             History disappears on page reload and never uses localStorage, a
             database, or backend storage.
           </p>

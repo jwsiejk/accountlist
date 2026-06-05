@@ -102,7 +102,7 @@ export async function getOllamaHealth(fetcher: FetchLike = fetch): Promise<AiFac
 
     return {
       ok: true,
-      phase: "Phase 5",
+      phase: "Phase 8",
       ollama: {
         status: "available",
         reachable: true,
@@ -115,7 +115,7 @@ export async function getOllamaHealth(fetcher: FetchLike = fetch): Promise<AiFac
       nvidiaTelemetry: {
         status: "snapshot_endpoint_available",
         classification: "Measured",
-        message: "Phase 5 exposes local NVIDIA snapshot telemetry at /api/ai-factory-economics/gpu when nvidia-smi is available.",
+        message: "Phase 8 exposes local NVIDIA snapshot telemetry at /api/ai-factory-economics/gpu when nvidia-smi is available.",
       },
       promptExecution: "enabled",
       streaming: "enabled",
@@ -123,7 +123,7 @@ export async function getOllamaHealth(fetcher: FetchLike = fetch): Promise<AiFac
   } catch (error) {
     return {
       ok: false,
-      phase: "Phase 5",
+      phase: "Phase 8",
       ollama: {
         status: "unavailable",
         reachable: false,
@@ -137,7 +137,7 @@ export async function getOllamaHealth(fetcher: FetchLike = fetch): Promise<AiFac
       nvidiaTelemetry: {
         status: "snapshot_endpoint_available",
         classification: "Measured",
-        message: "Phase 5 exposes local NVIDIA snapshot telemetry at /api/ai-factory-economics/gpu when nvidia-smi is available.",
+        message: "Phase 8 exposes local NVIDIA snapshot telemetry at /api/ai-factory-economics/gpu when nvidia-smi is available.",
       },
       promptExecution: "enabled",
       streaming: "enabled",
@@ -154,7 +154,7 @@ export async function discoverOllamaModels(fetcher: FetchLike = fetch): Promise<
 
     return {
       ok: true,
-      phase: "Phase 5",
+      phase: "Phase 8",
       baseUrl,
       timeoutMs: AI_FACTORY_OLLAMA_TIMEOUT_MS,
       classification: "Measured",
@@ -164,7 +164,7 @@ export async function discoverOllamaModels(fetcher: FetchLike = fetch): Promise<
   } catch (error) {
     return {
       ok: false,
-      phase: "Phase 5",
+      phase: "Phase 8",
       baseUrl,
       timeoutMs: AI_FACTORY_OLLAMA_TIMEOUT_MS,
       classification: "Measured",

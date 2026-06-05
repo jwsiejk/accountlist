@@ -71,7 +71,7 @@ function displayMetrics(metrics: AiFactoryRunMetrics | null, status: AiFactoryRu
       label: "Prompt tokens",
       value: formatTokenCount(metrics.estimatedPromptTokens),
       classification: metrics.classifications.promptTokens,
-      help: "Estimated; Phase 5 does not add an exact tokenizer dependency.",
+      help: "Estimated; Phase 8 does not add an exact tokenizer dependency.",
     },
     {
       label: "Response tokens",
@@ -96,7 +96,7 @@ export function RunMetricsPanel({ metrics, status }: RunMetricsPanelProps) {
     <div className="space-y-3 rounded-xl border border-border/70 bg-muted/20 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">Phase 5 local run metrics</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">Phase 8 local run metrics</p>
           <p className="mt-1 text-xs text-foreground/55">
             Local-only Ollama timing is measured on the server. Token counts are estimates; throughput is derived.
           </p>
@@ -131,7 +131,7 @@ export function RunMetricsPanel({ metrics, status }: RunMetricsPanelProps) {
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-amber-800 dark:text-amber-200">
           <p className="text-xs font-semibold uppercase tracking-wide">Telemetry boundary</p>
           <p className="mt-1 text-xs">
-            GPU telemetry is displayed as a separate snapshot panel in Phase 5; tokens/watt and real cost/run remain unavailable for live runs.
+            GPU telemetry is displayed as a separate snapshot panel in Phase 8; tokens/watt and real cost/run remain unavailable for live runs.
           </p>
         </div>
       </div>

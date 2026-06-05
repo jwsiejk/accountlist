@@ -111,7 +111,7 @@ export type AiFactorySafeGpuError = AiFactorySafeError & {
 
 export type AiFactoryGpuTelemetrySuccess = {
   ok: true;
-  phase: "Phase 5";
+  phase: "Phase 8";
   status: "available";
   available: true;
   timeoutMs: number;
@@ -123,7 +123,7 @@ export type AiFactoryGpuTelemetrySuccess = {
 
 export type AiFactoryGpuTelemetryUnavailable = {
   ok: false;
-  phase: "Phase 5";
+  phase: "Phase 8";
   status: "unavailable";
   available: false;
   timeoutMs: number;
@@ -139,7 +139,7 @@ export type AiFactoryGpuTelemetryResult =
 
 export type AiFactoryHealthStatus = {
   ok: boolean;
-  phase: "Phase 5";
+  phase: "Phase 8";
   ollama: OllamaAvailability;
   demoModeAvailable: boolean;
   nvidiaTelemetry: AiFactoryNvidiaTelemetryStatus;
@@ -149,7 +149,7 @@ export type AiFactoryHealthStatus = {
 
 export type AiFactoryModelDiscoverySuccess = {
   ok: true;
-  phase: "Phase 5";
+  phase: "Phase 8";
   baseUrl: string;
   timeoutMs: number;
   classification: "Measured";
@@ -159,7 +159,7 @@ export type AiFactoryModelDiscoverySuccess = {
 
 export type AiFactoryModelDiscoveryFailure = {
   ok: false;
-  phase: "Phase 5";
+  phase: "Phase 8";
   baseUrl: string;
   timeoutMs: number;
   classification: "Measured";
@@ -283,7 +283,7 @@ export type AiFactoryRunMetricsEventPayload = AiFactoryRunMetrics & {
 
 export type AiFactoryRunMetaEventPayload = {
   ok: true;
-  phase: "Phase 5";
+  phase: "Phase 8";
   model: string;
   baseUrl: string;
   classification: "Measured";
