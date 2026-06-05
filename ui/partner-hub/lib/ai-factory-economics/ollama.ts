@@ -102,7 +102,7 @@ export async function getOllamaHealth(fetcher: FetchLike = fetch): Promise<AiFac
 
     return {
       ok: true,
-      phase: "Phase 4",
+      phase: "Phase 5",
       ollama: {
         status: "available",
         reachable: true,
@@ -113,9 +113,9 @@ export async function getOllamaHealth(fetcher: FetchLike = fetch): Promise<AiFac
       },
       demoModeAvailable: true,
       nvidiaTelemetry: {
-        status: "not_connected",
-        classification: "Demo/mock",
-        message: "NVIDIA telemetry is not connected in Phase 4.",
+        status: "snapshot_endpoint_available",
+        classification: "Measured",
+        message: "Phase 5 exposes local NVIDIA snapshot telemetry at /api/ai-factory-economics/gpu when nvidia-smi is available.",
       },
       promptExecution: "enabled",
       streaming: "enabled",
@@ -123,7 +123,7 @@ export async function getOllamaHealth(fetcher: FetchLike = fetch): Promise<AiFac
   } catch (error) {
     return {
       ok: false,
-      phase: "Phase 4",
+      phase: "Phase 5",
       ollama: {
         status: "unavailable",
         reachable: false,
@@ -135,9 +135,9 @@ export async function getOllamaHealth(fetcher: FetchLike = fetch): Promise<AiFac
       },
       demoModeAvailable: true,
       nvidiaTelemetry: {
-        status: "not_connected",
-        classification: "Demo/mock",
-        message: "NVIDIA telemetry is not connected in Phase 4.",
+        status: "snapshot_endpoint_available",
+        classification: "Measured",
+        message: "Phase 5 exposes local NVIDIA snapshot telemetry at /api/ai-factory-economics/gpu when nvidia-smi is available.",
       },
       promptExecution: "enabled",
       streaming: "enabled",
@@ -154,7 +154,7 @@ export async function discoverOllamaModels(fetcher: FetchLike = fetch): Promise<
 
     return {
       ok: true,
-      phase: "Phase 4",
+      phase: "Phase 5",
       baseUrl,
       timeoutMs: AI_FACTORY_OLLAMA_TIMEOUT_MS,
       classification: "Measured",
@@ -164,7 +164,7 @@ export async function discoverOllamaModels(fetcher: FetchLike = fetch): Promise<
   } catch (error) {
     return {
       ok: false,
-      phase: "Phase 4",
+      phase: "Phase 5",
       baseUrl,
       timeoutMs: AI_FACTORY_OLLAMA_TIMEOUT_MS,
       classification: "Measured",

@@ -148,3 +148,85 @@ Phase 4 intentionally does **not** add:
 - Cloud services, secrets, or API keys.
 
 Prompt and response content remain in request/browser memory for the active run only. Partner Hub does not save prompt content, response content, or run history in Phase 4.
+
+## Phase 5 local NVIDIA telemetry
+
+Phase 5 adds an optional local NVIDIA telemetry snapshot panel to `/ai-factory-economics`. The panel calls the Partner Hub local API route `/api/ai-factory-economics/gpu`, which runs `nvidia-smi` server-side only and never calls cloud services.
+
+Files added in Phase 5:
+
+```text
+ui/partner-hub/app/api/ai-factory-economics/gpu/route.ts
+ui/partner-hub/components/ai-factory-economics/gpu-telemetry-panel.tsx
+ui/partner-hub/lib/ai-factory-economics/gpu.ts
+ui/partner-hub/lib/ai-factory-economics/gpu.test.ts
+```
+
+Files updated in Phase 5:
+
+```text
+ui/partner-hub/components/ai-factory-economics/ai-factory-economics-tool.tsx
+ui/partner-hub/lib/ai-factory-economics/mock-data.ts
+ui/partner-hub/lib/ai-factory-economics/ollama.ts
+ui/partner-hub/lib/ai-factory-economics/types.ts
+ui/partner-hub/package.json
+docs/AI_FACTORY_ECONOMICS_MODULE.md
+ui/partner-hub/docs/ai-factory-economics.md
+```
+
+### What Phase 5 collects
+
+The server-side helper runs:
+
+```bash
+nvidia-smi --query-gpu=index,utilization.gpu,memory.used,memory.total,power.draw,temperature.gpu --format=csv,noheader,nounits
+```
+
+It parses one or more NVIDIA GPU rows and displays GPU 0/the first row by default. The panel shows:
+
+- NVIDIA telemetry availability (**Measured**)
+- GPU index (**Measured** when returned; row position fallback if the index field is unavailable)
+- GPU utilization percent (**Measured**)
+- GPU memory used and total (**Measured**)
+- GPU watts/power draw (**Measured**)
+- GPU temperature (**Measured**)
+- Sample timestamp
+
+Missing or unsupported telemetry fields are shown as **Unavailable**, not zero.
+
+### Graceful unavailable states
+
+The GPU telemetry panel is optional. The prompt runner still works without it. The API and UI return safe unavailable states when:
+
+- NVIDIA GPU/driver is not available.
+- `nvidia-smi` is not installed or not in `PATH`.
+- `nvidia-smi` times out.
+- The requested telemetry fields are unsupported.
+- `nvidia-smi` returns empty or unexpected output.
+
+No stack traces are exposed to the browser.
+
+### Phase 5 guardrails
+
+Phase 5 does not create run history, does not persist prompt content, does not persist response content, does not add a database, does not add migrations, does not add new dependencies, and does not add background daemons or long-running collectors. GPU telemetry is a refresh-time snapshot only. It is not lab-grade wall-power measurement and it is not exact per-run or per-process attribution to Ollama. AMD, Apple Silicon, and CPU-only telemetry remain out of scope.
+
+### Local testing steps
+
+From `ui/partner-hub`:
+
+```bash
+nvidia-smi
+ollama serve
+ollama pull llama3.2:3b
+npm run dev
+```
+
+Then open `http://localhost:3000/partner-hub/ai-factory-economics`, refresh GPU telemetry, and confirm utilization, memory, watts, temperature, GPU index, and sample timestamp appear when available.
+
+Verification commands:
+
+```bash
+npm run typecheck
+npm test
+npm run lint
+```

@@ -110,13 +110,13 @@ export async function POST(request: Request) {
 
       send("meta", {
         ok: true,
-        phase: "Phase 4",
+        phase: "Phase 5",
         model: validation.request.model,
         baseUrl: getAiFactoryOllamaBaseUrl(),
         classification: "Measured",
         economicsClassification: "Demo/mock",
         message:
-          "Streaming response timing is measured from local Ollama. Prompt and response tokens are estimated; tokens/sec is derived. GPU, power, tokens/watt, and real cost telemetry are not included in Phase 4.",
+          "Streaming response timing is measured from local Ollama. Prompt and response tokens are estimated; tokens/sec is derived. GPU snapshots are separate from this run stream; tokens/watt and real cost telemetry are not included in Phase 5.",
       });
 
       try {
@@ -163,7 +163,7 @@ export async function POST(request: Request) {
                 status: "completed",
                 classification: "Measured",
                 message:
-                  "Prompt run completed with Phase 4 measured timing, estimated token counts, and derived throughput. GPU telemetry, power, tokens/watt, and real cost/run remain unavailable.",
+                  "Prompt run completed with Phase 5 measured timing, estimated token counts, and derived throughput. GPU snapshots remain separate; tokens/watt and real cost/run remain unavailable.",
               });
             }
           }
@@ -192,7 +192,7 @@ export async function POST(request: Request) {
                   status: "completed",
                   classification: "Measured",
                   message:
-                    "Prompt run completed with Phase 4 measured timing, estimated token counts, and derived throughput. GPU telemetry, power, tokens/watt, and real cost/run remain unavailable.",
+                    "Prompt run completed with Phase 5 measured timing, estimated token counts, and derived throughput. GPU snapshots remain separate; tokens/watt and real cost/run remain unavailable.",
                 });
               }
             }
