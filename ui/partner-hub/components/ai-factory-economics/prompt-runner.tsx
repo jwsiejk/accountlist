@@ -7,10 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { withBasePath } from "@/lib/basePath";
 import type {
   AiFactoryModelDiscoveryResult,
+  AiFactoryRunMetrics,
+  AiFactoryRunMetricsEventPayload,
   AiFactoryRunStatus,
   AiFactorySafeError,
 } from "@/lib/ai-factory-economics/types";
 import { MetricLabel } from "./metric-label";
+import { RunMetricsPanel } from "./run-metrics-panel";
 
 const promptMaxLength = 4_000;
 
@@ -60,6 +63,7 @@ export function PromptRunner() {
   const [output, setOutput] = useState("");
   const [status, setStatus] = useState<AiFactoryRunStatus>("idle");
   const [error, setError] = useState("");
+  const [metrics, setMetrics] = useState<AiFactoryRunMetrics | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const selectedModel = model === "__manual__" ? manualModel.trim() : model.trim();
@@ -97,6 +101,7 @@ export function PromptRunner() {
     setStatus("idle");
     setError("");
     setOutput("");
+    setMetrics(null);
     setPrompt("");
   };
 
@@ -104,7 +109,7 @@ export function PromptRunner() {
     abortRef.current?.abort();
     abortRef.current = null;
     setStatus("canceled");
-    setError("Prompt run canceled locally. Ollama may need a moment to stop the in-flight generation.");
+    setError("Prompt run canceled locally. Ollama may need a moment to stop the in-flight generation. No prompt or response content was persisted by the app.");
   };
 
   const runPrompt = async () => {
@@ -123,7 +128,7 @@ export function PromptRunner() {
 
     if (trimmedPrompt.length > promptMaxLength) {
       setStatus("failed");
-      setError(`Prompts must be ${promptMaxLength.toLocaleString()} characters or fewer for Phase 3.`);
+      setError(`Prompts must be ${promptMaxLength.toLocaleString()} characters or fewer for Phase 4.`);
       return;
     }
 
@@ -132,6 +137,7 @@ export function PromptRunner() {
     setStatus("running");
     setError("");
     setOutput("");
+    setMetrics(null);
 
     try {
       const response = await fetch(withBasePath("/api/ai-factory-economics/run"), {
@@ -166,6 +172,10 @@ export function PromptRunner() {
             setOutput((current) => `${current}${typeof event.data.response === "string" ? event.data.response : ""}`);
           }
 
+          if (event.event === "metrics") {
+            setMetrics(event.data as AiFactoryRunMetricsEventPayload);
+          }
+
           if (event.event === "done") {
             completed = true;
           }
@@ -180,6 +190,9 @@ export function PromptRunner() {
             for (const event of parseSseEvents(buffer)) {
               if (event.event === "chunk") {
                 setOutput((current) => `${current}${typeof event.data.response === "string" ? event.data.response : ""}`);
+              }
+              if (event.event === "metrics") {
+                setMetrics(event.data as AiFactoryRunMetricsEventPayload);
               }
               if (event.event === "done") {
                 completed = true;
@@ -222,7 +235,7 @@ export function PromptRunner() {
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground/50">Measured local runtime availability</p>
             <CardTitle className="mt-1 flex items-center gap-2 text-xl">
               <Terminal className="h-5 w-5 text-primary" aria-hidden />
-              Phase 3 prompt runner
+              Phase 4 prompt runner
             </CardTitle>
           </div>
           <MetricLabel classification="Measured" />
@@ -230,11 +243,11 @@ export function PromptRunner() {
       </CardHeader>
       <CardContent className="space-y-5 text-sm leading-relaxed text-foreground/70">
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-800 dark:text-amber-200">
-          <p className="font-semibold">Phase 3 boundary</p>
+          <p className="font-semibold">Phase 4 boundary</p>
           <p className="mt-1">
-            This runner sends prompts only to local Ollama and streams the response back into this browser session. It does not
-            calculate official TTFT, tokens/sec, cost per run, or GPU telemetry yet. Prompt and response content are not persisted
-            by the app.
+            This runner sends prompts only to local Ollama, streams the response into this browser session, measures server-side TTFT
+            and latency, estimates token counts, and derives tokens/sec. GPU telemetry, watts, tokens/watt, and real cost/run are not
+            measured in Phase 4. Prompt and response content are not persisted by the app.
           </p>
         </div>
 
@@ -334,11 +347,13 @@ export function PromptRunner() {
 
         {error ? <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-amber-800 dark:text-amber-200">{error}</p> : null}
 
+        <RunMetricsPanel metrics={metrics} status={status} />
+
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">Generated response</p>
             <MetricLabel classification="Measured" />
-            <span className="text-xs text-foreground/50">Runtime response content only; measured economics are not calculated yet.</span>
+            <span className="text-xs text-foreground/50">Runtime response content only; Phase 4 metrics are measured/estimated/derived and content is not persisted.</span>
           </div>
           <pre className="min-h-40 whitespace-pre-wrap rounded-xl border border-border bg-muted/30 p-4 text-sm text-foreground">
             {output || "Local Ollama response stream will appear here."}

@@ -63,7 +63,7 @@ export type AiFactoryNvidiaTelemetryStatus = {
 
 export type AiFactoryHealthStatus = {
   ok: boolean;
-  phase: "Phase 3";
+  phase: "Phase 4";
   ollama: OllamaAvailability;
   demoModeAvailable: boolean;
   nvidiaTelemetry: AiFactoryNvidiaTelemetryStatus;
@@ -73,7 +73,7 @@ export type AiFactoryHealthStatus = {
 
 export type AiFactoryModelDiscoverySuccess = {
   ok: true;
-  phase: "Phase 3";
+  phase: "Phase 4";
   baseUrl: string;
   timeoutMs: number;
   classification: "Measured";
@@ -83,7 +83,7 @@ export type AiFactoryModelDiscoverySuccess = {
 
 export type AiFactoryModelDiscoveryFailure = {
   ok: false;
-  phase: "Phase 3";
+  phase: "Phase 4";
   baseUrl: string;
   timeoutMs: number;
   classification: "Measured";
@@ -93,6 +93,56 @@ export type AiFactoryModelDiscoveryFailure = {
 };
 
 export type AiFactoryModelDiscoveryResult = AiFactoryModelDiscoverySuccess | AiFactoryModelDiscoveryFailure;
+
+
+export type AiFactoryRunMetricsStatus = "running" | "completed" | "failed" | "canceled" | "incomplete";
+
+export type AiFactoryRunMetricClassifications = {
+  ttft: "Measured";
+  totalLatency: "Measured";
+  generationDuration: "Measured";
+  promptTokens: "Estimated";
+  responseTokens: "Estimated";
+  tokensPerSecond: "Derived";
+  gpuTelemetry: "Demo/mock";
+  powerTelemetry: "Demo/mock";
+  costPerRun: "Demo/mock";
+};
+
+export type AiFactoryRunMetricsInput = {
+  promptText: string;
+  responseText: string;
+  requestStartedAtMs: number;
+  firstChunkAtMs?: number;
+  completedAtMs?: number;
+  status: AiFactoryRunMetricsStatus;
+};
+
+export type AiFactoryRunMetrics = {
+  status: AiFactoryRunMetricsStatus;
+  ttftMs: number | null;
+  totalLatencyMs: number | null;
+  generationDurationMs: number | null;
+  estimatedPromptTokens: number;
+  estimatedResponseTokens: number;
+  estimatedTokensPerSecond: number | null;
+  classifications: AiFactoryRunMetricClassifications;
+  note: string;
+};
+
+export type AiFactoryRunMetricsEventPayload = AiFactoryRunMetrics & {
+  eventGeneratedAt: string;
+};
+
+export type AiFactoryRunMetaEventPayload = {
+  ok: true;
+  phase: "Phase 4";
+  model: string;
+  baseUrl: string;
+  classification: "Measured";
+  economicsClassification: "Demo/mock";
+  message: string;
+};
 
 export type AiFactoryRunStatus = "idle" | "running" | "completed" | "failed" | "canceled";
 
@@ -129,7 +179,7 @@ export type AiFactoryRunError = AiFactorySafeError & {
   code: AiFactoryRunErrorCode;
 };
 
-export type AiFactoryRunStreamEvent = "meta" | "chunk" | "done" | "error";
+export type AiFactoryRunStreamEvent = "meta" | "chunk" | "metrics" | "done" | "error";
 
 export type AiFactoryRunStreamChunk = {
   response: string;
