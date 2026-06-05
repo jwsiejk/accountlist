@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { addRunToHistory } from "@/lib/ai-factory-economics/history";
 import { aiFactoryEconomicsMockDashboard } from "@/lib/ai-factory-economics/mock-data";
 import type { AiFactoryRunSummary } from "@/lib/ai-factory-economics/types";
+import { ExecutiveInsightsPanel } from "./executive-insights-panel";
 import { ExecutiveSummaryCards } from "./executive-summary-cards";
 import { GpuTelemetryPanel } from "./gpu-telemetry-panel";
 import { MetricCard } from "./metric-card";
@@ -33,14 +34,17 @@ export function AiFactoryEconomicsTool() {
         <div className="relative grid gap-8 lg:grid-cols-[1.25fr_0.75fr] lg:items-end">
           <div className="space-y-5">
             <div className="inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
-              Local-only Phase 6
+              Local-only Phase 7
             </div>
             <div className="space-y-3">
               <h1 className="text-3xl font-semibold tracking-tight md:text-5xl">
                 AI Factory Economics
               </h1>
               <p className="max-w-3xl text-sm leading-relaxed text-white/75 md:text-base">
-                {dashboard.summary}
+                Phase 7 turns the local AI Factory demo into an executive-ready
+                view: measured local runtime, estimated token counts, derived
+                model comparison/recommendations, and no persisted prompt or
+                response content.
               </p>
             </div>
             <div className="grid gap-3 text-sm sm:grid-cols-3">
@@ -56,19 +60,19 @@ export function AiFactoryEconomicsTool() {
               </div>
               <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
                 <Gauge className="mb-3 h-5 w-5 text-blue-200" aria-hidden />
-                <p className="font-semibold">Demo metrics remain</p>
+                <p className="font-semibold">Measured, estimated, derived</p>
                 <p className="mt-1 text-white/65">
-                  Dashboard economics remain demo/mock while prompt streaming,
-                  history summaries, and GPU snapshots stay local.
+                  Prompt runs measure TTFT/latency, estimate tokens, derive
+                  tokens/sec and recommendations, and keep demo/mock economics
+                  clearly labeled.
                 </p>
               </div>
               <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
                 <Cpu className="mb-3 h-5 w-5 text-amber-200" aria-hidden />
-                <p className="font-semibold">Prompt runs locally</p>
+                <p className="font-semibold">Content stays local</p>
                 <p className="mt-1 text-white/65">
-                  Prompt streaming is live/local; run history is sanitized
-                  browser memory only, tokens are estimated, and
-                  tokens/sec/comparisons are derived.
+                  Prompt and response text are active-session only. In-memory
+                  summaries exclude content and disappear on reload.
                 </p>
               </div>
             </div>
@@ -86,10 +90,10 @@ export function AiFactoryEconomicsTool() {
                 secrets, or external APIs are required.
               </p>
               <p>
-                Phase 6 adds sanitized in-memory run history and derived model
-                comparison. Demo/mock dashboard economics remain visible; GPU
-                telemetry is optional snapshot data and is not exact per-run
-                attribution.
+                Phase 7 adds executive scorecards and safe Derived
+                recommendations from current in-memory summaries. Demo/mock
+                economics remain visible; GPU telemetry is optional snapshot
+                data and is not exact per-run attribution.
               </p>
             </CardContent>
           </Card>
@@ -104,21 +108,52 @@ export function AiFactoryEconomicsTool() {
 
       <ExecutiveSummaryCards metrics={dashboard.metrics} />
 
-      <section className="grid gap-4 lg:grid-cols-2">
-        <OllamaStatusCard />
-        <ModelDiscoveryPanel />
+      <ExecutiveInsightsPanel runs={runHistory} />
+
+      <section className="space-y-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground/50">
+            Local readiness
+          </p>
+          <h2 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+            Ollama, local models, and GPU snapshot
+          </h2>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <OllamaStatusCard />
+          <ModelDiscoveryPanel />
+        </div>
+        <GpuTelemetryPanel />
       </section>
 
-      <GpuTelemetryPanel />
+      <section className="space-y-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground/50">
+            Run a prompt
+          </p>
+          <h2 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+            Measured runtime and estimated tokens
+          </h2>
+        </div>
+        <PromptRunner onRunSummary={recordRunSummary} />
+      </section>
 
-      <PromptRunner onRunSummary={recordRunSummary} />
-
-      <section className="grid gap-4 xl:grid-cols-2">
-        <RunHistoryPanel
-          runs={runHistory}
-          onClearHistory={() => setRunHistory([])}
-        />
-        <ModelComparisonTable runs={runHistory} />
+      <section className="space-y-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground/50">
+            Learn from runs
+          </p>
+          <h2 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+            Browser-memory history and Derived comparison
+          </h2>
+        </div>
+        <div className="grid gap-4 xl:grid-cols-2">
+          <RunHistoryPanel
+            runs={runHistory}
+            onClearHistory={() => setRunHistory([])}
+          />
+          <ModelComparisonTable runs={runHistory} />
+        </div>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">

@@ -753,3 +753,48 @@ npm run typecheck
 npm test
 npm run lint
 ```
+
+## Phase 7: executive dashboard polish and safe recommendations
+
+Phase 7 is implemented as a local-only UI/interpretation polish phase for `/partner-hub/ai-factory-economics`. It adds executive scorecards, safe recommendations, and clearer demo caveats without telemetry sources, background collection, persistence, backend storage, migrations, cloud services, secrets, dependencies, or cost-per-run calculations.
+
+### Files added in Phase 7
+
+- `ui/partner-hub/lib/ai-factory-economics/insights.ts`
+- `ui/partner-hub/lib/ai-factory-economics/insights.test.ts`
+- `ui/partner-hub/components/ai-factory-economics/executive-insights-panel.tsx`
+
+### Files updated in Phase 7
+
+- `ui/partner-hub/components/ai-factory-economics/ai-factory-economics-tool.tsx`
+- `ui/partner-hub/lib/ai-factory-economics/types.ts`
+- `ui/partner-hub/lib/ai-factory-economics/mock-data.ts`
+- `ui/partner-hub/package.json`
+- `ui/partner-hub/docs/ai-factory-economics.md`
+- `docs/AI_FACTORY_ECONOMICS_MODULE.md`
+
+### Runtime behavior and labels
+
+- The header identifies **Local-only Phase 7** and explains measured local runtime, estimated token counts, derived model comparison/recommendations, and no persisted prompt or response content.
+- A new executive insights panel appears after the existing demo/mock executive summary cards and explains what the local demo proves.
+- Scorecards are **Derived** and transparent: runs compared, best average TTFT, best average estimated tokens/sec, completion rate, and telemetry coverage.
+- Missing metrics display as unavailable and are never treated as zero.
+- Recommendations are **Derived** from current sanitized in-memory history and can identify fastest average TTFT, highest average estimated throughput, highest completion rate, or a completion warning.
+- Static caveats and demo narration guidance are **Configured**.
+- Demo economics remain **Demo/mock**; direct Ollama/model/runtime observations remain **Measured**; token counts remain **Estimated**; tokens/sec remains **Derived**.
+- GPU telemetry remains **Measured** only as a point-in-time NVIDIA `nvidia-smi` snapshot when available. It is not exact per-run attribution, per-process attribution, or lab-grade wall-power measurement.
+- The page is grouped as executive view, local readiness, prompt running, learning from runs, and readiness/phase status without rebuilding unrelated components.
+
+### Local manual test flow
+
+1. Start Ollama: `ollama serve`.
+2. Pull one or more local models, for example `ollama pull llama3.2:3b`.
+3. Run Partner Hub from `ui/partner-hub`: `npm run dev`.
+4. Open `http://localhost:3000/partner-hub/ai-factory-economics`.
+5. Run several prompts, ideally with the same prompt across two local models.
+6. Confirm executive insights appear, recommendations are labeled **Derived**, prompt/response content is not stored, history disappears on reload, GPU telemetry remains snapshot-only, and no production benchmark claims are made.
+
+Verification commands from `ui/partner-hub`: `npm run typecheck`, `npm test`, and `npm run lint`.
+
+### Phase 7 guardrails
+Phase 7 keeps all prior local-only guardrails. It does not persist prompt content, persist response content, use localStorage/sessionStorage/IndexedDB, add database/backend storage, add migrations, add dependencies, add cloud services, add background collectors, add non-NVIDIA telemetry, claim exact tokenizer counts, claim lab-grade power measurement, claim exact per-run GPU attribution, or claim production benchmark validity.
