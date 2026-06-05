@@ -345,3 +345,36 @@ export type AiFactoryRunStreamChunk = {
   response: string;
   done: boolean;
 };
+
+export type AiFactoryExecutiveInsightSeverity = "info" | "good" | "warning";
+
+export type AiFactoryExecutiveInsightClassification =
+  | "Derived"
+  | "Configured";
+
+export type AiFactoryExecutiveInsight = {
+  id: string;
+  title: string;
+  explanation: string;
+  severity: AiFactoryExecutiveInsightSeverity;
+  classification: AiFactoryExecutiveInsightClassification;
+  supportingMetric?: string;
+  caveat: string;
+};
+
+export type AiFactoryExecutiveScorecard = {
+  id: string;
+  title: string;
+  value: string;
+  detail: string;
+  classification: "Derived";
+  supportingMetric?: string;
+};
+
+export type AiFactoryExecutiveInsightsInput = {
+  runs: AiFactoryRunSummary[];
+  comparisons?: AiFactoryModelComparisonSummary[];
+  latestRunMetrics?: AiFactoryRunMetrics | null;
+  ollamaAvailable?: boolean;
+  gpuSnapshotAvailable?: boolean;
+};

@@ -329,3 +329,81 @@ npm run typecheck
 npm test
 npm run lint
 ```
+
+## Phase 7: executive insights and safe recommendations
+
+Phase 7 is active on `/partner-hub/ai-factory-economics` as a UI/interpretation polish phase. It keeps the module local-only while adding a stronger executive summary, AI Factory Efficiency scorecards, safe recommendations, and clearer caveats for partner/customer demos.
+
+### Files added
+
+```text
+ui/partner-hub/lib/ai-factory-economics/insights.ts
+ui/partner-hub/lib/ai-factory-economics/insights.test.ts
+ui/partner-hub/components/ai-factory-economics/executive-insights-panel.tsx
+```
+
+### Files updated
+
+```text
+ui/partner-hub/components/ai-factory-economics/ai-factory-economics-tool.tsx
+ui/partner-hub/lib/ai-factory-economics/types.ts
+ui/partner-hub/lib/ai-factory-economics/mock-data.ts
+ui/partner-hub/package.json
+docs/AI_FACTORY_ECONOMICS_MODULE.md
+ui/partner-hub/docs/ai-factory-economics.md
+```
+
+### What changed in the UI
+
+- The page header now states **Local-only Phase 7** and explains that the demo combines measured runtime, estimated tokens, derived comparison/recommendations, and no persisted prompt/response content.
+- The new executive insights panel appears high on the page, below the existing demo/mock executive summary cards.
+- The panel includes a plain-English description of what the local demo proves, scorecards, derived recommendations, and configured caveats.
+- The page is visually grouped into:
+  - Executive view: demo/mock summary cards plus the new insights/recommendations panel.
+  - Local readiness: Ollama status, model discovery, and NVIDIA GPU snapshot.
+  - Run a prompt: local prompt runner and measured runtime metrics.
+  - Learn from runs: browser-memory history and derived model comparison.
+  - Readiness/roadmap status: existing setup and phase panels.
+
+### AI Factory Efficiency scorecards
+
+Scorecards are deliberately simple and transparent:
+
+- **Runs compared**: count of current sanitized in-memory run summaries.
+- **Best avg TTFT**: fastest available average TTFT from current history.
+- **Best avg throughput**: highest available average derived estimated tokens/sec from current history.
+- **Completion rate**: completed runs divided by all current in-memory runs.
+- **Telemetry coverage**: whether known local signals are available to the helper.
+
+All Phase 7 scorecards are labeled **Derived**. Missing metrics display as unavailable and are not substituted with zero.
+
+### Recommendations and caveats
+
+Safe recommendations are labeled **Derived** and may identify the fastest average TTFT model, highest average estimated throughput model, highest completion-rate model, or warn when failed/canceled/incomplete runs outnumber completed runs. Each recommendation includes caveat text stating that it is based only on local workstation demo data and sanitized in-memory summaries.
+
+Configured caveats explain that token counts are estimated, GPU telemetry is unavailable or snapshot-only, comparable prompts make demos easier to explain, no prompt/response content is stored, and no production benchmark claims should be made.
+
+### Local testing steps
+
+1. Start Ollama: `ollama serve`.
+2. Pull one or more models: `ollama pull llama3.2:3b`.
+3. Run Partner Hub from `ui/partner-hub`: `npm run dev`.
+4. Open `http://localhost:3000/partner-hub/ai-factory-economics`.
+5. Run several prompts.
+6. Confirm executive insights appear.
+7. Confirm model comparison recommendations are labeled **Derived**.
+8. Confirm no prompt content is stored in run history, model comparison, or executive insights.
+9. Confirm no response content is stored in run history, model comparison, or executive insights.
+10. Refresh the page and confirm history disappears.
+11. Confirm recommendations are framed as local demo guidance only, not production benchmark claims.
+12. Confirm GPU telemetry remains snapshot-only and is not described as exact per-run attribution.
+
+### Verification commands
+
+```bash
+npm run typecheck
+npm test
+npm run lint
+```
+
+Phase 7 adds no persistence, no localStorage, no backend storage, no database changes, no migrations, no cloud services, no secrets, no new dependencies, no background collectors, and no new telemetry source.
