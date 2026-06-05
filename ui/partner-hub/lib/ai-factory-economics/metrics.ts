@@ -17,7 +17,7 @@ function safeElapsedMs(startMs: number | undefined, endMs: number | undefined) {
 /**
  * Estimates tokens with a deliberately simple local-only approximation.
  *
- * This is not an exact tokenizer. Phase 4 uses roughly four normalized
+ * This is not an exact tokenizer. Phase 5 still uses roughly four normalized
  * characters per token so prompt/response content can remain transient and no
  * tokenizer dependency or cloud call is required.
  */
@@ -59,7 +59,7 @@ export function calculateRunMetrics(input: AiFactoryRunMetricsInput): AiFactoryR
       costPerRun: "Demo/mock",
     },
     note:
-      "Phase 4 measures local Ollama run timing and estimates token counts only. GPU telemetry, power metrics, tokens/watt, and real cost-per-run are not included.",
+      "Phase 5 measures local Ollama run timing and estimates token counts only. GPU telemetry is shown as a separate snapshot; tokens/watt and real cost-per-run are not included.",
   };
 }
 

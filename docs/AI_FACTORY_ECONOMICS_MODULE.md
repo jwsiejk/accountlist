@@ -525,3 +525,87 @@ Run a prompt and confirm:
 - Tokens/sec appears after completion and is labeled **Derived**.
 - GPU telemetry, watts, tokens/watt, and real cost/run remain unavailable for live runs or **Demo/mock** in the dashboard.
 - Prompt and response content are not saved by Partner Hub.
+
+## Phase 5 status
+Phase 5 is implemented as local-only NVIDIA GPU telemetry snapshots using `nvidia-smi`. The module now exposes a server-side API route that invokes `nvidia-smi` with safe argument passing, parses one or more GPU rows, and displays a manually refreshable snapshot panel in Partner Hub.
+
+Phase 5 intentionally does **not** add run history, persistent storage, prompt persistence, response persistence, database migrations, dependencies, background daemons, long-running collectors, cloud services, secrets, non-NVIDIA telemetry, per-process GPU attribution, lab-grade power measurement claims, or real cost-per-run calculations from telemetry.
+
+Phase 5 files added:
+
+```text
+ui/partner-hub/app/api/ai-factory-economics/gpu/route.ts
+ui/partner-hub/components/ai-factory-economics/gpu-telemetry-panel.tsx
+ui/partner-hub/lib/ai-factory-economics/gpu.ts
+ui/partner-hub/lib/ai-factory-economics/gpu.test.ts
+```
+
+Phase 5 files updated:
+
+```text
+ui/partner-hub/components/ai-factory-economics/ai-factory-economics-tool.tsx
+ui/partner-hub/lib/ai-factory-economics/mock-data.ts
+ui/partner-hub/lib/ai-factory-economics/ollama.ts
+ui/partner-hub/lib/ai-factory-economics/types.ts
+ui/partner-hub/package.json
+docs/AI_FACTORY_ECONOMICS_MODULE.md
+ui/partner-hub/docs/ai-factory-economics.md
+```
+
+Phase 5 runtime behavior:
+
+- `/api/ai-factory-economics/gpu` runs only in the Next.js Node.js runtime and never from client-side code.
+- The GPU helper invokes `nvidia-smi` with `execFile`/argument-array semantics, not string-shell execution.
+- The query is `index,utilization.gpu,memory.used,memory.total,power.draw,temperature.gpu` with `--format=csv,noheader,nounits`.
+- A short timeout prevents long-running telemetry calls.
+- One or more GPU rows are parsed into snapshots; the UI defaults to the first row/GPU 0 snapshot.
+- Empty output, missing `nvidia-smi`, timeouts, unsupported queries, and unexpected command failures return clean UI-facing unavailable states without stack traces.
+- Missing fields are represented as `null` and shown as **Unavailable**, never as zero.
+- The health route remains high-level and points to the dedicated GPU snapshot endpoint instead of duplicating full telemetry logic.
+
+Phase 5 metric labeling:
+
+- GPU telemetry availability is **Measured** by the local snapshot endpoint.
+- GPU utilization is **Measured** when returned by `nvidia-smi`.
+- GPU memory used and total are **Measured** when returned by `nvidia-smi`.
+- GPU watts/power draw is **Measured** when returned by `nvidia-smi`.
+- GPU temperature is **Measured** when returned by `nvidia-smi`.
+- Tokens/watt remains unavailable for active runs in Phase 5.
+- Existing static dashboard economics can remain **Demo/mock** until later phases wire them to sampled live values.
+
+Local Phase 5 test flow:
+
+```bash
+cd ui/partner-hub
+nvidia-smi
+ollama serve
+ollama pull llama3.2:3b
+npm run dev
+```
+
+Then open:
+
+```text
+http://localhost:3000/partner-hub/ai-factory-economics
+```
+
+Confirm:
+
+1. NVIDIA drivers are installed and `nvidia-smi` works manually.
+2. The GPU telemetry panel can be refreshed.
+3. Utilization, memory used/total, watts, temperature, GPU index, availability, and sample timestamp appear when available.
+4. If `nvidia-smi` is missing, times out, is unsupported, or returns unexpected data, the panel shows a safe unavailable state.
+5. Prompt runner behavior is unchanged and still works without GPU telemetry.
+6. No run history is created.
+7. Prompt and response content are not persisted.
+8. No database migrations or persistent stores are added.
+9. Telemetry is snapshot-based, not lab-grade power measurement.
+10. Multi-GPU attribution to a specific Ollama process remains out of scope.
+
+Verification commands from `ui/partner-hub`:
+
+```bash
+npm run typecheck
+npm test
+npm run lint
+```

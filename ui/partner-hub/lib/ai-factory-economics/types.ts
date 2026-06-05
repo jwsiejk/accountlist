@@ -45,6 +45,8 @@ export type AiFactorySafeError = {
 
 export type AiFactoryServiceStatus = "available" | "unavailable" | "not_connected";
 
+export type AiFactoryGpuTelemetryAvailabilityStatus = "available" | "unavailable";
+
 export type OllamaAvailability = {
   status: AiFactoryServiceStatus;
   reachable: boolean;
@@ -56,14 +58,71 @@ export type OllamaAvailability = {
 };
 
 export type AiFactoryNvidiaTelemetryStatus = {
-  status: "not_connected";
-  classification: "Demo/mock";
+  status: "snapshot_endpoint_available";
+  classification: "Measured";
   message: string;
 };
 
+export type AiFactoryGpuTelemetryFieldClassifications = {
+  availability: "Measured";
+  utilizationGpuPercent: "Measured";
+  memoryUsedMb: "Measured";
+  memoryTotalMb: "Measured";
+  powerDrawWatts: "Measured";
+  temperatureGpuCelsius: "Measured";
+};
+
+export type AiFactoryGpuTelemetrySnapshot = {
+  index: number | null;
+  utilizationGpuPercent: number | null;
+  memoryUsedMb: number | null;
+  memoryTotalMb: number | null;
+  powerDrawWatts: number | null;
+  temperatureGpuCelsius: number | null;
+  sampledAt: string;
+  classifications: AiFactoryGpuTelemetryFieldClassifications;
+};
+
+export type AiFactoryGpuErrorCode =
+  | "NVIDIA_SMI_NOT_FOUND"
+  | "NVIDIA_SMI_TIMEOUT"
+  | "NVIDIA_SMI_UNSUPPORTED"
+  | "NVIDIA_SMI_EMPTY_OUTPUT"
+  | "NVIDIA_SMI_UNAVAILABLE";
+
+export type AiFactorySafeGpuError = AiFactorySafeError & {
+  code: AiFactoryGpuErrorCode;
+};
+
+export type AiFactoryGpuTelemetrySuccess = {
+  ok: true;
+  phase: "Phase 5";
+  status: "available";
+  available: true;
+  timeoutMs: number;
+  checkedAt: string;
+  classification: "Measured";
+  defaultGpuIndex: number | null;
+  gpus: AiFactoryGpuTelemetrySnapshot[];
+};
+
+export type AiFactoryGpuTelemetryUnavailable = {
+  ok: false;
+  phase: "Phase 5";
+  status: "unavailable";
+  available: false;
+  timeoutMs: number;
+  checkedAt: string;
+  classification: "Measured";
+  gpus: [];
+  error: AiFactorySafeGpuError;
+};
+
+export type AiFactoryGpuTelemetryResult = AiFactoryGpuTelemetrySuccess | AiFactoryGpuTelemetryUnavailable;
+
 export type AiFactoryHealthStatus = {
   ok: boolean;
-  phase: "Phase 4";
+  phase: "Phase 5";
   ollama: OllamaAvailability;
   demoModeAvailable: boolean;
   nvidiaTelemetry: AiFactoryNvidiaTelemetryStatus;
@@ -73,7 +132,7 @@ export type AiFactoryHealthStatus = {
 
 export type AiFactoryModelDiscoverySuccess = {
   ok: true;
-  phase: "Phase 4";
+  phase: "Phase 5";
   baseUrl: string;
   timeoutMs: number;
   classification: "Measured";
@@ -83,7 +142,7 @@ export type AiFactoryModelDiscoverySuccess = {
 
 export type AiFactoryModelDiscoveryFailure = {
   ok: false;
-  phase: "Phase 4";
+  phase: "Phase 5";
   baseUrl: string;
   timeoutMs: number;
   classification: "Measured";
@@ -136,7 +195,7 @@ export type AiFactoryRunMetricsEventPayload = AiFactoryRunMetrics & {
 
 export type AiFactoryRunMetaEventPayload = {
   ok: true;
-  phase: "Phase 4";
+  phase: "Phase 5";
   model: string;
   baseUrl: string;
   classification: "Measured";

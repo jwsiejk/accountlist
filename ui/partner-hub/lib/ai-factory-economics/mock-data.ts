@@ -3,14 +3,14 @@ import type { AiFactoryEconomicsMockDashboard } from "./types";
 export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = {
   scenarioName: "Local workstation inference economics demo",
   summary:
-    "A Phase 4 dashboard that keeps demo/mock economics visible while measuring local Ollama run timing and estimating response efficiency.",
+    "A Phase 5 dashboard that keeps demo/mock economics visible while measuring local Ollama run timing and local NVIDIA GPU telemetry snapshots when available.",
   assumptions: [
     {
       id: "energy-rate",
       label: "Energy rate assumption",
       value: "$0.16/kWh",
       classification: "Configured",
-      description: "Static display assumption only; not used by a live collector in Phase 4.",
+      description: "Static display assumption only; not used by a live collector in Phase 5.",
       tone: "info",
     },
     {
@@ -18,7 +18,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = 
       label: "Demo mode",
       value: "On",
       classification: "Configured",
-      description: "Phase 4 renders demo/mock economics plus local Ollama health, model discovery, prompt streaming, measured timing, estimated token counts, and derived throughput.",
+      description: "Phase 5 renders demo/mock economics plus local Ollama health, model discovery, prompt streaming, measured timing, estimated token counts, derived throughput, and optional NVIDIA GPU snapshots.",
       tone: "good",
     },
   ],
@@ -28,7 +28,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = 
       label: "Selected model",
       value: "llama3.1:8b-instruct",
       classification: "Demo/mock",
-      description: "Placeholder model name for demo fallback; discovered local Ollama models and prompt streams are shown separately as Measured/Estimated/Derived in Phase 4.",
+      description: "Placeholder model name for demo fallback; discovered local Ollama models and prompt streams are shown separately as Measured/Estimated/Derived in Phase 5.",
       tone: "info",
     },
     {
@@ -36,7 +36,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = 
       label: "Time to first token",
       value: "420 ms",
       classification: "Demo/mock",
-      description: "Mock first-token timing for the dashboard shell; Phase 4 measures TTFT in the prompt runner while this card remains demo/mock.",
+      description: "Mock first-token timing for the dashboard shell; Phase 5 measures TTFT in the prompt runner while this card remains demo/mock.",
       tone: "good",
     },
     {
@@ -44,7 +44,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = 
       label: "Total latency",
       value: "2.8 s",
       classification: "Demo/mock",
-      description: "Mock end-to-end economics placeholder; Phase 4 measures total latency in the prompt runner while this card remains demo/mock.",
+      description: "Mock end-to-end economics placeholder; Phase 5 measures total latency in the prompt runner while this card remains demo/mock.",
       tone: "good",
     },
     {
@@ -52,7 +52,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = 
       label: "Estimated tokens/sec",
       value: "31.4 tok/s",
       classification: "Demo/mock",
-      description: "Mock dashboard throughput preview; the Phase 4 prompt runner separately derives tokens/sec from measured generation duration and estimated response tokens.",
+      description: "Mock dashboard throughput preview; the Phase 5 prompt runner separately derives tokens/sec from measured generation duration and estimated response tokens.",
       tone: "info",
     },
     {
@@ -60,7 +60,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = 
       label: "GPU utilization",
       value: "68%",
       classification: "Demo/mock",
-      description: "Mock GPU utilization; Phase 4 does not call nvidia-smi or sample hardware telemetry.",
+      description: "Mock GPU utilization; Phase 5 samples nvidia-smi in a separate live panel; this static dashboard card remains demo/mock.",
       tone: "info",
     },
     {
@@ -76,7 +76,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = 
       label: "GPU watts",
       value: "146 W",
       classification: "Demo/mock",
-      description: "Mock power draw; no local process or hardware probe is used in Phase 4.",
+      description: "Mock power draw; no local process or hardware probe is used in Phase 5.",
       tone: "warning",
     },
     {
@@ -84,7 +84,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = 
       label: "GPU temperature",
       value: "62°C",
       classification: "Demo/mock",
-      description: "Mock thermal signal for future local NVIDIA telemetry.",
+      description: "Mock thermal signal for the separate Phase 5 local NVIDIA snapshot panel.",
       tone: "info",
     },
     {
@@ -100,7 +100,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = 
       label: "Estimated cost per run",
       value: "$0.000018",
       classification: "Demo/mock",
-      description: "Mock economics preview using a static energy-rate assumption; no persisted cost model exists in Phase 4.",
+      description: "Mock economics preview using a static energy-rate assumption; no persisted cost model exists in Phase 5.",
       tone: "good",
     },
   ],
@@ -109,19 +109,19 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = 
       title: "Ollama",
       status: "Checked",
       classification: "Measured",
-      description: "Phase 4 checks local Ollama health, discovers /api/tags models, runs local prompt streams, and displays timing/token metrics with graceful fallback when unavailable.",
+      description: "Phase 5 checks local Ollama health, discovers /api/tags models, runs local prompt streams, displays timing/token metrics, and keeps graceful fallback when unavailable.",
     },
     {
       title: "NVIDIA telemetry",
-      status: "Planned",
-      classification: "Demo/mock",
-      description: "Planned for Phase 5; Phase 4 does not call nvidia-smi.",
+      status: "Checked",
+      classification: "Measured",
+      description: "Phase 5 samples local NVIDIA telemetry with nvidia-smi when available and shows safe unavailable states otherwise.",
     },
     {
       title: "Run history",
       status: "Not persistent",
       classification: "Demo/mock",
-      description: "Planned as in-memory summaries first; no database or persistent storage is added in Phase 4.",
+      description: "Planned as in-memory summaries first; no database or persistent storage is added in Phase 5.",
     },
   ],
   phases: [
@@ -146,15 +146,15 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard = 
     {
       phase: "Phase 4",
       title: "Run timing and response efficiency",
-      status: "Active",
-      description: "Measure TTFT, total latency, and generation duration; estimate prompt/response tokens; derive tokens/sec without GPU telemetry or persistence.",
-      active: true,
+      status: "Complete",
+      description: "Measure TTFT, total latency, and generation duration; estimate prompt/response tokens; derive tokens/sec without persistence.",
     },
     {
       phase: "Phase 5",
       title: "NVIDIA telemetry",
-      status: "Later",
-      description: "Sample local GPU utilization, memory, watts, and temperature when nvidia-smi is available.",
+      status: "Active",
+      description: "Sample local GPU utilization, memory, watts, and temperature when nvidia-smi is available; no persistence or per-process attribution.",
+      active: true,
     },
   ],
 };

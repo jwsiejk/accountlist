@@ -3,6 +3,7 @@ import { Cpu, Gauge, ShieldCheck, Zap } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { aiFactoryEconomicsMockDashboard } from "@/lib/ai-factory-economics/mock-data";
 import { ExecutiveSummaryCards } from "./executive-summary-cards";
+import { GpuTelemetryPanel } from "./gpu-telemetry-panel";
 import { MetricCard } from "./metric-card";
 import { ModelDiscoveryPanel } from "./model-discovery-panel";
 import { OllamaStatusCard } from "./ollama-status-card";
@@ -20,7 +21,7 @@ export function AiFactoryEconomicsTool() {
         <div className="relative grid gap-8 lg:grid-cols-[1.25fr_0.75fr] lg:items-end">
           <div className="space-y-5">
             <div className="inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
-              Local-only Phase 4
+              Local-only Phase 5
             </div>
             <div className="space-y-3">
               <h1 className="text-3xl font-semibold tracking-tight md:text-5xl">AI Factory Economics</h1>
@@ -35,12 +36,12 @@ export function AiFactoryEconomicsTool() {
               <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
                 <Gauge className="mb-3 h-5 w-5 text-blue-200" aria-hidden />
                 <p className="font-semibold">Demo metrics remain</p>
-                <p className="mt-1 text-white/65">Dashboard economics remain demo/mock while prompt streaming is measured locally.</p>
+                <p className="mt-1 text-white/65">Dashboard economics remain demo/mock while prompt streaming and GPU snapshots are measured locally.</p>
               </div>
               <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
                 <Cpu className="mb-3 h-5 w-5 text-amber-200" aria-hidden />
                 <p className="font-semibold">Prompt runs locally</p>
-                <p className="mt-1 text-white/65">Prompt streaming is live/local; TTFT and latency are measured, tokens are estimated, tokens/sec is derived, and cost/GPU telemetry remain unavailable.</p>
+                <p className="mt-1 text-white/65">Prompt streaming is live/local; TTFT, latency, and NVIDIA snapshots are measured, tokens are estimated, and tokens/sec is derived.</p>
               </div>
             </div>
           </div>
@@ -53,7 +54,7 @@ export function AiFactoryEconomicsTool() {
             </CardHeader>
             <CardContent className="space-y-3 text-sm leading-relaxed text-white/75">
               <p>This is a local demo module. No cloud services, accounts, secrets, or external APIs are required.</p>
-              <p>Phase 4 adds measured local run timing, estimated token counts, and derived tokens/sec for Ollama prompt runs. Demo/mock dashboard economics remain visible, and NVIDIA telemetry is still not connected.</p>
+              <p>Phase 5 adds local NVIDIA nvidia-smi snapshots for GPU utilization, memory, watts, and temperature. Demo/mock dashboard economics remain visible; telemetry is optional and is not exact per-run attribution.</p>
             </CardContent>
           </Card>
         </div>
@@ -71,6 +72,8 @@ export function AiFactoryEconomicsTool() {
         <OllamaStatusCard />
         <ModelDiscoveryPanel />
       </section>
+
+      <GpuTelemetryPanel />
 
       <PromptRunner />
 
