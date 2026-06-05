@@ -20,7 +20,7 @@ export function AiFactoryEconomicsTool() {
         <div className="relative grid gap-8 lg:grid-cols-[1.25fr_0.75fr] lg:items-end">
           <div className="space-y-5">
             <div className="inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
-              Local-only Phase 3
+              Local-only Phase 4
             </div>
             <div className="space-y-3">
               <h1 className="text-3xl font-semibold tracking-tight md:text-5xl">AI Factory Economics</h1>
@@ -40,7 +40,7 @@ export function AiFactoryEconomicsTool() {
               <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
                 <Cpu className="mb-3 h-5 w-5 text-amber-200" aria-hidden />
                 <p className="font-semibold">Prompt runs locally</p>
-                <p className="mt-1 text-white/65">Prompt streaming is live/local; TTFT, tokens/sec, cost, and GPU telemetry are not calculated yet.</p>
+                <p className="mt-1 text-white/65">Prompt streaming is live/local; TTFT and latency are measured, tokens are estimated, tokens/sec is derived, and cost/GPU telemetry remain unavailable.</p>
               </div>
             </div>
           </div>
@@ -53,7 +53,7 @@ export function AiFactoryEconomicsTool() {
             </CardHeader>
             <CardContent className="space-y-3 text-sm leading-relaxed text-white/75">
               <p>This is a local demo module. No cloud services, accounts, secrets, or external APIs are required.</p>
-              <p>Phase 3 adds a local Ollama prompt runner and streaming proxy. Demo/mock dashboard economics remain visible, and NVIDIA telemetry is still not connected.</p>
+              <p>Phase 4 adds measured local run timing, estimated token counts, and derived tokens/sec for Ollama prompt runs. Demo/mock dashboard economics remain visible, and NVIDIA telemetry is still not connected.</p>
             </CardContent>
           </Card>
         </div>

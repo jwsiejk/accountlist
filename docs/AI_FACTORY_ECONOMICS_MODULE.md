@@ -399,11 +399,13 @@ Status: **implemented**.
 - Keeps official TTFT, tokens/sec, real cost/run, and GPU telemetry out of scope until later phases.
 
 ### Phase 4: TTFT, latency, token estimate, tokens/sec calculations
-- Add server-side run timing.
-- Compute TTFT from first streamed chunk.
-- Estimate prompt and response tokens with documented approximation.
-- Compute estimated tokens/sec.
-- Add tests for metric calculations.
+Status: **implemented**.
+
+- Added server-side run timing.
+- Computes TTFT from the first streamed Ollama response chunk.
+- Estimates prompt and response tokens with a documented rough local approximation.
+- Derives estimated tokens/sec from estimated response tokens and measured generation duration.
+- Added tests for metric calculations and incomplete/missing-duration behavior.
 
 ### Phase 5: NVIDIA telemetry collector using `nvidia-smi`
 - Add GPU telemetry API route.
@@ -456,3 +458,70 @@ Status: **implemented**.
 - The current mock selected model is `llama3.1:8b-instruct`; discovered and manually entered Phase 3 runtime models are displayed separately from the demo/mock dashboard model.
 - The current static energy-rate display assumption is `$0.16/kWh`; future phases should decide whether this becomes user-configurable.
 - Prompt history remains absent in Phase 1; future phases should keep any run-history work in memory first and continue excluding prompt content from stored summaries by default.
+
+## Phase 4 status
+Phase 4 is implemented as measured local Ollama run timing plus estimated response-efficiency metrics. The prompt runner still sends prompts only to local Ollama through the Partner Hub server-side streaming proxy, keeps response content in memory only for the active browser session, and does not add run history or persistent storage.
+
+Phase 4 adds measured TTFT, measured total latency, measured generation duration when Ollama sends `done`, estimated prompt tokens, estimated response tokens, and derived estimated tokens/sec. Token counts use a documented local approximation of roughly four normalized characters per token; they are not exact tokenizer counts.
+
+Phase 4 intentionally does **not** add GPU telemetry, `nvidia-smi` calls, NVIDIA telemetry, watts, tokens/watt from real telemetry, real cost-per-run calculations, run history, persistent storage, prompt persistence, response persistence, database migrations, dependencies, cloud services, secrets, or external APIs.
+
+Phase 4 files added:
+
+```text
+ui/partner-hub/components/ai-factory-economics/run-metrics-panel.tsx
+ui/partner-hub/lib/ai-factory-economics/metrics.ts
+ui/partner-hub/lib/ai-factory-economics/metrics.test.ts
+```
+
+Phase 4 files updated:
+
+```text
+ui/partner-hub/app/api/ai-factory-economics/run/route.ts
+ui/partner-hub/components/ai-factory-economics/ai-factory-economics-tool.tsx
+ui/partner-hub/components/ai-factory-economics/ollama-status-card.tsx
+ui/partner-hub/components/ai-factory-economics/prompt-runner.tsx
+ui/partner-hub/lib/ai-factory-economics/mock-data.ts
+ui/partner-hub/lib/ai-factory-economics/ollama.ts
+ui/partner-hub/lib/ai-factory-economics/types.ts
+ui/partner-hub/package.json
+docs/AI_FACTORY_ECONOMICS_MODULE.md
+ui/partner-hub/docs/ai-factory-economics.md
+```
+
+Phase 4 runtime behavior:
+
+- `/api/ai-factory-economics/run` captures a server-side request start timestamp.
+- The route captures TTFT from request start to the first streamed Ollama response chunk and labels TTFT **Measured**.
+- The route captures completion when Ollama sends `done`; total latency and generation duration are labeled **Measured** when available.
+- Prompt and response token counts are estimated locally and labeled **Estimated**.
+- Tokens/sec is derived from estimated response tokens divided by measured generation duration and labeled **Derived**.
+- The route emits SSE `meta`, `chunk`, `metrics`, `done`, and `error` events.
+- If a stream ends without a `done` event, the route emits an incomplete metrics state and the UI keeps the partial response visible while refusing to mark the run completed.
+- Existing GPU, watts, tokens/watt, and cost/run dashboard cards remain **Demo/mock** or unavailable for live runs.
+- Prompt and response content are not persisted; response text is retained in request/browser memory only long enough to stream and estimate active-run tokens.
+
+Local Phase 4 test flow:
+
+```bash
+cd ui/partner-hub
+ollama serve
+ollama pull llama3.2:3b
+npm run dev
+```
+
+Then open:
+
+```text
+http://localhost:3000/partner-hub/ai-factory-economics
+```
+
+Run a prompt and confirm:
+
+- The response streams into the generated response panel.
+- TTFT appears and is labeled **Measured**.
+- Total latency and generation duration appear after completion and are labeled **Measured**.
+- Prompt and response token counts appear and are labeled **Estimated**.
+- Tokens/sec appears after completion and is labeled **Derived**.
+- GPU telemetry, watts, tokens/watt, and real cost/run remain unavailable for live runs or **Demo/mock** in the dashboard.
+- Prompt and response content are not saved by Partner Hub.

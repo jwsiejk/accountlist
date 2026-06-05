@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { calculateRunMetrics } from "@/lib/ai-factory-economics/metrics";
 import {
   AI_FACTORY_OLLAMA_RUN_TIMEOUT_MS,
   getAiFactoryOllamaBaseUrl,
@@ -8,7 +9,7 @@ import {
   toSafeOllamaError,
   validateAiFactoryRunRequest,
 } from "@/lib/ai-factory-economics/ollama";
-import type { AiFactorySafeError } from "@/lib/ai-factory-economics/types";
+import type { AiFactoryRunMetricsStatus, AiFactorySafeError } from "@/lib/ai-factory-economics/types";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -30,6 +31,7 @@ function encodeSse(event: string, data: unknown) {
 }
 
 export async function POST(request: Request) {
+  const requestStartedAtMs = Date.now();
   let body: unknown;
 
   try {
@@ -87,17 +89,35 @@ export async function POST(request: Request) {
         controller.enqueue(encoder.encode(encodeSse(event, data)));
       };
 
+      let buffer = "";
+      let responseText = "";
+      let firstChunkAtMs: number | undefined;
+      let receivedDone = false;
+
+      const sendMetrics = (status: AiFactoryRunMetricsStatus, completedAtMs?: number) => {
+        send("metrics", {
+          ...calculateRunMetrics({
+            promptText: validation.request.prompt,
+            responseText,
+            requestStartedAtMs,
+            firstChunkAtMs,
+            completedAtMs,
+            status,
+          }),
+          eventGeneratedAt: new Date().toISOString(),
+        });
+      };
+
       send("meta", {
         ok: true,
-        phase: "Phase 3",
+        phase: "Phase 4",
         model: validation.request.model,
         baseUrl: getAiFactoryOllamaBaseUrl(),
         classification: "Measured",
         economicsClassification: "Demo/mock",
-        message: "Streaming response content is measured from local Ollama; official TTFT, tokens/sec, and cost are not calculated in Phase 3.",
+        message:
+          "Streaming response timing is measured from local Ollama. Prompt and response tokens are estimated; tokens/sec is derived. GPU, power, tokens/watt, and real cost telemetry are not included in Phase 4.",
       });
-
-      let buffer = "";
 
       try {
         while (true) {
@@ -122,19 +142,28 @@ export async function POST(request: Request) {
             }
 
             if (chunk.response) {
+              if (firstChunkAtMs === undefined) {
+                firstChunkAtMs = Date.now();
+              }
+              responseText += chunk.response;
               send("chunk", {
                 response: chunk.response,
                 done: false,
                 classification: "Measured",
               });
+              sendMetrics("running");
             }
 
             if (chunk.done) {
+              receivedDone = true;
+              const completedAtMs = Date.now();
+              sendMetrics("completed", completedAtMs);
               send("done", {
                 ok: true,
                 status: "completed",
                 classification: "Measured",
-                message: "Prompt run completed. Official TTFT, tokens/sec, cost, and GPU telemetry remain unavailable in Phase 3.",
+                message:
+                  "Prompt run completed with Phase 4 measured timing, estimated token counts, and derived throughput. GPU telemetry, power, tokens/watt, and real cost/run remain unavailable.",
               });
             }
           }
@@ -143,18 +172,39 @@ export async function POST(request: Request) {
             if (buffer.trim()) {
               const chunk = normalizeOllamaGenerateChunk(buffer.trim());
               if (chunk?.response) {
+                if (firstChunkAtMs === undefined) {
+                  firstChunkAtMs = Date.now();
+                }
+                responseText += chunk.response;
                 send("chunk", {
                   response: chunk.response,
                   done: chunk.done,
                   classification: "Measured",
                 });
+                sendMetrics("running");
               }
+              if (chunk?.done && !receivedDone) {
+                receivedDone = true;
+                const completedAtMs = Date.now();
+                sendMetrics("completed", completedAtMs);
+                send("done", {
+                  ok: true,
+                  status: "completed",
+                  classification: "Measured",
+                  message:
+                    "Prompt run completed with Phase 4 measured timing, estimated token counts, and derived throughput. GPU telemetry, power, tokens/watt, and real cost/run remain unavailable.",
+                });
+              }
+            }
+            if (!receivedDone) {
+              sendMetrics("incomplete");
             }
             break;
           }
         }
       } catch (error) {
         const safeError = toSafeOllamaError(error, "The local Ollama prompt run failed while streaming.");
+        sendMetrics(request.signal.aborted ? "canceled" : "failed");
         send("error", safeError);
       } finally {
         clearTimeout(timeout);
