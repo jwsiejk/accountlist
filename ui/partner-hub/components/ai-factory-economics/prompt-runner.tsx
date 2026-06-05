@@ -184,13 +184,21 @@ export function PromptRunner() {
               if (event.event === "done") {
                 completed = true;
               }
+              if (event.event === "error") {
+                throw new Error(formatRunError(event.data));
+              }
             }
           }
           break;
         }
       }
 
-      setStatus("completed");
+      if (completed) {
+        setStatus("completed");
+      } else {
+        setStatus("failed");
+        setError("Local stream ended before Ollama sent a completion signal. The partial response remains visible, but this run should not be treated as complete.");
+      }
     } catch (runError) {
       if (controller.signal.aborted) {
         setStatus("canceled");
