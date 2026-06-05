@@ -4,7 +4,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard =
   {
     scenarioName: "Local workstation inference economics demo",
     summary:
-      "A Phase 7 dashboard that keeps demo/mock economics visible while measuring local Ollama runtime, estimating tokens, deriving model comparison, and presenting safe local-only recommendations.",
+      "A Phase 8 dashboard that keeps demo/mock economics visible while measuring local Ollama runtime, estimating tokens, deriving model comparison, and presenting safe local-only recommendations.",
     assumptions: [
       {
         id: "energy-rate",
@@ -12,7 +12,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard =
         value: "$0.16/kWh",
         classification: "Configured",
         description:
-          "Static display assumption only; not used by a live collector or Phase 7 recommendation.",
+          "Static display assumption only; not used by a live collector or Phase 8 recommendation.",
         tone: "info",
       },
       {
@@ -21,7 +21,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard =
         value: "On",
         classification: "Configured",
         description:
-          "Phase 7 renders demo/mock economics plus local Ollama health, model discovery, prompt streaming, measured timing, estimated token counts, derived throughput/comparison, safe recommendations, and optional NVIDIA GPU snapshots.",
+          "Phase 8 renders demo/mock economics plus local Ollama health, model discovery, prompt streaming, measured timing, estimated token counts, derived throughput/comparison, safe recommendations, and optional NVIDIA GPU snapshots.",
         tone: "good",
       },
     ],
@@ -32,7 +32,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard =
         value: "llama3.1:8b-instruct",
         classification: "Demo/mock",
         description:
-          "Placeholder model name for demo fallback; discovered local Ollama models and prompt streams are shown separately as Measured/Estimated/Derived in Phase 7.",
+          "Placeholder model name for demo fallback; discovered local Ollama models and prompt streams are shown separately as Measured/Estimated/Derived in Phase 8.",
         tone: "info",
       },
       {
@@ -41,7 +41,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard =
         value: "420 ms",
         classification: "Demo/mock",
         description:
-          "Mock first-token timing for the dashboard shell; Phase 7 measures TTFT in the prompt runner while this card remains demo/mock.",
+          "Mock first-token timing for the dashboard shell; Phase 8 measures TTFT in the prompt runner while this card remains demo/mock.",
         tone: "good",
       },
       {
@@ -50,7 +50,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard =
         value: "2.8 s",
         classification: "Demo/mock",
         description:
-          "Mock end-to-end economics placeholder; Phase 7 measures total latency in the prompt runner while this card remains demo/mock.",
+          "Mock end-to-end economics placeholder; Phase 8 measures total latency in the prompt runner while this card remains demo/mock.",
         tone: "good",
       },
       {
@@ -59,7 +59,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard =
         value: "31.4 tok/s",
         classification: "Demo/mock",
         description:
-          "Mock dashboard throughput preview; the Phase 7 prompt runner separately derives tokens/sec from measured generation duration and estimated response tokens.",
+          "Mock dashboard throughput preview; the Phase 8 prompt runner separately derives tokens/sec from measured generation duration and estimated response tokens.",
         tone: "info",
       },
       {
@@ -68,7 +68,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard =
         value: "68%",
         classification: "Demo/mock",
         description:
-          "Mock GPU utilization; Phase 7 samples nvidia-smi in a separate live panel; this static dashboard card remains demo/mock.",
+          "Mock GPU utilization; Phase 8 samples nvidia-smi in a separate live panel; this static dashboard card remains demo/mock.",
         tone: "info",
       },
       {
@@ -86,7 +86,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard =
         value: "146 W",
         classification: "Demo/mock",
         description:
-          "Mock power draw; the live GPU panel remains snapshot-only and is not exact per-run attribution in Phase 7.",
+          "Mock power draw; the live GPU panel remains snapshot-only and is not exact per-run attribution in Phase 8.",
         tone: "warning",
       },
       {
@@ -104,7 +104,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard =
         value: "0.22 tok/W",
         classification: "Demo/mock",
         description:
-          "Mock efficiency preview; later phases will explain whether watts are sampled, measured, or unavailable.",
+          "Mock efficiency preview; Phase 8 leaves real tokens/watt unavailable unless future instrumentation is explicitly approved.",
         tone: "good",
       },
       {
@@ -113,7 +113,7 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard =
         value: "$0.000018",
         classification: "Demo/mock",
         description:
-          "Mock economics preview using a static energy-rate assumption; no persisted cost model exists in Phase 7.",
+          "Mock economics preview using a static energy-rate assumption; no persisted cost model exists in Phase 8.",
         tone: "good",
       },
     ],
@@ -123,21 +123,21 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard =
         status: "Checked",
         classification: "Measured",
         description:
-          "Phase 7 checks local Ollama health, discovers /api/tags models, runs local prompt streams, displays timing/token metrics, and keeps graceful fallback when unavailable.",
+          "Phase 8 checks local Ollama health, discovers /api/tags models, runs local prompt streams, displays timing/token metrics, and keeps graceful fallback when unavailable.",
       },
       {
         title: "NVIDIA telemetry",
         status: "Checked",
         classification: "Measured",
         description:
-          "Phase 7 keeps local NVIDIA telemetry as optional nvidia-smi snapshots and shows safe unavailable states otherwise.",
+          "Phase 8 keeps local NVIDIA telemetry as optional nvidia-smi snapshots and shows safe unavailable states otherwise.",
       },
       {
         title: "Run history",
         status: "Checked",
         classification: "Derived",
         description:
-          "Phase 7 keeps sanitized run summaries in browser memory only and derives model comparisons/recommendations without prompt/response persistence.",
+          "Phase 8 keeps sanitized run summaries in browser memory only and derives model comparisons/recommendations without prompt/response persistence.",
       },
     ],
     phases: [
@@ -186,9 +186,16 @@ export const aiFactoryEconomicsMockDashboard: AiFactoryEconomicsMockDashboard =
       {
         phase: "Phase 7",
         title: "Executive insights and recommendations",
-        status: "Active",
+        status: "Complete",
         description:
           "Add executive scorecards, safe Derived recommendations, and Configured caveats from current local in-memory summaries only.",
+      },
+      {
+        phase: "Phase 8",
+        title: "Final hardening and documentation",
+        status: "Active",
+        description:
+          "Validate local-only guardrails, tighten copy/error handling, and document setup, troubleshooting, privacy, metrics, and limitations.",
         active: true,
       },
     ],

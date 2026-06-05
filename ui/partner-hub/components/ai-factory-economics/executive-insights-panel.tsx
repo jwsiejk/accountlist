@@ -55,7 +55,7 @@ export function ExecutiveInsightsPanel({ runs }: ExecutiveInsightsPanelProps) {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground/50">
-              Executive view · Phase 7
+              Executive view · Phase 8
             </p>
             <CardTitle className="mt-1 flex items-center gap-2 text-2xl">
               <Lightbulb className="h-6 w-6 text-primary" aria-hidden />
@@ -189,7 +189,7 @@ export function ExecutiveInsightsPanel({ runs }: ExecutiveInsightsPanelProps) {
                 </span>{" "}
                 No production benchmark claims, no persisted prompt/response
                 content, no backend storage, and no database persistence are
-                part of this Phase 7 panel.
+                part of this Phase 8 panel.
               </span>
             </li>
           </ul>

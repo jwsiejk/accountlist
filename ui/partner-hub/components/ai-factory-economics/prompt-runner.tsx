@@ -159,7 +159,7 @@ export function PromptRunner({ onRunSummary }: PromptRunnerProps) {
     if (trimmedPrompt.length > promptMaxLength) {
       setStatus("failed");
       setError(
-        `Prompts must be ${promptMaxLength.toLocaleString()} characters or fewer for Phase 6.`,
+        `Prompts must be ${promptMaxLength.toLocaleString()} characters or fewer for Phase 8.`,
       );
       return;
     }
@@ -313,7 +313,7 @@ export function PromptRunner({ onRunSummary }: PromptRunnerProps) {
             </p>
             <CardTitle className="mt-1 flex items-center gap-2 text-xl">
               <Terminal className="h-5 w-5 text-primary" aria-hidden />
-              Phase 6 prompt runner
+              Phase 8 prompt runner
             </CardTitle>
           </div>
           <MetricLabel classification="Measured" />
@@ -321,13 +321,13 @@ export function PromptRunner({ onRunSummary }: PromptRunnerProps) {
       </CardHeader>
       <CardContent className="space-y-5 text-sm leading-relaxed text-foreground/70">
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-800 dark:text-amber-200">
-          <p className="font-semibold">Phase 6 boundary</p>
+          <p className="font-semibold">Phase 8 boundary</p>
           <p className="mt-1">
             This runner sends prompts only to local Ollama, streams the response
             into this browser session, measures server-side TTFT and latency,
             estimates token counts, derives tokens/sec, and records sanitized
             in-memory run summaries. GPU telemetry, watts, tokens/watt, and real
-            cost/run are not exact per-run values in Phase 6. Prompt and
+            cost/run are not exact per-run values in Phase 8. Prompt and
             response content are not persisted by the app or stored in history.
           </p>
         </div>
@@ -452,7 +452,7 @@ export function PromptRunner({ onRunSummary }: PromptRunnerProps) {
             </p>
             <MetricLabel classification="Measured" />
             <span className="text-xs text-foreground/50">
-              Runtime response content only; Phase 6 history stores sanitized
+              Runtime response content only; Phase 8 history stores sanitized
               metrics/metadata without prompt or response content.
             </span>
           </div>
