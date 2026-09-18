@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { clsx } from "clsx";
 
+import { withBasePath } from "@/lib/basePath";
+
 interface Prospect {
   id: number;
   email: string;
@@ -35,7 +37,7 @@ export function SC26OutreachDashboard() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/sc26-outreach/prospects", { cache: "no-store" });
+      const res = await fetch(withBasePath("/api/sc26-outreach/prospects"), { cache: "no-store" });
       const data = await res.json();
       if (data.ok) setProspects(data.prospects);
     } finally {
@@ -56,7 +58,7 @@ export function SC26OutreachDashboard() {
     const form = new FormData();
     form.append("file", file);
     setMessage(null);
-    const res = await fetch("/api/sc26-outreach/import", { method: "POST", body: form });
+    const res = await fetch(withBasePath("/api/sc26-outreach/import"), { method: "POST", body: form });
     const data = await res.json();
     if (data.ok) {
       setMessage(
@@ -90,7 +92,7 @@ export function SC26OutreachDashboard() {
     setSending(true);
     setMessage(null);
     try {
-      const res = await fetch("/api/sc26-outreach/send", {
+      const res = await fetch(withBasePath("/api/sc26-outreach/send"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prospectIds: Array.from(selected) }),
