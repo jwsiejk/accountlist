@@ -1,30 +1,30 @@
-import nodemailer from "nodemailer";
-
 /**
  * Dispatches the "send request" that the outbound Power Automate flow picks
  * up and forwards to the prospect from jsiejk@ddn.com.
  *
- * Carries the FULLY RENDERED subject/HTML through the relay (not just
- * per-prospect merge fields) -- because the dashboard now lets a person
- * pick a template from the repo's library and edit it before sending
- * (see templates/, merge.ts, and send/route.ts), the content is only known
- * at send time and can differ from anything Power Automate could hold
- * itself. Power Automate's job is reduced to "read this labeled plain-text
- * envelope, extract TO/SUBJECT, and forward everything after the HTML:
- * marker verbatim as the outgoing email's HTML body" -- see the
- * SEND_REQUEST_BODY_HTML_MARKER docstring below for the exact wire format
- * this depends on, and the send-flow spec for how to build that in the
- * Power Automate designer.
+ * This is a direct HTTP POST to that flow's own "When an HTTP request is
+ * received" trigger URL -- no email, no SMTP, no Gmail account involved in
+ * this step at all. (An earlier version of this file emailed a "send
+ * request" to SC26_MAILBOX over Gmail SMTP purely to wake up the flow; that
+ * fought Google's account-trust system for no real benefit, since nothing
+ * about triggering a flow actually needs to go through email. Gmail is
+ * still used elsewhere in this module -- see imap-poller.ts -- for the
+ * reply-relay and the send-confirmation notification, both of which are
+ * genuinely email-shaped and have nothing to do with this.)
  *
- * sendMail throwing here means the request never reached the relay inbox
- * at all (network/auth failure); it says nothing about whether Power
- * Automate's flow later succeeds, which is exactly the gap the
- * confirmation notification (imap-poller.ts + parseSendConfirmation)
- * closes.
+ * Carries the fully rendered subject/HTML (not just per-prospect merge
+ * fields) as plain JSON fields -- because the dashboard lets a person pick a
+ * template from the repo's library and edit it before sending (see
+ * templates/, merge.ts, and send/route.ts), the content is only known at
+ * send time. Power Automate's job is just "read token/toEmail/subject/html
+ * off the request body and forward them into a Send-an-email step" -- no
+ * text-envelope parsing needed, since JSON already keeps the fields apart.
  *
- * Reuses the same Gmail account/app password as the IMAP poller (SMTP and
- * IMAP are separate protocols but one Gmail app password authorizes both)
- * rather than a second relay mailbox -- one less credential to manage.
+ * A non-2xx response (or a request that never completes) means the request
+ * never reached the flow at all (network/URL/auth failure); it says nothing
+ * about whether Power Automate's flow later succeeds in actually sending,
+ * which is exactly the gap the confirmation notification (imap-poller.ts +
+ * parseSendConfirmation) closes.
  */
 
 function requireEnv(name: string): string {
@@ -45,12 +45,6 @@ export interface SendRequestInput {
   html: string;
 }
 
-/** Distinct from anything containing "SC26" on purpose -- see docs/SC26_OUTREACH_SETUP.md
- *  (pending rewrite) for why: the existing reply-detection flow's trigger condition is
- *  `contains(Subject, 'SC26')` against the same DDN inbox this lands in, and this subject
- *  must not accidentally match it too, or every send would also get relayed as a fake reply. */
-const SEND_REQUEST_SUBJECT = "OUTREACH-SEND-REQUEST";
-
 /**
  * Subject marker the Power Automate send-flow's confirmation email must
  * contain when it lands back in the Gmail relay mailbox (the same inbox
@@ -67,65 +61,38 @@ const SEND_REQUEST_SUBJECT = "OUTREACH-SEND-REQUEST";
 export const SEND_CONFIRMED_SUBJECT_MARKER = "SEND-CONFIRMED";
 
 /**
- * Marks where the labeled plain-text envelope (TOKEN/TO/SUBJECT) ends and
- * the literal HTML to forward begins, in the send-request email's body.
- * Sent as a *plain-text* email (nodemailer's `text` field, no `html`), so
- * the whole thing -- including the HTML markup after this marker -- is
- * delivered as-is, with no MIME re-rendering to fight. In the Power
- * Automate flow, extract this with a `substring`/`indexOf` expression on
- * the trigger's Body: everything after the first line that equals this
- * marker (skip its own newline) is the HTML to paste into the outgoing
- * "Send an email (V2)" step, switched to raw/code view so it isn't
- * re-escaped.
- *
- * Exported for the same reason as SEND_CONFIRMED_SUBJECT_MARKER: the
- * send-flow spec and this file must agree on the exact string byte for byte.
+ * Sends the request as JSON POST body: { token, toEmail, subject, html }.
+ * In the Power Automate flow, these arrive as ready-made properties of the
+ * trigger's "Body" (via Power Automate's own automatic JSON schema parsing
+ * of the request) -- reference them directly as dynamic content, no Compose
+ * or substring/split expressions needed.
  */
-export const SEND_REQUEST_BODY_HTML_MARKER = "HTML:";
-
-let cachedTransporter: nodemailer.Transporter | null = null;
-
-function getTransporter(): nodemailer.Transporter {
-  if (cachedTransporter) return cachedTransporter;
-
-  const host = process.env.SC26_SMTP_HOST || "smtp.gmail.com";
-  const port = Number(process.env.SC26_SMTP_PORT || 465);
-  const user = requireEnv("SC26_IMAP_USER");
-  const pass = requireEnv("SC26_IMAP_APP_PASSWORD");
-
-  cachedTransporter = nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass },
-  });
-  return cachedTransporter;
-}
-
 export async function dispatchSendRequest(input: SendRequestInput): Promise<void> {
-  const user = requireEnv("SC26_IMAP_USER");
-  const ddnMailbox = requireEnv("SC26_MAILBOX");
-  const transporter = getTransporter();
+  const relayUrl = requireEnv("SC26_SEND_RELAY_URL");
 
-  // Single-line labeled fields first (mirrors the reply/confirmation wire
-  // format so the same parsing style works throughout), then the HTML
-  // marker, then the raw HTML itself with no further encoding -- this is a
-  // plain-text email, so nothing downstream tries to interpret those tags.
-  const body = [
-    `TOKEN: ${input.token}`,
-    `TO: ${input.toEmail}`,
-    `SUBJECT: ${input.subject}`,
-    SEND_REQUEST_BODY_HTML_MARKER,
-    input.html,
-  ].join("\n");
+  let response: Response;
+  try {
+    response = await fetch(relayUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        token: input.token,
+        toEmail: input.toEmail,
+        subject: input.subject,
+        html: input.html,
+      }),
+    });
+  } catch (err) {
+    // Network failure reaching the flow's HTTP trigger URL at all (DNS,
+    // connectivity, etc). Re-thrown with context since fetch's own error
+    // messages are often just "fetch failed" with no useful detail.
+    throw new Error(`Failed to reach SC26_SEND_RELAY_URL: ${err instanceof Error ? err.message : String(err)}`);
+  }
 
-  // Throws on failure (network, auth, SMTP rejection) -- callers don't
-  // catch this themselves, a failed dispatch should fail the send request
-  // outright rather than silently leave a prospect stuck in SENDING.
-  await transporter.sendMail({
-    from: user,
-    to: ddnMailbox,
-    subject: SEND_REQUEST_SUBJECT,
-    text: body,
-  });
+  if (!response.ok) {
+    const bodyText = await response.text().catch(() => "");
+    throw new Error(
+      `SC26_SEND_RELAY_URL returned ${response.status} ${response.statusText}${bodyText ? `: ${bodyText.slice(0, 500)}` : ""}`
+    );
+  }
 }

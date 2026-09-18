@@ -22,7 +22,8 @@ interface SendBody {
 
 /**
  * Requests the SC26 outreach send for the given prospects, one at a time via
- * the Gmail-relay-based Power Automate send-flow (see relay-send.ts).
+ * a direct HTTP call to the Power Automate send-flow's own trigger URL (see
+ * relay-send.ts).
  * Intentionally sequential (not Promise.all), same reasoning as before:
  * stays well under mailbox send-rate limits and keeps partial failures easy
  * to read out of the response.
