@@ -72,11 +72,12 @@ export async function markStatus(prospectId: number, status: ProspectStatus) {
   // (e.g. a click arriving after a reply shouldn't demote the row).
   const rank: Record<ProspectStatus, number> = {
     PENDING: 0,
-    SENT: 1,
-    OPENED: 2,
-    CLICKED: 3,
-    REPLIED: 4,
-    BOUNCED: 4,
+    SENDING: 1,
+    SENT: 2,
+    OPENED: 3,
+    CLICKED: 4,
+    REPLIED: 5,
+    BOUNCED: 5,
   };
   const current = await prisma.prospect.findUnique({ where: { id: prospectId } });
   if (!current) return;
@@ -136,6 +137,22 @@ export async function findLatestMessageForEmail(rawEmail: string) {
     where: { prospectId: prospect.id },
     include: { prospect: true },
     orderBy: { createdAt: "desc" },
+  });
+}
+
+/**
+ * Records that a dispatched send-request was actually confirmed sent by the
+ * Power Automate send-flow (see relay-send.ts). Separate from markStatus's
+ * status-only update because this also needs to set the OutreachMessage's
+ * own sentAt, which was left null at dispatch time specifically because it
+ * wasn't true yet -- send/route.ts creates the row with sentAt: null and
+ * status SENDING the moment it *requests* a send, since there's no
+ * synchronous confirmation the way Graph's sendMail used to give one.
+ */
+export async function confirmMessageSent(outreachMessageId: number) {
+  return prisma.outreachMessage.update({
+    where: { id: outreachMessageId },
+    data: { sentAt: new Date() },
   });
 }
 

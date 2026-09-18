@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
 
-import { htmlToPlainText, parseRelayNotification } from "./imap-relay-parser";
+import { htmlToPlainText, parseRelayNotification, parseSendConfirmation } from "./imap-relay-parser";
 
 describe("parseRelayNotification", () => {
   it("parses the standard labeled format", () => {
@@ -93,5 +93,55 @@ describe("htmlToPlainText", () => {
     assert.equal(htmlToPlainText(""), "");
     assert.equal(htmlToPlainText(null), "");
     assert.equal(htmlToPlainText(undefined), "");
+  });
+});
+
+describe("parseSendConfirmation", () => {
+  it("parses TOKEN and CONFIRMED_AT", () => {
+    const body = "TOKEN: abc123.def456\nCONFIRMED_AT: 2026-09-18T14:32:00Z\n";
+    const result = parseSendConfirmation(body);
+    assert.ok(result);
+    assert.equal(result?.token, "abc123.def456");
+    assert.equal(result?.confirmedAt?.toISOString(), "2026-09-18T14:32:00.000Z");
+  });
+
+  it("is case-insensitive and tolerant of extra spacing", () => {
+    const body = "token  :   abc123.def456\nconfirmed_at:2026-09-18T14:32:00Z\n";
+    const result = parseSendConfirmation(body);
+    assert.equal(result?.token, "abc123.def456");
+  });
+
+  it("handles CRLF line endings", () => {
+    const body = "TOKEN: abc123.def456\r\nCONFIRMED_AT: 2026-09-18T14:32:00Z\r\n";
+    const result = parseSendConfirmation(body);
+    assert.equal(result?.token, "abc123.def456");
+  });
+
+  it("only requires TOKEN -- CONFIRMED_AT is optional context", () => {
+    const result = parseSendConfirmation("TOKEN: abc123.def456\n");
+    assert.ok(result);
+    assert.equal(result?.token, "abc123.def456");
+    assert.equal(result?.confirmedAt, null);
+  });
+
+  it("treats an unparseable CONFIRMED_AT as null rather than throwing", () => {
+    const result = parseSendConfirmation("TOKEN: abc123.def456\nCONFIRMED_AT: not-a-date\n");
+    assert.equal(result?.token, "abc123.def456");
+    assert.equal(result?.confirmedAt, null);
+  });
+
+  it("returns null when there is no TOKEN line", () => {
+    assert.equal(parseSendConfirmation("CONFIRMED_AT: 2026-09-18T14:32:00Z\n"), null);
+  });
+
+  it("returns null for empty or missing input", () => {
+    assert.equal(parseSendConfirmation(""), null);
+    assert.equal(parseSendConfirmation(null), null);
+    assert.equal(parseSendConfirmation(undefined), null);
+  });
+
+  it("does not cross-match a reply notification's FROM/SUBJECT/RECEIVED fields", () => {
+    const replyBody = "FROM: prospect@example.com\nSUBJECT: RE: SC26\nRECEIVED: 2026-09-18T14:32:00Z\n";
+    assert.equal(parseSendConfirmation(replyBody), null);
   });
 });

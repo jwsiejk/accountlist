@@ -25,6 +25,7 @@
     "mailparser": "^3.7.4",
     "next": "^15.5.10",
     "next-themes": "^0.2.1",
+    "nodemailer": "^10.0.10",
     "papaparse": "^5.5.3",
     "pdf-lib": "^1.17.1",
     "pptxgenjs": "^3.12.0",

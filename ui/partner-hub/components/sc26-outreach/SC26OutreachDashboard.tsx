@@ -10,12 +10,13 @@ interface Prospect {
   lastName: string | null;
   company: string | null;
   title: string | null;
-  status: "PENDING" | "SENT" | "OPENED" | "CLICKED" | "REPLIED" | "BOUNCED";
+  status: "PENDING" | "SENDING" | "SENT" | "OPENED" | "CLICKED" | "REPLIED" | "BOUNCED";
   lastSentAt: string | null;
 }
 
 const STATUS_STYLES: Record<Prospect["status"], string> = {
   PENDING: "bg-muted text-foreground/60",
+  SENDING: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
   SENT: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300",
   OPENED: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
   CLICKED: "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300",
@@ -99,8 +100,8 @@ export function SC26OutreachDashboard() {
         const failed = data.results.filter((r: { ok: boolean }) => !r.ok);
         setMessage(
           failed.length
-            ? `Sent ${data.results.length - failed.length}, ${failed.length} failed.`
-            : `Sent to ${data.results.length} prospect(s).`
+            ? `Queued ${data.results.length - failed.length}, ${failed.length} failed to queue.`
+            : `Queued ${data.results.length} send request(s) — status will move to Sent once confirmed.`
         );
         setSelected(new Set());
         refresh();

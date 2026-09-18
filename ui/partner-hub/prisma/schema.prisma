@@ -38,6 +38,7 @@ model Booking {
 
 enum ProspectStatus {
   PENDING
+  SENDING
   SENT
   OPENED
   CLICKED
@@ -84,6 +85,7 @@ enum TrackingEventType {
   CLICK
   REPLY
   BOUNCE
+  SEND_CONFIRMED
 }
 
 model TrackingEvent {

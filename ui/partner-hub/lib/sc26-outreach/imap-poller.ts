@@ -2,8 +2,9 @@ import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
 
 import { prisma } from "@/lib/db";
-import { findLatestMessageForEmail, logEvent, markStatus } from "@/lib/sc26-outreach/prospects";
-import { htmlToPlainText, parseRelayNotification } from "@/lib/sc26-outreach/imap-relay-parser";
+import { confirmMessageSent, findLatestMessageForEmail, findMessageByToken, logEvent, markStatus } from "@/lib/sc26-outreach/prospects";
+import { htmlToPlainText, parseRelayNotification, parseSendConfirmation } from "@/lib/sc26-outreach/imap-relay-parser";
+import { SEND_CONFIRMED_SUBJECT_MARKER } from "@/lib/sc26-outreach/relay-send";
 
 /**
  * Only the two fields this module actually reads off imapflow's fetched
@@ -54,6 +55,10 @@ export interface PollResult {
   unparsed: number;
   /** Relay notification whose From was our own DDN mailbox -- skipped. */
   ownMailbox: number;
+  /** Send-flow confirmation matched a queued OutreachMessage by token. */
+  confirmed: number;
+  /** Send-flow confirmation whose TOKEN didn't match any OutreachMessage. */
+  confirmUnmatched: number;
   errors: { uid: number; error: string }[];
   /** True if this run stopped early because of SC26_IMAP_POLL_MAX_MESSAGES. */
   truncated: boolean;
@@ -75,6 +80,8 @@ export async function pollImapForReplies(): Promise<PollResult> {
     unmatched: 0,
     unparsed: 0,
     ownMailbox: 0,
+    confirmed: 0,
+    confirmUnmatched: 0,
     errors: [],
     truncated: false,
   };
@@ -154,6 +161,32 @@ async function processMessage(
   }
   const parsedMime = await simpleParser(message.source);
   const bodyText = parsedMime.text || htmlToPlainText(parsedMime.html || undefined);
+
+  // Two kinds of relay notification land in this same mailbox now -- route
+  // on the envelope Subject (set by whichever Power Automate flow sent it),
+  // not on body content, since a reply's free-text body could coincidentally
+  // contain a line that looks like "TOKEN: ...". See relay-send.ts for why
+  // SEND_CONFIRMED_SUBJECT_MARKER is the one that identifies a confirmation.
+  const isSendConfirmation = (parsedMime.subject || "").includes(SEND_CONFIRMED_SUBJECT_MARKER);
+
+  if (isSendConfirmation) {
+    await processSendConfirmation(bodyText, message, ctx);
+  } else {
+    await processReply(bodyText, message, ctx);
+  }
+
+  // Best-effort cosmetic touch so the mailbox itself shows progress if you
+  // glance at it in Gmail -- the UID cursor is what actually prevents
+  // reprocessing, so a failure here doesn't count as a poll error and
+  // doesn't affect whatever match/status update happened above.
+  await ctx.client.messageFlagsAdd(message.uid, ["\\Seen"], { uid: true }).catch(() => undefined);
+}
+
+async function processReply(
+  bodyText: string,
+  message: RelayMailMessage,
+  ctx: { ownMailbox: string; result: PollResult; client: ImapFlow }
+): Promise<void> {
   const relay = parseRelayNotification(bodyText);
 
   if (!relay) {
@@ -185,10 +218,43 @@ async function processMessage(
   });
   await markStatus(match.prospectId, "REPLIED");
   ctx.result.matched++;
+}
 
-  // Best-effort cosmetic touch so the mailbox itself shows progress if you
-  // glance at it in Gmail -- the UID cursor is what actually prevents
-  // reprocessing, so a failure here doesn't count as a poll error and
-  // doesn't affect the match/status update above, which already happened.
-  await ctx.client.messageFlagsAdd(message.uid, ["\\Seen"], { uid: true }).catch(() => undefined);
+/**
+ * Handles the send-flow's confirmation that a queued outreach email actually
+ * went out (see relay-send.ts / send/route.ts): matches it back to the
+ * OutreachMessage it belongs to by trackingToken, records sentAt via
+ * confirmMessageSent, and advances the prospect from SENDING to SENT.
+ *
+ * An unmatched token is logged as confirmUnmatched rather than throwing --
+ * that's surprising enough to want visible in the poll result (it'd mean the
+ * send-flow echoed back a token we never issued, or a message from a much
+ * older cursor state), but not worth failing the whole poll run over.
+ */
+async function processSendConfirmation(
+  bodyText: string,
+  message: RelayMailMessage,
+  ctx: { ownMailbox: string; result: PollResult; client: ImapFlow }
+): Promise<void> {
+  const confirmation = parseSendConfirmation(bodyText);
+
+  if (!confirmation) {
+    ctx.result.unparsed++;
+    return;
+  }
+
+  const match = await findMessageByToken(confirmation.token);
+  if (!match) {
+    ctx.result.confirmUnmatched++;
+    return;
+  }
+
+  await confirmMessageSent(match.id);
+  await logEvent(match.id, "SEND_CONFIRMED", {
+    source: "imap-relay",
+    confirmedAt: confirmation.confirmedAt ? confirmation.confirmedAt.toISOString() : null,
+    imapUid: message.uid,
+  });
+  await markStatus(match.prospectId, "SENT");
+  ctx.result.confirmed++;
 }
