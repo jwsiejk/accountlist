@@ -33,3 +33,78 @@ model Booking {
 
   @@index([officeId, start, end])
 }
+
+// --- SC26 outreach module ---------------------------------------------
+
+enum ProspectStatus {
+  PENDING
+  SENT
+  OPENED
+  CLICKED
+  REPLIED
+  BOUNCED
+}
+
+model Prospect {
+  id            Int             @id @default(autoincrement())
+  email         String          @unique
+  firstName     String
+  lastName      String?
+  company       String?
+  title         String?
+  status        ProspectStatus  @default(PENDING)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  messages      OutreachMessage[]
+
+  @@index([status])
+}
+
+model OutreachMessage {
+  id                Int              @id @default(autoincrement())
+  prospectId        Int
+  mailbox           String
+  subject           String
+  trackingToken     String           @unique
+  graphMessageId    String?
+  graphConversationId String?
+  sentAt            DateTime?
+  createdAt         DateTime         @default(now())
+
+  prospect          Prospect         @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  events            TrackingEvent[]
+
+  @@index([prospectId])
+  @@index([graphConversationId])
+}
+
+enum TrackingEventType {
+  OPEN
+  CLICK
+  REPLY
+  BOUNCE
+}
+
+model TrackingEvent {
+  id                Int              @id @default(autoincrement())
+  outreachMessageId Int
+  type              TrackingEventType
+  occurredAt        DateTime         @default(now())
+  meta              String?
+
+  outreachMessage   OutreachMessage  @relation(fields: [outreachMessageId], references: [id], onDelete: Cascade)
+
+  @@index([outreachMessageId, type])
+}
+
+// Tracks the Microsoft Graph change-notification subscription per mailbox
+// so it can be renewed before it expires (mail subscriptions max out at
+// ~3 days). One row per monitored mailbox.
+model MailSubscription {
+  id                  Int      @id @default(autoincrement())
+  mailbox             String   @unique
+  graphSubscriptionId String
+  expiresAt           DateTime
+  updatedAt           DateTime @updatedAt
+}
