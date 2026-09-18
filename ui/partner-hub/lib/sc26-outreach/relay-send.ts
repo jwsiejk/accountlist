@@ -1,17 +1,26 @@
 import nodemailer from "nodemailer";
 
 /**
- * Dispatches the "send request" that the new outbound Power Automate flow
- * picks up and turns into the actual outreach email from jsiejk@ddn.com.
+ * Dispatches the "send request" that the outbound Power Automate flow picks
+ * up and forwards to the prospect from jsiejk@ddn.com.
  *
- * This deliberately does NOT send the outreach email itself, and does NOT
- * carry the rendered HTML template through the relay -- see send/route.ts
- * for why: Power Automate holds its own copy of the approved template, and
- * this just supplies the handful of fields that vary per prospect. sendMail
- * throwing here means the request never reached the relay inbox at all
- * (network/auth failure); it says nothing about whether Power Automate's
- * flow later succeeds, which is exactly the gap the confirmation
- * notification (imap-poller.ts + parseSendConfirmation) closes.
+ * Carries the FULLY RENDERED subject/HTML through the relay (not just
+ * per-prospect merge fields) -- because the dashboard now lets a person
+ * pick a template from the repo's library and edit it before sending
+ * (see templates/, merge.ts, and send/route.ts), the content is only known
+ * at send time and can differ from anything Power Automate could hold
+ * itself. Power Automate's job is reduced to "read this labeled plain-text
+ * envelope, extract TO/SUBJECT, and forward everything after the HTML:
+ * marker verbatim as the outgoing email's HTML body" -- see the
+ * SEND_REQUEST_BODY_HTML_MARKER docstring below for the exact wire format
+ * this depends on, and the send-flow spec for how to build that in the
+ * Power Automate designer.
+ *
+ * sendMail throwing here means the request never reached the relay inbox
+ * at all (network/auth failure); it says nothing about whether Power
+ * Automate's flow later succeeds, which is exactly the gap the
+ * confirmation notification (imap-poller.ts + parseSendConfirmation)
+ * closes.
  *
  * Reuses the same Gmail account/app password as the IMAP poller (SMTP and
  * IMAP are separate protocols but one Gmail app password authorizes both)
@@ -30,9 +39,10 @@ export interface SendRequestInput {
   /** OutreachMessage.trackingToken -- echoed back in the confirmation to match. */
   token: string;
   toEmail: string;
-  firstName: string;
-  pixelUrl: string;
-  clickUrl: string;
+  /** Final, already-merged subject (no {{PLACEHOLDER}} tokens left). */
+  subject: string;
+  /** Final, already-merged HTML (no {{PLACEHOLDER}} tokens left). */
+  html: string;
 }
 
 /** Distinct from anything containing "SC26" on purpose -- see docs/SC26_OUTREACH_SETUP.md
@@ -55,6 +65,23 @@ const SEND_REQUEST_SUBJECT = "OUTREACH-SEND-REQUEST";
  * byte-for-byte in sync on the exact string to match against.
  */
 export const SEND_CONFIRMED_SUBJECT_MARKER = "SEND-CONFIRMED";
+
+/**
+ * Marks where the labeled plain-text envelope (TOKEN/TO/SUBJECT) ends and
+ * the literal HTML to forward begins, in the send-request email's body.
+ * Sent as a *plain-text* email (nodemailer's `text` field, no `html`), so
+ * the whole thing -- including the HTML markup after this marker -- is
+ * delivered as-is, with no MIME re-rendering to fight. In the Power
+ * Automate flow, extract this with a `substring`/`indexOf` expression on
+ * the trigger's Body: everything after the first line that equals this
+ * marker (skip its own newline) is the HTML to paste into the outgoing
+ * "Send an email (V2)" step, switched to raw/code view so it isn't
+ * re-escaped.
+ *
+ * Exported for the same reason as SEND_CONFIRMED_SUBJECT_MARKER: the
+ * send-flow spec and this file must agree on the exact string byte for byte.
+ */
+export const SEND_REQUEST_BODY_HTML_MARKER = "HTML:";
 
 let cachedTransporter: nodemailer.Transporter | null = null;
 
@@ -80,12 +107,16 @@ export async function dispatchSendRequest(input: SendRequestInput): Promise<void
   const ddnMailbox = requireEnv("SC26_MAILBOX");
   const transporter = getTransporter();
 
+  // Single-line labeled fields first (mirrors the reply/confirmation wire
+  // format so the same parsing style works throughout), then the HTML
+  // marker, then the raw HTML itself with no further encoding -- this is a
+  // plain-text email, so nothing downstream tries to interpret those tags.
   const body = [
     `TOKEN: ${input.token}`,
     `TO: ${input.toEmail}`,
-    `FIRST_NAME: ${input.firstName}`,
-    `PIXEL_URL: ${input.pixelUrl}`,
-    `CLICK_URL: ${input.clickUrl}`,
+    `SUBJECT: ${input.subject}`,
+    SEND_REQUEST_BODY_HTML_MARKER,
+    input.html,
   ].join("\n");
 
   // Throws on failure (network, auth, SMTP rejection) -- callers don't
