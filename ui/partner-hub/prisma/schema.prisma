@@ -108,3 +108,18 @@ model MailSubscription {
   expiresAt           DateTime
   updatedAt           DateTime @updatedAt
 }
+
+// Tracks how far the IMAP poller has gotten through the Gmail relay
+// mailbox (scnotifyjamessiejk@gmail.com), so each poll only fetches UIDs it
+// hasn't processed yet instead of re-scanning the whole mailbox. One row
+// per watched mailbox. uidValidity is recorded alongside lastUid because
+// IMAP UIDs are only meaningful relative to it -- if Gmail ever changes it
+// (mailbox recreated), stored UIDs are no longer valid and the poller
+// resets to "start from new mail only" rather than reusing a stale cursor.
+model ImapPollCursor {
+  id          Int      @id @default(autoincrement())
+  mailbox     String   @unique
+  uidValidity Int
+  lastUid     Int      @default(0)
+  updatedAt   DateTime @updatedAt
+}

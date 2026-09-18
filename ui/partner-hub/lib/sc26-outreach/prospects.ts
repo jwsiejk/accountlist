@@ -113,4 +113,30 @@ export async function findMessageByConversationId(conversationId: string) {
   });
 }
 
+/**
+ * Matches an inbound reply to a prospect by email address and returns their
+ * most recently sent OutreachMessage. Used by the IMAP relay poller, which
+ * has no Graph conversationId to match against -- the reply's From address
+ * is the only reliable signal the relay notification carries.
+ *
+ * All Prospect rows are stored with lowercased, trimmed emails (see
+ * upsertProspects above), so the input is normalized the same way before
+ * the lookup rather than relying on a case-insensitive query -- SQLite's
+ * default TEXT collation is case-sensitive, so `equals`/`mode: "insensitive"`
+ * would not do what it does on Postgres.
+ */
+export async function findLatestMessageForEmail(rawEmail: string) {
+  const email = rawEmail.trim().toLowerCase();
+  if (!email) return null;
+
+  const prospect = await prisma.prospect.findUnique({ where: { email } });
+  if (!prospect) return null;
+
+  return prisma.outreachMessage.findFirst({
+    where: { prospectId: prospect.id },
+    include: { prospect: true },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
 export type { Prisma };
