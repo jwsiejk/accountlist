@@ -2,28 +2,36 @@
  * Dispatches the "send request" that the outbound Power Automate flow picks
  * up and forwards to the prospect from jsiejk@ddn.com.
  *
- * This is a direct HTTP POST to that flow's own "When an HTTP request is
- * received" trigger URL -- no email, no SMTP, no Gmail account involved in
- * this step at all. (An earlier version of this file emailed a "send
- * request" to SC26_MAILBOX over Gmail SMTP purely to wake up the flow; that
- * fought Google's account-trust system for no real benefit, since nothing
- * about triggering a flow actually needs to go through email. Gmail is
- * still used elsewhere in this module -- see imap-poller.ts -- for the
- * reply-relay and the send-confirmation notification, both of which are
- * genuinely email-shaped and have nothing to do with this.)
+ * Sent via the Resend API (https://resend.com) rather than Gmail SMTP.
+ * Gmail SMTP kept rejecting logins with a WebLoginRequired error tied to
+ * Google's account-trust checks on a brand-new mailbox -- unrelated to
+ * anything in this repo, and not something code can fix. Resend needs
+ * nothing but an API key (no OAuth, no admin consent, no domain
+ * verification as long as the recipient is the same address the Resend
+ * account itself was created with -- see SC26_OUTREACH_SETUP.md).
  *
- * Carries the fully rendered subject/HTML (not just per-prospect merge
- * fields) as plain JSON fields -- because the dashboard lets a person pick a
+ * This mail never reaches a real prospect -- it's purely an internal signal
+ * to wake up the Power Automate flow, which is the thing that actually
+ * emails the prospect (via the Outlook connector, from SC26_MAILBOX) and
+ * carries the tracking pixel / booking link. Swapping this transport
+ * changes nothing about tracking, replies, or the prospect-facing email.
+ *
+ * Carries the FULLY RENDERED subject/HTML through the relay (not just
+ * per-prospect merge fields) -- because the dashboard lets a person pick a
  * template from the repo's library and edit it before sending (see
  * templates/, merge.ts, and send/route.ts), the content is only known at
- * send time. Power Automate's job is just "read token/toEmail/subject/html
- * off the request body and forward them into a Send-an-email step" -- no
- * text-envelope parsing needed, since JSON already keeps the fields apart.
+ * send time and can differ from anything Power Automate could hold itself.
+ * Power Automate's job is reduced to "read this labeled plain-text
+ * envelope, extract TO/SUBJECT, and forward everything after the HTML:
+ * marker verbatim as the outgoing email's HTML body" -- see the
+ * SEND_REQUEST_BODY_HTML_MARKER docstring below for the exact wire format
+ * this depends on, and the send-flow spec for how to build that in the
+ * Power Automate designer.
  *
- * A non-2xx response (or a request that never completes) means the request
- * never reached the flow at all (network/URL/auth failure); it says nothing
- * about whether Power Automate's flow later succeeds in actually sending,
- * which is exactly the gap the confirmation notification (imap-poller.ts +
+ * Resend returning a non-2xx (or the request failing outright) means the
+ * request never reached the relay inbox at all (network/auth failure); it
+ * says nothing about whether Power Automate's flow later succeeds, which is
+ * exactly the gap the confirmation notification (imap-poller.ts +
  * parseSendConfirmation) closes.
  */
 
@@ -45,6 +53,12 @@ export interface SendRequestInput {
   html: string;
 }
 
+/** Distinct from anything containing "SC26" on purpose -- see docs/SC26_OUTREACH_SETUP.md
+ *  for why: the existing reply-detection flow's trigger condition is
+ *  `contains(Subject, 'SC26')` against the same DDN inbox this lands in, and this subject
+ *  must not accidentally match it too, or every send would also get relayed as a fake reply. */
+const SEND_REQUEST_SUBJECT = "OUTREACH-SEND-REQUEST";
+
 /**
  * Subject marker the Power Automate send-flow's confirmation email must
  * contain when it lands back in the Gmail relay mailbox (the same inbox
@@ -61,38 +75,71 @@ export interface SendRequestInput {
 export const SEND_CONFIRMED_SUBJECT_MARKER = "SEND-CONFIRMED";
 
 /**
- * Sends the request as JSON POST body: { token, toEmail, subject, html }.
- * In the Power Automate flow, these arrive as ready-made properties of the
- * trigger's "Body" (via Power Automate's own automatic JSON schema parsing
- * of the request) -- reference them directly as dynamic content, no Compose
- * or substring/split expressions needed.
+ * Marks where the labeled plain-text envelope (TOKEN/TO/SUBJECT) ends and
+ * the literal HTML to forward begins, in the send-request email's body.
+ * Sent as a *plain-text* email (Resend's `text` field, no `html`), so the
+ * whole thing -- including the HTML markup after this marker -- is
+ * delivered as-is, with no MIME re-rendering to fight. In the Power
+ * Automate flow, extract this with a `substring`/`indexOf` expression on
+ * the trigger's Body: everything after the first line that equals this
+ * marker (skip its own newline) is the HTML to paste into the outgoing
+ * "Send an email (V2)" step, switched to raw/code view so it isn't
+ * re-escaped.
+ *
+ * Exported for the same reason as SEND_CONFIRMED_SUBJECT_MARKER: the
+ * send-flow spec and this file must agree on the exact string byte for byte.
  */
+export const SEND_REQUEST_BODY_HTML_MARKER = "HTML:";
+
+/**
+ * Resend's shared test sender. Works with no domain verification as long as
+ * the recipient (SC26_MAILBOX) is the same address the Resend account was
+ * created with -- see SC26_OUTREACH_SETUP.md. If SC26_MAILBOX ever needs to
+ * be a different address than the Resend account's own email, a verified
+ * sending domain would be needed instead.
+ */
+const RESEND_FROM_ADDRESS = "SC26 Outreach <onboarding@resend.dev>";
+
 export async function dispatchSendRequest(input: SendRequestInput): Promise<void> {
-  const relayUrl = requireEnv("SC26_SEND_RELAY_URL");
+  const ddnMailbox = requireEnv("SC26_MAILBOX");
+  const apiKey = requireEnv("RESEND_API_KEY");
+
+  // Single-line labeled fields first (mirrors the reply/confirmation wire
+  // format so the same parsing style works throughout), then the HTML
+  // marker, then the raw HTML itself with no further encoding -- this is a
+  // plain-text email, so nothing downstream tries to interpret those tags.
+  const body = [
+    `TOKEN: ${input.token}`,
+    `TO: ${input.toEmail}`,
+    `SUBJECT: ${input.subject}`,
+    SEND_REQUEST_BODY_HTML_MARKER,
+    input.html,
+  ].join("\n");
 
   let response: Response;
   try {
-    response = await fetch(relayUrl, {
+    response = await fetch("https://api.resend.com/emails", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({
-        token: input.token,
-        toEmail: input.toEmail,
-        subject: input.subject,
-        html: input.html,
+        from: RESEND_FROM_ADDRESS,
+        to: [ddnMailbox],
+        subject: SEND_REQUEST_SUBJECT,
+        text: body,
       }),
     });
   } catch (err) {
-    // Network failure reaching the flow's HTTP trigger URL at all (DNS,
-    // connectivity, etc). Re-thrown with context since fetch's own error
-    // messages are often just "fetch failed" with no useful detail.
-    throw new Error(`Failed to reach SC26_SEND_RELAY_URL: ${err instanceof Error ? err.message : String(err)}`);
+    throw new Error(`Failed to reach Resend: ${err instanceof Error ? err.message : String(err)}`);
   }
 
+  // Throws on failure (auth, validation, Resend-side rejection) -- callers
+  // don't catch this themselves, a failed dispatch should fail the send
+  // request outright rather than silently leave a prospect stuck in SENDING.
   if (!response.ok) {
     const bodyText = await response.text().catch(() => "");
-    throw new Error(
-      `SC26_SEND_RELAY_URL returned ${response.status} ${response.statusText}${bodyText ? `: ${bodyText.slice(0, 500)}` : ""}`
-    );
+    throw new Error(`Resend returned ${response.status} ${response.statusText}${bodyText ? `: ${bodyText.slice(0, 500)}` : ""}`);
   }
 }
