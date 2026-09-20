@@ -85,6 +85,29 @@ export async function markStatus(prospectId: number, status: ProspectStatus) {
   await prisma.prospect.update({ where: { id: prospectId }, data: { status } });
 }
 
+/**
+ * Manual escape hatch for a prospect stuck at SENDING (or BOUNCED, or any
+ * other non-terminal state) after a failed or misconfigured send attempt --
+ * e.g. the relay/flow never actually reached the prospect, so there's
+ * nothing real to preserve. Deliberately bypasses markStatus's rank guard
+ * (which refuses to downgrade a status), since this exists specifically to
+ * downgrade back to PENDING so the dashboard's checkboxes -- which only
+ * allow selecting PENDING rows for a new send -- unlock again. Before this
+ * existed, the only way to unstick a row was editing the database directly
+ * (e.g. via `npx prisma studio`).
+ *
+ * Does not touch existing OutreachMessage rows -- those stay as history of
+ * the earlier attempt; a subsequent send just creates a new one with a new
+ * tracking token, same as any other send.
+ */
+export async function resetProspectsToPending(prospectIds: number[]) {
+  const result = await prisma.prospect.updateMany({
+    where: { id: { in: prospectIds } },
+    data: { status: "PENDING" },
+  });
+  return result.count;
+}
+
 export async function logEvent(
   outreachMessageId: number,
   type: TrackingEventType,

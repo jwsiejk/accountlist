@@ -72,6 +72,7 @@ export function SC26OutreachDashboard() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [resettingIds, setResettingIds] = useState<Set<number>>(new Set());
   const [message, setMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -190,6 +191,40 @@ export function SC26OutreachDashboard() {
       }
     } finally {
       setSending(false);
+    }
+  }
+
+  /**
+   * Unsticks a prospect that's stuck at SENDING (or any other non-PENDING
+   * status) after a failed or misconfigured send attempt -- e.g. a bounced
+   * relay/trigger email means the flow never actually reached them, so
+   * there's no real progress to lose by resetting. Before this existed,
+   * the only fix was editing the database directly. Single-prospect rather
+   * than bulk: this is meant as an occasional manual escape hatch, not a
+   * routine bulk action, so keeping it a per-row control avoids it being
+   * mistaken for (or misused as) a way to bulk-retry real sends.
+   */
+  async function handleReset(prospectId: number) {
+    setResettingIds((prev) => new Set(prev).add(prospectId));
+    setMessage(null);
+    try {
+      const res = await fetch(withBasePath("/api/sc26-outreach/reset"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prospectIds: [prospectId] }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        refresh();
+      } else {
+        setMessage(`Reset failed: ${data.error}`);
+      }
+    } finally {
+      setResettingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(prospectId);
+        return next;
+      });
     }
   }
 
@@ -314,6 +349,7 @@ export function SC26OutreachDashboard() {
               <th className="px-3 py-2">Company</th>
               <th className="px-3 py-2">Status</th>
               <th className="px-3 py-2">Last sent</th>
+              <th className="px-3 py-2"></th>
             </tr>
           </thead>
           <tbody>
@@ -346,11 +382,24 @@ export function SC26OutreachDashboard() {
                 <td className="px-3 py-2 text-xs text-foreground/60">
                   {p.lastSentAt ? new Date(p.lastSentAt).toLocaleString() : "—"}
                 </td>
+                <td className="px-3 py-2">
+                  {p.status !== "PENDING" ? (
+                    <button
+                      type="button"
+                      onClick={() => handleReset(p.id)}
+                      disabled={resettingIds.has(p.id)}
+                      title="Reset to Pending so this can be sent again -- use if a send got stuck or failed."
+                      className="text-xs font-medium text-foreground/60 underline decoration-dotted hover:text-foreground disabled:opacity-50"
+                    >
+                      {resettingIds.has(p.id) ? "Resetting…" : "Reset to Pending"}
+                    </button>
+                  ) : null}
+                </td>
               </tr>
             ))}
             {!loading && prospects.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-3 py-6 text-center text-foreground/50">
+                <td colSpan={7} className="px-3 py-6 text-center text-foreground/50">
                   No prospects yet — upload a CSV to get started.
                 </td>
               </tr>
