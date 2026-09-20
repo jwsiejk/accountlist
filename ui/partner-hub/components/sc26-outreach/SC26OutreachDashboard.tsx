@@ -116,19 +116,33 @@ export function SC26OutreachDashboard() {
     const form = new FormData();
     form.append("file", file);
     setMessage(null);
-    const res = await fetch(withBasePath("/api/sc26-outreach/import"), { method: "POST", body: form });
-    const data = await res.json();
-    if (data.ok) {
-      setMessage(
-        `Imported: ${data.created} added, ${data.updated} updated${
-          data.skipped?.length ? `, ${data.skipped.length} skipped` : ""
-        }.`
-      );
-      refresh();
-    } else {
-      setMessage(`Import failed: ${data.error}`);
+    try {
+      const res = await fetch(withBasePath("/api/sc26-outreach/import"), { method: "POST", body: form });
+      // The API always returns JSON, but if something upstream (a proxy, or
+      // Next.js itself on an uncaught error) ever returns a non-JSON body,
+      // parsing it as JSON throws -- catch that instead of letting it
+      // disappear as an unhandled rejection, which is what made import look
+      // like it was silently doing nothing.
+      const data = await res.json().catch(() => null);
+      if (!data) {
+        setMessage(`Import failed: server returned an unexpected response (status ${res.status}).`);
+      } else if (!res.ok || !data.ok) {
+        setMessage(`Import failed: ${data.error ?? `HTTP ${res.status}`}`);
+      } else {
+        setMessage(
+          `Imported: ${data.created} added, ${data.updated} updated${
+            data.skipped?.length ? `, ${data.skipped.length} skipped` : ""
+          }.`
+        );
+        refresh();
+      }
+    } catch (err) {
+      setMessage(`Import failed: ${err instanceof Error ? err.message : "network error"}.`);
+    } finally {
+      // Let the same file be re-selected after a failed import (browsers
+      // won't fire onChange again for an unchanged file list otherwise).
+      e.target.value = "";
     }
-    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   function toggle(id: number) {
