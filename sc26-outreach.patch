@@ -1,0 +1,1482 @@
+From 542302b363b8cd12423037854428179a6bc81652 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 18 Sep 2026 14:41:53 +0000
+Subject: [PATCH] Add SC26 outreach module (send, open/click/reply tracking)
+
+New /sc26-outreach route + /api/sc26-outreach/* API for the Supercomputing
+2026 sales outreach campaign: CSV prospect import (reusing the app's
+existing CSV/Papa conventions), sending via a connected DDN Outlook mailbox
+over Microsoft Graph (app-only auth, create-draft+send so we capture a
+conversationId), an open-tracking pixel, a click-tracked redirect for the
+booking link, and a Graph change-notification webhook that matches inbound
+replies back to the original send by conversationId.
+
+Off by default behind NEXT_PUBLIC_ENABLE_SC26_OUTREACH. See
+docs/SC26_OUTREACH_SETUP.md for the required Azure AD app registration,
+Exchange Application Access Policy scoping, and Render deployment steps --
+none of which can be done from the app itself.
+---
+ ui/partner-hub/.env.local.example             |  28 +++
+ .../app/(routes)/sc26-outreach/page.tsx       |  27 +++
+ .../sc26-outreach/graph/subscribe/route.ts    |  94 ++++++++
+ .../api/sc26-outreach/graph/webhook/route.ts  |  88 ++++++++
+ .../app/api/sc26-outreach/import/route.ts     |  46 ++++
+ .../app/api/sc26-outreach/prospects/route.ts  |  30 +++
+ .../app/api/sc26-outreach/send/route.ts       |  82 +++++++
+ .../track/click/[token]/route.ts              |  26 +++
+ .../sc26-outreach/track/open/[token]/route.ts |  39 ++++
+ ui/partner-hub/components/left-nav.tsx        |   2 +
+ .../sc26-outreach/SC26OutreachDashboard.tsx   | 207 ++++++++++++++++++
+ ui/partner-hub/docs/SC26_OUTREACH_SETUP.md    | 117 ++++++++++
+ ui/partner-hub/lib/sc26-outreach/graph.ts     | 184 ++++++++++++++++
+ ui/partner-hub/lib/sc26-outreach/prospects.ts | 116 ++++++++++
+ ui/partner-hub/lib/sc26-outreach/template.ts  |  80 +++++++
+ ui/partner-hub/lib/sc26-outreach/tokens.ts    |  33 +++
+ ui/partner-hub/lib/sc26-outreach/urls.ts      |  28 +++
+ ui/partner-hub/prisma/schema.prisma           |  75 +++++++
+ 18 files changed, 1302 insertions(+)
+ create mode 100644 ui/partner-hub/app/(routes)/sc26-outreach/page.tsx
+ create mode 100644 ui/partner-hub/app/api/sc26-outreach/graph/subscribe/route.ts
+ create mode 100644 ui/partner-hub/app/api/sc26-outreach/graph/webhook/route.ts
+ create mode 100644 ui/partner-hub/app/api/sc26-outreach/import/route.ts
+ create mode 100644 ui/partner-hub/app/api/sc26-outreach/prospects/route.ts
+ create mode 100644 ui/partner-hub/app/api/sc26-outreach/send/route.ts
+ create mode 100644 ui/partner-hub/app/api/sc26-outreach/track/click/[token]/route.ts
+ create mode 100644 ui/partner-hub/app/api/sc26-outreach/track/open/[token]/route.ts
+ create mode 100644 ui/partner-hub/components/sc26-outreach/SC26OutreachDashboard.tsx
+ create mode 100644 ui/partner-hub/docs/SC26_OUTREACH_SETUP.md
+ create mode 100644 ui/partner-hub/lib/sc26-outreach/graph.ts
+ create mode 100644 ui/partner-hub/lib/sc26-outreach/prospects.ts
+ create mode 100644 ui/partner-hub/lib/sc26-outreach/template.ts
+ create mode 100644 ui/partner-hub/lib/sc26-outreach/tokens.ts
+ create mode 100644 ui/partner-hub/lib/sc26-outreach/urls.ts
+
+diff --git a/ui/partner-hub/.env.local.example b/ui/partner-hub/.env.local.example
+index afba001..693821d 100644
+--- a/ui/partner-hub/.env.local.example
++++ b/ui/partner-hub/.env.local.example
+@@ -3,3 +3,31 @@ NEXT_PUBLIC_ENABLE_HPC_LAB=false
+ AI_INTERVIEW_OLLAMA_URL=http://127.0.0.1:11434
+ AI_INTERVIEW_STT_URL=http://127.0.0.1:9000
+ AI_INTERVIEW_TTS_URL=http://127.0.0.1:8000
++
++# --- SC26 outreach module ---
++# Off by default -- turn on once the Azure app + mailbox are set up (see SETUP.md).
++NEXT_PUBLIC_ENABLE_SC26_OUTREACH=false
++
++# Azure AD app registration (app-only Graph auth). See SETUP.md.
++AZURE_TENANT_ID=
++AZURE_CLIENT_ID=
++AZURE_CLIENT_SECRET=
++
++# The single mailbox this module sends from and watches for replies,
++# e.g. sc26@ddn.com or a rep's own DDN mailbox.
++SC26_MAILBOX=
++SC26_SENDER_NAME=
++
++# Public base URL this app is reachable at once deployed (used to build the
++# tracking pixel/click URLs and the Graph webhook notification URL).
++# Must be a real public HTTPS URL for tracking/replies to work -- localhost
++# will not receive pixel requests, link clicks, or Graph notifications.
++APP_BASE_URL=http://localhost:3000
++
++# Where the tracked booking link ultimately redirects to.
++SC26_BOOKING_URL=https://www.ddn.com/lp/events/sc2026/book-a-meeting/
++
++# Random long secrets -- generate with `openssl rand -hex 32`.
++TRACKING_TOKEN_SECRET=
++GRAPH_WEBHOOK_CLIENT_STATE=
++CRON_SECRET=
+diff --git a/ui/partner-hub/app/(routes)/sc26-outreach/page.tsx b/ui/partner-hub/app/(routes)/sc26-outreach/page.tsx
+new file mode 100644
+index 0000000..af7c944
+--- /dev/null
++++ b/ui/partner-hub/app/(routes)/sc26-outreach/page.tsx
+@@ -0,0 +1,27 @@
++import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
++import { SC26OutreachDashboard } from "@/components/sc26-outreach/SC26OutreachDashboard";
++
++export const dynamic = "force-dynamic";
++
++export default function SC26OutreachPage() {
++  return (
++    <div className="space-y-8">
++      <div>
++        <h1 className="text-2xl font-semibold">SC26 Outreach</h1>
++        <p className="mt-1 text-sm text-foreground/70">
++          Import prospects, send the Supercomputing 2026 invite from a connected DDN mailbox, and track
++          opens, booking-link clicks, and replies.
++        </p>
++      </div>
++
++      <Card>
++        <CardHeader>
++          <CardTitle>Prospects</CardTitle>
++        </CardHeader>
++        <CardContent>
++          <SC26OutreachDashboard />
++        </CardContent>
++      </Card>
++    </div>
++  );
++}
+diff --git a/ui/partner-hub/app/api/sc26-outreach/graph/subscribe/route.ts b/ui/partner-hub/app/api/sc26-outreach/graph/subscribe/route.ts
+new file mode 100644
+index 0000000..80fa1b7
+--- /dev/null
++++ b/ui/partner-hub/app/api/sc26-outreach/graph/subscribe/route.ts
+@@ -0,0 +1,94 @@
++import { NextResponse } from "next/server";
++
++import { prisma } from "@/lib/db";
++import { createSubscription, renewSubscription } from "@/lib/sc26-outreach/graph";
++import { graphWebhookUrl } from "@/lib/sc26-outreach/urls";
++
++export const runtime = "nodejs";
++export const dynamic = "force-dynamic";
++
++/**
++ * Creates or renews the Graph change-notification subscription for
++ * SC26_MAILBOX's Inbox. Mail subscriptions expire in under 3 days, so this
++ * is meant to be hit on a recurring schedule (a Render Cron Job -- see
++ * SETUP.md) rather than relied on to run once.
++ *
++ * Protected by CRON_SECRET so it can't be triggered by anyone who finds
++ * the URL.
++ */
++export async function POST(req: Request) {
++  const auth = req.headers.get("authorization");
++  const expected = process.env.CRON_SECRET;
++  if (!expected || auth !== `Bearer ${expected}`) {
++    return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
++  }
++
++  const mailbox = process.env.SC26_MAILBOX;
++  const clientState = process.env.GRAPH_WEBHOOK_CLIENT_STATE;
++  if (!mailbox || !clientState) {
++    return NextResponse.json(
++      { ok: false, error: "SC26_MAILBOX and GRAPH_WEBHOOK_CLIENT_STATE must be set." },
++      { status: 500 }
++    );
++  }
++
++  const existing = await prisma.mailSubscription.findUnique({ where: { mailbox } });
++
++  try {
++    if (existing) {
++      const renewed = await renewSubscription(existing.graphSubscriptionId);
++      await prisma.mailSubscription.update({
++        where: { mailbox },
++        data: { expiresAt: new Date(renewed.expirationDateTime) },
++      });
++      return NextResponse.json({ ok: true, action: "renewed", expiresAt: renewed.expirationDateTime });
++    }
++
++    const created = await createSubscription({
++      mailbox,
++      notificationUrl: graphWebhookUrl(),
++      clientState,
++    });
++    await prisma.mailSubscription.create({
++      data: {
++        mailbox,
++        graphSubscriptionId: created.id,
++        expiresAt: new Date(created.expirationDateTime),
++      },
++    });
++    return NextResponse.json({ ok: true, action: "created", expiresAt: created.expirationDateTime });
++  } catch (err) {
++    // Renewal can fail if Graph already expired/deleted the subscription
++    // (e.g. we missed a renewal window) -- fall back to creating fresh.
++    if (existing) {
++      try {
++        const created = await createSubscription({
++          mailbox,
++          notificationUrl: graphWebhookUrl(),
++          clientState,
++        });
++        await prisma.mailSubscription.update({
++          where: { mailbox },
++          data: {
++            graphSubscriptionId: created.id,
++            expiresAt: new Date(created.expirationDateTime),
++          },
++        });
++        return NextResponse.json({
++          ok: true,
++          action: "recreated_after_renew_failure",
++          expiresAt: created.expirationDateTime,
++        });
++      } catch (err2) {
++        return NextResponse.json(
++          { ok: false, error: err2 instanceof Error ? err2.message : String(err2) },
++          { status: 500 }
++        );
++      }
++    }
++    return NextResponse.json(
++      { ok: false, error: err instanceof Error ? err.message : String(err) },
++      { status: 500 }
++    );
++  }
++}
+diff --git a/ui/partner-hub/app/api/sc26-outreach/graph/webhook/route.ts b/ui/partner-hub/app/api/sc26-outreach/graph/webhook/route.ts
+new file mode 100644
+index 0000000..ba843c4
+--- /dev/null
++++ b/ui/partner-hub/app/api/sc26-outreach/graph/webhook/route.ts
+@@ -0,0 +1,88 @@
++import { NextResponse } from "next/server";
++
++import { getMessage } from "@/lib/sc26-outreach/graph";
++import { findMessageByConversationId, logEvent, markStatus } from "@/lib/sc26-outreach/prospects";
++
++export const runtime = "nodejs";
++export const dynamic = "force-dynamic";
++
++interface GraphNotification {
++  subscriptionId: string;
++  clientState?: string;
++  resourceData?: { id: string };
++}
++
++/**
++ * Microsoft Graph change-notification endpoint for the monitored mailbox's
++ * Inbox. Two request shapes hit this route:
++ *
++ * 1. Subscription validation: Graph calls with ?validationToken=... when a
++ *    subscription is created or renewed and expects that exact token
++ *    echoed back as plain text within ~10s.
++ * 2. Change notifications: a POST body of { value: [...] } for each new
++ *    message. We only care about matching replies to our own sent threads,
++ *    so anything that doesn't match a known conversationId is ignored.
++ *
++ * NOTE: this MVP assumes a single monitored mailbox (SC26_MAILBOX) -- see
++ * SETUP.md for how to extend this to multiple mailboxes.
++ */
++export async function POST(req: Request) {
++  const url = new URL(req.url);
++  const validationToken = url.searchParams.get("validationToken");
++  if (validationToken) {
++    return new NextResponse(validationToken, {
++      status: 200,
++      headers: { "Content-Type": "text/plain" },
++    });
++  }
++
++  const mailbox = process.env.SC26_MAILBOX;
++  const clientState = process.env.GRAPH_WEBHOOK_CLIENT_STATE;
++  const body = (await req.json().catch(() => null)) as { value?: GraphNotification[] } | null;
++
++  if (mailbox && body?.value?.length) {
++    for (const notification of body.value) {
++      if (clientState && notification.clientState !== clientState) {
++        continue; // Not authentic -- skip silently, don't leak details in the response.
++      }
++      const messageId = notification.resourceData?.id;
++      if (!messageId) continue;
++
++      try {
++        const message = await getMessage(mailbox, messageId);
++        if (!message.conversationId) continue;
++
++        const match = await findMessageByConversationId(message.conversationId);
++        if (!match) continue;
++
++        // Skip if this is our own outbound copy landing in a folder we
++        // watch for some reason (defensive; we only subscribe to Inbox).
++        const fromAddress = message.from?.emailAddress?.address?.toLowerCase();
++        if (fromAddress && fromAddress === mailbox.toLowerCase()) continue;
++
++        await logEvent(match.id, "REPLY", { graphMessageId: messageId });
++        await markStatus(match.prospectId, "REPLIED");
++      } catch {
++        // Best-effort: a single bad notification shouldn't fail the batch.
++        continue;
++      }
++    }
++  }
++
++  // Graph expects a fast 202 regardless of processing outcome.
++  return new NextResponse(null, { status: 202 });
++}
++
++// Graph's validation handshake can also arrive as a GET in some client
++// libraries' documentation examples; handle it the same way defensively.
++export async function GET(req: Request) {
++  const url = new URL(req.url);
++  const validationToken = url.searchParams.get("validationToken");
++  if (validationToken) {
++    return new NextResponse(validationToken, {
++      status: 200,
++      headers: { "Content-Type": "text/plain" },
++    });
++  }
++  return new NextResponse(null, { status: 400 });
++}
+diff --git a/ui/partner-hub/app/api/sc26-outreach/import/route.ts b/ui/partner-hub/app/api/sc26-outreach/import/route.ts
+new file mode 100644
+index 0000000..866d4d5
+--- /dev/null
++++ b/ui/partner-hub/app/api/sc26-outreach/import/route.ts
+@@ -0,0 +1,46 @@
++import { NextResponse } from "next/server";
++import Papa from "papaparse";
++
++import { upsertProspects, type ImportedProspect } from "@/lib/sc26-outreach/prospects";
++
++export const runtime = "nodejs";
++export const dynamic = "force-dynamic";
++
++/**
++ * Accepts a CSV upload of prospects. Expected headers (case-insensitive,
++ * order doesn't matter): email, first_name (or "first name"/"firstname"),
++ * last_name, company, title. Only email + first_name are required.
++ */
++export async function POST(req: Request) {
++  const form = await req.formData().catch(() => null);
++  const file = form?.get("file");
++  if (!file || typeof file === "string") {
++    return NextResponse.json({ ok: false, error: "Missing file upload." }, { status: 400 });
++  }
++
++  const text = await file.text();
++  const parsed = Papa.parse<Record<string, string>>(text, {
++    header: true,
++    skipEmptyLines: true,
++    transformHeader: (h) => h.trim().toLowerCase().replace(/[\s_]+/g, "_"),
++  });
++
++  if (parsed.errors.length) {
++    return NextResponse.json(
++      { ok: false, error: `CSV parse error: ${parsed.errors[0].message}` },
++      { status: 400 }
++    );
++  }
++
++  const rows: ImportedProspect[] = parsed.data.map((r) => ({
++    email: String(r.email ?? "").trim(),
++    firstName: String(r.first_name ?? r.firstname ?? "").trim(),
++    lastName: String(r.last_name ?? r.lastname ?? "").trim() || undefined,
++    company: String(r.company ?? r.account ?? "").trim() || undefined,
++    title: String(r.title ?? "").trim() || undefined,
++  }));
++
++  const result = await upsertProspects(rows);
++
++  return NextResponse.json({ ok: true, ...result }, { headers: { "Cache-Control": "no-store" } });
++}
+diff --git a/ui/partner-hub/app/api/sc26-outreach/prospects/route.ts b/ui/partner-hub/app/api/sc26-outreach/prospects/route.ts
+new file mode 100644
+index 0000000..e6fee77
+--- /dev/null
++++ b/ui/partner-hub/app/api/sc26-outreach/prospects/route.ts
+@@ -0,0 +1,30 @@
++import { NextResponse } from "next/server";
++
++import { listProspects } from "@/lib/sc26-outreach/prospects";
++
++export const runtime = "nodejs";
++export const dynamic = "force-dynamic";
++
++export async function GET() {
++  const prospects = await listProspects();
++
++  const shaped = prospects.map((p) => {
++    const lastMessage = p.messages[0] ?? null;
++    return {
++      id: p.id,
++      email: p.email,
++      firstName: p.firstName,
++      lastName: p.lastName,
++      company: p.company,
++      title: p.title,
++      status: p.status,
++      lastSentAt: lastMessage?.sentAt ?? null,
++      eventCounts: (lastMessage?.events ?? []).reduce<Record<string, number>>((acc, e) => {
++        acc[e.type] = (acc[e.type] ?? 0) + 1;
++        return acc;
++      }, {}),
++    };
++  });
++
++  return NextResponse.json({ ok: true, prospects: shaped }, { headers: { "Cache-Control": "no-store" } });
++}
+diff --git a/ui/partner-hub/app/api/sc26-outreach/send/route.ts b/ui/partner-hub/app/api/sc26-outreach/send/route.ts
+new file mode 100644
+index 0000000..c8f4204
+--- /dev/null
++++ b/ui/partner-hub/app/api/sc26-outreach/send/route.ts
+@@ -0,0 +1,82 @@
++import { NextResponse } from "next/server";
++
++import { prisma } from "@/lib/db";
++import { sendTrackedMail } from "@/lib/sc26-outreach/graph";
++import { generateTrackingToken } from "@/lib/sc26-outreach/tokens";
++import { EMAIL_SUBJECT, renderOutreachEmail } from "@/lib/sc26-outreach/template";
++import { trackingPixelUrl, trackingClickUrl } from "@/lib/sc26-outreach/urls";
++import { markStatus } from "@/lib/sc26-outreach/prospects";
++
++export const runtime = "nodejs";
++export const dynamic = "force-dynamic";
++
++interface SendBody {
++  prospectIds: number[];
++}
++
++/**
++ * Sends the SC26 outreach email to the given prospects one at a time via
++ * Microsoft Graph. Intentionally sequential (not Promise.all) to stay well
++ * under mailbox send-rate limits and to make partial failures easy to see
++ * in the response.
++ */
++export async function POST(req: Request) {
++  const mailbox = process.env.SC26_MAILBOX;
++  const senderName = process.env.SC26_SENDER_NAME || mailbox || "DDN";
++  if (!mailbox) {
++    return NextResponse.json({ ok: false, error: "SC26_MAILBOX is not configured." }, { status: 500 });
++  }
++
++  const body = (await req.json().catch(() => null)) as SendBody | null;
++  const prospectIds = body?.prospectIds;
++  if (!Array.isArray(prospectIds) || prospectIds.length === 0) {
++    return NextResponse.json({ ok: false, error: "No prospects selected." }, { status: 400 });
++  }
++
++  const results: { prospectId: number; ok: boolean; error?: string }[] = [];
++
++  for (const prospectId of prospectIds) {
++    const prospect = await prisma.prospect.findUnique({ where: { id: prospectId } });
++    if (!prospect) {
++      results.push({ prospectId, ok: false, error: "Prospect not found." });
++      continue;
++    }
++
++    const token = generateTrackingToken();
++    const html = renderOutreachEmail({
++      firstName: prospect.firstName,
++      senderName,
++      trackingPixelUrl: trackingPixelUrl(token),
++      trackedBookingUrl: trackingClickUrl(token),
++    });
++
++    try {
++      const sent = await sendTrackedMail({
++        mailbox,
++        toEmail: prospect.email,
++        toName: [prospect.firstName, prospect.lastName].filter(Boolean).join(" "),
++        subject: EMAIL_SUBJECT,
++        html,
++      });
++
++      await prisma.outreachMessage.create({
++        data: {
++          prospectId: prospect.id,
++          mailbox,
++          subject: EMAIL_SUBJECT,
++          trackingToken: token,
++          graphMessageId: sent.graphMessageId,
++          graphConversationId: sent.graphConversationId,
++          sentAt: new Date(),
++        },
++      });
++      await markStatus(prospect.id, "SENT");
++
++      results.push({ prospectId, ok: true });
++    } catch (err) {
++      results.push({ prospectId, ok: false, error: err instanceof Error ? err.message : String(err) });
++    }
++  }
++
++  return NextResponse.json({ ok: true, results }, { headers: { "Cache-Control": "no-store" } });
++}
+diff --git a/ui/partner-hub/app/api/sc26-outreach/track/click/[token]/route.ts b/ui/partner-hub/app/api/sc26-outreach/track/click/[token]/route.ts
+new file mode 100644
+index 0000000..3435773
+--- /dev/null
++++ b/ui/partner-hub/app/api/sc26-outreach/track/click/[token]/route.ts
+@@ -0,0 +1,26 @@
++import { NextResponse } from "next/server";
++
++import { findMessageByToken, logEvent, markStatus } from "@/lib/sc26-outreach/prospects";
++import { verifyTrackingToken } from "@/lib/sc26-outreach/tokens";
++import { bookingDestinationUrl } from "@/lib/sc26-outreach/urls";
++
++export const runtime = "nodejs";
++export const dynamic = "force-dynamic";
++
++export async function GET(req: Request, { params }: { params: Promise<{ token: string }> }) {
++  const { token } = await params;
++  const destination = bookingDestinationUrl();
++
++  if (verifyTrackingToken(token)) {
++    const message = await findMessageByToken(token);
++    if (message) {
++      const ua = req.headers.get("user-agent") ?? undefined;
++      await logEvent(message.id, "CLICK", { userAgent: ua });
++      await markStatus(message.prospectId, "CLICKED");
++    }
++  }
++
++  // Redirect regardless of token validity -- the recipient should always
++  // land on the real booking page, tracking is best-effort on top of that.
++  return NextResponse.redirect(destination, { status: 302 });
++}
+diff --git a/ui/partner-hub/app/api/sc26-outreach/track/open/[token]/route.ts b/ui/partner-hub/app/api/sc26-outreach/track/open/[token]/route.ts
+new file mode 100644
+index 0000000..c437760
+--- /dev/null
++++ b/ui/partner-hub/app/api/sc26-outreach/track/open/[token]/route.ts
+@@ -0,0 +1,39 @@
++import { NextResponse } from "next/server";
++
++import { findMessageByToken, logEvent, markStatus } from "@/lib/sc26-outreach/prospects";
++import { verifyTrackingToken } from "@/lib/sc26-outreach/tokens";
++
++export const runtime = "nodejs";
++export const dynamic = "force-dynamic";
++
++// 1x1 transparent GIF.
++const PIXEL = Buffer.from(
++  "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBTAA7",
++  "base64"
++);
++
++export async function GET(req: Request, { params }: { params: Promise<{ token: string }> }) {
++  const { token } = await params;
++
++  if (verifyTrackingToken(token)) {
++    const message = await findMessageByToken(token);
++    if (message) {
++      const ua = req.headers.get("user-agent") ?? undefined;
++      await logEvent(message.id, "OPEN", { userAgent: ua });
++      await markStatus(message.prospectId, "OPENED");
++    }
++  }
++
++  // Always return the pixel, even for an unrecognized token -- never let a
++  // tracking endpoint reveal whether a token is valid via its response.
++  return new NextResponse(PIXEL, {
++    status: 200,
++    headers: {
++      "Content-Type": "image/gif",
++      "Content-Length": String(PIXEL.length),
++      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
++      Pragma: "no-cache",
++      Expires: "0",
++    },
++  });
++}
+diff --git a/ui/partner-hub/components/left-nav.tsx b/ui/partner-hub/components/left-nav.tsx
+index 4b7aded..fbf68a7 100644
+--- a/ui/partner-hub/components/left-nav.tsx
++++ b/ui/partner-hub/components/left-nav.tsx
+@@ -11,6 +11,7 @@ export function LeftNav() {
+   const [collapsed, setCollapsed] = useState(false);
+   const aiInterviewEnabled = process.env.NEXT_PUBLIC_ENABLE_AI_INTERVIEW === "true";
+   const hpcLabEnabled = process.env.NEXT_PUBLIC_ENABLE_HPC_LAB === "true";
++  const sc26OutreachEnabled = process.env.NEXT_PUBLIC_ENABLE_SC26_OUTREACH === "true";
+   const toolLinks = [
+     { name: "Energy Tool", href: "/tools/energy" },
+     { name: "AI Workload Mapper", href: "/tools/workload-mapper" },
+@@ -23,6 +24,7 @@ export function LeftNav() {
+     { name: "Case Studies", href: "/case-studies" },
+     { name: "Account Mapping", href: "/accountmap" },
+     { name: "Job Hunter", href: "/job-hunter" },
++    ...(sc26OutreachEnabled ? [{ name: "SC26 Outreach", href: "/sc26-outreach" }] : []),
+     ...(hpcLabEnabled ? [{ name: "HPC Lab", href: "/hpc-lab" }] : []),
+     ...toolLinks,
+     { name: "Office Schedule", href: "/offices/schedule" },
+diff --git a/ui/partner-hub/components/sc26-outreach/SC26OutreachDashboard.tsx b/ui/partner-hub/components/sc26-outreach/SC26OutreachDashboard.tsx
+new file mode 100644
+index 0000000..48bae48
+--- /dev/null
++++ b/ui/partner-hub/components/sc26-outreach/SC26OutreachDashboard.tsx
+@@ -0,0 +1,207 @@
++"use client";
++
++import { useCallback, useEffect, useRef, useState } from "react";
++import { clsx } from "clsx";
++
++interface Prospect {
++  id: number;
++  email: string;
++  firstName: string;
++  lastName: string | null;
++  company: string | null;
++  title: string | null;
++  status: "PENDING" | "SENT" | "OPENED" | "CLICKED" | "REPLIED" | "BOUNCED";
++  lastSentAt: string | null;
++}
++
++const STATUS_STYLES: Record<Prospect["status"], string> = {
++  PENDING: "bg-muted text-foreground/60",
++  SENT: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300",
++  OPENED: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
++  CLICKED: "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300",
++  REPLIED: "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300",
++  BOUNCED: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
++};
++
++export function SC26OutreachDashboard() {
++  const [prospects, setProspects] = useState<Prospect[]>([]);
++  const [selected, setSelected] = useState<Set<number>>(new Set());
++  const [loading, setLoading] = useState(false);
++  const [sending, setSending] = useState(false);
++  const [message, setMessage] = useState<string | null>(null);
++  const fileInputRef = useRef<HTMLInputElement>(null);
++
++  const refresh = useCallback(async () => {
++    setLoading(true);
++    try {
++      const res = await fetch("/api/sc26-outreach/prospects", { cache: "no-store" });
++      const data = await res.json();
++      if (data.ok) setProspects(data.prospects);
++    } finally {
++      setLoading(false);
++    }
++  }, []);
++
++  useEffect(() => {
++    refresh();
++    // Light polling so opens/clicks/replies show up without a manual refresh.
++    const interval = setInterval(refresh, 15_000);
++    return () => clearInterval(interval);
++  }, [refresh]);
++
++  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
++    const file = e.target.files?.[0];
++    if (!file) return;
++    const form = new FormData();
++    form.append("file", file);
++    setMessage(null);
++    const res = await fetch("/api/sc26-outreach/import", { method: "POST", body: form });
++    const data = await res.json();
++    if (data.ok) {
++      setMessage(
++        `Imported: ${data.created} added, ${data.updated} updated${
++          data.skipped?.length ? `, ${data.skipped.length} skipped` : ""
++        }.`
++      );
++      refresh();
++    } else {
++      setMessage(`Import failed: ${data.error}`);
++    }
++    if (fileInputRef.current) fileInputRef.current.value = "";
++  }
++
++  function toggle(id: number) {
++    setSelected((prev) => {
++      const next = new Set(prev);
++      if (next.has(id)) next.delete(id);
++      else next.add(id);
++      return next;
++    });
++  }
++
++  function toggleAllPending() {
++    const pendingIds = prospects.filter((p) => p.status === "PENDING").map((p) => p.id);
++    setSelected((prev) => (prev.size === pendingIds.length ? new Set() : new Set(pendingIds)));
++  }
++
++  async function handleSend() {
++    if (selected.size === 0) return;
++    setSending(true);
++    setMessage(null);
++    try {
++      const res = await fetch("/api/sc26-outreach/send", {
++        method: "POST",
++        headers: { "Content-Type": "application/json" },
++        body: JSON.stringify({ prospectIds: Array.from(selected) }),
++      });
++      const data = await res.json();
++      if (data.ok) {
++        const failed = data.results.filter((r: { ok: boolean }) => !r.ok);
++        setMessage(
++          failed.length
++            ? `Sent ${data.results.length - failed.length}, ${failed.length} failed.`
++            : `Sent to ${data.results.length} prospect(s).`
++        );
++        setSelected(new Set());
++        refresh();
++      } else {
++        setMessage(`Send failed: ${data.error}`);
++      }
++    } finally {
++      setSending(false);
++    }
++  }
++
++  return (
++    <div className="space-y-4">
++      <div className="flex flex-wrap items-center gap-3">
++        <label className="cursor-pointer rounded-lg border border-border/60 px-3 py-2 text-sm font-medium hover:bg-muted/60">
++          Upload CSV
++          <input
++            ref={fileInputRef}
++            type="file"
++            accept=".csv"
++            className="hidden"
++            onChange={handleUpload}
++          />
++        </label>
++        <span className="text-xs text-foreground/60">
++          Columns: email, first_name (required), last_name, company, title
++        </span>
++        <div className="flex-1" />
++        <button
++          type="button"
++          onClick={toggleAllPending}
++          className="rounded-lg border border-border/60 px-3 py-2 text-sm font-medium hover:bg-muted/60"
++        >
++          Select all pending
++        </button>
++        <button
++          type="button"
++          onClick={handleSend}
++          disabled={selected.size === 0 || sending}
++          className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
++        >
++          {sending ? "Sending…" : `Send to ${selected.size || ""} selected`}
++        </button>
++      </div>
++
++      {message ? <p className="text-sm text-foreground/70">{message}</p> : null}
++
++      <div className="overflow-x-auto rounded-lg border border-border/60">
++        <table className="w-full text-sm">
++          <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-foreground/60">
++            <tr>
++              <th className="w-8 px-3 py-2"></th>
++              <th className="px-3 py-2">Name</th>
++              <th className="px-3 py-2">Email</th>
++              <th className="px-3 py-2">Company</th>
++              <th className="px-3 py-2">Status</th>
++              <th className="px-3 py-2">Last sent</th>
++            </tr>
++          </thead>
++          <tbody>
++            {prospects.map((p) => (
++              <tr key={p.id} className="border-t border-border/40">
++                <td className="px-3 py-2">
++                  <input
++                    type="checkbox"
++                    checked={selected.has(p.id)}
++                    onChange={() => toggle(p.id)}
++                    disabled={p.status !== "PENDING"}
++                  />
++                </td>
++                <td className="px-3 py-2">
++                  {p.firstName} {p.lastName ?? ""}
++                  {p.title ? <div className="text-xs text-foreground/50">{p.title}</div> : null}
++                </td>
++                <td className="px-3 py-2">{p.email}</td>
++                <td className="px-3 py-2">{p.company ?? "—"}</td>
++                <td className="px-3 py-2">
++                  <span
++                    className={clsx(
++                      "rounded-full px-2 py-0.5 text-xs font-medium",
++                      STATUS_STYLES[p.status]
++                    )}
++                  >
++                    {p.status}
++                  </span>
++                </td>
++                <td className="px-3 py-2 text-xs text-foreground/60">
++                  {p.lastSentAt ? new Date(p.lastSentAt).toLocaleString() : "—"}
++                </td>
++              </tr>
++            ))}
++            {!loading && prospects.length === 0 ? (
++              <tr>
++                <td colSpan={6} className="px-3 py-6 text-center text-foreground/50">
++                  No prospects yet — upload a CSV to get started.
++                </td>
++              </tr>
++            ) : null}
++          </tbody>
++        </table>
++      </div>
++    </div>
++  );
++}
+diff --git a/ui/partner-hub/docs/SC26_OUTREACH_SETUP.md b/ui/partner-hub/docs/SC26_OUTREACH_SETUP.md
+new file mode 100644
+index 0000000..cd6403e
+--- /dev/null
++++ b/ui/partner-hub/docs/SC26_OUTREACH_SETUP.md
+@@ -0,0 +1,117 @@
++# SC26 Outreach — setup
++
++This module lives inside Portfolio Hub (`ui/partner-hub`) as a new route (`/sc26-outreach`)
++and API namespace (`/api/sc26-outreach/*`). It's off by default behind
++`NEXT_PUBLIC_ENABLE_SC26_OUTREACH`. Everything below is a one-time setup you need to do —
++none of it can be done from the app itself.
++
++## 1. Register an Azure AD (Entra ID) app
++
++This is what lets the app send mail as a real DDN Outlook mailbox and read that mailbox's
++Inbox to detect replies. It needs sign-off from whoever administers your Entra ID tenant —
++this is a real permission grant against company mail, not a self-serve API key.
++
++1. In the [Azure Portal](https://portal.azure.com) → **Entra ID → App registrations → New registration**.
++   Name it something identifiable, e.g. `ddn-sc26-outreach`.
++2. Under **Certificates & secrets**, create a new client secret. Copy the *value* immediately —
++   it's only shown once. This becomes `AZURE_CLIENT_SECRET`.
++3. Note the **Application (client) ID** (`AZURE_CLIENT_ID`) and **Directory (tenant) ID**
++   (`AZURE_TENANT_ID`) from the app's Overview page.
++4. Under **API permissions → Add a permission → Microsoft Graph → Application permissions**,
++   add:
++   - `Mail.ReadWrite` — needed to create the draft message before sending (the app sends via a
++     create-draft-then-send flow specifically so it gets back a message id / conversation id
++     to match replies against later — the simpler `sendMail` endpoint doesn't return one).
++   - `Mail.Send` — needed to actually send the draft.
++   Then click **Grant admin consent** — this step requires a tenant admin.
++
++**Important:** application permissions like these apply to *every* mailbox in the tenant by
++default. Do not skip step 2 below — without it, this app registration could send or read mail
++as anyone in the company, which is far more access than this needs.
++
++## 2. Restrict the app to one mailbox
++
++Run this in [Exchange Online PowerShell](https://learn.microsoft.com/en-us/powershell/exchange/connect-to-exchange-online-powershell)
++(requires an Exchange admin):
++
++```powershell
++Connect-ExchangeOnline
++
++New-ApplicationAccessPolicy `
++  -AppId "<AZURE_CLIENT_ID>" `
++  -PolicyScopeGroupId "sc26@ddn.com" `
++  -AccessRight RestrictAccess `
++  -Description "SC26 outreach app - restricted to sc26 mailbox only"
++```
++
++`PolicyScopeGroupId` can be a single mailbox's email address directly, or a mail-enabled
++security group containing just that mailbox if you'd rather manage it that way. Verify it
++worked with `Test-ApplicationAccessPolicy -AppId "<AZURE_CLIENT_ID>" -Identity "sc26@ddn.com"`.
++
++## 3. Decide on the sending mailbox
++
++Set `SC26_MAILBOX` to whichever address this sends from and monitors for replies — either a
++shared mailbox created for this (e.g. `sc26@ddn.com`, recommended: keeps outreach replies out
++of a personal inbox and makes this easy to hand off) or an individual rep's own mailbox. Set
++`SC26_SENDER_NAME` to how you want the "Best," signature to read.
++
++## 4. Deploy to Render
++
++1. Push this repo (or just this branch) to GitHub, then in Render: **New → Web Service →**
++   connect the repo, root directory `ui/partner-hub`.
++2. Build command: `npm install && npm run build`. Start command: `npm run start`.
++3. Add a **persistent disk** (Render dashboard → the service → Disks) mounted somewhere like
++   `/data`, and set `DATABASE_URL=file:/data/sc26.db` — SQLite needs a real disk under Render,
++   not the ephemeral container filesystem, or your data disappears on every deploy/restart.
++4. Set every env var from `.env.local.example`'s SC26 section:
++   - `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` (from step 1)
++   - `SC26_MAILBOX`, `SC26_SENDER_NAME`
++   - `APP_BASE_URL` — the real `https://...` URL this service is reachable at once deployed
++     (Render gives you a `*.onrender.com` URL immediately; switch this to a custom subdomain
++     once DNS is set up, see step 6)
++   - `SC26_BOOKING_URL` (defaults to the real DDN booking page if unset)
++   - `TRACKING_TOKEN_SECRET`, `GRAPH_WEBHOOK_CLIENT_STATE`, `CRON_SECRET` — generate each with
++     `openssl rand -hex 32`
++   - `NEXT_PUBLIC_ENABLE_SC26_OUTREACH=true`
++
++## 5. Set up the reply-subscription renewal cron
++
++Microsoft Graph mail subscriptions expire in under 3 days, so `/api/sc26-outreach/graph/subscribe`
++needs to be hit on a recurring schedule to create/renew it — it does nothing harmful if called
++more often than needed, so daily is a safe cadence.
++
++In Render: **New → Cron Job**, same repo, and set it to run (once a day is plenty):
++
++```bash
++curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://<your-app-url>/api/sc26-outreach/graph/subscribe
++```
++
++Give the cron job its own `CRON_SECRET` env var matching the web service's.
++
++## 6. Optional: a real subdomain instead of `*.onrender.com`
++
++Recipients trust a link under `ddn.com` far more than a random Render URL, and some corporate
++mail filters treat generic hosting subdomains with more suspicion. In Render, add a custom
++domain (e.g. `track.ddn.com`) to the web service, then add the CNAME record Render gives you
++in DDN's DNS. Update `APP_BASE_URL` to match once it's live, since that value is baked into
++every tracking pixel/click URL at send time.
++
++## 7. Turn it on
++
++Set `NEXT_PUBLIC_ENABLE_SC26_OUTREACH=true` and redeploy. The **SC26 Outreach** link appears
++in the left nav. Upload a CSV (`email`, `first_name` required; `last_name`, `company`, `title`
++optional) and send.
++
++## A few things worth knowing going in
++
++- **This makes the whole app public.** Portfolio Hub has no login today. Deploying it to Render
++  puts every route — including your other personal tools — on the public internet, not just
++  this module. Worth adding at least basic auth (e.g. Render's built-in basic auth, or a simple
++  middleware check) before this goes live with real prospect data flowing through it.
++- **Sending limits.** App-only Graph sends are still bound by the mailbox's normal Exchange
++  Online sending limits (roughly 10,000 recipients/day, 30 messages/minute for standard
++  licenses) — comfortably enough for this list, just don't loop it into something much bigger
++  without checking.
++- **Bounces** aren't handled by this MVP — a hard bounce currently just looks like "no reply."
++  If bounce visibility matters, the reply webhook can be extended to also watch for delivery
++  failure reports, which show up in the same Inbox.
+diff --git a/ui/partner-hub/lib/sc26-outreach/graph.ts b/ui/partner-hub/lib/sc26-outreach/graph.ts
+new file mode 100644
+index 0000000..2ac7465
+--- /dev/null
++++ b/ui/partner-hub/lib/sc26-outreach/graph.ts
+@@ -0,0 +1,184 @@
++/**
++ * Thin wrapper around Microsoft Graph for the SC26 outreach module.
++ *
++ * Auth model: app-only (client credentials), using an Azure AD app
++ * registration with the Mail.ReadWrite and Mail.Send *application*
++ * permissions (Mail.ReadWrite covers both creating the draft below and
++ * reading the Inbox for reply detection), scoped down to a single mailbox
++ * via an Exchange Online Application Access
++ * Policy (see SETUP.md). This avoids per-rep interactive OAuth for the MVP
++ * (single connected mailbox) while keeping the app's effective access
++ * limited to that one mailbox rather than "any mailbox in the tenant".
++ *
++ * Deliberately implemented against the plain OAuth2 client-credentials
++ * token endpoint via fetch rather than the @azure/msal-node SDK -- it's a
++ * single well-documented POST, and it keeps this module dependency-free
++ * beyond what the app already ships with.
++ */
++
++const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
++
++function requireEnv(name: string): string {
++  const value = process.env[name];
++  if (!value) {
++    throw new Error(`Missing required env var: ${name}`);
++  }
++  return value;
++}
++
++let cachedToken: { value: string; expiresAt: number } | null = null;
++
++async function getAccessToken(): Promise<string> {
++  if (cachedToken && cachedToken.expiresAt - Date.now() > 60_000) {
++    return cachedToken.value;
++  }
++
++  const tenantId = requireEnv("AZURE_TENANT_ID");
++  const clientId = requireEnv("AZURE_CLIENT_ID");
++  const clientSecret = requireEnv("AZURE_CLIENT_SECRET");
++
++  const res = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
++    method: "POST",
++    headers: { "Content-Type": "application/x-www-form-urlencoded" },
++    body: new URLSearchParams({
++      client_id: clientId,
++      client_secret: clientSecret,
++      grant_type: "client_credentials",
++      scope: "https://graph.microsoft.com/.default",
++    }),
++  });
++
++  if (!res.ok) {
++    const body = await res.text().catch(() => "");
++    throw new Error(`Failed to acquire Microsoft Graph access token: ${res.status} ${body}`);
++  }
++
++  const data = (await res.json()) as { access_token: string; expires_in: number };
++  cachedToken = {
++    value: data.access_token,
++    expiresAt: Date.now() + data.expires_in * 1000,
++  };
++  return cachedToken.value;
++}
++
++async function graphFetch(path: string, init: RequestInit = {}): Promise<Response> {
++  const token = await getAccessToken();
++  const res = await fetch(`${GRAPH_BASE}${path}`, {
++    ...init,
++    headers: {
++      Authorization: `Bearer ${token}`,
++      "Content-Type": "application/json",
++      ...(init.headers ?? {}),
++    },
++  });
++  return res;
++}
++
++async function graphJson<T>(path: string, init: RequestInit = {}): Promise<T> {
++  const res = await graphFetch(path, init);
++  if (!res.ok) {
++    const body = await res.text().catch(() => "");
++    throw new Error(`Graph ${init.method ?? "GET"} ${path} failed: ${res.status} ${body}`);
++  }
++  if (res.status === 204) return undefined as unknown as T;
++  return (await res.json()) as T;
++}
++
++export interface SendTrackedMailInput {
++  mailbox: string;
++  toEmail: string;
++  toName?: string;
++  subject: string;
++  html: string;
++}
++
++export interface SendTrackedMailResult {
++  graphMessageId: string;
++  graphConversationId: string | null;
++}
++
++/**
++ * Sends a message via a two-step create-draft + send call instead of the
++ * simpler POST /sendMail, specifically so we get back the message id and
++ * conversationId immediately -- sendMail returns 202 with no body, which
++ * leaves us with nothing to match replies against later.
++ */
++export async function sendTrackedMail(input: SendTrackedMailInput): Promise<SendTrackedMailResult> {
++  const mailboxPath = `/users/${encodeURIComponent(input.mailbox)}`;
++
++  const draft = await graphJson<{ id: string; conversationId?: string }>(
++    `${mailboxPath}/messages`,
++    {
++      method: "POST",
++      body: JSON.stringify({
++        subject: input.subject,
++        body: { contentType: "HTML", content: input.html },
++        toRecipients: [
++          {
++            emailAddress: {
++              address: input.toEmail,
++              name: input.toName ?? undefined,
++            },
++          },
++        ],
++      }),
++    }
++  );
++
++  await graphFetch(`${mailboxPath}/messages/${draft.id}/send`, { method: "POST" });
++
++  return {
++    graphMessageId: draft.id,
++    graphConversationId: draft.conversationId ?? null,
++  };
++}
++
++export interface GraphMessageSummary {
++  id: string;
++  conversationId: string | null;
++  subject: string | null;
++  receivedDateTime: string | null;
++  from: { emailAddress?: { address?: string; name?: string } } | null;
++}
++
++export async function getMessage(mailbox: string, messageId: string): Promise<GraphMessageSummary> {
++  const mailboxPath = `/users/${encodeURIComponent(mailbox)}`;
++  return graphJson<GraphMessageSummary>(
++    `${mailboxPath}/messages/${messageId}?$select=id,conversationId,subject,receivedDateTime,from`
++  );
++}
++
++export interface SubscriptionResult {
++  id: string;
++  expirationDateTime: string;
++}
++
++/** Graph mail subscriptions cap out around 4230 minutes (~2.94 days). Renew well inside that. */
++export function nextExpiration(): string {
++  const expires = new Date(Date.now() + 4200 * 60_000);
++  return expires.toISOString();
++}
++
++export async function createSubscription(params: {
++  mailbox: string;
++  notificationUrl: string;
++  clientState: string;
++}): Promise<SubscriptionResult> {
++  return graphJson<SubscriptionResult>("/subscriptions", {
++    method: "POST",
++    body: JSON.stringify({
++      changeType: "created",
++      notificationUrl: params.notificationUrl,
++      resource: `/users/${encodeURIComponent(params.mailbox)}/mailFolders('Inbox')/messages`,
++      expirationDateTime: nextExpiration(),
++      clientState: params.clientState,
++    }),
++  });
++}
++
++export async function renewSubscription(subscriptionId: string): Promise<SubscriptionResult> {
++  return graphJson<SubscriptionResult>(`/subscriptions/${subscriptionId}`, {
++    method: "PATCH",
++    body: JSON.stringify({ expirationDateTime: nextExpiration() }),
++  });
++}
+diff --git a/ui/partner-hub/lib/sc26-outreach/prospects.ts b/ui/partner-hub/lib/sc26-outreach/prospects.ts
+new file mode 100644
+index 0000000..7d4ec07
+--- /dev/null
++++ b/ui/partner-hub/lib/sc26-outreach/prospects.ts
+@@ -0,0 +1,116 @@
++import { prisma } from "@/lib/db";
++import { Prisma, ProspectStatus, TrackingEventType } from "@prisma/client";
++
++export interface ImportedProspect {
++  email: string;
++  firstName: string;
++  lastName?: string;
++  company?: string;
++  title?: string;
++}
++
++export async function upsertProspects(rows: ImportedProspect[]) {
++  let created = 0;
++  let updated = 0;
++  const skipped: { row: ImportedProspect; reason: string }[] = [];
++
++  for (const row of rows) {
++    const email = row.email.trim().toLowerCase();
++    if (!email || !email.includes("@")) {
++      skipped.push({ row, reason: "missing/invalid email" });
++      continue;
++    }
++    if (!row.firstName?.trim()) {
++      skipped.push({ row, reason: "missing first name" });
++      continue;
++    }
++
++    const existing = await prisma.prospect.findUnique({ where: { email } });
++    if (existing) {
++      await prisma.prospect.update({
++        where: { email },
++        data: {
++          firstName: row.firstName.trim(),
++          lastName: row.lastName?.trim() || existing.lastName,
++          company: row.company?.trim() || existing.company,
++          title: row.title?.trim() || existing.title,
++        },
++      });
++      updated++;
++    } else {
++      await prisma.prospect.create({
++        data: {
++          email,
++          firstName: row.firstName.trim(),
++          lastName: row.lastName?.trim() || null,
++          company: row.company?.trim() || null,
++          title: row.title?.trim() || null,
++        },
++      });
++      created++;
++    }
++  }
++
++  return { created, updated, skipped };
++}
++
++export async function listProspects() {
++  return prisma.prospect.findMany({
++    orderBy: { createdAt: "desc" },
++    include: {
++      messages: {
++        orderBy: { createdAt: "desc" },
++        take: 1,
++        include: { events: true },
++      },
++    },
++  });
++}
++
++export async function markStatus(prospectId: number, status: ProspectStatus) {
++  // Never downgrade a status once a stronger signal has been seen
++  // (e.g. a click arriving after a reply shouldn't demote the row).
++  const rank: Record<ProspectStatus, number> = {
++    PENDING: 0,
++    SENT: 1,
++    OPENED: 2,
++    CLICKED: 3,
++    REPLIED: 4,
++    BOUNCED: 4,
++  };
++  const current = await prisma.prospect.findUnique({ where: { id: prospectId } });
++  if (!current) return;
++  if (rank[status] < rank[current.status]) return;
++  await prisma.prospect.update({ where: { id: prospectId }, data: { status } });
++}
++
++export async function logEvent(
++  outreachMessageId: number,
++  type: TrackingEventType,
++  meta?: Record<string, unknown>
++) {
++  await prisma.trackingEvent.create({
++    data: {
++      outreachMessageId,
++      type,
++      meta: meta ? JSON.stringify(meta) : null,
++    },
++  });
++}
++
++export async function findMessageByToken(token: string) {
++  return prisma.outreachMessage.findUnique({
++    where: { trackingToken: token },
++    include: { prospect: true },
++  });
++}
++
++export async function findMessageByConversationId(conversationId: string) {
++  return prisma.outreachMessage.findFirst({
++    where: { graphConversationId: conversationId },
++    include: { prospect: true },
++    orderBy: { createdAt: "desc" },
++  });
++}
++
++export type { Prisma };
+diff --git a/ui/partner-hub/lib/sc26-outreach/template.ts b/ui/partner-hub/lib/sc26-outreach/template.ts
+new file mode 100644
+index 0000000..5aa7f2d
+--- /dev/null
++++ b/ui/partner-hub/lib/sc26-outreach/template.ts
+@@ -0,0 +1,80 @@
++export interface TemplateInput {
++  firstName: string;
++  senderName: string;
++  /** Absolute URL to the 1x1 open-tracking pixel for this send. */
++  trackingPixelUrl: string;
++  /** Absolute URL that redirects (after logging a click) to the real booking page. */
++  trackedBookingUrl: string;
++}
++
++export const EMAIL_SUBJECT = "DDN at Supercomputing 2026 (SC26) — let's connect in Chicago";
++
++const SC26_WEBSITE_URL = "https://sc26.supercomputing.org/";
++
++/**
++ * Renders the SC26 outreach email as HTML. Copy is verbatim from the
++ * approved draft -- only the first-name merge, sender name, and the two
++ * tracking mechanisms (pixel + wrapped booking link) are templated in.
++ */
++export function renderOutreachEmail(input: TemplateInput): string {
++  const { firstName, senderName, trackingPixelUrl, trackedBookingUrl } = input;
++
++  return `<!DOCTYPE html>
++<html>
++  <body style="margin:0;padding:0;background:#ffffff;">
++    <div style="max-width:600px;margin:0 auto;padding:24px 12px;font-family:Calibri,Arial,sans-serif;font-size:15px;line-height:1.5;color:#1a1a1a;">
++      <p>Hi ${escapeHtml(firstName)},</p>
++
++      <p>I wanted to make sure Supercomputing 2026 is on your radar.</p>
++
++      <p>Supercomputing, also known as SC26, is the International Conference for High Performance Computing,
++      Networking, Storage, and Analysis. It brings together researchers, technology leaders, infrastructure teams,
++      and organizations working on the most demanding AI and HPC workloads.</p>
++
++      <p><strong>Event details</strong></p>
++      <ul style="margin:0 0 16px 0;padding-left:20px;">
++        <li>When: November 15 to 20, 2026. The exhibit hall will be open November 16 to 19.</li>
++        <li>Where: McCormick Place, 2301 S Martin Luther King Dr, Chicago, Illinois.</li>
++        <li>More information: <a href="${SC26_WEBSITE_URL}">Visit the SC26 website</a></li>
++      </ul>
++
++      <p><strong>DDN at SC26</strong><br/>
++      DDN will be the Exclusive Aisle Sponsor and will be at booth 4211 with live demonstrations of EXAScaler,
++      Infinia, and DDN's AI and HPC infrastructure. We will also feature customer and partner perspectives in our
++      booth theater.</p>
++
++      <p>DDN leadership and technical experts will be available throughout the event. The current DDN event
++      information highlights Alex Bouzari, CEO and Co Founder, and Mohsen Moazami, Vice Chair. We can help
++      coordinate time with the right DDN team member based on your priorities and availability.</p>
++
++      <p>A meeting with DDN would be useful if your team is focused on:</p>
++      <ul style="margin:0 0 16px 0;padding-left:20px;">
++        <li>Improving data access and application performance for AI or HPC workloads</li>
++        <li>Increasing GPU utilization and reducing infrastructure waste</li>
++        <li>Scaling storage and data management as workloads grow</li>
++        <li>Evaluating parallel file systems, object storage, or a broader AI data platform strategy</li>
++        <li>Moving AI projects from experimentation into production with better performance and economics</li>
++      </ul>
++
++      <p>If you are planning to attend, reply with the day and time that work best for you, or
++      <a href="${trackedBookingUrl}">book a meeting with DDN here</a>. We will coordinate a 20 to 30 minute
++      conversation at the booth or another convenient location in Chicago.</p>
++
++      <p>It would be great to connect while we are both at SC26.</p>
++
++      <p>Best,<br/>${escapeHtml(senderName)}</p>
++
++      <img src="${trackingPixelUrl}" width="1" height="1" alt="" style="display:none;" />
++    </div>
++  </body>
++</html>`;
++}
++
++function escapeHtml(value: string): string {
++  return value
++    .replace(/&/g, "&amp;")
++    .replace(/</g, "&lt;")
++    .replace(/>/g, "&gt;")
++    .replace(/"/g, "&quot;")
++    .replace(/'/g, "&#39;");
++}
+diff --git a/ui/partner-hub/lib/sc26-outreach/tokens.ts b/ui/partner-hub/lib/sc26-outreach/tokens.ts
+new file mode 100644
+index 0000000..3288a8c
+--- /dev/null
++++ b/ui/partner-hub/lib/sc26-outreach/tokens.ts
+@@ -0,0 +1,33 @@
++import crypto from "crypto";
++
++/**
++ * Opaque, unguessable tracking tokens embedded in the pixel/click URLs.
++ * Not reversible -- the token itself is just a random id; we look up the
++ * OutreachMessage row by this value. HMAC-signed so a stray guess can't be
++ * used to probe for valid tokens (belt-and-braces on top of the id being
++ * random in the first place).
++ */
++
++function getSecret(): string {
++  const secret = process.env.TRACKING_TOKEN_SECRET;
++  if (!secret) {
++    throw new Error("Missing required env var: TRACKING_TOKEN_SECRET");
++  }
++  return secret;
++}
++
++export function generateTrackingToken(): string {
++  const id = crypto.randomBytes(16).toString("base64url");
++  const sig = crypto.createHmac("sha256", getSecret()).update(id).digest("base64url").slice(0, 16);
++  return `${id}.${sig}`;
++}
++
++export function verifyTrackingToken(token: string): boolean {
++  const [id, sig] = token.split(".");
++  if (!id || !sig) return false;
++  const expected = crypto.createHmac("sha256", getSecret()).update(id).digest("base64url").slice(0, 16);
++  const a = Buffer.from(sig);
++  const b = Buffer.from(expected);
++  if (a.length !== b.length) return false;
++  return crypto.timingSafeEqual(a, b);
++}
+diff --git a/ui/partner-hub/lib/sc26-outreach/urls.ts b/ui/partner-hub/lib/sc26-outreach/urls.ts
+new file mode 100644
+index 0000000..c2cea4d
+--- /dev/null
++++ b/ui/partner-hub/lib/sc26-outreach/urls.ts
+@@ -0,0 +1,28 @@
++function requireEnv(name: string): string {
++  const value = process.env[name];
++  if (!value) {
++    throw new Error(`Missing required env var: ${name}`);
++  }
++  return value.replace(/\/+$/, "");
++}
++
++/** Public base URL this app is reachable at (e.g. https://track.ddn.com). */
++export function appBaseUrl(): string {
++  return requireEnv("APP_BASE_URL");
++}
++
++export function trackingPixelUrl(token: string): string {
++  return `${appBaseUrl()}/api/sc26-outreach/track/open/${token}`;
++}
++
++export function trackingClickUrl(token: string): string {
++  return `${appBaseUrl()}/api/sc26-outreach/track/click/${token}`;
++}
++
++export function graphWebhookUrl(): string {
++  return `${appBaseUrl()}/api/sc26-outreach/graph/webhook`;
++}
++
++export function bookingDestinationUrl(): string {
++  return process.env.SC26_BOOKING_URL || "https://www.ddn.com/lp/events/sc2026/book-a-meeting/";
++}
+diff --git a/ui/partner-hub/prisma/schema.prisma b/ui/partner-hub/prisma/schema.prisma
+index 9d66ecb..84d01ab 100644
+--- a/ui/partner-hub/prisma/schema.prisma
++++ b/ui/partner-hub/prisma/schema.prisma
+@@ -33,3 +33,78 @@ model Booking {
+ 
+   @@index([officeId, start, end])
+ }
++
++// --- SC26 outreach module ---------------------------------------------
++
++enum ProspectStatus {
++  PENDING
++  SENT
++  OPENED
++  CLICKED
++  REPLIED
++  BOUNCED
++}
++
++model Prospect {
++  id            Int             @id @default(autoincrement())
++  email         String          @unique
++  firstName     String
++  lastName      String?
++  company       String?
++  title         String?
++  status        ProspectStatus  @default(PENDING)
++  createdAt     DateTime        @default(now())
++  updatedAt     DateTime        @updatedAt
++
++  messages      OutreachMessage[]
++
++  @@index([status])
++}
++
++model OutreachMessage {
++  id                Int              @id @default(autoincrement())
++  prospectId        Int
++  mailbox           String
++  subject           String
++  trackingToken     String           @unique
++  graphMessageId    String?
++  graphConversationId String?
++  sentAt            DateTime?
++  createdAt         DateTime         @default(now())
++
++  prospect          Prospect         @relation(fields: [prospectId], references: [id], onDelete: Cascade)
++  events            TrackingEvent[]
++
++  @@index([prospectId])
++  @@index([graphConversationId])
++}
++
++enum TrackingEventType {
++  OPEN
++  CLICK
++  REPLY
++  BOUNCE
++}
++
++model TrackingEvent {
++  id                Int              @id @default(autoincrement())
++  outreachMessageId Int
++  type              TrackingEventType
++  occurredAt        DateTime         @default(now())
++  meta              String?
++
++  outreachMessage   OutreachMessage  @relation(fields: [outreachMessageId], references: [id], onDelete: Cascade)
++
++  @@index([outreachMessageId, type])
++}
++
++// Tracks the Microsoft Graph change-notification subscription per mailbox
++// so it can be renewed before it expires (mail subscriptions max out at
++// ~3 days). One row per monitored mailbox.
++model MailSubscription {
++  id                  Int      @id @default(autoincrement())
++  mailbox             String   @unique
++  graphSubscriptionId String
++  expiresAt           DateTime
++  updatedAt           DateTime @updatedAt
++}
+-- 
+2.43.0
+
