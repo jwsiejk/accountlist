@@ -2,13 +2,20 @@
  * Dispatches the "send request" that the outbound Power Automate flow picks
  * up and forwards to the prospect from jsiejk@ddn.com.
  *
- * Sent via the Resend API (https://resend.com) rather than Gmail SMTP.
- * Gmail SMTP kept rejecting logins with a WebLoginRequired error tied to
- * Google's account-trust checks on a brand-new mailbox -- unrelated to
- * anything in this repo, and not something code can fix. Resend needs
- * nothing but an API key (no OAuth, no admin consent, no domain
- * verification as long as the recipient is the same address the Resend
- * account itself was created with -- see SC26_OUTREACH_SETUP.md).
+ * Sent to the Gmail relay mailbox (SC26_IMAP_USER) via the Resend API
+ * (https://resend.com), NOT to SC26_MAILBOX directly. An earlier version
+ * sent it straight to the DDN mailbox, which got silently bounced by DDN's
+ * corporate spam filtering (rejects mail from unrecognized external
+ * senders) -- unrelated to Resend, unrelated to Gmail, just a corporate
+ * mail server distrusting a brand-new sender. Gmail has no such filter, and
+ * the Power Automate send-flow's trigger is a Gmail trigger watching this
+ * same inbox (see SC26_OUTREACH_SETUP.md), so this never has to cross into
+ * ddn.com at all until the flow itself sends the real outreach email via
+ * its own already-authenticated Outlook connector.
+ *
+ * Also unrelated to the earlier Gmail *SMTP* WebLoginRequired error -- this
+ * is Resend's API sending TO Gmail, not this app logging into Gmail's SMTP
+ * server, so that account-trust issue doesn't apply here either.
  *
  * This mail never reaches a real prospect -- it's purely an internal signal
  * to wake up the Power Automate flow, which is the thing that actually
@@ -103,15 +110,16 @@ export const SEND_REQUEST_MARKERS = {
 
 /**
  * Resend's shared test sender. Works with no domain verification as long as
- * the recipient (SC26_MAILBOX) is the same address the Resend account was
- * created with -- see SC26_OUTREACH_SETUP.md. If SC26_MAILBOX ever needs to
- * be a different address than the Resend account's own email, a verified
- * sending domain would be needed instead.
+ * the recipient (SC26_IMAP_USER, the Gmail relay mailbox) is the same
+ * address the Resend account was created with -- see
+ * SC26_OUTREACH_SETUP.md. If that ever needs to be a different address than
+ * the Resend account's own email, a verified sending domain would be
+ * needed instead.
  */
 const RESEND_FROM_ADDRESS = "SC26 Outreach <onboarding@resend.dev>";
 
 export async function dispatchSendRequest(input: SendRequestInput): Promise<void> {
-  const ddnMailbox = requireEnv("SC26_MAILBOX");
+  const gmailRelayMailbox = requireEnv("SC26_IMAP_USER");
   const apiKey = requireEnv("RESEND_API_KEY");
 
   const { TOKEN, TO, SUBJECT, HTML } = SEND_REQUEST_MARKERS;
@@ -134,7 +142,7 @@ export async function dispatchSendRequest(input: SendRequestInput): Promise<void
       },
       body: JSON.stringify({
         from: RESEND_FROM_ADDRESS,
-        to: [ddnMailbox],
+        to: [gmailRelayMailbox],
         subject: SEND_REQUEST_SUBJECT,
         html: body,
       }),
