@@ -21,18 +21,21 @@
  * template from the repo's library and edit it before sending (see
  * templates/, merge.ts, and send/route.ts), the content is only known at
  * send time and can differ from anything Power Automate could hold itself.
- * Power Automate's job is reduced to "read this labeled plain-text
- * envelope, extract TO/SUBJECT, and forward everything after the HTML:
- * marker verbatim as the outgoing email's HTML body" -- see the
- * SEND_REQUEST_BODY_HTML_MARKER docstring below for the exact wire format
- * this depends on, and the send-flow spec for how to build that in the
- * Power Automate designer.
  *
- * Resend returning a non-2xx (or the request failing outright) means the
- * request never reached the relay inbox at all (network/auth failure); it
- * says nothing about whether Power Automate's flow later succeeds, which is
- * exactly the gap the confirmation notification (imap-poller.ts +
- * parseSendConfirmation) closes.
+ * Sent as an HTML email (Resend's `html` field), not plain text -- this
+ * matters. A plain-text message gets silently converted to a synthetic
+ * HTML representation by Exchange/Outlook before Power Automate's trigger
+ * ever sees it, and that conversion HTML-escapes the message ("<div>"
+ * becomes "&lt;div&gt;"). Since the payload embeds a real HTML email
+ * verbatim, that escaping would corrupt it. Sending it as HTML from the
+ * start means the content type already matches what Exchange stores, so
+ * nothing re-encodes it.
+ *
+ * The envelope uses HTML-comment markers (see SEND_REQUEST_MARKERS) rather
+ * than labeled lines like "TOKEN: ...", specifically so extraction in Power
+ * Automate doesn't depend on where line breaks land -- comments are inert
+ * and Exchange doesn't rewrite them, so a plain indexOf/substring on the
+ * raw Body string finds them reliably regardless of any reformatting.
  */
 
 function requireEnv(name: string): string {
@@ -75,21 +78,28 @@ const SEND_REQUEST_SUBJECT = "OUTREACH-SEND-REQUEST";
 export const SEND_CONFIRMED_SUBJECT_MARKER = "SEND-CONFIRMED";
 
 /**
- * Marks where the labeled plain-text envelope (TOKEN/TO/SUBJECT) ends and
- * the literal HTML to forward begins, in the send-request email's body.
- * Sent as a *plain-text* email (Resend's `text` field, no `html`), so the
- * whole thing -- including the HTML markup after this marker -- is
- * delivered as-is, with no MIME re-rendering to fight. In the Power
- * Automate flow, extract this with a `substring`/`indexOf` expression on
- * the trigger's Body: everything after the first line that equals this
- * marker (skip its own newline) is the HTML to paste into the outgoing
- * "Send an email (V2)" step, switched to raw/code view so it isn't
- * re-escaped.
+ * HTML-comment start/end marker pairs delimiting each field in the
+ * send-request email's body. In the Power Automate flow, extract a field
+ * with (for a marker pair { start, end }):
  *
- * Exported for the same reason as SEND_CONFIRMED_SUBJECT_MARKER: the
- * send-flow spec and this file must agree on the exact string byte for byte.
+ *   substring(
+ *     triggerBody()?['body'],
+ *     add(indexOf(triggerBody()?['body'], '<start>'), length('<start>')),
+ *     sub(
+ *       indexOf(triggerBody()?['body'], '<end>'),
+ *       add(indexOf(triggerBody()?['body'], '<start>'), length('<start>'))
+ *     )
+ *   )
+ *
+ * Exported so the send-flow spec and this file agree on the exact strings
+ * byte for byte.
  */
-export const SEND_REQUEST_BODY_HTML_MARKER = "HTML:";
+export const SEND_REQUEST_MARKERS = {
+  TOKEN: { start: "<!--SC26:TOKEN-->", end: "<!--/SC26:TOKEN-->" },
+  TO: { start: "<!--SC26:TO-->", end: "<!--/SC26:TO-->" },
+  SUBJECT: { start: "<!--SC26:SUBJECT-->", end: "<!--/SC26:SUBJECT-->" },
+  HTML: { start: "<!--SC26:HTML-->", end: "<!--/SC26:HTML-->" },
+} as const;
 
 /**
  * Resend's shared test sender. Works with no domain verification as long as
@@ -104,16 +114,14 @@ export async function dispatchSendRequest(input: SendRequestInput): Promise<void
   const ddnMailbox = requireEnv("SC26_MAILBOX");
   const apiKey = requireEnv("RESEND_API_KEY");
 
-  // Single-line labeled fields first (mirrors the reply/confirmation wire
-  // format so the same parsing style works throughout), then the HTML
-  // marker, then the raw HTML itself with no further encoding -- this is a
-  // plain-text email, so nothing downstream tries to interpret those tags.
+  const { TOKEN, TO, SUBJECT, HTML } = SEND_REQUEST_MARKERS;
   const body = [
-    `TOKEN: ${input.token}`,
-    `TO: ${input.toEmail}`,
-    `SUBJECT: ${input.subject}`,
-    SEND_REQUEST_BODY_HTML_MARKER,
+    `${TOKEN.start}${input.token}${TOKEN.end}`,
+    `${TO.start}${input.toEmail}${TO.end}`,
+    `${SUBJECT.start}${input.subject}${SUBJECT.end}`,
+    HTML.start,
     input.html,
+    HTML.end,
   ].join("\n");
 
   let response: Response;
@@ -128,7 +136,7 @@ export async function dispatchSendRequest(input: SendRequestInput): Promise<void
         from: RESEND_FROM_ADDRESS,
         to: [ddnMailbox],
         subject: SEND_REQUEST_SUBJECT,
-        text: body,
+        html: body,
       }),
     });
   } catch (err) {
