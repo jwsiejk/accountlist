@@ -155,7 +155,7 @@ export async function pollImapForReplies(): Promise<PollResult> {
       (async () => {
         const lock = await client.getMailboxLock("INBOX");
         try {
-          const status = await client.status("INBOX", { uidValidity: true });
+          const status = await client.status("INBOX", { uidValidity: true, uidNext: true });
           const uidValidity = Number(status.uidValidity);
 
           let cursor = await prisma.imapPollCursor.findUnique({ where: { mailbox: user } });
@@ -173,25 +173,43 @@ export async function pollImapForReplies(): Promise<PollResult> {
           const startUid = cursor.lastUid + 1;
           let maxUidSeen = cursor.lastUid;
 
-          // "N:*" always yields at least the highest existing UID even when
-          // nothing new arrived (IMAP semantics for an open-ended range) --
-          // the `message.uid <= cursor.lastUid` guard below is what actually
-          // prevents reprocessing, not the range boundary itself.
-          for await (const message of client.fetch(`${startUid}:*`, { source: true }, { uid: true })) {
-            if (message.uid <= cursor.lastUid) continue;
+          // UIDNEXT is "one past the highest UID the server currently has",
+          // so uidNext - 1 is the highest UID that can possibly exist right
+          // now. Bounding the fetch to that (capped further by maxMessages)
+          // keeps the actual IMAP FETCH command itself small -- an
+          // open-ended "N:*" range asks Gmail to stream the *entire*
+          // remaining mailbox regardless of how few messages we intend to
+          // process, which is what was blowing through the 30s stage
+          // timeout on a mailbox with real history. The client-side
+          // `message.uid <= cursor.lastUid` guard below still exists as a
+          // belt-and-suspenders check, not as the thing doing the bounding.
+          const highestPossibleUid = Number(status.uidNext) - 1;
+          const endUid = Math.min(highestPossibleUid, startUid + maxMessages - 1);
 
-            if (result.checked >= maxMessages) {
-              result.truncated = true;
-              break; // Cursor only advances over what was actually processed below.
+          if (endUid >= startUid) {
+            for await (const message of client.fetch(`${startUid}:${endUid}`, { source: true }, { uid: true })) {
+              if (message.uid <= cursor.lastUid) continue;
+
+              if (result.checked >= maxMessages) {
+                result.truncated = true;
+                break; // Cursor only advances over what was actually processed below.
+              }
+
+              result.checked++;
+              maxUidSeen = Math.max(maxUidSeen, message.uid);
+
+              try {
+                await processMessage(message, { ownMailbox, result, client });
+              } catch (err) {
+                result.errors.push({ uid: message.uid, error: err instanceof Error ? err.message : String(err) });
+              }
             }
 
-            result.checked++;
-            maxUidSeen = Math.max(maxUidSeen, message.uid);
-
-            try {
-              await processMessage(message, { ownMailbox, result, client });
-            } catch (err) {
-              result.errors.push({ uid: message.uid, error: err instanceof Error ? err.message : String(err) });
+            // The server may have more mail past what we bounded this poll
+            // to -- flag it as truncated so the next run's cursor picks up
+            // where this one left off, same as the client-side cap did.
+            if (highestPossibleUid > endUid) {
+              result.truncated = true;
             }
           }
 
