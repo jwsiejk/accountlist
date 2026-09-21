@@ -34,7 +34,43 @@ model Booking {
   @@index([officeId, start, end])
 }
 
-// --- SC26 outreach module ---------------------------------------------
+// --- Outreach module -----------------------------------------------------
+//
+// One shared send/reply infrastructure (a single Gmail relay mailbox, one
+// Power Automate send-flow and reply-relay, one IMAP poller -- see
+// docs/OUTREACH_SETUP.md) serves any number of separate outreach
+// *campaigns* (SC26 was the first). A Campaign owns its own prospect list
+// and its own set of email templates; nothing about sending, tracking, or
+// the relay chain is duplicated per campaign.
+
+model Campaign {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  prospects   Prospect[]
+  templates   Template[]
+}
+
+// A reusable email template scoped to one campaign. Previously these lived
+// as files under lib/outreach/templates/ (edit source, redeploy to change
+// copy) -- now they're rows a person creates/edits/deletes from the
+// dashboard itself, same as everything else per-campaign.
+model Template {
+  id         Int      @id @default(autoincrement())
+  campaignId Int
+  name       String
+  subject    String
+  html       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+}
 
 enum ProspectStatus {
   PENDING
@@ -48,7 +84,8 @@ enum ProspectStatus {
 
 model Prospect {
   id            Int             @id @default(autoincrement())
-  email         String          @unique
+  campaignId    Int
+  email         String
   firstName     String
   lastName      String?
   company       String?
@@ -57,9 +94,15 @@ model Prospect {
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
+  campaign      Campaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   messages      OutreachMessage[]
 
+  // Unique per campaign, not globally -- the same person can legitimately
+  // be a prospect in two different campaigns (e.g. a different event) at
+  // once.
+  @@unique([campaignId, email])
   @@index([status])
+  @@index([campaignId])
 }
 
 model OutreachMessage {
@@ -68,8 +111,6 @@ model OutreachMessage {
   mailbox           String
   subject           String
   trackingToken     String           @unique
-  graphMessageId    String?
-  graphConversationId String?
   sentAt            DateTime?
   createdAt         DateTime         @default(now())
 
@@ -77,7 +118,6 @@ model OutreachMessage {
   events            TrackingEvent[]
 
   @@index([prospectId])
-  @@index([graphConversationId])
 }
 
 enum TrackingEventType {
@@ -98,17 +138,6 @@ model TrackingEvent {
   outreachMessage   OutreachMessage  @relation(fields: [outreachMessageId], references: [id], onDelete: Cascade)
 
   @@index([outreachMessageId, type])
-}
-
-// Tracks the Microsoft Graph change-notification subscription per mailbox
-// so it can be renewed before it expires (mail subscriptions max out at
-// ~3 days). One row per monitored mailbox.
-model MailSubscription {
-  id                  Int      @id @default(autoincrement())
-  mailbox             String   @unique
-  graphSubscriptionId String
-  expiresAt           DateTime
-  updatedAt           DateTime @updatedAt
 }
 
 // Tracks how far the IMAP poller has gotten through the Gmail relay

@@ -11,7 +11,10 @@ export function LeftNav() {
   const [collapsed, setCollapsed] = useState(false);
   const aiInterviewEnabled = process.env.NEXT_PUBLIC_ENABLE_AI_INTERVIEW === "true";
   const hpcLabEnabled = process.env.NEXT_PUBLIC_ENABLE_HPC_LAB === "true";
-  const sc26OutreachEnabled = process.env.NEXT_PUBLIC_ENABLE_SC26_OUTREACH === "true";
+  // Env var name kept as-is (predates the module covering more than SC26)
+  // so enabling this doesn't require adding a new var on top of the one
+  // already set in Render.
+  const outreachEnabled = process.env.NEXT_PUBLIC_ENABLE_SC26_OUTREACH === "true";
   const toolLinks = [
     { name: "Energy Tool", href: "/tools/energy" },
     { name: "AI Workload Mapper", href: "/tools/workload-mapper" },
@@ -24,7 +27,7 @@ export function LeftNav() {
     { name: "Case Studies", href: "/case-studies" },
     { name: "Account Mapping", href: "/accountmap" },
     { name: "Job Hunter", href: "/job-hunter" },
-    ...(sc26OutreachEnabled ? [{ name: "SC26 Outreach", href: "/sc26-outreach" }] : []),
+    ...(outreachEnabled ? [{ name: "Outreach", href: "/outreach" }] : []),
     ...(hpcLabEnabled ? [{ name: "HPC Lab", href: "/hpc-lab" }] : []),
     ...toolLinks,
     { name: "Office Schedule", href: "/offices/schedule" },
