@@ -6,9 +6,12 @@ namespace (`/api/outreach/*`). It's off by default behind `NEXT_PUBLIC_ENABLE_SC
 it on doesn't require adding a second Render env var).
 
 It supports any number of **campaigns**, each with its own prospect list and its own email
-templates (created and edited from the dashboard itself, not files in this repo). All
-campaigns share one send/reply infrastructure: one relay mailbox, one Power Automate send-flow,
-one Power Automate reply-relay flow, and one IMAP poller.
+templates (created and edited from the dashboard itself, not files in this repo). A template's
+HTML body can be typed directly, or imported from an `.html`/`.htm`/`.txt` file (the "Import
+HTML" / "Import file…" buttons on the Templates tab) so a template someone already has as a
+file doesn't need to be retyped or pasted by hand. All campaigns share one send/reply
+infrastructure: one relay mailbox, one Power Automate send-flow, one Power Automate reply-relay
+flow, and one IMAP poller.
 
 **There is no Microsoft Graph API access anywhere in this module.** An earlier version of this
 setup guide described registering an Azure AD app and Graph mail subscriptions — that approach

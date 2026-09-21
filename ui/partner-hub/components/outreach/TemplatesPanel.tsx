@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { FileText, Pencil, Plus, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
+import { FileText, Pencil, Plus, Trash2, Upload } from "lucide-react";
 
 import { withBasePath } from "@/lib/basePath";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,7 @@ export function TemplatesPanel({ campaignId }: { campaignId: number }) {
   const [draft, setDraft] = useState(BLANK_DRAFT);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -63,6 +64,40 @@ export function TemplatesPanel({ campaignId }: { campaignId: number }) {
     setDraft({ name: t.name, subject: t.subject, html: t.html });
     setEditingId(t.id);
     setMessage(null);
+  }
+
+  /**
+   * Loads an .html/.htm/.txt file's contents into the body field, so a
+   * template someone already has as a file (exported from an email client,
+   * a design tool, or a previous campaign) doesn't have to be retyped or
+   * pasted by hand. {{PLACEHOLDER}} merge tokens in the file carry through
+   * untouched, same as typing them directly. If the name/subject fields are
+   * still empty, they're filled in from the file's <title> tag (subject)
+   * and filename (name) as a starting point -- both stay fully editable
+   * either way, and neither is required to come from the file.
+   */
+  async function handleImportFile(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setMessage(null);
+    try {
+      const text = await file.text();
+      const titleMatch = text.match(/<title[^>]*>([^<]*)<\/title>/i);
+      const inferredSubject = titleMatch?.[1]?.trim();
+      const inferredName = file.name.replace(/\.(html?|txt)$/i, "").replace(/[-_]+/g, " ").trim();
+
+      if (editingId === null) setEditingId("new");
+      setDraft((d) => ({
+        name: d.name || inferredName,
+        subject: d.subject || inferredSubject || "",
+        html: text,
+      }));
+      setMessage(`Imported "${file.name}" into the HTML body.`);
+    } catch (err) {
+      setMessage(`Import failed: ${err instanceof Error ? err.message : "could not read that file."}`);
+    } finally {
+      e.target.value = "";
+    }
   }
 
   async function handleSave() {
@@ -115,12 +150,25 @@ export function TemplatesPanel({ campaignId }: { campaignId: number }) {
 
   return (
     <div className="space-y-4">
+      <input
+        ref={importInputRef}
+        type="file"
+        accept=".html,.htm,.txt,text/html,text/plain"
+        className="hidden"
+        onChange={handleImportFile}
+      />
+
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground/80">Templates</h3>
         {!isEditorOpen ? (
-          <Button size="sm" variant="secondary" onClick={startNew}>
-            <Plus className="h-4 w-4" /> New template
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="secondary" onClick={() => importInputRef.current?.click()}>
+              <Upload className="h-4 w-4" /> Import HTML
+            </Button>
+            <Button size="sm" variant="secondary" onClick={startNew}>
+              <Plus className="h-4 w-4" /> New template
+            </Button>
+          </div>
         ) : null}
       </div>
 
@@ -157,7 +205,16 @@ export function TemplatesPanel({ campaignId }: { campaignId: number }) {
 
           <div className="grid gap-3 md:grid-cols-2">
             <div>
-              <label className="mb-1 block text-xs font-medium text-foreground/70">HTML body</label>
+              <div className="mb-1 flex items-center justify-between">
+                <label className="block text-xs font-medium text-foreground/70">HTML body</label>
+                <button
+                  type="button"
+                  onClick={() => importInputRef.current?.click()}
+                  className="text-xs font-medium text-foreground/60 underline decoration-dotted hover:text-foreground"
+                >
+                  Import file…
+                </button>
+              </div>
               <textarea
                 value={draft.html}
                 onChange={(e) => setDraft((d) => ({ ...d, html: e.target.value }))}
