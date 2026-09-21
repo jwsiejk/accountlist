@@ -1,0 +1,30 @@
+name: SC26 outreach IMAP poll
+
+# Nothing else calls app/api/sc26-outreach/imap-poll/route.ts on a schedule
+# (see that route's docstring) -- without this, OutreachMessage rows never
+# advance past SENDING, since that's the only thing that checks the Gmail
+# relay mailbox for Power Automate's send-confirmation/reply notifications
+# and calls confirmMessageSent()/markStatus().
+on:
+  schedule:
+    # GitHub's schedule is best-effort, not to-the-minute, especially under
+    # platform load -- fine here, this only needs to run every few minutes,
+    # not on a precise clock.
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call imap-poll endpoint
+        run: |
+          status=$(curl -s -o response.txt -w "%{http_code}" -X POST \
+            -H "Authorization: Bearer ${{ secrets.SC26_OUTREACH_CRON_SECRET }}" \
+            "https://outreach-bg3g.onrender.com/partner-hub/api/sc26-outreach/imap-poll")
+          echo "HTTP status: $status"
+          cat response.txt
+          if [ "$status" -ge 300 ]; then
+            echo "::error::imap-poll returned HTTP $status -- check that the SC26_OUTREACH_CRON_SECRET repo secret matches the CRON_SECRET env var set on Render."
+            exit 1
+          fi
