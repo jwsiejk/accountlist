@@ -7,6 +7,35 @@ import { htmlToPlainText, parseRelayNotification, parseSendConfirmation } from "
 import { SEND_CONFIRMED_SUBJECT_MARKER } from "@/lib/sc26-outreach/relay-send";
 
 /**
+ * Nothing in this module had a timeout anywhere, so a stalled TCP/TLS
+ * handshake or a stuck IMAP command against imap.gmail.com could hang the
+ * whole call indefinitely -- observed in production as a poll that was
+ * still running after 6+ minutes with zero result and no error. Each stage
+ * below is wrapped separately (rather than one big timeout around
+ * everything) so a timeout error names which stage actually got stuck,
+ * instead of leaving that a mystery on the next attempt.
+ */
+class ImapStageTimeoutError extends Error {}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, stage: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new ImapStageTimeoutError(`IMAP poll stuck at "${stage}" -- no response after ${ms}ms`));
+    }, ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      }
+    );
+  });
+}
+
+/**
  * Only the two fields this module actually reads off imapflow's fetched
  * message object, typed locally rather than imported from `imapflow`'s own
  * types -- its exact exported type name for this couldn't be confirmed
@@ -94,58 +123,78 @@ export async function pollImapForReplies(): Promise<PollResult> {
     logger: false,
   });
 
-  await client.connect();
+  await withTimeout(client.connect(), 15_000, "connect to imap.gmail.com");
   try {
-    const lock = await client.getMailboxLock("INBOX");
-    try {
-      const status = await client.status("INBOX", { uidValidity: true });
-      const uidValidity = Number(status.uidValidity);
-
-      let cursor = await prisma.imapPollCursor.findUnique({ where: { mailbox: user } });
-      if (!cursor || cursor.uidValidity !== uidValidity) {
-        // First run ever, or Gmail changed UIDVALIDITY (mailbox recreated --
-        // rare, but old UIDs would be meaningless if it happened). Either
-        // way, start the cursor fresh rather than guessing.
-        cursor = await prisma.imapPollCursor.upsert({
-          where: { mailbox: user },
-          create: { mailbox: user, uidValidity, lastUid: 0 },
-          update: { uidValidity, lastUid: 0 },
-        });
-      }
-
-      const startUid = cursor.lastUid + 1;
-      let maxUidSeen = cursor.lastUid;
-
-      // "N:*" always yields at least the highest existing UID even when
-      // nothing new arrived (IMAP semantics for an open-ended range) -- the
-      // `message.uid <= cursor.lastUid` guard below is what actually
-      // prevents reprocessing, not the range boundary itself.
-      for await (const message of client.fetch(`${startUid}:*`, { source: true }, { uid: true })) {
-        if (message.uid <= cursor.lastUid) continue;
-
-        if (result.checked >= maxMessages) {
-          result.truncated = true;
-          break; // Cursor only advances over what was actually processed below.
-        }
-
-        result.checked++;
-        maxUidSeen = Math.max(maxUidSeen, message.uid);
-
+    await withTimeout(
+      (async () => {
+        const lock = await client.getMailboxLock("INBOX");
         try {
-          await processMessage(message, { ownMailbox, result, client });
-        } catch (err) {
-          result.errors.push({ uid: message.uid, error: err instanceof Error ? err.message : String(err) });
-        }
-      }
+          const status = await client.status("INBOX", { uidValidity: true });
+          const uidValidity = Number(status.uidValidity);
 
-      if (maxUidSeen > cursor.lastUid) {
-        await prisma.imapPollCursor.update({ where: { mailbox: user }, data: { lastUid: maxUidSeen } });
-      }
-    } finally {
-      lock.release();
-    }
+          let cursor = await prisma.imapPollCursor.findUnique({ where: { mailbox: user } });
+          if (!cursor || cursor.uidValidity !== uidValidity) {
+            // First run ever, or Gmail changed UIDVALIDITY (mailbox recreated
+            // -- rare, but old UIDs would be meaningless if it happened).
+            // Either way, start the cursor fresh rather than guessing.
+            cursor = await prisma.imapPollCursor.upsert({
+              where: { mailbox: user },
+              create: { mailbox: user, uidValidity, lastUid: 0 },
+              update: { uidValidity, lastUid: 0 },
+            });
+          }
+
+          const startUid = cursor.lastUid + 1;
+          let maxUidSeen = cursor.lastUid;
+
+          // "N:*" always yields at least the highest existing UID even when
+          // nothing new arrived (IMAP semantics for an open-ended range) --
+          // the `message.uid <= cursor.lastUid` guard below is what actually
+          // prevents reprocessing, not the range boundary itself.
+          for await (const message of client.fetch(`${startUid}:*`, { source: true }, { uid: true })) {
+            if (message.uid <= cursor.lastUid) continue;
+
+            if (result.checked >= maxMessages) {
+              result.truncated = true;
+              break; // Cursor only advances over what was actually processed below.
+            }
+
+            result.checked++;
+            maxUidSeen = Math.max(maxUidSeen, message.uid);
+
+            try {
+              await processMessage(message, { ownMailbox, result, client });
+            } catch (err) {
+              result.errors.push({ uid: message.uid, error: err instanceof Error ? err.message : String(err) });
+            }
+          }
+
+          if (maxUidSeen > cursor.lastUid) {
+            await prisma.imapPollCursor.update({ where: { mailbox: user }, data: { lastUid: maxUidSeen } });
+          }
+        } finally {
+          lock.release();
+        }
+      })(),
+      // Generous: this can legitimately process up to maxMessages (default
+      // 200) real messages, each individually fetched and MIME-parsed. But
+      // it must still end -- the whole point of this timeout is to turn a
+      // silent multi-minute-plus hang into a clear, fast error.
+      90_000,
+      "read and process INBOX messages"
+    );
   } finally {
-    await client.logout().catch(() => client.close());
+    // logout() itself has no inherent timeout either -- if the connection
+    // is already wedged (e.g. the operation above timed out mid-flight),
+    // waiting on a graceful logout could hang just as long. Bound it too,
+    // falling back to a hard close.
+    await withTimeout(client.logout(), 10_000, "logout").catch(() => {
+      try {
+        client.close();
+      } catch {
+        // Already closed or dead -- nothing left to clean up.
+      }
+    });
   }
 
   return result;

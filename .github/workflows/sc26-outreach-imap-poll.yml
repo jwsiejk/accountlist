@@ -16,10 +16,16 @@ on:
 jobs:
   poll:
     runs-on: ubuntu-latest
+    # Belt-and-suspenders on top of pollImapForReplies()'s own internal
+    # per-stage timeouts (imap-poller.ts) -- this bounds the job even
+    # against a hang at the network layer between here and Render, not
+    # just inside the app's own IMAP handling.
+    timeout-minutes: 5
     steps:
       - name: Call imap-poll endpoint
         run: |
           status=$(curl -s -o response.txt -w "%{http_code}" -X POST \
+            --max-time 180 \
             -H "Authorization: Bearer ${{ secrets.SC26_OUTREACH_CRON_SECRET }}" \
             "https://outreach-bg3g.onrender.com/partner-hub/api/sc26-outreach/imap-poll")
           echo "HTTP status: $status"
