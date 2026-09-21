@@ -18,7 +18,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
       const ua = req.headers.get("user-agent") ?? undefined;
       const occurredAt = new Date();
       const { automated, reason } = classifyTrackingEvent({
-        sentAt: message.sentAt,
+        dispatchedAt: message.createdAt,
         occurredAt,
         userAgent: ua,
       });

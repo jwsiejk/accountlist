@@ -20,12 +20,18 @@
 const SCANNER_UA_PATTERN =
   /bot|crawler|spider|scan|safelink|threatprotection|atp[-_]?probe|proofpoint|mimecast|barracuda|ips-agent|link[-_]?checker|preview|urlprotect/i;
 
-// Safe Links-style detonation typically happens within a few seconds of
-// delivery. A real person reading and then clicking/opening an email
-// realistically takes longer than this, so treat anything faster as
-// automated. Deliberately generous (20s) to avoid flagging a genuinely fast
-// human reader as a bot.
-const AUTOMATED_WINDOW_MS = 20_000;
+// Safe Links-style detonation happens near-instantly once the message is
+// actually sitting in the recipient's mailbox -- but "dispatchedAt" here is
+// when the send *request* reached the relay (Gmail inbox -> Power Automate
+// trigger -> Outlook connector -> Exchange delivery), and that chain has
+// its own latency before the message is actually delivered and scanned.
+// Since Power Automate's trigger can itself be polling-based rather than
+// instant, real delivery can lag dispatch by more than a few seconds.
+// 5 minutes is generous enough to absorb that relay latency while still
+// being far faster than a human noticing, reading, and deciding to click --
+// a real person being *that* fast is the rarer failure mode to accept here
+// versus the much more common false positive from an unfiltered scanner.
+const AUTOMATED_WINDOW_MS = 5 * 60_000;
 
 export interface EventClassification {
   automated: boolean;
@@ -33,20 +39,28 @@ export interface EventClassification {
 }
 
 export function classifyTrackingEvent(params: {
-  sentAt: Date | null;
+  /**
+   * When the send was actually dispatched to the relay -- use
+   * OutreachMessage.createdAt, NOT sentAt. sentAt is only populated later,
+   * asynchronously, once the IMAP poller parses a confirmation email back
+   * from the relay mailbox (which can take minutes), so it's frequently
+   * still null at the exact moment a scanner would hit the link -- which
+   * silently skipped this entire check when this took sentAt instead.
+   * createdAt is set immediately after dispatchSendRequest() returns, i.e.
+   * effectively at real send time, and is never null.
+   */
+  dispatchedAt: Date;
   occurredAt: Date;
   userAgent?: string;
 }): EventClassification {
-  const { sentAt, occurredAt, userAgent } = params;
+  const { dispatchedAt, occurredAt, userAgent } = params;
 
-  if (sentAt) {
-    const elapsedMs = occurredAt.getTime() - sentAt.getTime();
-    if (elapsedMs >= 0 && elapsedMs < AUTOMATED_WINDOW_MS) {
-      return {
-        automated: true,
-        reason: `occurred ${Math.round(elapsedMs / 1000)}s after send -- consistent with automated link-scanning (e.g. Microsoft Safe Links), not a human read`,
-      };
-    }
+  const elapsedMs = occurredAt.getTime() - dispatchedAt.getTime();
+  if (elapsedMs >= 0 && elapsedMs < AUTOMATED_WINDOW_MS) {
+    return {
+      automated: true,
+      reason: `occurred ${Math.round(elapsedMs / 1000)}s after send -- consistent with automated link-scanning (e.g. Microsoft Safe Links), not a human read`,
+    };
   }
 
   if (userAgent && SCANNER_UA_PATTERN.test(userAgent)) {
