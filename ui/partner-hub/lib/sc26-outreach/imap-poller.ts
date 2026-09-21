@@ -126,6 +126,18 @@ export async function pollImapForReplies(): Promise<PollResult> {
     truncated: false,
   };
 
+  // The bounded fetch range (below) didn't fix the 30s timeout in
+  // production, which means the actual bottleneck is somewhere else inside
+  // this stage -- but a timeout error only tells you the *stage* name, not
+  // which line inside it never returned. Since the failing promise never
+  // resolves, there's no result object to inspect afterwards either. These
+  // checkpoints go to console.log (visible in Render's own logs, not the
+  // GitHub Actions output, which only ever sees the final HTTP response) so
+  // that after the *next* timeout, whichever checkpoint printed last tells
+  // us exactly where it got stuck instead of guessing again.
+  const pollStartedAt = Date.now();
+  const log = (msg: string) => console.log(`[sc26-imap-poll] +${Date.now() - pollStartedAt}ms ${msg}`);
+
   const client = new ImapFlow({
     host,
     port,
@@ -149,14 +161,18 @@ export async function pollImapForReplies(): Promise<PollResult> {
   // Was 15s -- tightened along with the other two stages below so the
   // worst case across all three (connect + process + logout) stays well
   // under whatever Render's own proxy timeout turns out to be.
+  log("connecting");
   await withTimeout(client.connect(), 10_000, "connect to imap.gmail.com");
+  log("connected");
   try {
     await withTimeout(
       (async () => {
         const lock = await client.getMailboxLock("INBOX");
+        log("mailbox lock acquired");
         try {
           const status = await client.status("INBOX", { uidValidity: true, uidNext: true });
           const uidValidity = Number(status.uidValidity);
+          log(`status received: uidValidity=${uidValidity} uidNext=${status.uidNext}`);
 
           let cursor = await prisma.imapPollCursor.findUnique({ where: { mailbox: user } });
           if (!cursor || cursor.uidValidity !== uidValidity) {
@@ -169,6 +185,7 @@ export async function pollImapForReplies(): Promise<PollResult> {
               update: { uidValidity, lastUid: 0 },
             });
           }
+          log(`cursor loaded: lastUid=${cursor.lastUid}`);
 
           const startUid = cursor.lastUid + 1;
           let maxUidSeen = cursor.lastUid;
@@ -185,9 +202,11 @@ export async function pollImapForReplies(): Promise<PollResult> {
           // belt-and-suspenders check, not as the thing doing the bounding.
           const highestPossibleUid = Number(status.uidNext) - 1;
           const endUid = Math.min(highestPossibleUid, startUid + maxMessages - 1);
+          log(`fetch range computed: ${startUid}:${endUid} (highestPossibleUid=${highestPossibleUid})`);
 
           if (endUid >= startUid) {
             for await (const message of client.fetch(`${startUid}:${endUid}`, { source: true }, { uid: true })) {
+              log(`fetched uid=${message.uid} (${message.source?.length ?? 0} bytes)`);
               if (message.uid <= cursor.lastUid) continue;
 
               if (result.checked >= maxMessages) {
@@ -198,12 +217,24 @@ export async function pollImapForReplies(): Promise<PollResult> {
               result.checked++;
               maxUidSeen = Math.max(maxUidSeen, message.uid);
 
+              const messageStartedAt = Date.now();
               try {
-                await processMessage(message, { ownMailbox, result, client });
+                // Bounded per-message too -- a single unusually large or
+                // malformed message (mailparser choking on it, say) would
+                // otherwise be able to eat the entire remaining stage budget
+                // by itself, taking every message behind it down with it.
+                await withTimeout(
+                  processMessage(message, { ownMailbox, result, client }),
+                  8_000,
+                  `process message uid=${message.uid}`
+                );
+                log(`processed uid=${message.uid} in ${Date.now() - messageStartedAt}ms`);
               } catch (err) {
+                log(`error on uid=${message.uid} after ${Date.now() - messageStartedAt}ms: ${err instanceof Error ? err.message : String(err)}`);
                 result.errors.push({ uid: message.uid, error: err instanceof Error ? err.message : String(err) });
               }
             }
+            log("fetch loop finished");
 
             // The server may have more mail past what we bounded this poll
             // to -- flag it as truncated so the next run's cursor picks up
@@ -211,13 +242,17 @@ export async function pollImapForReplies(): Promise<PollResult> {
             if (highestPossibleUid > endUid) {
               result.truncated = true;
             }
+          } else {
+            log("nothing new to fetch (endUid < startUid)");
           }
 
           if (maxUidSeen > cursor.lastUid) {
             await prisma.imapPollCursor.update({ where: { mailbox: user }, data: { lastUid: maxUidSeen } });
+            log(`cursor advanced to lastUid=${maxUidSeen}`);
           }
         } finally {
           lock.release();
+          log("mailbox lock released");
         }
       })(),
       // Was 90s. Tightened alongside the maxMessages cut above -- 25
@@ -233,6 +268,7 @@ export async function pollImapForReplies(): Promise<PollResult> {
     // is already wedged (e.g. the operation above timed out mid-flight),
     // waiting on a graceful logout could hang just as long. Bound it too,
     // falling back to a hard close.
+    log("logging out");
     await withTimeout(client.logout(), 5_000, "logout").catch(() => {
       try {
         client.close();
