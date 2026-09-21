@@ -123,6 +123,18 @@ export async function pollImapForReplies(): Promise<PollResult> {
     logger: false,
   });
 
+  // Without this, a socket error on a connection this function has already
+  // stopped waiting on (e.g. one of the withTimeout calls below gave up on
+  // it) surfaces as an unhandled EventEmitter "error" event -- which in
+  // Node crashes the whole process, not just this request. That almost
+  // certainly explains the HTTP 502 seen in production right after a
+  // connect timeout fired correctly: the timeout worked, but the abandoned
+  // connection then errored in the background with nothing listening,
+  // taking the whole app down with it. This listener just needs to exist;
+  // the actual error is already surfaced through the timeout/rejection
+  // paths below.
+  client.on("error", () => {});
+
   await withTimeout(client.connect(), 15_000, "connect to imap.gmail.com");
   try {
     await withTimeout(
