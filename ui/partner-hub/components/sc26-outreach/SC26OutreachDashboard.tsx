@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { clsx } from "clsx";
 
 import { withBasePath } from "@/lib/basePath";
@@ -14,6 +14,24 @@ interface Prospect {
   title: string | null;
   status: "PENDING" | "SENDING" | "SENT" | "OPENED" | "CLICKED" | "REPLIED" | "BOUNCED";
   lastSentAt: string | null;
+}
+
+interface TrackingEventRow {
+  id: number;
+  type: "OPEN" | "CLICK" | "REPLY" | "BOUNCE" | "SEND_CONFIRMED";
+  occurredAt: string;
+  automated: boolean;
+  reason?: string;
+  userAgent?: string;
+}
+
+interface MessageHistory {
+  id: number;
+  subject: string;
+  mailbox: string;
+  sentAt: string | null;
+  createdAt: string;
+  events: TrackingEventRow[];
 }
 
 interface OutreachTemplate {
@@ -75,6 +93,44 @@ export function SC26OutreachDashboard() {
   const [resettingIds, setResettingIds] = useState<Set<number>>(new Set());
   const [message, setMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Per-prospect full history (every message + every tracking event,
+  // including ones flagged automated). Fetched lazily on first expand and
+  // cached by prospect id so re-expanding doesn't re-fetch.
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [historyById, setHistoryById] = useState<
+    Record<number, { loading: boolean; error?: string; messages?: MessageHistory[] }>
+  >({});
+
+  async function toggleHistory(prospectId: number) {
+    if (expandedId === prospectId) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(prospectId);
+    if (historyById[prospectId]?.messages || historyById[prospectId]?.loading) return;
+
+    setHistoryById((prev) => ({ ...prev, [prospectId]: { loading: true } }));
+    try {
+      const res = await fetch(withBasePath(`/api/sc26-outreach/prospects/${prospectId}/history`), {
+        cache: "no-store",
+      });
+      const data = await res.json().catch(() => null);
+      if (!data || !res.ok || !data.ok) {
+        setHistoryById((prev) => ({
+          ...prev,
+          [prospectId]: { loading: false, error: data?.error ?? `HTTP ${res.status}` },
+        }));
+        return;
+      }
+      setHistoryById((prev) => ({ ...prev, [prospectId]: { loading: false, messages: data.messages } }));
+    } catch (err) {
+      setHistoryById((prev) => ({
+        ...prev,
+        [prospectId]: { loading: false, error: err instanceof Error ? err.message : "network error" },
+      }));
+    }
+  }
 
   const [reviewOpen, setReviewOpen] = useState(false);
   const [draftSubject, setDraftSubject] = useState("");
@@ -368,7 +424,8 @@ export function SC26OutreachDashboard() {
           </thead>
           <tbody>
             {prospects.map((p) => (
-              <tr key={p.id} className="border-t border-border/40">
+              <Fragment key={p.id}>
+              <tr className="border-t border-border/40">
                 <td className="px-3 py-2">
                   <input
                     type="checkbox"
@@ -396,20 +453,35 @@ export function SC26OutreachDashboard() {
                 <td className="px-3 py-2 text-xs text-foreground/60">
                   {p.lastSentAt ? new Date(p.lastSentAt).toLocaleString() : "—"}
                 </td>
-                <td className="px-3 py-2">
+                <td className="whitespace-nowrap px-3 py-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleHistory(p.id)}
+                    className="text-xs font-medium text-foreground/60 underline decoration-dotted hover:text-foreground"
+                  >
+                    {expandedId === p.id ? "Hide history" : "History"}
+                  </button>
                   {p.status !== "PENDING" ? (
                     <button
                       type="button"
                       onClick={() => handleReset(p.id)}
                       disabled={resettingIds.has(p.id)}
                       title="Reset to Pending so this can be sent again -- use if a send got stuck or failed."
-                      className="text-xs font-medium text-foreground/60 underline decoration-dotted hover:text-foreground disabled:opacity-50"
+                      className="ml-3 text-xs font-medium text-foreground/60 underline decoration-dotted hover:text-foreground disabled:opacity-50"
                     >
                       {resettingIds.has(p.id) ? "Resetting…" : "Reset to Pending"}
                     </button>
                   ) : null}
                 </td>
               </tr>
+              {expandedId === p.id ? (
+                <tr className="border-t border-border/40 bg-muted/20">
+                  <td colSpan={7} className="px-3 py-3">
+                    <ProspectHistoryPanel state={historyById[p.id]} />
+                  </td>
+                </tr>
+              ) : null}
+              </Fragment>
             ))}
             {!loading && prospects.length === 0 ? (
               <tr>
@@ -421,6 +493,75 @@ export function SC26OutreachDashboard() {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+const EVENT_LABELS: Record<TrackingEventRow["type"], string> = {
+  SEND_CONFIRMED: "Send confirmed",
+  OPEN: "Opened",
+  CLICK: "Clicked booking link",
+  REPLY: "Replied",
+  BOUNCE: "Bounced",
+};
+
+/**
+ * Full timeline for one prospect: every message ever sent (not just the
+ * latest) and every tracking event under it, in order -- including events
+ * flagged `automated` (a Safe Links-style scan, most likely) that the main
+ * table's status column deliberately doesn't count as real engagement.
+ * Nothing here is hidden or filtered; this is the raw record.
+ */
+function ProspectHistoryPanel({
+  state,
+}: {
+  state?: { loading: boolean; error?: string; messages?: MessageHistory[] };
+}) {
+  if (!state || state.loading) {
+    return <p className="text-xs text-foreground/60">Loading history…</p>;
+  }
+  if (state.error) {
+    return <p className="text-xs text-red-600">Failed to load history: {state.error}</p>;
+  }
+  const messages = state.messages ?? [];
+  if (messages.length === 0) {
+    return <p className="text-xs text-foreground/60">No messages sent to this prospect yet.</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {messages.map((m) => (
+        <div key={m.id} className="rounded-lg border border-border/40 bg-background p-3">
+          <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <span className="text-xs font-semibold">{m.subject}</span>
+            <span className="text-xs text-foreground/50">
+              {m.sentAt
+                ? `Sent ${new Date(m.sentAt).toLocaleString()} from ${m.mailbox}`
+                : `Queued ${new Date(m.createdAt).toLocaleString()}, not yet confirmed sent`}
+            </span>
+          </div>
+          {m.events.length === 0 ? (
+            <p className="text-xs text-foreground/50">No tracking events recorded yet.</p>
+          ) : (
+            <ul className="space-y-1">
+              {m.events.map((e) => (
+                <li key={e.id} className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="font-medium">{EVENT_LABELS[e.type] ?? e.type}</span>
+                  <span className="text-foreground/50">{new Date(e.occurredAt).toLocaleString()}</span>
+                  {e.automated ? (
+                    <span
+                      className="rounded-full bg-orange-100 px-2 py-0.5 text-orange-800 dark:bg-orange-950 dark:text-orange-300"
+                      title={e.reason}
+                    >
+                      likely automated, not counted toward status
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { findMessageByToken, logEvent, markStatus } from "@/lib/sc26-outreach/prospects";
+import { classifyTrackingEvent } from "@/lib/sc26-outreach/eventClassification";
 import { verifyTrackingToken } from "@/lib/sc26-outreach/tokens";
 
 export const runtime = "nodejs";
@@ -19,8 +20,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
     const message = await findMessageByToken(token);
     if (message) {
       const ua = req.headers.get("user-agent") ?? undefined;
-      await logEvent(message.id, "OPEN", { userAgent: ua });
-      await markStatus(message.prospectId, "OPENED");
+      const occurredAt = new Date();
+      const { automated, reason } = classifyTrackingEvent({
+        sentAt: message.sentAt,
+        occurredAt,
+        userAgent: ua,
+      });
+      // Same automated-vs-real split as the click route: always logged for
+      // history, only a non-automated open advances status.
+      await logEvent(message.id, "OPEN", { userAgent: ua, automated, reason, occurredAt });
+      if (!automated) {
+        await markStatus(message.prospectId, "OPENED");
+      }
     }
   }
 

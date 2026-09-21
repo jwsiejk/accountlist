@@ -54,6 +54,28 @@ export async function upsertProspects(rows: ImportedProspect[]) {
   return { created, updated, skipped };
 }
 
+/**
+ * Full audit trail for one prospect: every OutreachMessage ever sent to
+ * them (not just the latest, unlike listProspects' summary view) and every
+ * TrackingEvent logged against each -- including events flagged
+ * `automated` by classifyTrackingEvent, which listProspects' status column
+ * silently excludes from advancing status. Nothing is hidden here; this is
+ * the "what actually happened, in order" view.
+ */
+export async function getProspectHistory(prospectId: number) {
+  return prisma.prospect.findUnique({
+    where: { id: prospectId },
+    include: {
+      messages: {
+        orderBy: { createdAt: "asc" },
+        include: {
+          events: { orderBy: { occurredAt: "asc" } },
+        },
+      },
+    },
+  });
+}
+
 export async function listProspects() {
   return prisma.prospect.findMany({
     orderBy: { createdAt: "desc" },
