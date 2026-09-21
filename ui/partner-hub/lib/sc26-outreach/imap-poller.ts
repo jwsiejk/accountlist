@@ -93,7 +93,18 @@ export interface PollResult {
   truncated: boolean;
 }
 
-const DEFAULT_MAX_MESSAGES_PER_POLL = 200;
+// Was 200. Each poll runs synchronously inside one HTTP request/response,
+// and Render's own reverse proxy enforces its own request timeout on top
+// of (and shorter than) whatever this function's internal stage timeouts
+// allow -- observed in production as a 502 with the app itself staying up
+// and logging nothing, meaning Render's proxy gave up on the connection
+// while the app was potentially still working. Rather than guess at
+// Render's exact limit, this keeps each run small enough to comfortably
+// finish well under any reasonable proxy timeout; a real backlog just
+// gets drained a bit at a time across multiple 5-minute-interval runs
+// instead of in one long one (the cursor already supports this --
+// `truncated: true` below is exactly this case).
+const DEFAULT_MAX_MESSAGES_PER_POLL = 25;
 
 export async function pollImapForReplies(): Promise<PollResult> {
   const host = process.env.SC26_IMAP_HOST || "imap.gmail.com";
@@ -135,7 +146,10 @@ export async function pollImapForReplies(): Promise<PollResult> {
   // paths below.
   client.on("error", () => {});
 
-  await withTimeout(client.connect(), 15_000, "connect to imap.gmail.com");
+  // Was 15s -- tightened along with the other two stages below so the
+  // worst case across all three (connect + process + logout) stays well
+  // under whatever Render's own proxy timeout turns out to be.
+  await withTimeout(client.connect(), 10_000, "connect to imap.gmail.com");
   try {
     await withTimeout(
       (async () => {
@@ -188,11 +202,12 @@ export async function pollImapForReplies(): Promise<PollResult> {
           lock.release();
         }
       })(),
-      // Generous: this can legitimately process up to maxMessages (default
-      // 200) real messages, each individually fetched and MIME-parsed. But
-      // it must still end -- the whole point of this timeout is to turn a
-      // silent multi-minute-plus hang into a clear, fast error.
-      90_000,
+      // Was 90s. Tightened alongside the maxMessages cut above -- 25
+      // messages should comfortably finish well inside 30s, and the whole
+      // point now is staying safely under Render's own (unknown, but
+      // evidently shorter than 90s+15s+10s) proxy timeout, not just being
+      // generous to a large backlog.
+      30_000,
       "read and process INBOX messages"
     );
   } finally {
@@ -200,7 +215,7 @@ export async function pollImapForReplies(): Promise<PollResult> {
     // is already wedged (e.g. the operation above timed out mid-flight),
     // waiting on a graceful logout could hang just as long. Bound it too,
     // falling back to a hard close.
-    await withTimeout(client.logout(), 10_000, "logout").catch(() => {
+    await withTimeout(client.logout(), 5_000, "logout").catch(() => {
       try {
         client.close();
       } catch {
