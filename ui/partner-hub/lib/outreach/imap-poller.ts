@@ -366,14 +366,22 @@ async function processReply(
     return;
   }
 
-  await logEvent(match.id, "REPLY", {
-    source: "imap-relay",
-    relayFromEmail: relay.fromEmail,
-    relayFromName: relay.fromName,
-    relaySubject: relay.subject,
-    relayReceivedAt: relay.receivedAt ? relay.receivedAt.toISOString() : null,
-    imapUid: message.uid,
-  });
+  await logEvent(
+    match.id,
+    "REPLY",
+    {
+      source: "imap-relay",
+      relayFromEmail: relay.fromEmail,
+      relayFromName: relay.fromName,
+      relaySubject: relay.subject,
+      relayReceivedAt: relay.receivedAt ? relay.receivedAt.toISOString() : null,
+      imapUid: message.uid,
+    },
+    // Backdate to when the reply actually landed (per the relay flow's own
+    // RECEIVED field), not whenever this poll happens to run -- see
+    // logEvent's docstring.
+    relay.receivedAt ?? undefined
+  );
   await markStatus(match.prospectId, "REPLIED");
   ctx.result.matched++;
 }
@@ -407,12 +415,23 @@ async function processSendConfirmation(
     return;
   }
 
-  await confirmMessageSent(match.id);
-  await logEvent(match.id, "SEND_CONFIRMED", {
-    source: "imap-relay",
-    confirmedAt: confirmation.confirmedAt ? confirmation.confirmedAt.toISOString() : null,
-    imapUid: message.uid,
-  });
+  // Backdate both to the send-flow's own CONFIRMED_AT (when it sends one)
+  // rather than whenever this poll happens to notice the confirmation --
+  // see confirmMessageSent's and logEvent's docstrings for why "now" here
+  // can otherwise make an automated-scan click/open (logged live, at the
+  // real moment it happened) appear to predate the message's own "Sent"
+  // entry in the history timeline.
+  await confirmMessageSent(match.id, confirmation.confirmedAt ?? undefined);
+  await logEvent(
+    match.id,
+    "SEND_CONFIRMED",
+    {
+      source: "imap-relay",
+      confirmedAt: confirmation.confirmedAt ? confirmation.confirmedAt.toISOString() : null,
+      imapUid: message.uid,
+    },
+    confirmation.confirmedAt ?? undefined
+  );
   await markStatus(match.prospectId, "SENT");
   ctx.result.confirmed++;
 }

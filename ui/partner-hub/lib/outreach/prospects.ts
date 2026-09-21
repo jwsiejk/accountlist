@@ -137,16 +137,30 @@ export async function resetProspectsToPending(prospectIds: number[]) {
   return result.count;
 }
 
+/**
+ * `occurredAt` lets a caller backdate the event to when it *actually*
+ * happened rather than when we found out about it -- e.g. the IMAP poller
+ * only learns about a send-confirmation or a reply whenever it next polls
+ * (every few minutes), well after the real event, and defaulting to "now"
+ * there produces a history timeline where a message's tracking-pixel/
+ * booking-link hits (logged live, the instant they happen) can appear to
+ * predate its own "Sent"/"Send confirmed" entries -- confusing, since nothing
+ * was actually clicked before the email went out. Omit it (as every
+ * synchronous call, e.g. the track/open and track/click routes, already
+ * does) to fall back to the DB's own now().
+ */
 export async function logEvent(
   outreachMessageId: number,
   type: TrackingEventType,
-  meta?: Record<string, unknown>
+  meta?: Record<string, unknown>,
+  occurredAt?: Date
 ) {
   await prisma.trackingEvent.create({
     data: {
       outreachMessageId,
       type,
       meta: meta ? JSON.stringify(meta) : null,
+      ...(occurredAt ? { occurredAt } : {}),
     },
   });
 }
@@ -198,11 +212,19 @@ export async function findLatestMessageForEmail(rawEmail: string) {
  * wasn't true yet -- send/route.ts creates the row with sentAt: null and
  * status SENDING the moment it *requests* a send, since there's no
  * synchronous confirmation the way Graph's sendMail used to give one.
+ *
+ * `confirmedAt` (from the send-flow's own confirmation email, when it
+ * includes one -- see parseSendConfirmation) is preferred over "now" for
+ * the same reason logEvent's occurredAt param exists: the IMAP poller only
+ * notices the confirmation whenever it next polls, which can be minutes
+ * after the real send, so defaulting to "now" here understates how early
+ * the message actually went out relative to a tracking-pixel/booking-link
+ * hit logged live at the real moment it happened.
  */
-export async function confirmMessageSent(outreachMessageId: number) {
+export async function confirmMessageSent(outreachMessageId: number, confirmedAt?: Date) {
   return prisma.outreachMessage.update({
     where: { id: outreachMessageId },
-    data: { sentAt: new Date() },
+    data: { sentAt: confirmedAt ?? new Date() },
   });
 }
 

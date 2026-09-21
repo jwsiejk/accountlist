@@ -77,11 +77,19 @@ through that particular flow.
    send that as a real email from `SC26_MAILBOX` via the Outlook connector, then send a
    confirmation email back to the Gmail relay mailbox whose subject contains `SEND-CONFIRMED`
    (see `SEND_CONFIRMED_SUBJECT_MARKER`) and whose body echoes the same token back (see
-   `imap-relay-parser.ts`'s `parseSendConfirmation` for the exact expected shape).
+   `imap-relay-parser.ts`'s `parseSendConfirmation` for the exact expected shape). **Include a
+   `CONFIRMED_AT: <the flow's own UTC timestamp>` line in that body** — without it, this app has
+   no way to know when the send actually happened and falls back to whenever the IMAP poller
+   next happens to notice the confirmation (up to a few minutes later), which can make an
+   automated link-scan/open — logged live, the instant it happens — appear in a prospect's
+   history *before* the message's own "Sent" entry. Confusing but harmless (it doesn't affect
+   status or tracking), and fixed simply by adding that line to the flow.
 4. **Power Automate reply-relay flow**, triggered by a new email in the real DDN mailbox's
    inbox matching the trigger condition described in the limitation above. It relays a
    notification (From/Subject/Received-at) to the Gmail relay mailbox — see
-   `imap-relay-parser.ts`'s `parseRelayNotification` for the exact expected body shape.
+   `imap-relay-parser.ts`'s `parseRelayNotification` for the exact expected body shape. Same
+   note as above: include a real `RECEIVED:` timestamp in that body so a reply's history entry
+   is ordered by when it actually arrived, not by poll timing.
 5. **Env vars** (see `.env.local.example` for the full list with explanations):
    `SC26_MAILBOX`, `SC26_SENDER_NAME`, `SC26_IMAP_HOST`/`PORT`/`USER`/`APP_PASSWORD`,
    `SC26_BOOKING_URL`, `RESEND_API_KEY`, `TRACKING_TOKEN_SECRET`, `CRON_SECRET`, `APP_BASE_URL`,
