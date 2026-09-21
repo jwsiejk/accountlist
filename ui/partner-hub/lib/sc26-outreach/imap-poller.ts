@@ -205,6 +205,25 @@ export async function pollImapForReplies(): Promise<PollResult> {
           log(`fetch range computed: ${startUid}:${endUid} (highestPossibleUid=${highestPossibleUid})`);
 
           if (endUid >= startUid) {
+            // Populated by processMessage() as each message is handled, and
+            // flagged \Seen in ONE batched command after the loop below
+            // exits -- NOT per-message, inside the loop. imapflow's
+            // client.fetch() above returns an async generator that is still
+            // mid-flight (the IMAP FETCH command hasn't gotten its tagged OK
+            // yet) for as long as we're iterating it. Issuing another
+            // command on the same connection (messageFlagsAdd) from inside
+            // that iteration queues behind the still-open FETCH, which
+            // itself won't complete until we resume consuming the
+            // generator -- and since our code was `await`-ing that queued
+            // command before continuing the loop, both sides waited on each
+            // other forever. That's exactly what production logs showed:
+            // every message hung for the full 8s per-message timeout before
+            // being abandoned, and only started succeeding once enough
+            // abandoned commands had drained out of the queue in the
+            // background. Doing it once, after the generator is fully
+            // consumed, avoids the deadlock entirely.
+            const seenUids: number[] = [];
+
             for await (const message of client.fetch(`${startUid}:${endUid}`, { source: true }, { uid: true })) {
               log(`fetched uid=${message.uid} (${message.source?.length ?? 0} bytes)`);
               if (message.uid <= cursor.lastUid) continue;
@@ -224,7 +243,7 @@ export async function pollImapForReplies(): Promise<PollResult> {
                 // otherwise be able to eat the entire remaining stage budget
                 // by itself, taking every message behind it down with it.
                 await withTimeout(
-                  processMessage(message, { ownMailbox, result, client }),
+                  processMessage(message, { ownMailbox, result, client, seenUids }),
                   8_000,
                   `process message uid=${message.uid}`
                 );
@@ -235,6 +254,19 @@ export async function pollImapForReplies(): Promise<PollResult> {
               }
             }
             log("fetch loop finished");
+
+            if (seenUids.length > 0) {
+              // Best-effort cosmetic touch so the mailbox itself shows
+              // progress if you glance at it in Gmail -- the UID cursor is
+              // what actually prevents reprocessing, so a failure here
+              // doesn't count as a poll error.
+              await withTimeout(
+                client.messageFlagsAdd(seenUids, ["\\Seen"], { uid: true }),
+                5_000,
+                "mark messages seen"
+              ).catch((err) => log(`failed to mark messages seen (non-fatal): ${err instanceof Error ? err.message : String(err)}`));
+              log(`marked ${seenUids.length} message(s) seen`);
+            }
 
             // The server may have more mail past what we bounded this poll
             // to -- flag it as truncated so the next run's cursor picks up
@@ -283,7 +315,7 @@ export async function pollImapForReplies(): Promise<PollResult> {
 
 async function processMessage(
   message: RelayMailMessage,
-  ctx: { ownMailbox: string; result: PollResult; client: ImapFlow }
+  ctx: { ownMailbox: string; result: PollResult; client: ImapFlow; seenUids: number[] }
 ): Promise<void> {
   if (!message.source) {
     ctx.result.unparsed++;
@@ -305,11 +337,10 @@ async function processMessage(
     await processReply(bodyText, message, ctx);
   }
 
-  // Best-effort cosmetic touch so the mailbox itself shows progress if you
-  // glance at it in Gmail -- the UID cursor is what actually prevents
-  // reprocessing, so a failure here doesn't count as a poll error and
-  // doesn't affect whatever match/status update happened above.
-  await ctx.client.messageFlagsAdd(message.uid, ["\\Seen"], { uid: true }).catch(() => undefined);
+  // Marking \Seen is queued by the caller and sent once the whole fetch
+  // loop is done, NOT issued here -- see the long comment at the call site
+  // for why issuing it per-message deadlocked every single message.
+  ctx.seenUids.push(message.uid);
 }
 
 async function processReply(
