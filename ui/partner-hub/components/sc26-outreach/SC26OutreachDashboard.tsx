@@ -95,8 +95,14 @@ export function SC26OutreachDashboard() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Per-prospect full history (every message + every tracking event,
-  // including ones flagged automated). Fetched lazily on first expand and
-  // cached by prospect id so re-expanding doesn't re-fetch.
+  // including ones flagged automated). Fetched fresh every time the panel
+  // is opened -- new events (an open, a click, a reply, a poller-confirmed
+  // send) can land at any moment while the dashboard just sits open, so
+  // caching this across opens (as an earlier version of this did) meant
+  // re-opening the same panel could silently show a stale snapshot from
+  // before the very event you were trying to check for. The previous
+  // result is kept on screen while the refetch is in flight (rather than
+  // blanking to a loading state) so re-opening doesn't flash empty.
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [historyById, setHistoryById] = useState<
     Record<number, { loading: boolean; error?: string; messages?: MessageHistory[] }>
@@ -108,9 +114,11 @@ export function SC26OutreachDashboard() {
       return;
     }
     setExpandedId(prospectId);
-    if (historyById[prospectId]?.messages || historyById[prospectId]?.loading) return;
 
-    setHistoryById((prev) => ({ ...prev, [prospectId]: { loading: true } }));
+    setHistoryById((prev) => ({
+      ...prev,
+      [prospectId]: { ...prev[prospectId], loading: true },
+    }));
     try {
       const res = await fetch(withBasePath(`/api/sc26-outreach/prospects/${prospectId}/history`), {
         cache: "no-store",
@@ -119,7 +127,11 @@ export function SC26OutreachDashboard() {
       if (!data || !res.ok || !data.ok) {
         setHistoryById((prev) => ({
           ...prev,
-          [prospectId]: { loading: false, error: data?.error ?? `HTTP ${res.status}` },
+          [prospectId]: {
+            loading: false,
+            error: data?.error ?? `HTTP ${res.status}`,
+            messages: prev[prospectId]?.messages, // keep last-good data visible
+          },
         }));
         return;
       }
@@ -127,7 +139,11 @@ export function SC26OutreachDashboard() {
     } catch (err) {
       setHistoryById((prev) => ({
         ...prev,
-        [prospectId]: { loading: false, error: err instanceof Error ? err.message : "network error" },
+        [prospectId]: {
+          loading: false,
+          error: err instanceof Error ? err.message : "network error",
+          messages: prev[prospectId]?.messages, // keep last-good data visible
+        },
       }));
     }
   }
@@ -517,10 +533,14 @@ function ProspectHistoryPanel({
 }: {
   state?: { loading: boolean; error?: string; messages?: MessageHistory[] };
 }) {
-  if (!state || state.loading) {
+  // While a refetch is in flight, keep showing whatever was fetched last
+  // time (if anything) instead of blanking to "Loading" -- re-opening an
+  // already-seen panel shouldn't flash empty just because it's now
+  // fetching a fresh copy in the background.
+  if (!state || (state.loading && !state.messages)) {
     return <p className="text-xs text-foreground/60">Loading history…</p>;
   }
-  if (state.error) {
+  if (state.error && !state.messages) {
     return <p className="text-xs text-red-600">Failed to load history: {state.error}</p>;
   }
   const messages = state.messages ?? [];
@@ -530,6 +550,10 @@ function ProspectHistoryPanel({
 
   return (
     <div className="space-y-3">
+      {state.loading ? <p className="text-xs text-foreground/40">Refreshing…</p> : null}
+      {state.error ? (
+        <p className="text-xs text-red-600">Showing last-loaded history -- refresh failed: {state.error}</p>
+      ) : null}
       {messages.map((m) => (
         <div key={m.id} className="rounded-lg border border-border/40 bg-background p-3">
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
