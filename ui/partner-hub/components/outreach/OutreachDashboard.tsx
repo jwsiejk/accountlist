@@ -8,6 +8,7 @@ import { withBasePath } from "@/lib/basePath";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ProspectsPanel } from "./ProspectsPanel";
+import { ReportPanel } from "./ReportPanel";
 import { TemplatesPanel } from "./TemplatesPanel";
 
 interface Campaign {
@@ -25,13 +26,15 @@ const LAST_CAMPAIGN_KEY = "outreach.lastCampaignId";
  * Top-level shell: a campaign switcher (each campaign is a fully separate
  * prospect list + template library, sharing only the one send/reply
  * infrastructure -- see docs/OUTREACH_SETUP.md) and, below it, the
- * Prospects/Templates tabs scoped to whichever campaign is selected.
+ * Batches / Report / Templates tabs scoped to whichever campaign is selected.
+ * Within a campaign, contacts are organised into batches (one per round of
+ * outreach) and tracked through the Email 1 -> 2 -> 3 sequence.
  */
 export function OutreachDashboard() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [tab, setTab] = useState<"prospects" | "templates">("prospects");
+  const [tab, setTab] = useState<"prospects" | "report" | "templates">("prospects");
 
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
@@ -196,7 +199,7 @@ export function OutreachDashboard() {
             ) : null}
 
             <div className="flex gap-1 border-b border-border/60">
-              {(["prospects", "templates"] as const).map((t) => (
+              {(["prospects", "report", "templates"] as const).map((t) => (
                 <button
                   key={t}
                   type="button"
@@ -208,13 +211,19 @@ export function OutreachDashboard() {
                       : "border-transparent text-foreground/50 hover:text-foreground"
                   )}
                 >
-                  {t === "templates" ? `Templates (${selectedCampaign.templateCount})` : "Prospects"}
+                  {t === "templates"
+                    ? `Templates (${selectedCampaign.templateCount})`
+                    : t === "report"
+                      ? "Report"
+                      : "Batches"}
                 </button>
               ))}
             </div>
 
             {tab === "prospects" ? (
               <ProspectsPanel key={selectedCampaign.id} campaignId={selectedCampaign.id} />
+            ) : tab === "report" ? (
+              <ReportPanel key={selectedCampaign.id} campaignId={selectedCampaign.id} />
             ) : (
               <TemplatesPanel key={selectedCampaign.id} campaignId={selectedCampaign.id} />
             )}

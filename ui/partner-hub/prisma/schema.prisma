@@ -47,11 +47,36 @@ model Campaign {
   id          Int      @id @default(autoincrement())
   name        String   @unique
   description String?
+  // Suggested gap between sequence emails, used only to show "due"/"overdue"
+  // in the dashboard and report -- nothing sends automatically.
+  email2DelayDays Int  @default(3) // days after Email 1 is sent
+  email3DelayDays Int  @default(4) // days after Email 2 is sent
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   prospects   Prospect[]
   templates   Template[]
+  batches     Batch[]
+}
+
+// A named group of prospects within a campaign -- "the people I emailed in
+// this round". Campaign -> Batch -> Prospect. A prospect belongs to at most
+// one batch; batchId is null for "Unassigned" (e.g. after the batch they
+// were in was deleted). Moving a prospect between batches only changes
+// batchId, so their messages, tracking events and sequence progress (all
+// hung off the Prospect) travel with them untouched.
+model Batch {
+  id         Int      @id @default(autoincrement())
+  campaignId Int
+  name       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  campaign   Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  prospects  Prospect[]
+
+  @@unique([campaignId, name])
+  @@index([campaignId])
 }
 
 // A reusable email template scoped to one campaign. Previously these lived
@@ -64,6 +89,10 @@ model Template {
   name       String
   subject    String
   html       String
+  // Which email in the sequence this template is (1, 2 or 3), or null if
+  // it isn't part of the sequence. The dashboard pre-selects the template
+  // tagged for the step being sent.
+  sequenceStep Int?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -85,6 +114,7 @@ enum ProspectStatus {
 model Prospect {
   id            Int             @id @default(autoincrement())
   campaignId    Int
+  batchId       Int?
   email         String
   firstName     String
   lastName      String?
@@ -95,6 +125,7 @@ model Prospect {
   updatedAt     DateTime        @updatedAt
 
   campaign      Campaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  batch         Batch?            @relation(fields: [batchId], references: [id], onDelete: SetNull)
   messages      OutreachMessage[]
 
   // Unique per campaign, not globally -- the same person can legitimately
@@ -103,11 +134,14 @@ model Prospect {
   @@unique([campaignId, email])
   @@index([status])
   @@index([campaignId])
+  @@index([batchId])
 }
 
 model OutreachMessage {
   id                Int              @id @default(autoincrement())
   prospectId        Int
+  // Position in the sequence this message was sent as: 1 = Email 1, etc.
+  step              Int              @default(1)
   mailbox           String
   subject           String
   trackingToken     String           @unique

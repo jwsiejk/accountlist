@@ -15,6 +15,8 @@ export interface TrackingEventRow {
 
 export interface MessageHistory {
   id: number;
+  /** Which sequence email this was (1-3). Optional for older API responses. */
+  step?: number;
   subject: string;
   mailbox: string;
   sentAt: string | null;
@@ -124,7 +126,7 @@ export function HistoryTimeline({ state }: { state?: HistoryState }) {
                 <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
                   <span className="text-sm font-medium">
                     <Mail className="mr-1.5 inline-block h-3.5 w-3.5 -translate-y-px text-foreground/50" />
-                    Queued: {entry.message.subject}
+                    Queued{entry.message.step ? ` — Email ${entry.message.step}` : ""}: {entry.message.subject}
                   </span>
                   <span className="text-xs text-foreground/50" title={absolute}>
                     {relative}
@@ -138,7 +140,9 @@ export function HistoryTimeline({ state }: { state?: HistoryState }) {
             return (
               <TimelineRow key={key} dotClassName="bg-blue-400">
                 <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-                  <span className="text-sm font-medium">Sent from {entry.message.mailbox}</span>
+                  <span className="text-sm font-medium">
+                    {entry.message.step ? `Email ${entry.message.step} sent` : "Sent"} from {entry.message.mailbox}
+                  </span>
                   <span className="text-xs text-foreground/50" title={absolute}>
                     {relative}
                   </span>

@@ -19,6 +19,44 @@ was abandoned (no admin consent available for the DDN tenant) in favor of the ch
 that code has been removed. If you find an old copy of this doc describing Azure AD app
 registration, ignore it.
 
+## Batches and the email sequence
+
+Within a campaign, contacts are organised into **batches** — one per round of outreach
+(Campaign → Batch → contacts). Each contact is also tracked through a three-email **sequence**
+(Email 1 → Email 2 → Email 3). Both live on the campaign's **Batches** tab; the **Report** tab
+shows the same data as a shareable summary.
+
+- **Importing.** Uploading a CSV asks which batch to put the contacts in: a new one (named, or
+  auto-named "Batch N") or an existing one. A contact whose email is already in the campaign
+  keeps its current batch (and is only adopted into the target batch if it had none).
+- **Sequence progress is derived, not stored.** Each `OutreachMessage` records the `step` it was
+  sent as (1–3); a contact's state per email (sent / queued / ready / due-on-date / waiting /
+  stopped) is computed from those rows by `lib/outreach/sequence.ts`. The send route enforces the
+  rules server-side: Email 2 only after Email 1 has been sent, never the same email twice, and
+  nothing further to a contact who replied or bounced.
+- **Timing is a suggestion.** Each campaign has a suggested gap (default 3 days after Email 1 for
+  Email 2, 4 days after Email 2 for Email 3), used only to show "Due Oct 4" / "Ready". Nothing
+  sends automatically — you pick the contacts and click send. Sending early is allowed.
+- **Templates.** A template can be tagged as Email 1, 2 or 3; choosing which email to send picks
+  the tagged template automatically (it can still be edited in the review step).
+- **A send request that is never confirmed** by the send-flow within an hour stops blocking its
+  step, and the cell shows "Retry — not confirmed", so a failed relay doesn't strand a contact.
+- **Moving contacts** between batches only changes the contact's batch: their messages, tracking
+  events and sequence progress travel with them. Deleting a batch leaves its contacts in the
+  campaign as "Unassigned" (nothing is deleted).
+- **Removing contacts** deletes them for good (their message history and tracking go with them).
+  They can be imported again later and start from Email 1. A confirmation or reply that arrives
+  afterwards for a removed contact matches nobody and is counted as unmatched by the IMAP poller.
+- **Report.** `GET /api/outreach/report?campaignId=…` returns a CSV (one row per contact, grouped
+  by batch: when each email was sent, opened/clicked/replied/bounced, next email due); add
+  `&batchId=…` for one batch, `&format=text` for a plain-text summary to paste into an email, and
+  `&tz=America/New_York` to choose the time zone for the timestamps (the dashboard passes the
+  browser's). Opens and clicks exclude suspected automated link-scanners, as elsewhere.
+
+The migration that adds this (`20261001130000_outreach_batches_and_sequence`) is purely additive:
+existing campaigns, prospects, messages and events are kept, each campaign's existing prospects
+are placed in a "Batch 1", and existing messages count as Email 1.
+
 ## How a send actually happens
 
 There's no direct SMTP/Graph send from this app to a real prospect. Instead:

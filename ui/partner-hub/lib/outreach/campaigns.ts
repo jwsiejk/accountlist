@@ -43,14 +43,36 @@ export async function createCampaign(input: CreateCampaignInput) {
   });
 }
 
-export async function updateCampaign(id: number, input: CreateCampaignInput) {
+export interface UpdateCampaignInput extends CreateCampaignInput {
+  /** Suggested days between Email 1 sent and Email 2 due (0-60). */
+  email2DelayDays?: number;
+  /** Suggested days between Email 2 sent and Email 3 due (0-60). */
+  email3DelayDays?: number;
+}
+
+function validDelay(value: number | undefined, label: string): number | undefined {
+  if (value === undefined) return undefined;
+  if (!Number.isInteger(value) || value < 0 || value > 60) {
+    throw new Error(`${label} must be a whole number of days between 0 and 60.`);
+  }
+  return value;
+}
+
+export async function updateCampaign(id: number, input: UpdateCampaignInput) {
   const name = input.name.trim();
   if (!name) {
     throw new Error("Campaign name is required.");
   }
+  const email2DelayDays = validDelay(input.email2DelayDays, "Email 2 delay");
+  const email3DelayDays = validDelay(input.email3DelayDays, "Email 3 delay");
   return prisma.campaign.update({
     where: { id },
-    data: { name, description: input.description?.trim() || null },
+    data: {
+      name,
+      description: input.description?.trim() || null,
+      ...(email2DelayDays !== undefined ? { email2DelayDays } : {}),
+      ...(email3DelayDays !== undefined ? { email3DelayDays } : {}),
+    },
   });
 }
 

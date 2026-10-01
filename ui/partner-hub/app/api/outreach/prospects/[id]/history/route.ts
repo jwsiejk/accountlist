@@ -28,6 +28,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
     const messages = prospect.messages.map((m) => ({
       id: m.id,
+      step: m.step,
       subject: m.subject,
       mailbox: m.mailbox,
       sentAt: m.sentAt,

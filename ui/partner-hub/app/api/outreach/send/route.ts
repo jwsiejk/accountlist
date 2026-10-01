@@ -7,6 +7,13 @@ import { trackingPixelUrl, trackingClickUrl } from "@/lib/outreach/urls";
 import { markStatus } from "@/lib/outreach/prospects";
 import { escapeHtml, mergeTemplateText } from "@/lib/outreach/merge";
 import { getTemplate } from "@/lib/outreach/templates";
+import {
+  checkSendable,
+  DEFAULT_DELAYS,
+  SEQUENCE_STEPS,
+  type ProspectStatusName,
+  type SequenceStep,
+} from "@/lib/outreach/sequence";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +22,8 @@ interface SendBody {
   campaignId: number;
   prospectIds: number[];
   templateId: number;
+  /** Which email in the sequence this send is (1, 2 or 3). Defaults to 1. */
+  step?: number;
   /** Subject as edited in the dashboard's review step (may differ from the template's default). */
   subject: string;
   /** HTML as edited in the dashboard's review step -- still has {{FIRST_NAME}} etc. unmerged. */
@@ -56,10 +65,15 @@ export async function POST(req: Request) {
   const templateId = body?.templateId;
   const subjectSource = body?.subject?.trim();
   const htmlSource = body?.html;
+  const stepRaw = body?.step ?? 1;
 
   if (!Number.isInteger(campaignId)) {
     return NextResponse.json({ ok: false, error: "Missing campaignId." }, { status: 400 });
   }
+  if (!SEQUENCE_STEPS.includes(stepRaw as SequenceStep)) {
+    return NextResponse.json({ ok: false, error: "step must be 1, 2 or 3." }, { status: 400 });
+  }
+  const step = stepRaw as SequenceStep;
   if (!Array.isArray(prospectIds) || prospectIds.length === 0) {
     return NextResponse.json({ ok: false, error: "No prospects selected." }, { status: 400 });
   }
@@ -82,16 +96,39 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: `Unknown template id: ${templateId}` }, { status: 400 });
   }
 
+  const campaign = await prisma.campaign.findUnique({
+    where: { id: campaignId as number },
+    select: { email2DelayDays: true, email3DelayDays: true },
+  });
+  const delays = campaign ?? DEFAULT_DELAYS;
+
   const results: { prospectId: number; ok: boolean; error?: string }[] = [];
 
   for (const prospectId of prospectIds) {
-    const prospect = await prisma.prospect.findUnique({ where: { id: prospectId } });
+    const prospect = await prisma.prospect.findUnique({
+      where: { id: prospectId },
+      include: { messages: { select: { step: true, sentAt: true, createdAt: true } } },
+    });
     if (!prospect) {
       results.push({ prospectId, ok: false, error: "Prospect not found." });
       continue;
     }
     if (prospect.campaignId !== campaignId) {
       results.push({ prospectId, ok: false, error: "Prospect belongs to a different campaign." });
+      continue;
+    }
+
+    // Enforce the sequence server-side, not just by what the dashboard lets
+    // you tick: right order (Email 2 only after Email 1 went out), never the
+    // same email twice, and nothing further to a contact who replied or
+    // bounced. See lib/outreach/sequence.ts.
+    const sendable = checkSendable(
+      { status: prospect.status as ProspectStatusName, messages: prospect.messages },
+      step,
+      delays
+    );
+    if (!sendable.ok) {
+      results.push({ prospectId, ok: false, error: sendable.reason });
       continue;
     }
 
@@ -131,12 +168,16 @@ export async function POST(req: Request) {
       await prisma.outreachMessage.create({
         data: {
           prospectId: prospect.id,
+          step,
           mailbox,
           subject,
           trackingToken: token,
           sentAt: null,
         },
       });
+      // Only moves a PENDING contact to SENDING (markStatus never downgrades),
+      // so a follow-up to someone already SENT/OPENED/CLICKED leaves their
+      // status alone; the per-email state comes from the message rows.
       await markStatus(prospect.id, "SENDING");
 
       results.push({ prospectId, ok: true });
