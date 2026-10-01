@@ -136,6 +136,15 @@ through that particular flow.
    wired up as a GitHub Actions scheduled workflow
    (`.github/workflows/outreach-imap-poll.yml`, every 5 minutes). That workflow needs a repo
    secret `SC26_OUTREACH_CRON_SECRET` matching the `CRON_SECRET` env var set on Render.
+   GitHub's scheduled workflows are best-effort and can run hours apart, so the app also
+   polls **on demand**: while anyone has the Batches/Report tab open and some email is still
+   waiting for its send confirmation, the overview request starts a background poll (at most
+   once a minute, repeated while the mailbox has more than one poll's worth of mail). It shares
+   a lock with the endpoint above, so the two never overlap. Each poll handles at most
+   `SC26_IMAP_POLL_MAX_MESSAGES` (default 25) messages; a send puts ~2 messages in the
+   mailbox (request + confirmation). For a steadier schedule independent of GitHub, point a
+   Render Cron Job (or any external pinger) at `POST /api/outreach/imap-poll` with
+   `Authorization: Bearer $CRON_SECRET`.
 
 Once deployed with `NEXT_PUBLIC_ENABLE_SC26_OUTREACH=true`, the **Outreach** link appears in the
 left nav. Create a campaign, add a template, import a CSV of prospects, and send.

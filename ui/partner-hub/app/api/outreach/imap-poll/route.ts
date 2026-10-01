@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { pollImapForReplies } from "@/lib/outreach/imap-poller";
+import { getPollScheduler } from "@/lib/outreach/pollKick";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,8 +22,13 @@ export async function POST(req: Request) {
   }
 
   try {
-    const result = await pollImapForReplies();
-    return NextResponse.json({ ok: true, result }, { headers: { "Cache-Control": "no-store" } });
+    // Shares a lock with the dashboard-triggered background poll so two polls
+    // never process the same mailbox messages at once.
+    const run = await getPollScheduler().runOnce();
+    if (!run.ran) {
+      return NextResponse.json({ ok: true, skipped: "a poll is already running" }, { headers: { "Cache-Control": "no-store" } });
+    }
+    return NextResponse.json({ ok: true, result: run.result }, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : String(err) },
