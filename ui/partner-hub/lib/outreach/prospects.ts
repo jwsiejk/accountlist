@@ -9,10 +9,22 @@ export interface ImportedProspect {
   title?: string;
 }
 
-export async function upsertProspects(campaignId: number, rows: ImportedProspect[]) {
+export async function upsertProspects(campaignId: number, rows: ImportedProspect[], batchId: number | null = null) {
   let created = 0;
   let updated = 0;
+  // Rows whose email already exists in this campaign AND is sitting in a
+  // different batch than the one being imported into. They're left where they
+  // are (moving a contact is an explicit action, and it would otherwise drag
+  // their email history into a new batch as a side effect of a re-import).
+  let inOtherBatch = 0;
   const skipped: { row: ImportedProspect; reason: string }[] = [];
+
+  if (batchId !== null) {
+    const batch = await prisma.batch.findUnique({ where: { id: batchId }, select: { campaignId: true } });
+    if (!batch || batch.campaignId !== campaignId) {
+      throw new Error("That batch doesn't belong to this campaign.");
+    }
+  }
 
   for (const row of rows) {
     const email = row.email.trim().toLowerCase();
@@ -38,13 +50,19 @@ export async function upsertProspects(campaignId: number, rows: ImportedProspect
           lastName: row.lastName?.trim() || existing.lastName,
           company: row.company?.trim() || existing.company,
           title: row.title?.trim() || existing.title,
+          // A contact with no batch (e.g. left over from a deleted batch)
+          // is adopted into the batch being imported into; one that already
+          // has a batch stays put.
+          ...(existing.batchId === null && batchId !== null ? { batchId } : {}),
         },
       });
+      if (existing.batchId !== null && batchId !== null && existing.batchId !== batchId) inOtherBatch++;
       updated++;
     } else {
       await prisma.prospect.create({
         data: {
           campaignId,
+          batchId,
           email,
           firstName: row.firstName.trim(),
           lastName: row.lastName?.trim() || null,
@@ -56,7 +74,42 @@ export async function upsertProspects(campaignId: number, rows: ImportedProspect
     }
   }
 
-  return { created, updated, skipped };
+  return { created, updated, inOtherBatch, skipped };
+}
+
+/**
+ * Moves prospects into another batch of the same campaign (or to "Unassigned"
+ * with targetBatchId = null). Only `batchId` changes: their messages,
+ * tracking events and sequence progress belong to the Prospect, so everything
+ * travels with them. Ids that don't belong to `campaignId` are ignored.
+ */
+export async function moveProspects(campaignId: number, prospectIds: number[], targetBatchId: number | null) {
+  if (targetBatchId !== null) {
+    const batch = await prisma.batch.findUnique({ where: { id: targetBatchId }, select: { campaignId: true } });
+    if (!batch || batch.campaignId !== campaignId) {
+      throw new Error("That batch doesn't belong to this campaign.");
+    }
+  }
+  const result = await prisma.prospect.updateMany({
+    where: { id: { in: prospectIds }, campaignId },
+    data: { batchId: targetBatchId },
+  });
+  return result.count;
+}
+
+/**
+ * Removes prospects from the campaign entirely. This is a real delete (the
+ * schema cascades to their messages and tracking events), not a "suppressed"
+ * flag -- by design, so the same person can be imported again later and start
+ * fresh from Email 1. A send-confirmation or reply that arrives afterwards for
+ * a removed contact simply doesn't match anyone (the IMAP poller counts it as
+ * unmatched). Ids that don't belong to `campaignId` are ignored.
+ */
+export async function removeProspects(campaignId: number, prospectIds: number[]) {
+  const result = await prisma.prospect.deleteMany({
+    where: { id: { in: prospectIds }, campaignId },
+  });
+  return result.count;
 }
 
 /**

@@ -15,6 +15,8 @@ export interface TemplateInput {
   name: string;
   subject: string;
   html: string;
+  /** Which sequence email this is (1, 2 or 3), or null/undefined if it isn't one. */
+  sequenceStep?: number | null;
 }
 
 export async function listTemplates(campaignId: number) {
@@ -28,10 +30,13 @@ export async function getTemplate(id: number) {
   return prisma.template.findUnique({ where: { id } });
 }
 
-function validate(input: Pick<TemplateInput, "name" | "subject" | "html">) {
+function validate(input: Pick<TemplateInput, "name" | "subject" | "html" | "sequenceStep">) {
   if (!input.name.trim()) throw new Error("Template name is required.");
   if (!input.subject.trim()) throw new Error("Subject is required.");
   if (!input.html.trim()) throw new Error("Email body is required.");
+  if (input.sequenceStep != null && ![1, 2, 3].includes(input.sequenceStep)) {
+    throw new Error("Sequence step must be 1, 2 or 3 (or none).");
+  }
 }
 
 export async function createTemplate(input: TemplateInput) {
@@ -42,13 +47,14 @@ export async function createTemplate(input: TemplateInput) {
       name: input.name.trim(),
       subject: input.subject.trim(),
       html: input.html,
+      sequenceStep: input.sequenceStep ?? null,
     },
   });
 }
 
 export async function updateTemplate(
   id: number,
-  input: Pick<TemplateInput, "name" | "subject" | "html">
+  input: Pick<TemplateInput, "name" | "subject" | "html" | "sequenceStep">
 ) {
   validate(input);
   return prisma.template.update({
@@ -57,6 +63,8 @@ export async function updateTemplate(
       name: input.name.trim(),
       subject: input.subject.trim(),
       html: input.html,
+      // undefined = leave unchanged; null = clear it.
+      ...(input.sequenceStep !== undefined ? { sequenceStep: input.sequenceStep } : {}),
     },
   });
 }

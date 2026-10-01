@@ -13,6 +13,8 @@ function parseId(idParam: string) {
 interface UpdateBody {
   name: string;
   description?: string;
+  email2DelayDays?: number;
+  email3DelayDays?: number;
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -26,14 +28,20 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 
   try {
-    const campaign = await updateCampaign(id, { name: body.name, description: body.description });
+    const campaign = await updateCampaign(id, {
+      name: body.name,
+      description: body.description,
+      email2DelayDays: body.email2DelayDays,
+      email3DelayDays: body.email3DelayDays,
+    });
     return NextResponse.json({ ok: true, campaign }, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to update campaign.";
     const isDuplicate = message.includes("Unique constraint");
+    const isValidation = message.includes("must be a whole number");
     return NextResponse.json(
       { ok: false, error: isDuplicate ? "A campaign with that name already exists." : message },
-      { status: isDuplicate ? 409 : 500 }
+      { status: isDuplicate ? 409 : isValidation ? 400 : 500 }
     );
   }
 }

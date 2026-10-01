@@ -13,10 +13,19 @@ export interface Template {
   name: string;
   subject: string;
   html: string;
+  /** Which sequence email this template is (1-3), or null if it isn't one. */
+  sequenceStep: number | null;
   updatedAt: string;
 }
 
-const BLANK_DRAFT = { name: "", subject: "", html: "" };
+interface Draft {
+  name: string;
+  subject: string;
+  html: string;
+  sequenceStep: number | null;
+}
+
+const BLANK_DRAFT: Draft = { name: "", subject: "", html: "", sequenceStep: null };
 
 /**
  * Per-campaign template library, DB-backed (see lib/outreach/templates.ts)
@@ -31,7 +40,7 @@ export function TemplatesPanel({ campaignId }: { campaignId: number }) {
   const [message, setMessage] = useState<string | null>(null);
 
   const [editingId, setEditingId] = useState<number | null | "new">(null);
-  const [draft, setDraft] = useState(BLANK_DRAFT);
+  const [draft, setDraft] = useState<Draft>(BLANK_DRAFT);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -61,7 +70,7 @@ export function TemplatesPanel({ campaignId }: { campaignId: number }) {
   }
 
   function startEdit(t: Template) {
-    setDraft({ name: t.name, subject: t.subject, html: t.html });
+    setDraft({ name: t.name, subject: t.subject, html: t.html, sequenceStep: t.sequenceStep ?? null });
     setEditingId(t.id);
     setMessage(null);
   }
@@ -88,6 +97,7 @@ export function TemplatesPanel({ campaignId }: { campaignId: number }) {
 
       if (editingId === null) setEditingId("new");
       setDraft((d) => ({
+        ...d,
         name: d.name || inferredName,
         subject: d.subject || inferredSubject || "",
         html: text,
@@ -203,6 +213,23 @@ export function TemplatesPanel({ campaignId }: { campaignId: number }) {
             </div>
           </div>
 
+          <div>
+            <label className="mb-1 block text-xs font-medium text-foreground/70">Sequence email</label>
+            <select
+              value={draft.sequenceStep ?? ""}
+              onChange={(e) => setDraft((d) => ({ ...d, sequenceStep: e.target.value ? Number(e.target.value) : null }))}
+              className="rounded-lg border border-border/60 px-3 py-2 text-sm"
+            >
+              <option value="">Not part of the sequence</option>
+              <option value={1}>Email 1</option>
+              <option value={2}>Email 2</option>
+              <option value={3}>Email 3</option>
+            </select>
+            <p className="mt-1 text-xs text-foreground/50">
+              When you choose which email to send on the Batches tab, the template tagged for it is picked automatically.
+            </p>
+          </div>
+
           <div className="grid gap-3 md:grid-cols-2">
             <div>
               <div className="mb-1 flex items-center justify-between">
@@ -261,7 +288,14 @@ export function TemplatesPanel({ campaignId }: { campaignId: number }) {
             className="flex items-center justify-between gap-3 rounded-lg border border-border/60 p-3"
           >
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{t.name}</p>
+              <p className="truncate text-sm font-medium">
+                {t.name}
+                {t.sequenceStep ? (
+                  <span className="ml-2 rounded-full bg-muted px-2 py-0.5 align-middle text-[11px] font-medium text-foreground/70">
+                    Email {t.sequenceStep}
+                  </span>
+                ) : null}
+              </p>
               <p className="truncate text-xs text-foreground/60">{t.subject}</p>
             </div>
             <div className="flex shrink-0 gap-2">

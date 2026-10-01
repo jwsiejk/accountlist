@@ -14,6 +14,8 @@ interface UpdateBody {
   name: string;
   subject: string;
   html: string;
+  /** 1-3 to tag as that sequence email, null to clear, omitted to leave as is. */
+  sequenceStep?: number | null;
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -29,6 +31,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       name: body.name ?? "",
       subject: body.subject ?? "",
       html: body.html ?? "",
+      sequenceStep: body.sequenceStep,
     });
     return NextResponse.json({ ok: true, template }, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {

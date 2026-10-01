@@ -24,6 +24,7 @@ interface CreateBody {
   name: string;
   subject: string;
   html: string;
+  sequenceStep?: number | null;
 }
 
 export async function POST(req: Request) {
@@ -37,6 +38,7 @@ export async function POST(req: Request) {
       name: body.name ?? "",
       subject: body.subject ?? "",
       html: body.html ?? "",
+      sequenceStep: body.sequenceStep ?? null,
     });
     return NextResponse.json({ ok: true, template }, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
