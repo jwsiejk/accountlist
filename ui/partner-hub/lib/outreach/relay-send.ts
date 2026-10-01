@@ -45,6 +45,8 @@
  * raw Body string finds them reliably regardless of any reformatting.
  */
 
+import { MAX_RATE_LIMIT_RETRIES, reserveSlot, retryDelayMs } from "./rateLimit";
+
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
@@ -132,30 +134,62 @@ export async function dispatchSendRequest(input: SendRequestInput): Promise<void
     HTML.end,
   ].join("\n");
 
-  let response: Response;
-  try {
-    response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: RESEND_FROM_ADDRESS,
-        to: [gmailRelayMailbox],
-        subject: SEND_REQUEST_SUBJECT,
-        html: body,
-      }),
-    });
-  } catch (err) {
-    throw new Error(`Failed to reach Resend: ${err instanceof Error ? err.message : String(err)}`);
-  }
+  // Resend allows 10 requests/second. Space our requests out (paceDispatch),
+  // and if Resend still answers 429, wait and retry -- see rateLimit.ts. Only
+  // 429s are retried: Resend rejected those before sending anything, so a
+  // retry can't double-send. Any other failure still throws immediately.
+  for (let attempt = 1; ; attempt++) {
+    await paceDispatch();
 
-  // Throws on failure (auth, validation, Resend-side rejection) -- callers
-  // don't catch this themselves, a failed dispatch should fail the send
-  // request outright rather than silently leave a prospect stuck in SENDING.
-  if (!response.ok) {
-    const bodyText = await response.text().catch(() => "");
-    throw new Error(`Resend returned ${response.status} ${response.statusText}${bodyText ? `: ${bodyText.slice(0, 500)}` : ""}`);
+    let response: Response;
+    try {
+      response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: RESEND_FROM_ADDRESS,
+          to: [gmailRelayMailbox],
+          subject: SEND_REQUEST_SUBJECT,
+          html: body,
+        }),
+      });
+    } catch (err) {
+      throw new Error(`Failed to reach Resend: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    if (response.status === 429 && attempt <= MAX_RATE_LIMIT_RETRIES) {
+      await response.text().catch(() => ""); // release the connection
+      await sleep(retryDelayMs(attempt, response.headers.get("retry-after")));
+      continue;
+    }
+
+    // Throws on failure (auth, validation, Resend-side rejection, or still
+    // rate-limited after all retries) -- callers don't catch this themselves,
+    // a failed dispatch should fail the send request outright rather than
+    // silently leave a prospect stuck in SENDING.
+    if (!response.ok) {
+      const bodyText = await response.text().catch(() => "");
+      throw new Error(`Resend returned ${response.status} ${response.statusText}${bodyText ? `: ${bodyText.slice(0, 500)}` : ""}`);
+    }
+    return;
   }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Module-level so every send in this server process shares one schedule --
+ * two people sending at once still stay under Resend's limit together.
+ */
+let nextDispatchSlotAt = 0;
+
+async function paceDispatch(): Promise<void> {
+  const slot = reserveSlot(nextDispatchSlotAt, Date.now());
+  nextDispatchSlotAt = slot.nextSlotAt;
+  if (slot.waitMs > 0) await sleep(slot.waitMs);
 }
