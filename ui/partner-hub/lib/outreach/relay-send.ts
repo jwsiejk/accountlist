@@ -67,7 +67,7 @@ export interface SendRequestInput {
  *  for why: the existing reply-detection flow's trigger condition is
  *  `contains(Subject, 'SC26')` against the same DDN inbox this lands in, and this subject
  *  must not accidentally match it too, or every send would also get relayed as a fake reply. */
-const SEND_REQUEST_SUBJECT = "OUTREACH-SEND-REQUEST";
+export const SEND_REQUEST_SUBJECT = "OUTREACH-SEND-REQUEST";
 
 /**
  * Subject marker the Power Automate send-flow's confirmation email must

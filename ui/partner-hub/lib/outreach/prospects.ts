@@ -218,6 +218,26 @@ export async function logEvent(
   });
 }
 
+/**
+ * Recent OPEN/CLICK events on a message, with the automated verdict each was
+ * logged with -- input for classifyTrackingEvent's burst detection.
+ */
+export async function recentTrackingEvents(outreachMessageId: number, since: Date) {
+  const rows = await prisma.trackingEvent.findMany({
+    where: { outreachMessageId, type: { in: ["OPEN", "CLICK"] }, occurredAt: { gte: since } },
+    select: { occurredAt: true, meta: true },
+  });
+  return rows.map((row) => {
+    let automated = false;
+    try {
+      automated = Boolean(row.meta && JSON.parse(row.meta).automated);
+    } catch {
+      // Unparseable meta -- treat as not automated.
+    }
+    return { occurredAt: row.occurredAt, automated };
+  });
+}
+
 export async function findMessageByToken(token: string) {
   return prisma.outreachMessage.findUnique({
     where: { trackingToken: token },

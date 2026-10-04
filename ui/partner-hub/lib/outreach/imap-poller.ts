@@ -4,7 +4,7 @@ import { simpleParser } from "mailparser";
 import { prisma } from "@/lib/db";
 import { confirmMessageSent, findLatestMessageForEmail, findMessageByToken, logEvent, markStatus } from "@/lib/outreach/prospects";
 import { htmlToPlainText, parseRelayNotification, parseSendConfirmation } from "@/lib/outreach/imap-relay-parser";
-import { SEND_CONFIRMED_SUBJECT_MARKER } from "@/lib/outreach/relay-send";
+import { SEND_CONFIRMED_SUBJECT_MARKER, SEND_REQUEST_SUBJECT } from "@/lib/outreach/relay-send";
 
 /**
  * Nothing in this module had a timeout anywhere, so a stalled TCP/TLS
@@ -48,6 +48,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, stage: string): Promise
 interface RelayMailMessage {
   uid: number;
   source?: Buffer;
+  flags?: Set<string>;
 }
 
 /**
@@ -85,6 +86,8 @@ export interface PollResult {
   confirmed: number;
   /** Send-flow confirmation whose TOKEN didn't match any OutreachMessage. */
   confirmUnmatched: number;
+  /** This app's own OUTREACH-SEND-REQUEST mail, skipped without parsing. */
+  skippedOwnRequests: number;
   errors: { uid: number; error: string }[];
   /** True if this run stopped early because of SC26_IMAP_POLL_MAX_MESSAGES. */
   truncated: boolean;
@@ -101,7 +104,19 @@ export interface PollResult {
 // gets drained a bit at a time across multiple 5-minute-interval runs
 // instead of in one long one (the cursor already supports this --
 // `truncated: true` below is exactly this case).
-const DEFAULT_MAX_MESSAGES_PER_POLL = 25;
+const DEFAULT_MAX_MESSAGES_PER_POLL = 150;
+
+// How many UIDs each envelope scan covers. Envelopes are small, so this can
+// be generous; it bounds the size of each individual IMAP FETCH command.
+const ENVELOPE_CHUNK = 100;
+
+// Wall-clock budget for draining, measured from the start of the poll. Kept
+// well inside the 30s stage timeout below (and Render's proxy timeout) so a
+// run always finishes cleanly and saves its cursor rather than being cut off.
+const PROCESS_BUDGET_MS = 15_000;
+
+// Gmail keyword marking a message that failed once and is being retried.
+const RETRY_KEYWORD = "OutreachRetry";
 
 export async function pollImapForReplies(): Promise<PollResult> {
   const host = process.env.SC26_IMAP_HOST || "imap.gmail.com";
@@ -119,6 +134,7 @@ export async function pollImapForReplies(): Promise<PollResult> {
     ownMailbox: 0,
     confirmed: 0,
     confirmUnmatched: 0,
+    skippedOwnRequests: 0,
     errors: [],
     truncated: false,
   };
@@ -184,97 +200,144 @@ export async function pollImapForReplies(): Promise<PollResult> {
           }
           log(`cursor loaded: lastUid=${cursor.lastUid}`);
 
-          const startUid = cursor.lastUid + 1;
-          let maxUidSeen = cursor.lastUid;
-
-          // UIDNEXT is "one past the highest UID the server currently has",
-          // so uidNext - 1 is the highest UID that can possibly exist right
-          // now. Bounding the fetch to that (capped further by maxMessages)
-          // keeps the actual IMAP FETCH command itself small -- an
-          // open-ended "N:*" range asks Gmail to stream the *entire*
-          // remaining mailbox regardless of how few messages we intend to
-          // process, which is what was blowing through the 30s stage
-          // timeout on a mailbox with real history. The client-side
-          // `message.uid <= cursor.lastUid` guard below still exists as a
-          // belt-and-suspenders check, not as the thing doing the bounding.
+          // Drains the backlog in chunks for as long as the time budget
+          // allows, instead of handling one fixed-size chunk per run. The
+          // scheduled caller (GitHub Actions cron) has proven to run only
+          // every few HOURS in practice rather than every 5 minutes, so a
+          // single 25-message chunk per run let confirmations pile up for
+          // days -- every prospect behind the backlog showed "Retry -- not
+          // confirmed" even though their email had gone out.
+          //
+          // Each chunk is two IMAP round-trips: envelopes first (cheap), to
+          // skip this app's own OUTREACH-SEND-REQUEST mail -- which lands in
+          // this same inbox, one per send, and used to eat half of every
+          // chunk -- then full sources only for the messages worth parsing.
+          // Both generators are fully consumed before any other command is
+          // issued on the connection (see the \Seen comment below for why
+          // that matters).
+          let processedUpTo = cursor.lastUid;
+          let stopReason: "caught-up" | "budget" | "error" = "caught-up";
           const highestPossibleUid = Number(status.uidNext) - 1;
-          const endUid = Math.min(highestPossibleUid, startUid + maxMessages - 1);
-          log(`fetch range computed: ${startUid}:${endUid} (highestPossibleUid=${highestPossibleUid})`);
+          const seenUids: number[] = [];
+          const retryTagUids: number[] = [];
 
-          if (endUid >= startUid) {
-            // Populated by processMessage() as each message is handled, and
-            // flagged \Seen in ONE batched command after the loop below
-            // exits -- NOT per-message, inside the loop. imapflow's
-            // client.fetch() above returns an async generator that is still
-            // mid-flight (the IMAP FETCH command hasn't gotten its tagged OK
-            // yet) for as long as we're iterating it. Issuing another
-            // command on the same connection (messageFlagsAdd) from inside
-            // that iteration queues behind the still-open FETCH, which
-            // itself won't complete until we resume consuming the
-            // generator -- and since our code was `await`-ing that queued
-            // command before continuing the loop, both sides waited on each
-            // other forever. That's exactly what production logs showed:
-            // every message hung for the full 8s per-message timeout before
-            // being abandoned, and only started succeeding once enough
-            // abandoned commands had drained out of the queue in the
-            // background. Doing it once, after the generator is fully
-            // consumed, avoids the deadlock entirely.
-            const seenUids: number[] = [];
+          while (processedUpTo < highestPossibleUid) {
+            if (Date.now() - pollStartedAt > PROCESS_BUDGET_MS || result.checked >= maxMessages) {
+              stopReason = "budget";
+              break;
+            }
 
-            for await (const message of client.fetch(`${startUid}:${endUid}`, { source: true }, { uid: true })) {
-              log(`fetched uid=${message.uid} (${message.source?.length ?? 0} bytes)`);
-              if (message.uid <= cursor.lastUid) continue;
+            const startUid = processedUpTo + 1;
+            const endUid = Math.min(highestPossibleUid, startUid + ENVELOPE_CHUNK - 1);
+            log(`envelope range ${startUid}:${endUid}`);
 
-              if (result.checked >= maxMessages) {
-                result.truncated = true;
-                break; // Cursor only advances over what was actually processed below.
+            const wanted: number[] = [];
+            let chunkMaxUid = processedUpTo;
+            for await (const env of client.fetch(`${startUid}:${endUid}`, { envelope: true }, { uid: true })) {
+              if (env.uid <= processedUpTo) continue;
+              chunkMaxUid = Math.max(chunkMaxUid, env.uid);
+              const subject = env.envelope?.subject || "";
+              if (subject.includes(SEND_REQUEST_SUBJECT)) {
+                result.skippedOwnRequests++;
+                continue;
               }
+              wanted.push(env.uid);
+            }
 
-              result.checked++;
-              maxUidSeen = Math.max(maxUidSeen, message.uid);
+            // Only fetch as many full messages as this run is still allowed
+            // to process; anything past that waits for the next run.
+            const room = Math.max(0, maxMessages - result.checked);
+            const toFetch = wanted.slice(0, room);
+            const deferredFrom = wanted.length > room ? wanted[room] : null;
 
-              const messageStartedAt = Date.now();
-              try {
-                // Bounded per-message too -- a single unusually large or
-                // malformed message (mailparser choking on it, say) would
-                // otherwise be able to eat the entire remaining stage budget
-                // by itself, taking every message behind it down with it.
-                await withTimeout(
-                  processMessage(message, { ownMailbox, result, client, seenUids }),
-                  8_000,
-                  `process message uid=${message.uid}`
-                );
-                log(`processed uid=${message.uid} in ${Date.now() - messageStartedAt}ms`);
-              } catch (err) {
-                log(`error on uid=${message.uid} after ${Date.now() - messageStartedAt}ms: ${err instanceof Error ? err.message : String(err)}`);
-                result.errors.push({ uid: message.uid, error: err instanceof Error ? err.message : String(err) });
+            let firstFailedUid: number | null = null;
+            let outOfTimeAtUid: number | null = null;
+            if (toFetch.length > 0) {
+              const fetched: RelayMailMessage[] = [];
+              for await (const message of client.fetch(toFetch.join(","), { source: true, flags: true }, { uid: true })) {
+                fetched.push(message as RelayMailMessage);
+              }
+              fetched.sort((x, y) => x.uid - y.uid);
+
+              for (const message of fetched) {
+                if (Date.now() - pollStartedAt > PROCESS_BUDGET_MS) {
+                  outOfTimeAtUid = message.uid;
+                  break;
+                }
+                result.checked++;
+                const messageStartedAt = Date.now();
+                try {
+                  await withTimeout(
+                    processMessage(message, { ownMailbox, result, client, seenUids }),
+                    8_000,
+                    `process message uid=${message.uid}`
+                  );
+                  log(`processed uid=${message.uid} in ${Date.now() - messageStartedAt}ms`);
+                } catch (err) {
+                  const error = err instanceof Error ? err.message : String(err);
+                  log(`error on uid=${message.uid}: ${error}`);
+                  result.errors.push({ uid: message.uid, error });
+                  // Stop here and leave the cursor just before this message
+                  // so the next run retries it. Previously the cursor moved
+                  // past failed messages, permanently losing any
+                  // confirmation that hit a transient error (DB hiccup,
+                  // cold start). To avoid wedging forever on a message that
+                  // can never be processed, the first failure tags it with a
+                  // Gmail keyword; a message that fails again while already
+                  // tagged is skipped.
+                  if (!message.flags?.has(RETRY_KEYWORD)) {
+                    retryTagUids.push(message.uid);
+                    firstFailedUid = message.uid;
+                    break;
+                  }
+                  log(`uid=${message.uid} failed on retry too -- skipping it`);
+                }
               }
             }
-            log("fetch loop finished");
 
-            if (seenUids.length > 0) {
-              // Best-effort cosmetic touch so the mailbox itself shows
-              // progress if you glance at it in Gmail -- the UID cursor is
-              // what actually prevents reprocessing, so a failure here
-              // doesn't count as a poll error.
-              await withTimeout(
-                client.messageFlagsAdd(seenUids, ["\\Seen"], { uid: true }),
-                5_000,
-                "mark messages seen"
-              ).catch((err) => log(`failed to mark messages seen (non-fatal): ${err instanceof Error ? err.message : String(err)}`));
-              log(`marked ${seenUids.length} message(s) seen`);
+            if (firstFailedUid !== null) {
+              processedUpTo = firstFailedUid - 1;
+              stopReason = "error";
+              break;
             }
-
-            // The server may have more mail past what we bounded this poll
-            // to -- flag it as truncated so the next run's cursor picks up
-            // where this one left off, same as the client-side cap did.
-            if (highestPossibleUid > endUid) {
-              result.truncated = true;
+            if (outOfTimeAtUid !== null) {
+              processedUpTo = outOfTimeAtUid - 1;
+              stopReason = "budget";
+              break;
             }
-          } else {
-            log("nothing new to fetch (endUid < startUid)");
+            if (deferredFrom !== null) {
+              processedUpTo = deferredFrom - 1;
+              stopReason = "budget";
+              break;
+            }
+            processedUpTo = chunkMaxUid > processedUpTo ? chunkMaxUid : endUid;
           }
 
+          result.truncated = processedUpTo < highestPossibleUid;
+          log(`loop finished (${stopReason}), processed through uid=${processedUpTo} of ${highestPossibleUid}`);
+
+          if (seenUids.length > 0) {
+            // Best-effort cosmetic touch so the mailbox itself shows progress
+            // if you glance at it in Gmail -- the UID cursor is what actually
+            // prevents reprocessing. Issued once, after every fetch generator
+            // above is fully consumed: issuing it mid-iteration deadlocked
+            // behind the still-open FETCH in production.
+            await withTimeout(
+              client.messageFlagsAdd(seenUids, ["\\Seen"], { uid: true }),
+              5_000,
+              "mark messages seen"
+            ).catch((err) => log(`failed to mark messages seen (non-fatal): ${err instanceof Error ? err.message : String(err)}`));
+          }
+
+          if (retryTagUids.length > 0) {
+            await withTimeout(
+              client.messageFlagsAdd(retryTagUids, [RETRY_KEYWORD], { uid: true }),
+              5_000,
+              "tag message for retry"
+            ).catch((err) => log(`failed to tag message for retry (non-fatal): ${err instanceof Error ? err.message : String(err)}`));
+          }
+
+          const maxUidSeen = processedUpTo;
           if (maxUidSeen > cursor.lastUid) {
             await prisma.imapPollCursor.update({ where: { mailbox: user }, data: { lastUid: maxUidSeen } });
             log(`cursor advanced to lastUid=${maxUidSeen}`);

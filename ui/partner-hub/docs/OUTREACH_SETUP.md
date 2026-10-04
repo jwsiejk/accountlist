@@ -136,6 +136,12 @@ through that particular flow.
    wired up as a GitHub Actions scheduled workflow
    (`.github/workflows/outreach-imap-poll.yml`, every 5 minutes). That workflow needs a repo
    secret `SC26_OUTREACH_CRON_SECRET` matching the `CRON_SECRET` env var set on Render.
+   GitHub treats that schedule as best-effort and in practice has run it hours apart, so each
+   run keeps calling the endpoint until the response no longer says `truncated: true`, and each
+   call drains as much of the relay inbox as fits in ~15 seconds (skipping this app's own
+   `OUTREACH-SEND-REQUEST` mail without parsing it). If confirmations still lag, point an
+   external scheduler (a Render Cron Job or cron-job.org) at the same endpoint with the same
+   bearer token, or click "Run workflow" on the workflow's Actions page to drain on demand.
 
 Once deployed with `NEXT_PUBLIC_ENABLE_SC26_OUTREACH=true`, the **Outreach** link appears in the
 left nav. Create a campaign, add a template, import a CSV of prospects, and send.

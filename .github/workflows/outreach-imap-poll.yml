@@ -21,17 +21,30 @@ jobs:
     # per-stage timeouts (imap-poller.ts) -- this bounds the job even
     # against a hang at the network layer between here and Render, not
     # just inside the app's own IMAP handling.
-    timeout-minutes: 5
+    # Each call drains as much of the relay inbox as fits in one request
+    # (see pollImapForReplies), and this job keeps calling while the response
+    # says more is waiting. GitHub runs this schedule far less often than
+    # every 5 minutes in practice (hours apart has been observed), so each
+    # run needs to clear the whole backlog rather than one slice of it.
+    timeout-minutes: 15
     steps:
-      - name: Call imap-poll endpoint
+      - name: Call imap-poll endpoint until caught up
         run: |
-          status=$(curl -s -o response.txt -w "%{http_code}" -X POST \
-            --max-time 180 \
-            -H "Authorization: Bearer ${{ secrets.SC26_OUTREACH_CRON_SECRET }}" \
-            "https://outreach-bg3g.onrender.com/partner-hub/api/outreach/imap-poll")
-          echo "HTTP status: $status"
-          cat response.txt
-          if [ "$status" -ge 300 ]; then
-            echo "::error::imap-poll returned HTTP $status -- check that the SC26_OUTREACH_CRON_SECRET repo secret matches the CRON_SECRET env var set on Render."
-            exit 1
-          fi
+          for i in $(seq 1 25); do
+            status=$(curl -s -o response.txt -w "%{http_code}" -X POST \
+              --max-time 180 \
+              -H "Authorization: Bearer ${{ secrets.SC26_OUTREACH_CRON_SECRET }}" \
+              "https://outreach-bg3g.onrender.com/partner-hub/api/outreach/imap-poll")
+            echo "Call $i -- HTTP status: $status"
+            cat response.txt; echo
+            if [ "$status" -ge 300 ]; then
+              echo "::error::imap-poll returned HTTP $status -- check that the SC26_OUTREACH_CRON_SECRET repo secret matches the CRON_SECRET env var set on Render."
+              exit 1
+            fi
+            if ! grep -q '"truncated":true' response.txt; then
+              echo "Relay inbox caught up."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::warning::Still more relay mail after 25 calls; the next run will continue."
