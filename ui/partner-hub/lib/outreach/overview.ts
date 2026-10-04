@@ -1,5 +1,14 @@
 import { prisma } from "@/lib/db";
-import { computeSequence, DEFAULT_DELAYS, summarizeBatch, type Engagement, type ProspectStatusName } from "@/lib/outreach/sequence";
+import {
+  computeSequence,
+  contactHealth,
+  deliveredAtFromEvents,
+  DEFAULT_DELAYS,
+  stopSignalFromEvents,
+  summarizeBatch,
+  type Engagement,
+  type ProspectStatusName,
+} from "@/lib/outreach/sequence";
 import type { BatchOverview, CampaignOverview, ContactRow } from "./overviewTypes";
 
 export type { BatchOverview, CampaignOverview, ContactRow } from "./overviewTypes";
@@ -51,7 +60,16 @@ export async function getCampaignOverview(campaignId: number, now: Date = new Da
   const rows: ContactRow[] = prospects.map((p) => {
     const status = p.status as ProspectStatusName;
     const sequence = computeSequence(
-      { status, messages: p.messages.map((m) => ({ step: m.step, sentAt: m.sentAt, createdAt: m.createdAt })) },
+      {
+        status,
+        messages: p.messages.map((m) => ({
+          step: m.step,
+          sentAt: m.sentAt,
+          createdAt: m.createdAt,
+          deliveredAt: deliveredAtFromEvents(m.events),
+        })),
+        stopSignal: stopSignalFromEvents(p.messages.flatMap((m) => m.events)),
+      },
       delays,
       now
     );
@@ -80,6 +98,7 @@ export async function getCampaignOverview(campaignId: number, now: Date = new Da
       title: p.title,
       status,
       sequence,
+      health: contactHealth(sequence),
       engagement,
       lastActivityAt,
       createdAt: p.createdAt,

@@ -24,6 +24,7 @@ function contact(over: Partial<ContactRow> & { status: ProspectStatusName; sent?
     company: "Analytical Engines",
     title: null,
     sequence: computeSequence({ status: rest.status, messages }, undefined, NOW),
+    health: "on_track",
     engagement: { opened: false, clicked: false, replied: false },
     lastActivityAt: null,
     createdAt: NOW,

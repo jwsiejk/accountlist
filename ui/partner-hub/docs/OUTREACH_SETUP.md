@@ -41,6 +41,20 @@ shows the same data as a shareable summary.
   the tagged template automatically (it can still be edited in the review step).
 - **A send request that is never confirmed** by the send-flow within an hour stops blocking its
   step, and the cell shows "Retry — not confirmed", so a failed relay doesn't strand a contact.
+- **Views by health.** The Batches tab splits contacts into *Needs attention* (a send was
+  requested but never confirmed or seen to arrive), *Sending now*, *Sent — all good*, and *Not
+  started*, so troubleshooting never mixes with contacts that are fine. Selecting, "select all"
+  and row actions only ever apply to the view on screen. It opens on *Needs attention* when
+  anything is in it.
+- **Duplicate-send protection.** Whether an email went out is decided from the history, never the
+  status label: a confirmation, a hand-marked send, or any open/click (even an automated scan --
+  only a delivered email can be scanned) all lock that email for that contact. A recorded reply
+  or bounce stops the sequence even if "Reset to Pending" is clicked. Resending to a contact whose
+  earlier request was never confirmed requires ticking "I checked Sent Items"; if it *is* in Sent
+  Items, use **Mark as sent** instead.
+- **Paced sending.** The dashboard sends 5 contacts per request with a 30-second pause between
+  requests (the send route rejects more than 5 at once). On Oct 1 the Power Automate send-flow
+  completed only ~15 of 74 requests queued in the same second.
 - **Moving contacts** between batches only changes the contact's batch: their messages, tracking
   events and sequence progress travel with them. Deleting a batch leaves its contacts in the
   campaign as "Unassigned" (nothing is deleted).

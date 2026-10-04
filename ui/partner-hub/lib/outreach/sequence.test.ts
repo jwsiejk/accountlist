@@ -4,7 +4,10 @@ import test from "node:test";
 import {
   checkSendable,
   computeSequence,
+  contactHealth,
+  deliveredAtFromEvents,
   QUEUED_GRACE_MS,
+  stopSignalFromEvents,
   summarizeBatch,
   type ProspectStatusName,
   type SequenceMessage,
@@ -123,4 +126,66 @@ test("summarizeBatch rolls up per-step counts, due counts and engagement", () =>
   assert.equal(summary.clicked, 1);
   assert.equal(summary.replied, 1);
   assert.equal(summary.bounced, 1);
+});
+
+// --- Duplicate-send protection -------------------------------------------
+
+test("an unconfirmed send that was opened or clicked counts as sent and can't be sent again", () => {
+  const queuedAt = new Date(NOW.getTime() - 3 * DAY);
+  const prospect = {
+    status: "OPENED" as const,
+    messages: [{ step: 1, sentAt: null, createdAt: queuedAt, deliveredAt: new Date(queuedAt.getTime() + 60_000) }],
+  };
+  const info = computeSequence(prospect, undefined, NOW).steps[0];
+  assert.equal(info.state, "sent");
+  assert.equal(info.evidence, "tracking");
+  assert.equal(checkSendable(prospect, 1, undefined, NOW).ok, false);
+});
+
+test("a reply in the history stops the sequence even after the status is reset to PENDING", () => {
+  const prospect = {
+    status: "PENDING" as const,
+    messages: [{ step: 1, sentAt: new Date(NOW.getTime() - 5 * DAY), createdAt: new Date(NOW.getTime() - 5 * DAY) }],
+    stopSignal: "REPLIED" as const,
+  };
+  const result = checkSendable(prospect, 2, undefined, NOW);
+  assert.equal(result.ok, false);
+  assert.match(result.ok ? "" : result.reason, /replied/);
+});
+
+test("a confirmed send stays unsendable after the status is reset to PENDING", () => {
+  const prospect = {
+    status: "PENDING" as const,
+    messages: [{ step: 1, sentAt: new Date(NOW.getTime() - DAY), createdAt: new Date(NOW.getTime() - DAY) }],
+  };
+  assert.equal(checkSendable(prospect, 1, undefined, NOW).ok, false);
+});
+
+test("deliveredAtFromEvents and stopSignalFromEvents read the history", () => {
+  const t1 = new Date("2026-10-01T14:08:15Z");
+  const t2 = new Date("2026-10-01T14:08:57Z");
+  assert.deepEqual(
+    deliveredAtFromEvents([
+      { type: "SEND_CONFIRMED", occurredAt: new Date("2026-10-01T14:00:00Z") },
+      { type: "CLICK", occurredAt: t2 },
+      { type: "OPEN", occurredAt: t1 },
+    ]),
+    t1
+  );
+  assert.equal(deliveredAtFromEvents([{ type: "SEND_CONFIRMED", occurredAt: t1 }]), null);
+  assert.equal(stopSignalFromEvents([{ type: "OPEN" }, { type: "BOUNCE" }]), "BOUNCED");
+  assert.equal(stopSignalFromEvents([{ type: "BOUNCE" }, { type: "REPLY" }]), "REPLIED");
+  assert.equal(stopSignalFromEvents([{ type: "CLICK" }]), null);
+});
+
+test("contactHealth separates contacts that need attention from ones that are fine", () => {
+  const old = new Date(NOW.getTime() - 3 * DAY);
+  const health = (messages: { step: number; sentAt: Date | null; createdAt: Date; deliveredAt?: Date | null }[]) =>
+    contactHealth(computeSequence({ status: "SENDING", messages }, undefined, NOW));
+
+  assert.equal(health([{ step: 1, sentAt: null, createdAt: old }]), "attention");
+  assert.equal(health([{ step: 1, sentAt: null, createdAt: new Date(NOW.getTime() - 60_000) }]), "in_flight");
+  assert.equal(health([{ step: 1, sentAt: old, createdAt: old }]), "on_track");
+  assert.equal(health([{ step: 1, sentAt: null, createdAt: old, deliveredAt: old }]), "on_track");
+  assert.equal(health([]), "not_started");
 });
