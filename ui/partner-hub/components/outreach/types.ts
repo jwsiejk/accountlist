@@ -14,7 +14,12 @@ export interface StepInfo {
   sentAt: string | null;
   dueAt: string | null;
   unconfirmed: boolean;
+  /** For "sent": confirmed by the send-flow (or by hand), or only proven by an open/click. */
+  evidence?: "confirmed" | "tracking";
 }
+
+/** Which view a contact belongs in -- see contactHealth() in lib/outreach/sequence.ts. */
+export type ContactHealth = "attention" | "in_flight" | "on_track" | "not_started";
 
 export type SequenceStatus = "not_started" | "in_progress" | "complete" | "replied" | "bounced";
 
@@ -28,6 +33,7 @@ export interface Contact {
   title: string | null;
   status: ProspectStatus;
   sequence: { steps: StepInfo[]; nextStep: 1 | 2 | 3 | null; status: SequenceStatus };
+  health: ContactHealth;
   engagement: { opened: boolean; clicked: boolean; replied: boolean };
   lastActivityAt: string | null;
   createdAt: string;

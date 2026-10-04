@@ -10,7 +10,15 @@ import { previewMerge, PLACEHOLDER_HINT } from "./mergePreview";
 import { HistoryTimeline, type HistoryState } from "./HistoryTimeline";
 import { StepCell } from "./SequenceCells";
 import type { Template } from "./TemplatesPanel";
-import { browserTimeZone, contactName, type BatchOverview, type Contact, type Overview, type ProspectStatus } from "./types";
+import {
+  browserTimeZone,
+  contactName,
+  type BatchOverview,
+  type Contact,
+  type ContactHealth,
+  type Overview,
+  type ProspectStatus,
+} from "./types";
 
 const STATUS_STYLES: Record<ProspectStatus, string> = {
   PENDING: "bg-muted text-foreground/60",
@@ -28,6 +36,31 @@ type View = number | "unassigned" | "all";
 
 const viewOf = (b: BatchOverview): View => (b.id === null ? "unassigned" : b.id);
 
+/** Which contacts are on screen by health, so troubleshooting never mixes with contacts that are fine. */
+type HealthView = ContactHealth | "all";
+
+const HEALTH_VIEWS: { id: HealthView; label: string; hint: string }[] = [
+  {
+    id: "attention",
+    label: "Needs attention",
+    hint: "A send was requested but never confirmed or seen to arrive. Check Sent Items, then resend or mark as sent.",
+  },
+  { id: "in_flight", label: "Sending now", hint: "Requested in the last hour, waiting for the send-flow to confirm." },
+  {
+    id: "on_track",
+    label: "Sent — all good",
+    hint: "Every email requested so far went out. These contacts can't be sent the same email again.",
+  },
+  { id: "not_started", label: "Not started", hint: "Nothing sent yet." },
+  { id: "all", label: "Everyone", hint: "" },
+];
+
+/** Contacts per send request, and the pause between requests, so the send-flow isn't hit with a burst. */
+const SEND_CHUNK_SIZE = 5;
+const SEND_CHUNK_PAUSE_MS = 30_000;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 /**
  * Batches tab. Campaign -> Batch -> contacts, with Email 1 -> 2 -> 3 progress
  * per contact. From here you import a CSV into a batch (new or existing), send
@@ -40,6 +73,10 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
   const [templateId, setTemplateId] = useState<number | "">("");
   const [sendStep, setSendStep] = useState<SendStep>(1);
   const [view, setView] = useState<View>("all");
+  const [healthView, setHealthView] = useState<HealthView>("all");
+  const [unverifiedChecked, setUnverifiedChecked] = useState(false);
+  const [sendProgress, setSendProgress] = useState<string | null>(null);
+  const cancelSendRef = useRef(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -122,6 +159,9 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
       // First load: open on the newest real batch (that's the one being worked on).
       if (!didPickInitialView.current) {
         didPickInitialView.current = true;
+        // ...and if anything needs attention, start on that view, so it's
+        // dealt with apart from the contacts that are fine.
+        if (next.batches.some((b) => b.contacts.some((c) => c.health === "attention"))) setHealthView("attention");
         const real = next.batches.filter((b) => b.id !== null);
         if (real.length > 0) setView(real[real.length - 1].id as number);
       }
@@ -176,9 +216,22 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
 
   const batches = useMemo(() => overview?.batches ?? [], [overview]);
   const realBatches = useMemo(() => batches.filter((b) => b.id !== null), [batches]);
+  const healthCounts = useMemo(() => {
+    const inBatchView = view === "all" ? batches : batches.filter((b) => viewOf(b) === view);
+    const counts: Record<HealthView, number> = { attention: 0, in_flight: 0, on_track: 0, not_started: 0, all: 0 };
+    for (const c of inBatchView.flatMap((b) => b.contacts)) {
+      counts[c.health]++;
+      counts.all++;
+    }
+    return counts;
+  }, [batches, view]);
   const visibleBatches = useMemo(
-    () => (view === "all" ? batches : batches.filter((b) => viewOf(b) === view)),
-    [batches, view]
+    () =>
+      (view === "all" ? batches : batches.filter((b) => viewOf(b) === view))
+        .map((b) => (healthView === "all" ? b : { ...b, contacts: b.contacts.filter((c) => c.health === healthView) }))
+        // Keep empty batches visible only in the unfiltered view.
+        .filter((b) => healthView === "all" || b.contacts.length > 0),
+    [batches, view, healthView]
   );
   const allContacts = useMemo(() => batches.flatMap((b) => b.contacts), [batches]);
   const visibleContacts = useMemo(() => visibleBatches.flatMap((b) => b.contacts), [visibleBatches]);
@@ -191,6 +244,10 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
   const sendable = selectedContacts.filter(canSend);
   const skippedCount = selectedContacts.length - sendable.length;
   const readyInView = visibleContacts.filter((c) => c.sequence.steps[sendStep - 1]?.state === "due");
+  // Contacts about to be re-sent an email whose earlier request was never
+  // confirmed: the app can't prove it didn't arrive, so the person has to
+  // say they checked.
+  const unverifiedResends = sendable.filter((c) => c.sequence.steps[sendStep - 1]?.unconfirmed);
 
   const selectedTemplate = templates.find((t) => t.id === templateId);
   const previewContact = sendable[0];
@@ -204,6 +261,14 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
       ),
     [draftHtml, previewContact]
   );
+
+  function changeHealthView(next: HealthView) {
+    setHealthView(next);
+    setSelected(new Set());
+    setExpandedId(null);
+    setReviewOpen(false);
+    setMessage(null);
+  }
 
   function changeView(next: View) {
     setView(next);
@@ -424,40 +489,93 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
     setDraftSubject(selectedTemplate.subject);
     setDraftHtml(selectedTemplate.html);
     setMessage(null);
+    setUnverifiedChecked(false);
     setReviewOpen(true);
   }
 
   async function handleConfirmSend() {
     if (sendable.length === 0 || templateId === "") return;
+    if (unverifiedResends.length > 0 && !unverifiedChecked) return;
     setSending(true);
     setMessage(null);
+    cancelSendRef.current = false;
+
+    // Small chunks with a pause between them: the send-flow drops most of a
+    // large burst (see the send route's MAX_PROSPECTS_PER_SEND).
+    const ids = sendable.map((c) => c.id);
+    const chunks: number[][] = [];
+    for (let i = 0; i < ids.length; i += SEND_CHUNK_SIZE) chunks.push(ids.slice(i, i + SEND_CHUNK_SIZE));
+
+    let queued = 0;
+    const failures: string[] = [];
+    let stoppedEarly = false;
     try {
-      const { data } = await postJson("/api/outreach/send", {
-        campaignId,
-        prospectIds: sendable.map((c) => c.id),
-        templateId,
-        step: sendStep,
-        subject: draftSubject,
-        html: draftHtml,
-      });
-      if (data?.ok) {
-        const failed = data.results.filter((r: { ok: boolean }) => !r.ok);
-        const reasons = Array.from(new Set(failed.map((r: { error?: string }) => r.error).filter(Boolean)));
-        setMessage(
-          failed.length
-            ? `Email ${sendStep}: queued ${data.results.length - failed.length}, ${failed.length} not sent${
-                reasons.length ? ` (${reasons.join("; ")})` : ""
-              }.`
-            : `Email ${sendStep}: queued ${data.results.length} send request(s) — each moves to "Sent" once confirmed.`
-        );
-        setSelected(new Set());
-        setReviewOpen(false);
+      for (let i = 0; i < chunks.length; i++) {
+        if (cancelSendRef.current) {
+          stoppedEarly = true;
+          break;
+        }
+        setSendProgress(`Sending ${Math.min((i + 1) * SEND_CHUNK_SIZE, ids.length)} of ${ids.length}…`);
+        const { data } = await postJson("/api/outreach/send", {
+          campaignId,
+          prospectIds: chunks[i],
+          templateId,
+          step: sendStep,
+          subject: draftSubject,
+          html: draftHtml,
+          confirmUnverified: unverifiedChecked,
+        });
+        if (!data?.ok) {
+          failures.push(data?.error ?? "unexpected response");
+          stoppedEarly = true;
+          break;
+        }
+        for (const r of data.results as { ok: boolean; error?: string }[]) {
+          if (r.ok) queued++;
+          else if (r.error) failures.push(r.error);
+        }
         refresh();
-      } else {
-        setMessage(`Send failed: ${data?.error ?? "unexpected response"}`);
+        if (i < chunks.length - 1) {
+          for (let waited = 0; waited < SEND_CHUNK_PAUSE_MS && !cancelSendRef.current; waited += 1_000) {
+            setSendProgress(
+              `Queued ${queued} of ${ids.length}. Next ${Math.min(SEND_CHUNK_SIZE, ids.length - (i + 1) * SEND_CHUNK_SIZE)} in ${Math.ceil(
+                (SEND_CHUNK_PAUSE_MS - waited) / 1000
+              )}s — keep this page open.`
+            );
+            await sleep(1_000);
+          }
+        }
       }
     } finally {
+      const reasons = Array.from(new Set(failures));
+      const notSent = ids.length - queued;
+      setMessage(
+        `Email ${sendStep}: queued ${queued} of ${ids.length}${notSent ? `, ${notSent} not sent` : ""}${
+          stoppedEarly && cancelSendRef.current ? " (stopped by you)" : ""
+        }${reasons.length ? ` — ${reasons.join("; ")}` : ""}. Each moves to "Sent" once confirmed.`
+      );
+      setSendProgress(null);
       setSending(false);
+      setSelected(new Set());
+      setReviewOpen(false);
+      refresh();
+    }
+  }
+
+  async function handleMarkSent(contact: Contact) {
+    const step = contact.sequence.steps.find((s) => s.unconfirmed && (s.state === "due" || s.state === "scheduled"))?.step;
+    if (!step) return;
+    const ok = window.confirm(
+      `Mark Email ${step} to ${contactName(contact)} as sent?\n\nOnly do this if you found it in the DDN mailbox's Sent Items. It locks this contact so Email ${step} can never be sent to them again.`
+    );
+    if (!ok) return;
+    setMessage(null);
+    const { data } = await postJson("/api/outreach/mark-sent", { prospectId: contact.id, step });
+    if (data?.ok) {
+      setMessage(`Marked Email ${step} to ${contactName(contact)} as sent.`);
+      refresh();
+    } else {
+      setMessage(`Couldn't mark as sent: ${data?.error ?? "unexpected response"}`);
     }
   }
 
@@ -580,6 +698,31 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
             <Plus className="h-4 w-4" /> New batch
           </Button>
         )}
+      </div>
+
+      {/* Health views: keep contacts that are fine apart from the ones being troubleshot */}
+      <div className="space-y-1.5">
+        <div className="inline-flex flex-wrap gap-1 rounded-lg border border-border/60 bg-muted/30 p-1">
+          {HEALTH_VIEWS.map((h) => (
+            <button
+              key={h.id}
+              type="button"
+              onClick={() => changeHealthView(h.id)}
+              title={h.hint || undefined}
+              className={clsx(
+                "rounded-md px-3 py-1.5 text-sm font-medium transition",
+                healthView === h.id ? "bg-background text-foreground shadow-sm" : "text-foreground/60 hover:text-foreground",
+                h.id === "attention" && healthCounts.attention > 0 && healthView !== h.id && "text-amber-700 dark:text-amber-400"
+              )}
+            >
+              {h.label}
+              <span className="ml-1.5 text-xs opacity-70">{healthCounts[h.id]}</span>
+            </button>
+          ))}
+        </div>
+        {healthView !== "all" ? (
+          <p className="text-xs text-foreground/60">{HEALTH_VIEWS.find((h) => h.id === healthView)?.hint}</p>
+        ) : null}
       </div>
 
       {/* Sequence timing */}
@@ -793,11 +936,53 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
             </div>
           </div>
 
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" size="md" onClick={() => setReviewOpen(false)}>
-              Cancel
-            </Button>
-            <Button size="md" onClick={handleConfirmSend} disabled={sending || sendable.length === 0}>
+          {unverifiedResends.length > 0 ? (
+            <div className="space-y-2 rounded-lg border border-amber-400 bg-amber-50 p-3 text-sm dark:bg-amber-950/40">
+              <p className="font-medium text-amber-900 dark:text-amber-200">
+                {unverifiedResends.length} of these had an earlier Email {sendStep} request that was never confirmed
+              </p>
+              <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
+                Nothing shows it arrived (no confirmation, open or click), but the app can&apos;t be certain. Check the DDN
+                mailbox&apos;s Sent Items first; for anyone you find there, cancel and use &quot;Mark as sent&quot; instead.
+              </p>
+              <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
+                {unverifiedResends
+                  .slice(0, 12)
+                  .map((c) => contactName(c))
+                  .join(", ")}
+                {unverifiedResends.length > 12 ? `, and ${unverifiedResends.length - 12} more` : ""}
+              </p>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={unverifiedChecked} onChange={(e) => setUnverifiedChecked(e.target.checked)} />
+                I checked Sent Items — these did not go out
+              </label>
+            </div>
+          ) : null}
+
+          {sendable.length > SEND_CHUNK_SIZE ? (
+            <p className="text-xs text-foreground/60">
+              Sends {SEND_CHUNK_SIZE} at a time with a {SEND_CHUNK_PAUSE_MS / 1000}s pause, so the send-flow isn&apos;t
+              overloaded — about {Math.ceil(((Math.ceil(sendable.length / SEND_CHUNK_SIZE) - 1) * SEND_CHUNK_PAUSE_MS) / 60_000)} min.
+              Keep this page open until it finishes.
+            </p>
+          ) : null}
+
+          <div className="flex items-center justify-end gap-2">
+            {sendProgress ? <span className="mr-auto text-xs text-foreground/70">{sendProgress}</span> : null}
+            {sending ? (
+              <Button variant="ghost" size="md" onClick={() => (cancelSendRef.current = true)}>
+                Stop after this chunk
+              </Button>
+            ) : (
+              <Button variant="ghost" size="md" onClick={() => setReviewOpen(false)}>
+                Cancel
+              </Button>
+            )}
+            <Button
+              size="md"
+              onClick={handleConfirmSend}
+              disabled={sending || sendable.length === 0 || (unverifiedResends.length > 0 && !unverifiedChecked)}
+            >
               {sending ? "Sending…" : `Send Email ${sendStep} to ${sendable.length}`}
             </Button>
           </div>
@@ -907,16 +1092,28 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
                           >
                             {expandedId === p.id ? "Hide history" : "History"}
                           </button>
-                          {p.status !== "PENDING" ? (
-                            <button
-                              type="button"
-                              onClick={() => handleReset(p.id)}
-                              disabled={resettingIds.has(p.id)}
-                              title="Reset the status to Pending — use it if a send got stuck or failed, or to resume the sequence after a reply or bounce was logged by mistake. Email history is kept."
-                              className="ml-3 text-xs font-medium text-foreground/60 underline decoration-dotted hover:text-foreground disabled:opacity-50"
-                            >
-                              {resettingIds.has(p.id) ? "Resetting…" : "Reset to Pending"}
-                            </button>
+                          {p.health === "attention" ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleMarkSent(p)}
+                                title="Found it in Sent Items? Record it as sent so it's never sent again."
+                                className="ml-3 text-xs font-medium text-foreground/60 underline decoration-dotted hover:text-foreground"
+                              >
+                                Mark as sent
+                              </button>
+                              {p.status !== "PENDING" ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleReset(p.id)}
+                                  disabled={resettingIds.has(p.id)}
+                                  title="Changes the status label back to Pending. It can't make an email that went out, or a contact who replied or bounced, sendable again -- those are decided from the history."
+                                  className="ml-3 text-xs font-medium text-foreground/60 underline decoration-dotted hover:text-foreground disabled:opacity-50"
+                                >
+                                  {resettingIds.has(p.id) ? "Resetting…" : "Reset to Pending"}
+                                </button>
+                              ) : null}
+                            </>
                           ) : null}
                         </td>
                       </tr>
@@ -939,6 +1136,13 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
                 </Fragment>
               );
             })}
+            {hasContacts && healthView !== "all" && visibleContacts.length === 0 ? (
+              <tr>
+                <td colSpan={columnCount} className="px-3 py-6 text-center text-foreground/50">
+                  {healthView === "attention" ? "Nothing needs attention." : "No contacts in this view."}
+                </td>
+              </tr>
+            ) : null}
             {!loading && !hasContacts && batches.length === 0 ? (
               <tr>
                 <td colSpan={columnCount} className="px-3 py-6 text-center text-foreground/50">

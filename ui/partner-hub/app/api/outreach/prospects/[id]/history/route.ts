@@ -49,6 +49,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
           automated: meta?.automated === true,
           reason: typeof meta?.reason === "string" ? meta.reason : undefined,
           userAgent: typeof meta?.userAgent === "string" ? meta.userAgent : undefined,
+          manual: meta?.source === "manual",
         };
       }),
     }));

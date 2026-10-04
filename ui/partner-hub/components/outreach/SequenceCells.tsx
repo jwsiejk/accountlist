@@ -14,9 +14,14 @@ export function StepCell({ info }: { info: StepInfo }) {
       return (
         <span
           className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-950 dark:text-blue-300"
-          title={`Sent ${fullWhen(info.sentAt)}`}
+          title={
+            info.evidence === "tracking"
+              ? `Queued ${fullWhen(info.sentAt)}. The send-flow never confirmed it, but it was opened or clicked, so it arrived. It won't be sent again.`
+              : `Sent ${fullWhen(info.sentAt)}`
+          }
         >
           Sent {shortDay(info.sentAt)}
+          {info.evidence === "tracking" ? "*" : ""}
         </span>
       );
     case "queued":

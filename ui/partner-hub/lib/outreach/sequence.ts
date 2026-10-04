@@ -42,6 +42,46 @@ export interface SequenceMessage {
   sentAt: Date | null;
   /** When the send request was queued. */
   createdAt: Date;
+  /**
+   * Earliest open or click recorded for this message, automated scans
+   * included. A scanner or a person can only hit the tracking links of an
+   * email that actually arrived, so this is proof of delivery even when the
+   * send-flow's confirmation never came back -- and such a contact must
+   * never be offered the same email again.
+   */
+  deliveredAt?: Date | null;
+}
+
+/** What a prospect's recorded history says about stopping the sequence. */
+export type StopSignal = "REPLIED" | "BOUNCED" | null;
+
+export interface SequenceProspect {
+  status: ProspectStatusName;
+  messages: SequenceMessage[];
+  /**
+   * A reply or bounce found in the event history. Checked alongside
+   * `status` so that resetting the status label (the dashboard's Reset
+   * button) can never make a contact who replied or bounced eligible for
+   * the next email.
+   */
+  stopSignal?: StopSignal;
+}
+
+/** Earliest open/click time across a message's events (any verdict), or null. */
+export function deliveredAtFromEvents(events: { type: string; occurredAt: Date }[]): Date | null {
+  let earliest: Date | null = null;
+  for (const e of events) {
+    if (e.type !== "OPEN" && e.type !== "CLICK") continue;
+    if (!earliest || e.occurredAt < earliest) earliest = e.occurredAt;
+  }
+  return earliest;
+}
+
+/** A reply or bounce anywhere in a prospect's event history (reply wins). */
+export function stopSignalFromEvents(events: { type: string }[]): StopSignal {
+  if (events.some((e) => e.type === "REPLY")) return "REPLIED";
+  if (events.some((e) => e.type === "BOUNCE")) return "BOUNCED";
+  return null;
 }
 
 export interface SequenceDelays {
@@ -69,6 +109,11 @@ export interface StepInfo {
   state: StepState;
   /** Confirmed send time, when state is "sent". */
   sentAt: Date | null;
+  /**
+   * Why a "sent" step counts as sent: the send-flow confirmed it (or it was
+   * marked sent by hand), or only an open/click proves it arrived.
+   */
+  evidence?: "confirmed" | "tracking";
   /** When this email is/was suggested to go out; null for Email 1 or if unknown. */
   dueAt: Date | null;
   /**
@@ -94,11 +139,12 @@ export function delayDaysForStep(step: SequenceStep, delays: SequenceDelays): nu
 }
 
 export function computeSequence(
-  prospect: { status: ProspectStatusName; messages: SequenceMessage[] },
+  prospect: SequenceProspect,
   delays: SequenceDelays = DEFAULT_DELAYS,
   now: Date = new Date()
 ): SequenceState {
-  const stopped = prospect.status === "REPLIED" || prospect.status === "BOUNCED";
+  const stopReason = stopReasonOf(prospect);
+  const stopped = stopReason !== null;
   const steps: StepInfo[] = [];
 
   for (const step of SEQUENCE_STEPS) {
@@ -109,12 +155,22 @@ export function computeSequence(
     const confirmed = forStep
       .filter((m) => m.sentAt)
       .sort((a, b) => a.sentAt!.getTime() - b.sentAt!.getTime())[0];
+    // No confirmation, but an open/click proves it arrived: it's sent.
+    const tracked = confirmed
+      ? undefined
+      : forStep
+          .filter((m) => m.deliveredAt)
+          .sort((a, b) => a.deliveredAt!.getTime() - b.deliveredAt!.getTime())[0];
+    if (tracked) {
+      steps.push({ step, state: "sent", sentAt: tracked.createdAt, dueAt: null, unconfirmed: false, evidence: "tracking" });
+      continue;
+    }
     const unconfirmedMessages = forStep.filter((m) => !m.sentAt);
     const inFlight = unconfirmedMessages.some((m) => now.getTime() - m.createdAt.getTime() < QUEUED_GRACE_MS);
     const unconfirmed = !confirmed && !inFlight && unconfirmedMessages.length > 0;
 
     if (confirmed) {
-      steps.push({ step, state: "sent", sentAt: confirmed.sentAt, dueAt: null, unconfirmed: false });
+      steps.push({ step, state: "sent", sentAt: confirmed.sentAt, dueAt: null, unconfirmed: false, evidence: "confirmed" });
       continue;
     }
     if (inFlight) {
@@ -149,8 +205,8 @@ export function computeSequence(
   const nextStep = steps.find((s) => s.state === "due" || s.state === "scheduled")?.step ?? null;
 
   let status: SequenceStatus;
-  if (prospect.status === "REPLIED") status = "replied";
-  else if (prospect.status === "BOUNCED") status = "bounced";
+  if (stopReason === "REPLIED") status = "replied";
+  else if (stopReason === "BOUNCED") status = "bounced";
   else if (steps.every((s) => s.state === "sent")) status = "complete";
   else if (steps.some((s) => s.state === "sent" || s.state === "queued")) status = "in_progress";
   else status = "not_started";
@@ -164,7 +220,7 @@ export function computeSequence(
  * dashboard labels it), but never out of order, twice, or after a reply/bounce.
  */
 export function checkSendable(
-  prospect: { status: ProspectStatusName; messages: SequenceMessage[] },
+  prospect: SequenceProspect,
   step: SequenceStep,
   delays: SequenceDelays = DEFAULT_DELAYS,
   now: Date = new Date()
@@ -184,11 +240,34 @@ export function checkSendable(
       return {
         ok: false,
         reason:
-          prospect.status === "REPLIED"
+          stopReasonOf(prospect) === "REPLIED"
             ? "This contact replied, so the sequence is stopped."
             : "This contact's email bounced, so the sequence is stopped.",
       };
   }
+}
+
+function stopReasonOf(prospect: SequenceProspect): StopSignal {
+  if (prospect.status === "REPLIED" || prospect.stopSignal === "REPLIED") return "REPLIED";
+  if (prospect.status === "BOUNCED" || prospect.stopSignal === "BOUNCED") return "BOUNCED";
+  return null;
+}
+
+/**
+ * Which dashboard view a contact belongs in, so contacts whose emails went
+ * out are kept apart from ones being troubleshot:
+ * - attention    a send was requested but never confirmed or seen to arrive
+ * - in_flight    a send was just requested, waiting for confirmation
+ * - on_track     every requested email is accounted for (or replied/bounced)
+ * - not_started  nothing sent yet
+ */
+export type ContactHealth = "attention" | "in_flight" | "on_track" | "not_started";
+
+export function contactHealth(sequence: SequenceState): ContactHealth {
+  if (sequence.steps.some((s) => s.unconfirmed && (s.state === "due" || s.state === "scheduled"))) return "attention";
+  if (sequence.steps.some((s) => s.state === "queued")) return "in_flight";
+  if (sequence.status === "not_started") return "not_started";
+  return "on_track";
 }
 
 export interface BatchSummary {

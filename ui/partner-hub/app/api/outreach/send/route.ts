@@ -9,7 +9,10 @@ import { escapeHtml, mergeTemplateText } from "@/lib/outreach/merge";
 import { getTemplate } from "@/lib/outreach/templates";
 import {
   checkSendable,
+  computeSequence,
+  deliveredAtFromEvents,
   DEFAULT_DELAYS,
+  stopSignalFromEvents,
   SEQUENCE_STEPS,
   type ProspectStatusName,
   type SequenceStep,
@@ -28,7 +31,26 @@ interface SendBody {
   subject: string;
   /** HTML as edited in the dashboard's review step -- still has {{FIRST_NAME}} etc. unmerged. */
   html: string;
+  /**
+   * Must be true to resend to a contact whose earlier request for this
+   * email was never confirmed -- the person has to acknowledge they checked
+   * it didn't go out (Sent Items), since the app can't be sure.
+   */
+  confirmUnverified?: boolean;
 }
+
+/**
+ * At most this many contacts per request. The Power Automate send-flow
+ * dropped ~80% of a 74-contact burst queued in the same second (Oct 1), so
+ * the dashboard sends in small chunks with a pause between them, and this
+ * cap keeps any other caller from bursting either.
+ */
+const MAX_PROSPECTS_PER_SEND = 5;
+
+/** Pause between individual send requests within one call. */
+const PAUSE_BETWEEN_SENDS_MS = 1_500;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Requests the outreach send for the given prospects, one at a time via the
@@ -77,6 +99,13 @@ export async function POST(req: Request) {
   if (!Array.isArray(prospectIds) || prospectIds.length === 0) {
     return NextResponse.json({ ok: false, error: "No prospects selected." }, { status: 400 });
   }
+  if (prospectIds.length > MAX_PROSPECTS_PER_SEND) {
+    return NextResponse.json(
+      { ok: false, error: `At most ${MAX_PROSPECTS_PER_SEND} contacts per send request (the dashboard sends larger selections in paced chunks).` },
+      { status: 400 }
+    );
+  }
+  const confirmUnverified = body?.confirmUnverified === true;
   if (!Number.isInteger(templateId)) {
     return NextResponse.json({ ok: false, error: "No template selected." }, { status: 400 });
   }
@@ -104,10 +133,15 @@ export async function POST(req: Request) {
 
   const results: { prospectId: number; ok: boolean; error?: string }[] = [];
 
-  for (const prospectId of prospectIds) {
+  let dispatched = 0;
+  for (const prospectId of Array.from(new Set(prospectIds))) {
     const prospect = await prisma.prospect.findUnique({
       where: { id: prospectId },
-      include: { messages: { select: { step: true, sentAt: true, createdAt: true } } },
+      include: {
+        messages: {
+          select: { step: true, sentAt: true, createdAt: true, events: { select: { type: true, occurredAt: true } } },
+        },
+      },
     });
     if (!prospect) {
       results.push({ prospectId, ok: false, error: "Prospect not found." });
@@ -122,15 +156,36 @@ export async function POST(req: Request) {
     // you tick: right order (Email 2 only after Email 1 went out), never the
     // same email twice, and nothing further to a contact who replied or
     // bounced. See lib/outreach/sequence.ts.
-    const sendable = checkSendable(
-      { status: prospect.status as ProspectStatusName, messages: prospect.messages },
-      step,
-      delays
-    );
+    // Delivery proof (any open/click, even an automated scan) and replies or
+    // bounces come from the event history, not the status label, so neither
+    // a lost confirmation nor a "Reset to Pending" can open the door to a
+    // duplicate.
+    const sequenceInput = {
+      status: prospect.status as ProspectStatusName,
+      messages: prospect.messages.map((m) => ({
+        step: m.step,
+        sentAt: m.sentAt,
+        createdAt: m.createdAt,
+        deliveredAt: deliveredAtFromEvents(m.events),
+      })),
+      stopSignal: stopSignalFromEvents(prospect.messages.flatMap((m) => m.events)),
+    };
+    const sendable = checkSendable(sequenceInput, step, delays);
     if (!sendable.ok) {
       results.push({ prospectId, ok: false, error: sendable.reason });
       continue;
     }
+    if (computeSequence(sequenceInput, delays).steps[step - 1]?.unconfirmed && !confirmUnverified) {
+      results.push({
+        prospectId,
+        ok: false,
+        error: `An earlier Email ${step} request was never confirmed -- check Sent Items, then confirm the resend.`,
+      });
+      continue;
+    }
+
+    if (dispatched > 0) await sleep(PAUSE_BETWEEN_SENDS_MS);
+    dispatched++;
 
     const token = generateTrackingToken();
     const trackingMarkup = {

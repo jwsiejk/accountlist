@@ -24,6 +24,7 @@ function contact(id: number, firstName: string, status: ProspectStatusName, sent
     title: null,
     status,
     sequence: computeSequence({ status, messages }, undefined, NOW),
+    health: "on_track",
     engagement: { opened: false, clicked: false, replied: false },
     lastActivityAt: null,
     createdAt: NOW,

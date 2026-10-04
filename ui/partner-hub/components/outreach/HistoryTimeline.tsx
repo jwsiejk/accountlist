@@ -11,6 +11,8 @@ export interface TrackingEventRow {
   automated: boolean;
   reason?: string;
   userAgent?: string;
+  /** A send confirmation recorded by hand ("Mark as sent"), not by the send-flow. */
+  manual?: boolean;
 }
 
 export interface MessageHistory {
@@ -158,7 +160,7 @@ export function HistoryTimeline({ state }: { state?: HistoryState }) {
               <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5">
                 <span className={clsx("flex items-center gap-1.5 text-sm font-medium", entry.event.automated && "text-foreground/50")}>
                   <Icon className="h-3.5 w-3.5" />
-                  {meta.label}
+                  {entry.event.type === "SEND_CONFIRMED" && entry.event.manual ? "Marked as sent by hand" : meta.label}
                   {entry.event.automated ? (
                     <span
                       className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-normal text-foreground/50"
