@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { findMessageByToken, logEvent, markStatus } from "@/lib/outreach/prospects";
+import { findMessageByToken, logEvent, markStatus, recentTrackingEvents } from "@/lib/outreach/prospects";
 import { classifyTrackingEvent } from "@/lib/outreach/eventClassification";
 import { verifyTrackingToken } from "@/lib/outreach/tokens";
 
@@ -21,10 +21,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
     if (message) {
       const ua = req.headers.get("user-agent") ?? undefined;
       const occurredAt = new Date();
+      const priorEvents = await recentTrackingEvents(message.id, new Date(occurredAt.getTime() - 5 * 60_000));
       const { automated, reason } = classifyTrackingEvent({
         dispatchedAt: message.createdAt,
+        confirmedSentAt: message.sentAt,
         occurredAt,
         userAgent: ua,
+        priorEvents,
       });
       // Same automated-vs-real split as the click route: always logged for
       // history, only a non-automated open advances status.
