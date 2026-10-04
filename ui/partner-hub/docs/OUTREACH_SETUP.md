@@ -160,6 +160,28 @@ through that particular flow.
 Once deployed with `NEXT_PUBLIC_ENABLE_SC26_OUTREACH=true`, the **Outreach** link appears in the
 left nav. Create a campaign, add a template, import a CSV of prospects, and send.
 
+## Opens and clicks: filtering automated scans
+
+Security gateways at recipient companies open the tracking pixel and click every link, both on
+delivery and again hours later. `lib/outreach/eventClassification.ts` flags a hit as automated
+when any of these hold (details and production examples in that file):
+
+- the client isn't a browser or mail client (python-requests, curl, no user-agent, ...)
+- the browser is a Chrome/Edge build more than 3 versions out of date (sandboxes don't update)
+- it's within 15 minutes of the send (5 of the confirmed send)
+- the same network address hit links sent to another company, or the identical browser hit
+  links sent to 2+ other companies within 2 hours
+- it's within 15 minutes of an automated hit on the same email, or one of 3+ hits in 10 seconds
+
+Automated hits are kept in the history (marked "automated scan, not counted") but never move a
+prospect's status or count in reports. Network addresses are recorded from Oct 2026 on.
+
+To apply new rules to existing history, run the **Outreach reclassify tracking** workflow from
+the Actions tab — first with "dry run" ticked to see what would change, then without.
+
+Even filtered, opens and clicks are a hint, not proof of interest; replies and booked meetings
+are the reliable signals.
+
 ## Known limitations
 
 - **No per-app-user auth.** Anyone who can reach the deployed URL can use this module — there's

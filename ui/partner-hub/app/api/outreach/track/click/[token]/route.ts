@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { findMessageByToken, logEvent, markStatus, recentTrackingEvents } from "@/lib/outreach/prospects";
-import { classifyTrackingEvent } from "@/lib/outreach/eventClassification";
+import { findMessageByToken, logEvent, markStatus, recentCrossRecipientEvents, recentTrackingEvents } from "@/lib/outreach/prospects";
+import { classifyTrackingEvent, clientIp, DETECTION_WINDOW_MS, emailDomain } from "@/lib/outreach/eventClassification";
 import { verifyTrackingToken } from "@/lib/outreach/tokens";
 import { bookingDestinationUrl } from "@/lib/outreach/urls";
 
@@ -17,19 +17,27 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
     if (message) {
       const ua = req.headers.get("user-agent") ?? undefined;
       const occurredAt = new Date();
-      const priorEvents = await recentTrackingEvents(message.id, new Date(occurredAt.getTime() - 5 * 60_000));
+      const ip = clientIp(req.headers);
+      const since = new Date(occurredAt.getTime() - DETECTION_WINDOW_MS);
+      const [priorEvents, crossRecipientEvents] = await Promise.all([
+        recentTrackingEvents(message.id, since),
+        recentCrossRecipientEvents(since, message.id),
+      ]);
       const { automated, reason } = classifyTrackingEvent({
         dispatchedAt: message.createdAt,
         confirmedSentAt: message.sentAt,
         occurredAt,
         userAgent: ua,
+        ip,
+        recipientDomain: emailDomain(message.prospect.email),
         priorEvents,
+        crossRecipientEvents,
       });
       // Always logged, regardless of the automated verdict -- this is the
       // permanent history. Only a non-automated click is allowed to move
       // the prospect's status, so a Safe Links-style prefetch doesn't get
       // reported to a rep as real recipient engagement.
-      await logEvent(message.id, "CLICK", { userAgent: ua, automated, reason, occurredAt });
+      await logEvent(message.id, "CLICK", { userAgent: ua, ip, automated, reason, occurredAt });
       if (!automated) {
         await markStatus(message.prospectId, "CLICKED");
       }

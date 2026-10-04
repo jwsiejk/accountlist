@@ -1,0 +1,34 @@
+name: Outreach reclassify tracking
+
+# Re-checks every logged open/click against the current automated-scan rules
+# and corrects Opened/Clicked statuses that no longer hold. Run by hand from
+# the Actions tab; leave "dry_run" on first to see what would change.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only report what would change (no writes)"
+        type: boolean
+        default: true
+
+jobs:
+  reclassify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call reclassify endpoint
+        run: |
+          url="https://outreach-bg3g.onrender.com/partner-hub/api/outreach/reclassify"
+          if [ "${{ inputs.dry_run }}" = "true" ]; then url="$url?dryRun=1"; fi
+          status=$(curl -s -o response.txt -w "%{http_code}" -X POST --max-time 180 \
+            -H "Authorization: Bearer ${{ secrets.SC26_OUTREACH_CRON_SECRET }}" "$url")
+          echo "HTTP status: $status"
+          cat response.txt; echo
+          {
+            echo "### Reclassify (dry run: ${{ inputs.dry_run }})"
+            echo '```json'
+            cat response.txt
+            echo
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" -ge 300 ]; then exit 1; fi

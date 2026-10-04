@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { Prisma, ProspectStatus, TrackingEventType } from "@prisma/client";
+import { emailDomain } from "@/lib/outreach/eventClassification";
 
 export interface ImportedProspect {
   email: string;
@@ -235,6 +236,33 @@ export async function recentTrackingEvents(outreachMessageId: number, since: Dat
       // Unparseable meta -- treat as not automated.
     }
     return { occurredAt: row.occurredAt, automated };
+  });
+}
+
+/**
+ * Recent OPEN/CLICK events on other messages, with each one's user-agent,
+ * network address and recipient's email domain -- input for
+ * classifyTrackingEvent's cross-recipient checks (the same visitor turning
+ * up at several companies is a scanning service, not a person).
+ */
+export async function recentCrossRecipientEvents(since: Date, excludeMessageId: number) {
+  const rows = await prisma.trackingEvent.findMany({
+    where: { type: { in: ["OPEN", "CLICK"] }, occurredAt: { gte: since }, outreachMessageId: { not: excludeMessageId } },
+    select: { occurredAt: true, meta: true, outreachMessage: { select: { prospect: { select: { email: true } } } } },
+  });
+  return rows.map((row) => {
+    let meta: { userAgent?: unknown; ip?: unknown } = {};
+    try {
+      meta = row.meta ? JSON.parse(row.meta) : {};
+    } catch {
+      // Unparseable meta -- no user-agent/ip to compare.
+    }
+    return {
+      occurredAt: row.occurredAt,
+      userAgent: typeof meta.userAgent === "string" ? meta.userAgent : undefined,
+      ip: typeof meta.ip === "string" ? meta.ip : undefined,
+      recipientDomain: emailDomain(row.outreachMessage.prospect.email),
+    };
   });
 }
 
