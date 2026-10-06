@@ -99,6 +99,14 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
   const [busy, setBusy] = useState(false);
   const [resettingIds, setResettingIds] = useState<Set<number>>(new Set());
   const [message, setMessage] = useState<string | null>(null);
+  /** Short-lived pop-up at the bottom of the screen, for actions taken far down the list (e.g. a row's Reset). */
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function showToast(text: string) {
+    setToast(text);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 6_000);
+  }
   const fileInputRef = useRef<HTMLInputElement>(null);
   const didPickInitialView = useRef(false);
 
@@ -634,9 +642,7 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
         setMessage(`Reset failed: ${data?.error ?? "unexpected response"}`);
         return;
       }
-      setMessage(
-        `Reset ${data.count} contact${data.count === 1 ? "" : "s"} to Pending — they're now under "Reset — ready to resend".`
-      );
+      showToast(`Reset ${data.count} contact${data.count === 1 ? "" : "s"} to Pending — they're now under "Reset — ready to resend".`);
       setSelected(new Set());
       await refresh();
     } finally {
@@ -650,6 +656,13 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
     try {
       const { data } = await postJson("/api/outreach/reset", { prospectIds: [prospectId] });
       if (data?.ok) {
+        // The contact leaves "Needs attention" for "Reset — ready to resend";
+        // say so, or it just looks like the row vanished.
+        const c = allContacts.find((x) => x.id === prospectId);
+        const waiting = allContacts.filter((x) => viewOfContact(x) === "resend").length + 1;
+        showToast(
+          `${c ? contactName(c) : "Contact"} reset to Pending — moved to "Reset — ready to resend" (${waiting} waiting there).`
+        );
         refresh();
       } else {
         setMessage(`Reset failed: ${data?.error ?? "unexpected response"}`);
@@ -701,6 +714,26 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
 
   return (
     <div className="space-y-4">
+      {toast ? (
+        <div
+          role="status"
+          className="fixed bottom-6 left-1/2 z-50 flex max-w-[90vw] -translate-x-1/2 items-center gap-3 rounded-lg bg-foreground px-4 py-3 text-sm text-background shadow-lg"
+        >
+          <span>{toast}</span>
+          {healthView !== "resend" ? (
+            <button
+              type="button"
+              onClick={() => {
+                setToast(null);
+                changeHealthView("resend");
+              }}
+              className="whitespace-nowrap font-semibold underline"
+            >
+              View
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       {/* Batch picker */}
       <div className="flex flex-wrap items-center gap-2">
         <button
