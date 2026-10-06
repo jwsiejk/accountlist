@@ -515,6 +515,17 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
     }
   }
 
+  /** One click from the "Reset — ready to resend" view: select every reset contact and open the review step. */
+  function reviewAllReset() {
+    if (!selectedTemplate || readyInView.length === 0) return;
+    setSelected(new Set(readyInView.map((c) => c.id)));
+    setDraftSubject(selectedTemplate.subject);
+    setDraftHtml(selectedTemplate.html);
+    setMessage(null);
+    setUnverifiedChecked(false);
+    setReviewOpen(true);
+  }
+
   function openReview() {
     if (!selectedTemplate || sendable.length === 0) return;
     setDraftSubject(selectedTemplate.subject);
@@ -778,6 +789,24 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
           <p className="text-xs text-foreground/60">{HEALTH_VIEWS.find((h) => h.id === healthView)?.hint}</p>
         ) : null}
       </div>
+
+      {/* One-click resend for contacts reset to Pending */}
+      {healthView === "resend" && readyInView.length > 0 && !reviewOpen ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-button-primary/40 bg-muted/30 px-4 py-3">
+          <div className="text-sm">
+            <span className="font-semibold">
+              {readyInView.length} reset contact{readyInView.length === 1 ? "" : "s"} ready for Email {sendStep}
+            </span>
+            <span className="ml-2 text-foreground/60">
+              Only these get it — nobody in Needs attention or Sent is included.
+            </span>
+          </div>
+          <div className="flex-1" />
+          <Button size="md" onClick={reviewAllReset} disabled={!selectedTemplate || sending}>
+            Review &amp; send Email {sendStep} to these {readyInView.length}
+          </Button>
+        </div>
+      ) : null}
 
       {/* Sequence timing */}
       {overview ? (
