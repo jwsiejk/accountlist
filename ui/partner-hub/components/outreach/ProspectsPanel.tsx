@@ -36,14 +36,30 @@ type View = number | "unassigned" | "all";
 
 const viewOf = (b: BatchOverview): View => (b.id === null ? "unassigned" : b.id);
 
-/** Which contacts are on screen by health, so troubleshooting never mixes with contacts that are fine. */
-type HealthView = ContactHealth | "all";
+/**
+ * Which contacts are on screen by health, so troubleshooting never mixes with
+ * contacts that are fine. "resend" splits the attention pile in two: contacts
+ * you've already checked and reset to Pending (ready to send again) versus
+ * ones still waiting for you to decide.
+ */
+type HealthView = ContactHealth | "resend" | "all";
+
+/** The view a contact sits in. Reset-to-Pending contacts get their own view so they can be resent on their own. */
+function viewOfContact(c: Contact): Exclude<HealthView, "all"> {
+  if (c.health === "attention" && c.status === "PENDING") return "resend";
+  return c.health;
+}
 
 const HEALTH_VIEWS: { id: HealthView; label: string; hint: string }[] = [
   {
     id: "attention",
     label: "Needs attention",
-    hint: "A send was requested but never confirmed or seen to arrive. Check Sent Items, then resend or mark as sent.",
+    hint: "A send was requested but never confirmed or seen to arrive. Check Sent Items, then mark as sent, or reset to Pending to resend.",
+  },
+  {
+    id: "resend",
+    label: "Reset — ready to resend",
+    hint: "Contacts you reset to Pending. Select them and send — once the send-flow confirms, they move to \"Sent — all good\".",
   },
   { id: "in_flight", label: "Sending now", hint: "Requested in the last hour, waiting for the send-flow to confirm." },
   {
@@ -161,7 +177,9 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
         didPickInitialView.current = true;
         // ...and if anything needs attention, start on that view, so it's
         // dealt with apart from the contacts that are fine.
-        if (next.batches.some((b) => b.contacts.some((c) => c.health === "attention"))) setHealthView("attention");
+        const all = next.batches.flatMap((b) => b.contacts);
+        if (all.some((c) => viewOfContact(c) === "attention")) setHealthView("attention");
+        else if (all.some((c) => viewOfContact(c) === "resend")) setHealthView("resend");
         const real = next.batches.filter((b) => b.id !== null);
         if (real.length > 0) setView(real[real.length - 1].id as number);
       }
@@ -218,9 +236,9 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
   const realBatches = useMemo(() => batches.filter((b) => b.id !== null), [batches]);
   const healthCounts = useMemo(() => {
     const inBatchView = view === "all" ? batches : batches.filter((b) => viewOf(b) === view);
-    const counts: Record<HealthView, number> = { attention: 0, in_flight: 0, on_track: 0, not_started: 0, all: 0 };
+    const counts: Record<HealthView, number> = { attention: 0, resend: 0, in_flight: 0, on_track: 0, not_started: 0, all: 0 };
     for (const c of inBatchView.flatMap((b) => b.contacts)) {
-      counts[c.health]++;
+      counts[viewOfContact(c)]++;
       counts.all++;
     }
     return counts;
@@ -228,7 +246,7 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
   const visibleBatches = useMemo(
     () =>
       (view === "all" ? batches : batches.filter((b) => viewOf(b) === view))
-        .map((b) => (healthView === "all" ? b : { ...b, contacts: b.contacts.filter((c) => c.health === healthView) }))
+        .map((b) => (healthView === "all" ? b : { ...b, contacts: b.contacts.filter((c) => viewOfContact(c) === healthView) }))
         // Keep empty batches visible only in the unfiltered view.
         .filter((b) => healthView === "all" || b.contacts.length > 0),
     [batches, view, healthView]
@@ -264,6 +282,19 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
 
   function changeHealthView(next: HealthView) {
     setHealthView(next);
+    if (next === "resend") {
+      // Point the Send picker at the email these contacts are waiting on
+      // (whichever is most common), so "Select all" picks them up straight away.
+      const tally = [0, 0, 0];
+      for (const c of allContacts) {
+        if (view !== "all" && c.batchId !== (view === "unassigned" ? null : view)) continue;
+        if (viewOfContact(c) !== "resend") continue;
+        const s = c.sequence.steps.find((x) => x.unconfirmed && (x.state === "due" || x.state === "scheduled"));
+        if (s) tally[s.step - 1]++;
+      }
+      const best = tally.indexOf(Math.max(...tally));
+      if (tally[best] > 0) setSendStep((best + 1) as SendStep);
+    }
     setSelected(new Set());
     setExpandedId(null);
     setReviewOpen(false);
@@ -552,7 +583,7 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
       setMessage(
         `Email ${sendStep}: queued ${queued} of ${ids.length}${notSent ? `, ${notSent} not sent` : ""}${
           stoppedEarly && cancelSendRef.current ? " (stopped by you)" : ""
-        }${reasons.length ? ` — ${reasons.join("; ")}` : ""}. Each moves to "Sent" once confirmed.`
+        }${reasons.length ? ` — ${reasons.join("; ")}` : ""}. Each moves to "Sent — all good" once the send-flow confirms it.`
       );
       setSendProgress(null);
       setSending(false);
@@ -576,6 +607,29 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
       refresh();
     } else {
       setMessage(`Couldn't mark as sent: ${data?.error ?? "unexpected response"}`);
+    }
+  }
+
+  /** Selected contacts that are stuck (needs attention, not yet reset) -- what "Reset selected" acts on. */
+  const resettableSelected = selectedContacts.filter((c) => viewOfContact(c) === "attention" && c.status !== "PENDING");
+
+  async function handleResetSelected() {
+    if (resettableSelected.length === 0) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const { data } = await postJson("/api/outreach/reset", { prospectIds: resettableSelected.map((c) => c.id) });
+      if (!data?.ok) {
+        setMessage(`Reset failed: ${data?.error ?? "unexpected response"}`);
+        return;
+      }
+      setMessage(
+        `Reset ${data.count} contact${data.count === 1 ? "" : "s"} to Pending — they're now under "Reset — ready to resend".`
+      );
+      setSelected(new Set());
+      await refresh();
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -838,7 +892,7 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
           ))}
         </select>
         <Button variant="secondary" size="md" onClick={selectAllReady} disabled={readyInView.length === 0}>
-          Select all ready for Email {sendStep} ({readyInView.length})
+          {healthView === "resend" ? "Select all reset" : "Select all ready"} for Email {sendStep} ({readyInView.length})
         </Button>
         <Button size="md" onClick={openReview} disabled={sendable.length === 0 || !selectedTemplate || reviewOpen}>
           Review & send Email {sendStep} to {sendable.length || ""}
@@ -877,6 +931,17 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
               placeholder={`Batch ${realBatches.length + 1} (name optional)`}
               className="w-44 rounded-lg border border-border/60 px-2 py-1.5 text-sm"
             />
+          ) : null}
+          {resettableSelected.length > 0 ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleResetSelected}
+              disabled={busy}
+              title={'Only do this after checking Sent Items -- they\'ll move to "Reset — ready to resend".'}
+            >
+              Reset {resettableSelected.length} to Pending
+            </Button>
           ) : null}
           <Button size="sm" variant="secondary" onClick={handleMove} disabled={!moveTarget || busy}>
             Move
@@ -954,7 +1019,7 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
               </p>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={unverifiedChecked} onChange={(e) => setUnverifiedChecked(e.target.checked)} />
-                I checked Sent Items — these did not go out
+                I checked Sent Items — these did not go out{healthView === "resend" ? " (that's why I reset them)" : ""}
               </label>
             </div>
           ) : null}
@@ -1139,7 +1204,11 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
             {hasContacts && healthView !== "all" && visibleContacts.length === 0 ? (
               <tr>
                 <td colSpan={columnCount} className="px-3 py-6 text-center text-foreground/50">
-                  {healthView === "attention" ? "Nothing needs attention." : "No contacts in this view."}
+                  {healthView === "attention"
+                    ? "Nothing needs attention."
+                    : healthView === "resend"
+                      ? "No reset contacts waiting — use \"Reset to Pending\" under Needs attention once you've checked Sent Items."
+                      : "No contacts in this view."}
                 </td>
               </tr>
             ) : null}
