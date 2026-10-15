@@ -66,6 +66,10 @@ export function TemplatesPanel({
   const [pasteOpen, setPasteOpen] = useState(false);
   const [pasteText, setPasteText] = useState("");
   const [dragOver, setDragOver] = useState(false);
+  /** Save problems shown right next to the Save button (the panel-level message can be scrolled out of view). */
+  const [saveError, setSaveError] = useState<string | null>(null);
+  /** Fields left empty on the last Save attempt -- outlined in red until filled. */
+  const [missing, setMissing] = useState<Set<"name" | "subject" | "html">>(new Set());
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -87,11 +91,24 @@ export function TemplatesPanel({
 
   useEffect(() => {
     if (!startNewForStep) return;
-    setDraft({ ...BLANK_DRAFT, name: `Email ${startNewForStep} follow-up`, sequenceStep: startNewForStep });
+    setDraft({
+      ...BLANK_DRAFT,
+      name: `Email ${startNewForStep} follow-up`,
+      subject: suggestedSubject(startNewForStep),
+      sequenceStep: startNewForStep,
+    });
     setEditingId("new");
     setMessage(`New Email ${startNewForStep} template — it'll be picked automatically when you send Email ${startNewForStep} from the Batches tab.`);
     onStarted?.();
   }, [startNewForStep, onStarted]);
+
+  // Templates load after the editor may already be open (e.g. "Create Email 2
+  // template" from the Batches tab): fill in the suggested follow-up subject then.
+  useEffect(() => {
+    if (editingId !== "new" || !draft.sequenceStep || draft.sequenceStep < 2) return;
+    setDraft((d) => (d.subject ? d : { ...d, subject: suggestedSubject(d.sequenceStep) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templates]);
 
   function startNew() {
     setDraft(BLANK_DRAFT);
@@ -99,6 +116,8 @@ export function TemplatesPanel({
     setMessage(null);
     setImportNotes([]);
     setPasteOpen(false);
+    setSaveError(null);
+    setMissing(new Set());
   }
 
   function startEdit(t: Template) {
@@ -107,6 +126,8 @@ export function TemplatesPanel({
     setMessage(null);
     setImportNotes([]);
     setPasteOpen(false);
+    setSaveError(null);
+    setMissing(new Set());
   }
 
   /** New template starting from a copy of an existing one (e.g. Email 1 as the basis for Email 2). */
@@ -122,19 +143,40 @@ export function TemplatesPanel({
     setEditingId("new");
     setImportNotes([]);
     setPasteOpen(false);
+    setSaveError(null);
+    setMissing(new Set());
     setMessage(`Copied "${t.name}"${nextStep ? ` as a starting point for Email ${nextStep}` : ""} — edit it, then save.`);
+  }
+
+  /**
+   * For a follow-up (Email 2/3) with no subject yet: "Re: <the earlier email's
+   * subject>", which usually keeps it in the same thread as the first email.
+   */
+  function suggestedSubject(step: number | null): string {
+    if (!step || step < 2) return "";
+    const earlier =
+      templates.find((t) => t.sequenceStep === step - 1) ??
+      (step === 2 ? templates.find((t) => t.sequenceStep === null) : undefined);
+    if (!earlier) return "";
+    return /^re:/i.test(earlier.subject) ? earlier.subject : `Re: ${earlier.subject}`;
   }
 
   /** Put an import's result into the editor, without overwriting a name/subject the person already typed. */
   function applyImport(result: { name?: string; subject?: string | null; html: string; notes: string[] }, source: string) {
     if (editingId === null) setEditingId("new");
+    const notes = [...result.notes];
+    const suggested = !draft.subject && !result.subject ? suggestedSubject(draft.sequenceStep) : "";
+    if (suggested) notes.push(`Subject set to "${suggested}" so it threads with the earlier email — change it if you like.`);
+    else if (!draft.subject && !result.subject) notes.push("No subject found — type one in the Subject field before saving.");
     setDraft((d) => ({
       ...d,
       name: d.name || result.name || "",
-      subject: d.subject || result.subject || "",
+      subject: d.subject || result.subject || suggested,
       html: result.html,
     }));
-    setImportNotes(result.notes);
+    setImportNotes(notes);
+    setSaveError(null);
+    setMissing(new Set());
     setMessage(`Imported ${source} — review the preview, then save.`);
   }
 
@@ -186,11 +228,18 @@ export function TemplatesPanel({
   }
 
   async function handleSave() {
-    if (!draft.name.trim() || !draft.subject.trim() || !draft.html.trim()) {
-      setMessage("Name, subject, and body are all required.");
+    const empty = new Set<"name" | "subject" | "html">();
+    if (!draft.name.trim()) empty.add("name");
+    if (!draft.subject.trim()) empty.add("subject");
+    if (!draft.html.trim()) empty.add("html");
+    setMissing(empty);
+    if (empty.size > 0) {
+      const labels = { name: "Template name", subject: "Subject", html: "HTML body" };
+      setSaveError(`Fill in ${Array.from(empty).map((k) => labels[k]).join(" and ")} to save.`);
       return;
     }
     setSaving(true);
+    setSaveError(null);
     setMessage(null);
     try {
       const isNew = editingId === "new";
@@ -204,13 +253,17 @@ export function TemplatesPanel({
       );
       const data = await res.json().catch(() => null);
       if (!data?.ok) {
-        setMessage(`Save failed: ${data?.error ?? `HTTP ${res.status}`}`);
+        setSaveError(`Save failed: ${data?.error ?? `HTTP ${res.status}`}`);
         return;
       }
       setEditingId(null);
       setImportNotes([]);
+      setMissing(new Set());
+      setMessage(`Saved "${draft.name.trim()}"${draft.sequenceStep ? ` — it'll be used for Email ${draft.sequenceStep} on the Batches tab` : ""}.`);
       refresh();
       onSaved?.();
+    } catch (err) {
+      setSaveError(`Save failed: ${err instanceof Error ? err.message : "network error"} — check your connection and try again.`);
     } finally {
       setSaving(false);
     }
@@ -234,6 +287,15 @@ export function TemplatesPanel({
   }
 
   const isEditorOpen = editingId !== null;
+  const fieldClass = (field: "name" | "subject") =>
+    `w-full rounded-lg border px-3 py-2 text-sm ${missing.has(field) ? "border-red-500 ring-1 ring-red-500" : "border-border/60"}`;
+  function clearMissing(field: "name" | "subject" | "html") {
+    if (!missing.has(field)) return;
+    const next = new Set(missing);
+    next.delete(field);
+    setMissing(next);
+    if (next.size === 0) setSaveError(null);
+  }
   const missingPixel = !/\{\{\s*TRACKING_PIXEL\s*\}\}/.test(draft.html);
   const missingBooking = !/\{\{\s*BOOKING_LINK\s*\}\}/.test(draft.html);
 
@@ -351,9 +413,12 @@ export function TemplatesPanel({
               <input
                 type="text"
                 value={draft.name}
-                onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
+                onChange={(e) => {
+                  setDraft((d) => ({ ...d, name: e.target.value }));
+                  clearMissing("name");
+                }}
                 placeholder="e.g. Initial invite"
-                className="w-full rounded-lg border border-border/60 px-3 py-2 text-sm"
+                className={fieldClass("name")}
               />
             </div>
             <div>
@@ -361,8 +426,12 @@ export function TemplatesPanel({
               <input
                 type="text"
                 value={draft.subject}
-                onChange={(e) => setDraft((d) => ({ ...d, subject: e.target.value }))}
-                className="w-full rounded-lg border border-border/60 px-3 py-2 text-sm"
+                onChange={(e) => {
+                  setDraft((d) => ({ ...d, subject: e.target.value }));
+                  clearMissing("subject");
+                }}
+                placeholder={draft.sequenceStep && draft.sequenceStep > 1 ? "e.g. Re: your Email 1 subject" : "Subject line"}
+                className={fieldClass("subject")}
               />
             </div>
           </div>
@@ -401,10 +470,13 @@ export function TemplatesPanel({
               </div>
               <textarea
                 value={draft.html}
-                onChange={(e) => setDraft((d) => ({ ...d, html: e.target.value }))}
+                onChange={(e) => {
+                  setDraft((d) => ({ ...d, html: e.target.value }));
+                  clearMissing("html");
+                }}
                 rows={16}
                 spellCheck={false}
-                className="w-full rounded-lg border border-border/60 p-2 font-mono text-xs"
+                className={`w-full rounded-lg border p-2 font-mono text-xs ${missing.has("html") ? "border-red-500 ring-1 ring-red-500" : "border-border/60"}`}
               />
               {draft.html.trim() && looksLikeHtml(draft.html) && (missingPixel || missingBooking) ? (
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-amber-800 dark:text-amber-300">
@@ -449,6 +521,8 @@ export function TemplatesPanel({
                 setEditingId(null);
                 setImportNotes([]);
                 setPasteOpen(false);
+                setSaveError(null);
+                setMissing(new Set());
               }}
             >
               Cancel
@@ -457,6 +531,11 @@ export function TemplatesPanel({
               {saving ? "Saving…" : "Save template"}
             </Button>
           </div>
+          {saveError ? (
+            <p role="alert" className="text-right text-sm font-medium text-red-600 dark:text-red-400">
+              {saveError}
+            </p>
+          ) : null}
         </div>
       ) : null}
 
