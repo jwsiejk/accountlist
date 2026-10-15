@@ -1,11 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
-import { FileText, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { ClipboardPaste, Copy, FileText, Pencil, Plus, Trash2, Upload, Wand2 } from "lucide-react";
 
 import { withBasePath } from "@/lib/basePath";
 import { Button } from "@/components/ui/button";
 import { previewMerge, PLACEHOLDER_HINT } from "./mergePreview";
+import { importPastedContent, looksLikeHtml, prepareForSending } from "@/lib/outreach/templateImport";
+
+/** File types the import accepts (converted server-side; see api/outreach/templates/import). */
+const IMPORT_ACCEPT = ".docx,.eml,.html,.htm,.txt,.md,text/html,text/plain,message/rfc822";
 
 export interface Template {
   id: number;
@@ -56,6 +60,12 @@ export function TemplatesPanel({
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
+  /** What the last import changed (merge fields, booking link, tracking), shown above the editor. */
+  const [importNotes, setImportNotes] = useState<string[]>([]);
+  const [importing, setImporting] = useState(false);
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteText, setPasteText] = useState("");
+  const [dragOver, setDragOver] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -87,47 +97,92 @@ export function TemplatesPanel({
     setDraft(BLANK_DRAFT);
     setEditingId("new");
     setMessage(null);
+    setImportNotes([]);
+    setPasteOpen(false);
   }
 
   function startEdit(t: Template) {
     setDraft({ name: t.name, subject: t.subject, html: t.html, sequenceStep: t.sequenceStep ?? null });
     setEditingId(t.id);
     setMessage(null);
+    setImportNotes([]);
+    setPasteOpen(false);
+  }
+
+  /** New template starting from a copy of an existing one (e.g. Email 1 as the basis for Email 2). */
+  function startCopy(t: Template) {
+    const nextStep = t.sequenceStep && t.sequenceStep < 3 ? t.sequenceStep + 1 : null;
+    setDraft({
+      name: `${t.name} (copy)`,
+      // A follow-up reads as a reply to the earlier email, which usually keeps it in the same thread.
+      subject: nextStep && !/^re:/i.test(t.subject) ? `Re: ${t.subject}` : t.subject,
+      html: t.html,
+      sequenceStep: nextStep,
+    });
+    setEditingId("new");
+    setImportNotes([]);
+    setPasteOpen(false);
+    setMessage(`Copied "${t.name}"${nextStep ? ` as a starting point for Email ${nextStep}` : ""} — edit it, then save.`);
+  }
+
+  /** Put an import's result into the editor, without overwriting a name/subject the person already typed. */
+  function applyImport(result: { name?: string; subject?: string | null; html: string; notes: string[] }, source: string) {
+    if (editingId === null) setEditingId("new");
+    setDraft((d) => ({
+      ...d,
+      name: d.name || result.name || "",
+      subject: d.subject || result.subject || "",
+      html: result.html,
+    }));
+    setImportNotes(result.notes);
+    setMessage(`Imported ${source} — review the preview, then save.`);
+  }
+
+  function convertPasted() {
+    if (!pasteText.trim()) return;
+    applyImport(importPastedContent(pasteText), "pasted text");
+    setPasteText("");
+    setPasteOpen(false);
   }
 
   /**
-   * Loads an .html/.htm/.txt file's contents into the body field, so a
-   * template someone already has as a file (exported from an email client,
-   * a design tool, or a previous campaign) doesn't have to be retyped or
-   * pasted by hand. {{PLACEHOLDER}} merge tokens in the file carry through
-   * untouched, same as typing them directly. If the name/subject fields are
-   * still empty, they're filled in from the file's <title> tag (subject)
-   * and filename (name) as a starting point -- both stay fully editable
-   * either way, and neither is required to come from the file.
+   * Import an email someone already has -- Word (.docx), a saved email
+   * (.eml), HTML or plain text -- into the editor. The server converts it
+   * (paragraphs and lists, {{FIRST_NAME}}-style merge fields, the tracked
+   * {{BOOKING_LINK}}, {{TRACKING_PIXEL}}); nothing is saved until the person
+   * reviews it and clicks Save.
    */
-  async function handleImportFile(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function importFile(file: File) {
     setMessage(null);
+    setImporting(true);
     try {
-      const text = await file.text();
-      const titleMatch = text.match(/<title[^>]*>([^<]*)<\/title>/i);
-      const inferredSubject = titleMatch?.[1]?.trim();
-      const inferredName = file.name.replace(/\.(html?|txt)$/i, "").replace(/[-_]+/g, " ").trim();
-
-      if (editingId === null) setEditingId("new");
-      setDraft((d) => ({
-        ...d,
-        name: d.name || inferredName,
-        subject: d.subject || inferredSubject || "",
-        html: text,
-      }));
-      setMessage(`Imported "${file.name}" into the HTML body.`);
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(withBasePath("/api/outreach/templates/import"), { method: "POST", body: form });
+      const data = await res.json().catch(() => null);
+      if (!data?.ok) {
+        setMessage(`Import failed: ${data?.error ?? `HTTP ${res.status}`}`);
+        return;
+      }
+      applyImport(data, `"${file.name}"`);
     } catch (err) {
       setMessage(`Import failed: ${err instanceof Error ? err.message : "could not read that file."}`);
     } finally {
-      e.target.value = "";
+      setImporting(false);
     }
+  }
+
+  async function handleImportFile(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (file) await importFile(file);
+  }
+
+  function handleDrop(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) importFile(file);
   }
 
   async function handleSave() {
@@ -153,6 +208,7 @@ export function TemplatesPanel({
         return;
       }
       setEditingId(null);
+      setImportNotes([]);
       refresh();
       onSaved?.();
     } finally {
@@ -178,13 +234,15 @@ export function TemplatesPanel({
   }
 
   const isEditorOpen = editingId !== null;
+  const missingPixel = !/\{\{\s*TRACKING_PIXEL\s*\}\}/.test(draft.html);
+  const missingBooking = !/\{\{\s*BOOKING_LINK\s*\}\}/.test(draft.html);
 
   return (
     <div className="space-y-4">
       <input
         ref={importInputRef}
         type="file"
-        accept=".html,.htm,.txt,text/html,text/plain"
+        accept={IMPORT_ACCEPT}
         className="hidden"
         onChange={handleImportFile}
       />
@@ -193,8 +251,8 @@ export function TemplatesPanel({
         <h3 className="text-sm font-semibold text-foreground/80">Templates</h3>
         {!isEditorOpen ? (
           <div className="flex gap-2">
-            <Button size="sm" variant="secondary" onClick={() => importInputRef.current?.click()}>
-              <Upload className="h-4 w-4" /> Import HTML
+            <Button size="sm" variant="secondary" onClick={() => importInputRef.current?.click()} disabled={importing}>
+              <Upload className="h-4 w-4" /> {importing ? "Importing…" : "Import template"}
             </Button>
             <Button size="sm" variant="secondary" onClick={startNew}>
               <Plus className="h-4 w-4" /> New template
@@ -206,10 +264,85 @@ export function TemplatesPanel({
       {message ? <p className="text-sm text-foreground/70">{message}</p> : null}
 
       {isEditorOpen ? (
-        <div className="space-y-3 rounded-lg border border-border/60 p-4">
+        <div
+          className={`space-y-3 rounded-lg border p-4 ${dragOver ? "border-button-primary bg-muted/30" : "border-border/60"}`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+        >
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-semibold">{editingId === "new" ? "New template" : "Edit template"}</h4>
           </div>
+
+          {/* Start from something that already exists */}
+          <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted/30 px-3 py-2">
+            <span className="text-xs font-medium text-foreground/70">
+              {editingId === "new" ? "Start from:" : "Replace the body with:"}
+            </span>
+            <Button size="sm" variant="secondary" onClick={() => importInputRef.current?.click()} disabled={importing}>
+              <Upload className="h-4 w-4" /> {importing ? "Importing…" : "Import file"}
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => setPasteOpen((o) => !o)}>
+              <ClipboardPaste className="h-4 w-4" /> Paste text
+            </Button>
+            {editingId === "new" && templates.length > 0 ? (
+              <select
+                value=""
+                onChange={(e) => {
+                  const t = templates.find((x) => x.id === Number(e.target.value));
+                  if (t) startCopy(t);
+                }}
+                className="h-8 rounded-md border border-border/60 bg-background px-2 text-xs"
+              >
+                <option value="">Copy an existing template…</option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                    {t.sequenceStep ? ` (Email ${t.sequenceStep})` : ""}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+            <span className="text-xs text-foreground/50">
+              Word (.docx), saved email (.eml), HTML or text — or drop a file here.
+            </span>
+          </div>
+
+          {pasteOpen ? (
+            <div className="space-y-2 rounded-lg border border-border/60 p-3">
+              <label className="block text-xs font-medium text-foreground/70">
+                Paste your email as written (plain text or HTML). Bullets, [First Name]-style fields and a copied booking link are converted.
+              </label>
+              <textarea
+                value={pasteText}
+                onChange={(e) => setPasteText(e.target.value)}
+                rows={10}
+                autoFocus
+                placeholder={"Hi [First Name],\n\nI'm following up on my last note…"}
+                className="w-full rounded-lg border border-border/60 p-2 text-sm"
+              />
+              <div className="flex justify-end gap-2">
+                <Button size="sm" variant="ghost" onClick={() => setPasteOpen(false)}>
+                  Cancel
+                </Button>
+                <Button size="sm" onClick={convertPasted} disabled={!pasteText.trim()}>
+                  Convert &amp; use
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
+          {importNotes.length > 0 ? (
+            <ul className="list-disc space-y-0.5 rounded-lg border border-border/60 bg-muted/20 py-2 pl-7 pr-3 text-xs text-foreground/70">
+              {importNotes.map((n, i) => (
+                <li key={i}>{n}</li>
+              ))}
+            </ul>
+          ) : null}
+
           <p className="text-xs text-foreground/60">{PLACEHOLDER_HINT}</p>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -255,13 +388,16 @@ export function TemplatesPanel({
             <div>
               <div className="mb-1 flex items-center justify-between">
                 <label className="block text-xs font-medium text-foreground/70">HTML body</label>
-                <button
-                  type="button"
-                  onClick={() => importInputRef.current?.click()}
-                  className="text-xs font-medium text-foreground/60 underline decoration-dotted hover:text-foreground"
-                >
-                  Import file…
-                </button>
+                {draft.html.trim() && !looksLikeHtml(draft.html) ? (
+                  <button
+                    type="button"
+                    onClick={() => applyImport(importPastedContent(draft.html), "the text in the body")}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-foreground/60 underline decoration-dotted hover:text-foreground"
+                    title="This looks like plain text -- convert it to email HTML (paragraphs, bullets, merge fields, tracking)."
+                  >
+                    <Wand2 className="h-3.5 w-3.5" /> Convert plain text to email
+                  </button>
+                ) : null}
               </div>
               <textarea
                 value={draft.html}
@@ -270,6 +406,29 @@ export function TemplatesPanel({
                 spellCheck={false}
                 className="w-full rounded-lg border border-border/60 p-2 font-mono text-xs"
               />
+              {draft.html.trim() && looksLikeHtml(draft.html) && (missingPixel || missingBooking) ? (
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-amber-800 dark:text-amber-300">
+                  <span>
+                    {missingPixel && missingBooking
+                      ? "No {{TRACKING_PIXEL}} or {{BOOKING_LINK}} — opens and clicks won't be tracked."
+                      : missingPixel
+                        ? "No {{TRACKING_PIXEL}} — opens won't be tracked."
+                        : "No {{BOOKING_LINK}} — clicks won't be tracked."}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const notes: string[] = [];
+                      const html = prepareForSending(draft.html, notes);
+                      setDraft((d) => ({ ...d, html }));
+                      setImportNotes(notes);
+                    }}
+                    className="font-medium underline decoration-dotted"
+                  >
+                    Fix it
+                  </button>
+                </div>
+              ) : null}
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-foreground/70">Preview (sample data)</label>
@@ -283,7 +442,15 @@ export function TemplatesPanel({
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setEditingId(null)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setEditingId(null);
+                setImportNotes([]);
+                setPasteOpen(false);
+              }}
+            >
               Cancel
             </Button>
             <Button size="sm" onClick={handleSave} disabled={saving}>
@@ -320,6 +487,9 @@ export function TemplatesPanel({
               <p className="truncate text-xs text-foreground/60">{t.subject}</p>
             </div>
             <div className="flex shrink-0 gap-2">
+              <Button variant="ghost" size="sm" onClick={() => startCopy(t)} title="Copy into a new template">
+                <Copy className="h-4 w-4" />
+              </Button>
               <Button variant="ghost" size="sm" onClick={() => startEdit(t)} title="Edit">
                 <Pencil className="h-4 w-4" />
               </Button>
