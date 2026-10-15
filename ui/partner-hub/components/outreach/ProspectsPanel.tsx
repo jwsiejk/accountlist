@@ -8,6 +8,7 @@ import { withBasePath } from "@/lib/basePath";
 import { Button } from "@/components/ui/button";
 import { previewMerge, PLACEHOLDER_HINT } from "./mergePreview";
 import { HistoryTimeline, type HistoryState } from "./HistoryTimeline";
+import { planSendRounds } from "@/lib/outreach/sendPlan";
 import { SequenceBar } from "./SequenceBar";
 import { StepCell } from "./SequenceCells";
 import type { Template } from "./TemplatesPanel";
@@ -72,9 +73,14 @@ const HEALTH_VIEWS: { id: HealthView; label: string; hint: string }[] = [
   { id: "all", label: "Everyone", hint: "" },
 ];
 
-/** Contacts per send request, and the pause between requests, so the send-flow isn't hit with a burst. */
+/**
+ * Contacts per round, and the pause between rounds, so the send-flow isn't
+ * hit with a burst and no company's mail gateway sees several of these
+ * arrive together (rounds never hold two people from the same company --
+ * see lib/outreach/sendPlan.ts).
+ */
 const SEND_CHUNK_SIZE = 5;
-const SEND_CHUNK_PAUSE_MS = 30_000;
+const SEND_CHUNK_PAUSE_MS = 60_000;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -311,6 +317,8 @@ export function ProspectsPanel({
   const templateUntaggedFollowUp = !!selectedTemplate && sendStep > 1 && selectedTemplate.sequenceStep === null;
   const stepTemplate = templates.find((t) => t.sequenceStep === sendStep);
   const previewContact = sendable[0];
+  /** How many paced rounds the current selection will go out in. */
+  const sendRounds = useMemo(() => (reviewOpen ? planSendRounds(sendable, SEND_CHUNK_SIZE).length : 0), [reviewOpen, sendable]);
   const previewHtml = useMemo(
     () =>
       previewMerge(
@@ -631,11 +639,12 @@ export function ProspectsPanel({
     setMessage(null);
     cancelSendRef.current = false;
 
-    // Small chunks with a pause between them: the send-flow drops most of a
-    // large burst (see the send route's MAX_PROSPECTS_PER_SEND).
+    // Small rounds with a pause between them: the send-flow drops most of a
+    // large burst (see the send route's MAX_PROSPECTS_PER_SEND), and no round
+    // holds two people from the same company (see sendPlan.ts).
     const ids = sendable.map((c) => c.id);
-    const chunks: number[][] = [];
-    for (let i = 0; i < ids.length; i += SEND_CHUNK_SIZE) chunks.push(ids.slice(i, i + SEND_CHUNK_SIZE));
+    const chunks: number[][] = planSendRounds(sendable, SEND_CHUNK_SIZE).map((round) => round.map((c) => c.id));
+    let attempted = 0;
 
     let queued = 0;
     const failures: string[] = [];
@@ -646,7 +655,8 @@ export function ProspectsPanel({
           stoppedEarly = true;
           break;
         }
-        setSendProgress(`Sending ${Math.min((i + 1) * SEND_CHUNK_SIZE, ids.length)} of ${ids.length}…`);
+        attempted += chunks[i].length;
+        setSendProgress(`Round ${i + 1} of ${chunks.length}: sending ${attempted} of ${ids.length}…`);
         const { data } = await postJson("/api/outreach/send", {
           campaignId,
           prospectIds: chunks[i],
@@ -669,7 +679,7 @@ export function ProspectsPanel({
         if (i < chunks.length - 1) {
           for (let waited = 0; waited < SEND_CHUNK_PAUSE_MS && !cancelSendRef.current; waited += 1_000) {
             setSendProgress(
-              `Queued ${queued} of ${ids.length}. Next ${Math.min(SEND_CHUNK_SIZE, ids.length - (i + 1) * SEND_CHUNK_SIZE)} in ${Math.ceil(
+              `Queued ${queued} of ${ids.length}. Round ${i + 2} of ${chunks.length} (${chunks[i + 1].length}) in ${Math.ceil(
                 (SEND_CHUNK_PAUSE_MS - waited) / 1000
               )}s — keep this page open.`
             );
@@ -1212,11 +1222,11 @@ export function ProspectsPanel({
             </div>
           ) : null}
 
-          {sendable.length > SEND_CHUNK_SIZE ? (
+          {sendRounds > 1 ? (
             <p className="text-xs text-foreground/60">
-              Sends {SEND_CHUNK_SIZE} at a time with a {SEND_CHUNK_PAUSE_MS / 1000}s pause, so the send-flow isn&apos;t
-              overloaded — about {Math.ceil(((Math.ceil(sendable.length / SEND_CHUNK_SIZE) - 1) * SEND_CHUNK_PAUSE_MS) / 60_000)} min.
-              Keep this page open until it finishes.
+              Sends in {sendRounds} rounds of up to {SEND_CHUNK_SIZE}, {SEND_CHUNK_PAUSE_MS / 60_000} minute apart, with never two
+              people from the same company in one round — about {Math.ceil(((sendRounds - 1) * SEND_CHUNK_PAUSE_MS) / 60_000)} min.
+              Keep this page open until it finishes; &quot;Stop after this round&quot; stops it any time.
             </p>
           ) : null}
 
@@ -1224,7 +1234,7 @@ export function ProspectsPanel({
             {sendProgress ? <span className="mr-auto text-xs text-foreground/70">{sendProgress}</span> : null}
             {sending ? (
               <Button variant="ghost" size="md" onClick={() => (cancelSendRef.current = true)}>
-                Stop after this chunk
+                Stop after this round
               </Button>
             ) : (
               <Button variant="ghost" size="md" onClick={() => setReviewOpen(false)}>
