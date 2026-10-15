@@ -85,6 +85,29 @@ const SEND_CHUNK_PAUSE_MS = 60_000;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
+ * The status of one email for a contact, for the Status column: what
+ * happened with the email selected above (Email 1/2/3), not the contact's
+ * best result across all emails -- otherwise an Email 1 open shows as
+ * "OPENED" while you're looking at Email 2. null = that email wasn't sent.
+ */
+function statusForEmail(c: Contact, step: SendStep): ProspectStatus | null {
+  const info = c.sequence.steps[step - 1];
+  const e = c.engagementByStep?.[step - 1];
+  if (info?.state === "sent") {
+    if (e?.replied) return "REPLIED";
+    if (e?.bounced) return "BOUNCED";
+    if (e?.clicked) return "CLICKED";
+    if (e?.opened) return "OPENED";
+    // Older data without per-email engagement: fall back to the overall status.
+    return e ? "SENT" : c.status;
+  }
+  if (info?.state === "queued") return "SENDING";
+  // Not sent: a reply/bounce on an earlier email is why it was stopped -- worth showing.
+  if (c.status === "REPLIED" || c.status === "BOUNCED") return c.status;
+  return null;
+}
+
+/**
  * An untagged template that is the only template, or that is the one Email 1
  * would fall back to, is almost certainly the Email 1 copy -- don't pre-pick
  * it for a follow-up.
@@ -1265,7 +1288,9 @@ export function ProspectsPanel({
                   Email {n}
                 </th>
               ))}
-              <th className="px-3 py-2">Status</th>
+              <th className="px-3 py-2" title="How this contact responded to the email selected above. Hover a badge for their overall status.">
+                Email {sendStep} status
+              </th>
               <th className="px-3 py-2"></th>
             </tr>
           </thead>
@@ -1345,9 +1370,24 @@ export function ProspectsPanel({
                           </td>
                         ))}
                         <td className="px-3 py-2">
-                          <span className={clsx("rounded-full px-2 py-0.5 text-xs font-medium", STATUS_STYLES[p.status])}>
-                            {p.status}
-                          </span>
+                          {(() => {
+                            const st = statusForEmail(p, sendStep);
+                            return st ? (
+                              <span
+                                className={clsx("rounded-full px-2 py-0.5 text-xs font-medium", STATUS_STYLES[st])}
+                                title={`Email ${sendStep}: ${st.toLowerCase()}. Overall (any email): ${p.status.toLowerCase()}.`}
+                              >
+                                {st}
+                              </span>
+                            ) : (
+                              <span
+                                className="text-xs text-foreground/40"
+                                title={`Email ${sendStep} not sent yet. Overall (any email): ${p.status.toLowerCase()}.`}
+                              >
+                                Not sent
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2">
                           <button
