@@ -4,6 +4,7 @@ import {
   contactHealth,
   deliveredAtFromEvents,
   DEFAULT_DELAYS,
+  engagementByStepFromMessages,
   stopSignalFromEvents,
   summarizeBatch,
   type Engagement,
@@ -88,6 +89,8 @@ export async function getCampaignOverview(campaignId: number, now: Date = new Da
       }
     }
 
+    const engagementByStep = engagementByStepFromMessages(p.messages, (e) => isAutomated(e.meta));
+
     return {
       id: p.id,
       batchId: p.batchId,
@@ -100,6 +103,7 @@ export async function getCampaignOverview(campaignId: number, now: Date = new Da
       sequence,
       health: contactHealth(sequence),
       engagement,
+      engagementByStep,
       lastActivityAt,
       createdAt: p.createdAt,
     };

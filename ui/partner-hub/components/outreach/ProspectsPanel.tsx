@@ -8,6 +8,7 @@ import { withBasePath } from "@/lib/basePath";
 import { Button } from "@/components/ui/button";
 import { previewMerge, PLACEHOLDER_HINT } from "./mergePreview";
 import { HistoryTimeline, type HistoryState } from "./HistoryTimeline";
+import { SequenceBar } from "./SequenceBar";
 import { StepCell } from "./SequenceCells";
 import type { Template } from "./TemplatesPanel";
 import {
@@ -78,12 +79,29 @@ const SEND_CHUNK_PAUSE_MS = 30_000;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
+ * An untagged template that is the only template, or that is the one Email 1
+ * would fall back to, is almost certainly the Email 1 copy -- don't pre-pick
+ * it for a follow-up.
+ */
+function isEmailOneTemplate(t: Template, all: Template[]): boolean {
+  if (all.some((x) => x.sequenceStep === 1)) return false;
+  return all.filter((x) => x.sequenceStep === null)[0]?.id === t.id;
+}
+
+/**
  * Batches tab. Campaign -> Batch -> contacts, with Email 1 -> 2 -> 3 progress
  * per contact. From here you import a CSV into a batch (new or existing), send
  * a chosen email in the sequence to a selection of contacts, move contacts
  * between batches (their email history moves with them), or remove them.
  */
-export function ProspectsPanel({ campaignId }: { campaignId: number }) {
+export function ProspectsPanel({
+  campaignId,
+  onCreateTemplate,
+}: {
+  campaignId: number;
+  /** Jump to the Templates tab with a new template for this sequence email started. */
+  onCreateTemplate?: (step: SendStep) => void;
+}) {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [templateId, setTemplateId] = useState<number | "">("");
@@ -234,10 +252,20 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
     return () => clearInterval(interval);
   }, [campaignId, refresh, loadTemplates]);
 
-  // Choosing which email to send picks the template tagged for that step (if any).
+  // Choosing which email to send picks the template tagged for that step. For
+  // Email 2/3 with no tagged template, nothing is pre-picked: silently keeping
+  // Email 1's template would send the first email again as the follow-up.
   useEffect(() => {
     const tagged = templates.find((t) => t.sequenceStep === sendStep);
-    if (tagged) setTemplateId(tagged.id);
+    if (tagged) {
+      setTemplateId(tagged.id);
+      return;
+    }
+    setTemplateId((prev) => {
+      const current = templates.find((t) => t.id === prev);
+      if (sendStep === 1) return current ? prev : templates[0]?.id ?? "";
+      return current && current.sequenceStep === null && !isEmailOneTemplate(current, templates) ? prev : "";
+    });
   }, [sendStep, templates]);
 
   const batches = useMemo(() => overview?.batches ?? [], [overview]);
@@ -276,6 +304,12 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
   const unverifiedResends = sendable.filter((c) => c.sequence.steps[sendStep - 1]?.unconfirmed);
 
   const selectedTemplate = templates.find((t) => t.id === templateId);
+  /** The chosen template is tagged for a different email than the one being sent. */
+  const templateWrongStep =
+    !!selectedTemplate && selectedTemplate.sequenceStep !== null && selectedTemplate.sequenceStep !== sendStep;
+  /** Sending Email 2/3 with a template that isn't tagged for it -- allowed, but worth a warning. */
+  const templateUntaggedFollowUp = !!selectedTemplate && sendStep > 1 && selectedTemplate.sequenceStep === null;
+  const stepTemplate = templates.find((t) => t.sequenceStep === sendStep);
   const previewContact = sendable[0];
   const previewHtml = useMemo(
     () =>
@@ -340,6 +374,53 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
 
   function selectAllReady() {
     setSelected(new Set(readyInView.map((c) => c.id)));
+  }
+
+  /** Contacts in the batch on screen (any health view), for the sequence bar. */
+  const contactsInBatchView = useMemo(
+    () => (view === "all" ? batches : batches.filter((b) => viewOf(b) === view)).flatMap((b) => b.contacts),
+    [batches, view]
+  );
+  const batchViewSummary =
+    view === "all" ? overview?.summary : batches.find((b) => viewOf(b) === view)?.summary;
+  const batchViewLabel =
+    view === "all" ? "all batches" : view === "unassigned" ? "Unassigned" : batches.find((b) => b.id === view)?.name ?? "this batch";
+
+  function pickStep(step: SendStep) {
+    if (reviewOpen) return;
+    setSendStep(step);
+    setSelected(new Set());
+    setMessage(null);
+  }
+
+  /**
+   * One click from the sequence bar: Email N to everyone in this batch who is
+   * ready for it -- same batch, no new batch, earlier emails untouched. Opens
+   * the review step with that email's template so nothing goes out unseen.
+   */
+  function sendReady(step: SendStep, includeScheduled: boolean) {
+    if (reviewOpen || sending) return;
+    const template = templates.find((t) => t.sequenceStep === step) ?? (step === 1 ? selectedTemplate : undefined);
+    const ids = contactsInBatchView
+      .filter((c) => {
+        const info = c.sequence.steps[step - 1];
+        return (info?.state === "due" && !info.unconfirmed) || (includeScheduled && info?.state === "scheduled");
+      })
+      .map((c) => c.id);
+    setSendStep(step);
+    setHealthView("all");
+    setSelected(new Set(ids));
+    setExpandedId(null);
+    setUnverifiedChecked(false);
+    if (!template) {
+      setMessage(`Selected ${ids.length} contact${ids.length === 1 ? "" : "s"} for Email ${step}. Pick or create an Email ${step} template to review and send.`);
+      return;
+    }
+    setTemplateId(template.id);
+    setDraftSubject(template.subject);
+    setDraftHtml(template.html);
+    setMessage(null);
+    setReviewOpen(true);
   }
 
   async function postJson(path: string, body: unknown) {
@@ -535,7 +616,7 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
   }
 
   function openReview() {
-    if (!selectedTemplate || sendable.length === 0) return;
+    if (!selectedTemplate || templateWrongStep || sendable.length === 0) return;
     setDraftSubject(selectedTemplate.subject);
     setDraftHtml(selectedTemplate.html);
     setMessage(null);
@@ -823,6 +904,21 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
         ) : null}
       </div>
 
+      {/* Email 1 / 2 / 3 for the batch on screen: per-email tracking + send the next email in place */}
+      {overview && batchViewSummary && batchViewSummary.total > 0 ? (
+        <SequenceBar
+          summary={batchViewSummary}
+          scopeLabel={batchViewLabel}
+          activeStep={sendStep}
+          templates={templates}
+          delays={overview.campaign}
+          busy={sending || reviewOpen}
+          onPickStep={pickStep}
+          onSendReady={sendReady}
+          onCreateTemplate={(step) => onCreateTemplate?.(step)}
+        />
+      ) : null}
+
       {/* One-click resend for contacts reset to Pending */}
       {healthView === "resend" && readyInView.length > 0 && !reviewOpen ? (
         <div className="flex flex-wrap items-center gap-3 rounded-lg border border-button-primary/40 bg-muted/30 px-4 py-3">
@@ -940,12 +1036,13 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
         </select>
         <select
           value={templateId}
-          onChange={(e) => setTemplateId(Number(e.target.value))}
+          onChange={(e) => setTemplateId(e.target.value === "" ? "" : Number(e.target.value))}
           disabled={reviewOpen || templates.length === 0}
           className="rounded-lg border border-border/60 px-3 py-2 text-sm font-medium disabled:opacity-50"
           title="Template to send. Tag a template as Email 1/2/3 on the Templates tab and it's picked automatically."
         >
           {templates.length === 0 ? <option value="">No templates yet</option> : null}
+          {templates.length > 0 && templateId === "" ? <option value="">Choose Email {sendStep} template…</option> : null}
           {templates.map((t) => (
             <option key={t.id} value={t.id}>
               {t.name}
@@ -956,10 +1053,34 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
         <Button variant="secondary" size="md" onClick={selectAllReady} disabled={readyInView.length === 0}>
           {healthView === "resend" ? "Select all reset" : "Select all ready"} for Email {sendStep} ({readyInView.length})
         </Button>
-        <Button size="md" onClick={openReview} disabled={sendable.length === 0 || !selectedTemplate || reviewOpen}>
+        <Button
+          size="md"
+          onClick={openReview}
+          disabled={sendable.length === 0 || !selectedTemplate || templateWrongStep || reviewOpen}
+        >
           Review & send Email {sendStep} to {sendable.length || ""}
         </Button>
       </div>
+
+      {/* Template guard for follow-ups */}
+      {sendStep > 1 && !stepTemplate && !reviewOpen ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-400 bg-amber-50 px-3 py-2 text-sm dark:bg-amber-950/40">
+          <span className="text-amber-900 dark:text-amber-200">
+            No template is tagged as Email {sendStep} yet. Create one (or tag an existing one on the Templates tab) so the
+            follow-up isn&apos;t a copy of Email {sendStep - 1}.
+          </span>
+          {onCreateTemplate ? (
+            <Button size="sm" variant="secondary" onClick={() => onCreateTemplate(sendStep)}>
+              Create Email {sendStep} template
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+      {templateWrongStep && !reviewOpen ? (
+        <p className="text-sm text-amber-800 dark:text-amber-300">
+          &quot;{selectedTemplate?.name}&quot; is tagged as Email {selectedTemplate?.sequenceStep}. Pick an Email {sendStep} template to send Email {sendStep}.
+        </p>
+      ) : null}
 
       {/* Selection actions */}
       {selected.size > 0 ? (
@@ -1028,6 +1149,11 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
             <span className="text-xs text-foreground/60">Template: {selectedTemplate.name}</span>
           </div>
           <p className="text-xs text-foreground/60">{PLACEHOLDER_HINT}</p>
+          {templateUntaggedFollowUp ? (
+            <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+              This template isn&apos;t tagged as Email {sendStep}. Make sure this is your follow-up and not Email 1 again.
+            </p>
+          ) : null}
 
           <div>
             <label className="mb-1 block text-xs font-medium text-foreground/70">Subject</label>
@@ -1108,7 +1234,7 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
             <Button
               size="md"
               onClick={handleConfirmSend}
-              disabled={sending || sendable.length === 0 || (unverifiedResends.length > 0 && !unverifiedChecked)}
+              disabled={sending || sendable.length === 0 || templateWrongStep || (unverifiedResends.length > 0 && !unverifiedChecked)}
             >
               {sending ? "Sending…" : `Send Email ${sendStep} to ${sendable.length}`}
             </Button>
@@ -1124,9 +1250,11 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
               <th className="px-3 py-2">Name</th>
               <th className="px-3 py-2">Email</th>
               <th className="px-3 py-2">Company</th>
-              <th className="px-3 py-2">Email 1</th>
-              <th className="px-3 py-2">Email 2</th>
-              <th className="px-3 py-2">Email 3</th>
+              {([1, 2, 3] as const).map((n) => (
+                <th key={n} className={clsx("px-3 py-2", n === sendStep && "bg-muted/60 text-foreground")}>
+                  Email {n}
+                </th>
+              ))}
               <th className="px-3 py-2">Status</th>
               <th className="px-3 py-2"></th>
             </tr>
@@ -1202,8 +1330,8 @@ export function ProspectsPanel({ campaignId }: { campaignId: number }) {
                         <td className="px-3 py-2">{p.email}</td>
                         <td className="px-3 py-2">{p.company ?? "—"}</td>
                         {p.sequence.steps.map((info) => (
-                          <td key={info.step} className="px-3 py-2">
-                            <StepCell info={info} />
+                          <td key={info.step} className={clsx("px-3 py-2", info.step === sendStep && "bg-muted/30")}>
+                            <StepCell info={info} engagement={p.engagementByStep?.[info.step - 1]} />
                           </td>
                         ))}
                         <td className="px-3 py-2">

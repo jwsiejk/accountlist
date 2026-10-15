@@ -6,6 +6,7 @@ import {
   computeSequence,
   contactHealth,
   deliveredAtFromEvents,
+  engagementByStepFromMessages,
   QUEUED_GRACE_MS,
   stopSignalFromEvents,
   summarizeBatch,
@@ -188,4 +189,52 @@ test("contactHealth separates contacts that need attention from ones that are fi
   assert.equal(health([{ step: 1, sentAt: old, createdAt: old }]), "on_track");
   assert.equal(health([{ step: 1, sentAt: null, createdAt: old, deliveredAt: old }]), "on_track");
   assert.equal(health([]), "not_started");
+});
+
+test("engagement is split by the email it happened on, so Email 2 is tracked on its own", () => {
+  const ev = (type: string, daysAgo: number, automated = false) => ({ type, occurredAt: ago(daysAgo * DAY), automated });
+  const byStep = engagementByStepFromMessages(
+    [
+      { step: 1, events: [ev("OPEN", 6), ev("CLICK", 6, true)] },
+      { step: 2, events: [ev("OPEN", 1), ev("CLICK", 1), ev("REPLY", 0.5)] },
+    ],
+    (e) => e.automated
+  );
+  assert.deepEqual(
+    byStep.map((e) => [e.opened, e.clicked, e.replied, e.bounced]),
+    [
+      [true, false, false, false], // the automated click on Email 1 doesn't count
+      [true, true, true, false],
+      [false, false, false, false],
+    ]
+  );
+  assert.equal(byStep[1].lastActivityAt!.getTime(), ago(0.5 * DAY).getTime());
+  assert.equal(byStep[0].lastActivityAt!.getTime(), ago(6 * DAY).getTime());
+});
+
+test("summarizeBatch counts per-email engagement and separates clean-ready from retries and early sends", () => {
+  const delays = { email2DelayDays: 3, email3DelayDays: 4 };
+  const mk = (messages: SequenceMessage[], byStep: [boolean, boolean][] = []) => ({
+    status: "SENT" as ProspectStatusName,
+    sequence: computeSequence(prospect("SENT", messages), delays, NOW),
+    engagement: { opened: false, clicked: false, replied: false },
+    engagementByStep: [0, 1, 2].map((i) => ({
+      opened: byStep[i]?.[0] ?? false,
+      clicked: false,
+      replied: byStep[i]?.[1] ?? false,
+      bounced: false,
+    })),
+  });
+  const s = summarizeBatch([
+    mk([msg(1, 5 * DAY)], [[true, false]]), // Email 2 due
+    mk([msg(1, 1 * DAY)]), // Email 2 scheduled
+    mk([msg(1, 9 * DAY), msg(2, 2 * DAY)], [[true, false], [true, true]]), // Email 3 scheduled
+    mk([msg(1, null, 2 * QUEUED_GRACE_MS)]), // Email 1 retry, not clean-ready
+  ]);
+  assert.deepEqual(s.sentByStep, [3, 1, 0]);
+  assert.deepEqual(s.readyByStep, [0, 1, 0]);
+  assert.deepEqual(s.dueByStep, [1, 1, 0]);
+  assert.deepEqual(s.scheduledByStep, [0, 1, 1]);
+  assert.deepEqual(s.openedByStep, [2, 1, 0]);
+  assert.deepEqual(s.repliedByStep, [0, 1, 0]);
 });

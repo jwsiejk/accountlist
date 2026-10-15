@@ -45,17 +45,55 @@ function pct(part: number, whole: number): string | undefined {
   return whole > 0 ? `${Math.round((part / whole) * 100)}% of contacts` : undefined;
 }
 
+function PerEmailTable({ s }: { s: BatchSummary }) {
+  if (!s.openedByStep) return null; // older API response
+  const rate = (n: number, sent: number) => (sent > 0 ? `${n} (${Math.round((n / sent) * 100)}%)` : String(n));
+  return (
+    <div className="overflow-x-auto rounded-lg border border-border/60">
+      <table className="w-full text-xs">
+        <thead className="bg-muted/40 text-left uppercase tracking-wide text-foreground/60">
+          <tr>
+            <th className="px-3 py-1.5">By email</th>
+            <th className="px-3 py-1.5">Sent</th>
+            <th className="px-3 py-1.5">Opened</th>
+            <th className="px-3 py-1.5">Clicked</th>
+            <th className="px-3 py-1.5">Replied</th>
+            <th className="px-3 py-1.5">Bounced</th>
+            <th className="px-3 py-1.5">Ready to send</th>
+          </tr>
+        </thead>
+        <tbody>
+          {[0, 1, 2].map((i) => (
+            <tr key={i} className="border-t border-border/40 tabular-nums">
+              <td className="px-3 py-1.5 font-medium">Email {i + 1}</td>
+              <td className="px-3 py-1.5">{s.sentByStep[i]}</td>
+              <td className="px-3 py-1.5">{rate(s.openedByStep[i], s.sentByStep[i])}</td>
+              <td className="px-3 py-1.5">{rate(s.clickedByStep[i], s.sentByStep[i])}</td>
+              <td className="px-3 py-1.5">{rate(s.repliedByStep[i], s.sentByStep[i])}</td>
+              <td className="px-3 py-1.5">{s.bouncedByStep[i]}</td>
+              <td className="px-3 py-1.5">{s.readyByStep[i]}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function SummaryTiles({ s }: { s: BatchSummary }) {
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
-      <Tile label="Contacts" value={s.total} />
-      <Tile label="Email 1 sent" value={s.sentByStep[0]} sub={pct(s.sentByStep[0], s.total)} />
-      <Tile label="Email 2 sent" value={s.sentByStep[1]} sub={pct(s.sentByStep[1], s.total)} />
-      <Tile label="Email 3 sent" value={s.sentByStep[2]} sub={pct(s.sentByStep[2], s.total)} />
-      <Tile label="Opened" value={s.opened} sub={pct(s.opened, s.total)} />
-      <Tile label="Clicked" value={s.clicked} sub={pct(s.clicked, s.total)} />
-      <Tile label="Replied" value={s.replied} sub={pct(s.replied, s.total)} />
-      <Tile label="Bounced" value={s.bounced} sub={pct(s.bounced, s.total)} />
+    <div className="space-y-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
+        <Tile label="Contacts" value={s.total} />
+        <Tile label="Email 1 sent" value={s.sentByStep[0]} sub={pct(s.sentByStep[0], s.total)} />
+        <Tile label="Email 2 sent" value={s.sentByStep[1]} sub={pct(s.sentByStep[1], s.total)} />
+        <Tile label="Email 3 sent" value={s.sentByStep[2]} sub={pct(s.sentByStep[2], s.total)} />
+        <Tile label="Opened" value={s.opened} sub={pct(s.opened, s.total)} />
+        <Tile label="Clicked" value={s.clicked} sub={pct(s.clicked, s.total)} />
+        <Tile label="Replied" value={s.replied} sub={pct(s.replied, s.total)} />
+        <Tile label="Bounced" value={s.bounced} sub={pct(s.bounced, s.total)} />
+      </div>
+      <PerEmailTable s={s} />
     </div>
   );
 }

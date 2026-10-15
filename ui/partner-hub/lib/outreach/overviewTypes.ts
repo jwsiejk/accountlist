@@ -1,4 +1,4 @@
-import type { BatchSummary, ContactHealth, Engagement, ProspectStatusName, SequenceState } from "./sequence";
+import type { BatchSummary, ContactHealth, Engagement, ProspectStatusName, SequenceState, StepEngagement } from "./sequence";
 
 /**
  * Shapes of the campaign read model (see overview.ts). Kept in their own
@@ -19,6 +19,8 @@ export interface ContactRow {
   /** Which dashboard view this contact belongs in -- see contactHealth(). */
   health: ContactHealth;
   engagement: Engagement;
+  /** Engagement on each email separately (index 0 = Email 1). Optional so older fixtures still type-check. */
+  engagementByStep?: StepEngagement[];
   /** Most recent real (non-automated) open/click/reply, or null. */
   lastActivityAt: Date | null;
   createdAt: Date;
