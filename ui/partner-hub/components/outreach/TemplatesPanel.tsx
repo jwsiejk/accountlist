@@ -34,7 +34,19 @@ const BLANK_DRAFT: Draft = { name: "", subject: "", html: "", sequenceStep: null
  * "new template" and "editing an existing one"; which one is active is
  * just whether `editingId` is set.
  */
-export function TemplatesPanel({ campaignId }: { campaignId: number }) {
+export function TemplatesPanel({
+  campaignId,
+  startNewForStep,
+  onStarted,
+  onSaved,
+}: {
+  campaignId: number;
+  /** Open the editor on a new template tagged for this sequence email (from the Batches tab). */
+  startNewForStep?: number | null;
+  onStarted?: () => void;
+  /** Called after a template is created/updated, so counts elsewhere can refresh. */
+  onSaved?: () => void;
+}) {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
@@ -62,6 +74,14 @@ export function TemplatesPanel({ campaignId }: { campaignId: number }) {
     refresh();
     setEditingId(null);
   }, [refresh]);
+
+  useEffect(() => {
+    if (!startNewForStep) return;
+    setDraft({ ...BLANK_DRAFT, name: `Email ${startNewForStep} follow-up`, sequenceStep: startNewForStep });
+    setEditingId("new");
+    setMessage(`New Email ${startNewForStep} template — it'll be picked automatically when you send Email ${startNewForStep} from the Batches tab.`);
+    onStarted?.();
+  }, [startNewForStep, onStarted]);
 
   function startNew() {
     setDraft(BLANK_DRAFT);
@@ -134,6 +154,7 @@ export function TemplatesPanel({ campaignId }: { campaignId: number }) {
       }
       setEditingId(null);
       refresh();
+      onSaved?.();
     } finally {
       setSaving(false);
     }

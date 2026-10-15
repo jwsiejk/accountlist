@@ -35,14 +35,33 @@ export interface Contact {
   sequence: { steps: StepInfo[]; nextStep: 1 | 2 | 3 | null; status: SequenceStatus };
   health: ContactHealth;
   engagement: { opened: boolean; clicked: boolean; replied: boolean };
+  /** Engagement on each email separately (index 0 = Email 1). */
+  engagementByStep?: StepEngagement[];
   lastActivityAt: string | null;
   createdAt: string;
 }
 
+export interface StepEngagement {
+  opened: boolean;
+  clicked: boolean;
+  replied: boolean;
+  bounced: boolean;
+  lastActivityAt: string | null;
+}
+
+type StepCounts = [number, number, number];
+
 export interface BatchSummary {
   total: number;
-  sentByStep: [number, number, number];
-  dueByStep: [number, number, number];
+  sentByStep: StepCounts;
+  dueByStep: StepCounts;
+  /** Ready now, excluding retries of an unconfirmed request. */
+  readyByStep: StepCounts;
+  scheduledByStep: StepCounts;
+  openedByStep: StepCounts;
+  clickedByStep: StepCounts;
+  repliedByStep: StepCounts;
+  bouncedByStep: StepCounts;
   notStarted: number;
   inProgress: number;
   complete: number;

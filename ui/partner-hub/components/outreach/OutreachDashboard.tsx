@@ -35,6 +35,8 @@ export function OutreachDashboard() {
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [tab, setTab] = useState<"prospects" | "report" | "templates">("prospects");
+  /** Set when the Batches tab asks for a new template for a given sequence email. */
+  const [newTemplateStep, setNewTemplateStep] = useState<number | null>(null);
 
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
@@ -221,11 +223,24 @@ export function OutreachDashboard() {
             </div>
 
             {tab === "prospects" ? (
-              <ProspectsPanel key={selectedCampaign.id} campaignId={selectedCampaign.id} />
+              <ProspectsPanel
+                key={selectedCampaign.id}
+                campaignId={selectedCampaign.id}
+                onCreateTemplate={(step) => {
+                  setNewTemplateStep(step);
+                  setTab("templates");
+                }}
+              />
             ) : tab === "report" ? (
               <ReportPanel key={selectedCampaign.id} campaignId={selectedCampaign.id} />
             ) : (
-              <TemplatesPanel key={selectedCampaign.id} campaignId={selectedCampaign.id} />
+              <TemplatesPanel
+                key={selectedCampaign.id}
+                campaignId={selectedCampaign.id}
+                startNewForStep={newTemplateStep}
+                onStarted={() => setNewTemplateStep(null)}
+                onSaved={() => refresh(selectedCampaign.id)}
+              />
             )}
           </div>
         ) : null}

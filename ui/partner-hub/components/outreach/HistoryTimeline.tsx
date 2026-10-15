@@ -161,6 +161,7 @@ export function HistoryTimeline({ state }: { state?: HistoryState }) {
                 <span className={clsx("flex items-center gap-1.5 text-sm font-medium", entry.event.automated && "text-foreground/50")}>
                   <Icon className="h-3.5 w-3.5" />
                   {entry.event.type === "SEND_CONFIRMED" && entry.event.manual ? "Marked as sent by hand" : meta.label}
+                  {entry.message.step ? <span className="font-normal text-foreground/50">· Email {entry.message.step}</span> : null}
                   {entry.event.automated ? (
                     <span
                       className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-normal text-foreground/50"

@@ -270,12 +270,28 @@ export function contactHealth(sequence: SequenceState): ContactHealth {
   return "on_track";
 }
 
+/** Per-step counts, index 0 = Email 1. */
+export type StepCounts = [number, number, number];
+
 export interface BatchSummary {
   total: number;
   /** Contacts with Email N confirmed sent, by step (index 0 = Email 1). */
-  sentByStep: [number, number, number];
+  sentByStep: StepCounts;
   /** Contacts for whom Email N can be sent right now (state "due"). */
-  dueByStep: [number, number, number];
+  dueByStep: StepCounts;
+  /** Contacts for whom Email N is ready now, excluding retries of an unconfirmed request. */
+  readyByStep: StepCounts;
+  /** Contacts for whom Email N is scheduled (can be sent early). */
+  scheduledByStep: StepCounts;
+  /**
+   * Engagement attributed to the specific email it happened on, so Email 2
+   * is tracked on its own exactly like Email 1. Opens/clicks exclude
+   * suspected automated scans.
+   */
+  openedByStep: StepCounts;
+  clickedByStep: StepCounts;
+  repliedByStep: StepCounts;
+  bouncedByStep: StepCounts;
   notStarted: number;
   inProgress: number;
   complete: number;
@@ -293,6 +309,51 @@ export interface Engagement {
   replied: boolean;
 }
 
+/** Engagement on one email in the sequence. */
+export interface StepEngagement extends Engagement {
+  bounced: boolean;
+  /** Most recent real (non-automated) open/click/reply on this email. */
+  lastActivityAt: Date | null;
+}
+
+export const emptyStepEngagement = (): StepEngagement => ({
+  opened: false,
+  clicked: false,
+  replied: false,
+  bounced: false,
+  lastActivityAt: null,
+});
+
+/**
+ * Split a prospect's tracking events by the email (step) they were recorded
+ * against. `isAutomated` filters suspected scanner opens/clicks out of the
+ * counts. Returns one entry per sequence step, index 0 = Email 1.
+ */
+export function engagementByStepFromMessages<E extends { type: string; occurredAt: Date }>(
+  messages: { step: number; events: E[] }[],
+  isAutomated: (e: E) => boolean
+): StepEngagement[] {
+  const out = SEQUENCE_STEPS.map(() => emptyStepEngagement());
+  for (const m of messages) {
+    const slot = out[m.step - 1];
+    if (!slot) continue;
+    for (const e of m.events) {
+      if (e.type === "BOUNCE") {
+        slot.bounced = true;
+        continue;
+      }
+      if (e.type === "REPLY") slot.replied = true;
+      else if (e.type === "OPEN" || e.type === "CLICK") {
+        if (isAutomated(e)) continue;
+        if (e.type === "OPEN") slot.opened = true;
+        else slot.clicked = true;
+      } else continue;
+      if (!slot.lastActivityAt || e.occurredAt > slot.lastActivityAt) slot.lastActivityAt = e.occurredAt;
+    }
+  }
+  return out;
+}
+
 /**
  * Roll up many prospects into the counts shown in the batch header and the
  * report. Engagement flags come from the tracked events (not the prospect's
@@ -300,12 +361,23 @@ export interface Engagement {
  * contact who also opened and clicked would otherwise count only as a reply).
  */
 export function summarizeBatch(
-  prospects: { status: ProspectStatusName; sequence: SequenceState; engagement: Engagement }[]
+  prospects: {
+    status: ProspectStatusName;
+    sequence: SequenceState;
+    engagement: Engagement;
+    engagementByStep?: Pick<StepEngagement, "opened" | "clicked" | "replied" | "bounced">[];
+  }[]
 ): BatchSummary {
   const s: BatchSummary = {
     total: prospects.length,
     sentByStep: [0, 0, 0],
     dueByStep: [0, 0, 0],
+    readyByStep: [0, 0, 0],
+    scheduledByStep: [0, 0, 0],
+    openedByStep: [0, 0, 0],
+    clickedByStep: [0, 0, 0],
+    repliedByStep: [0, 0, 0],
+    bouncedByStep: [0, 0, 0],
     notStarted: 0,
     inProgress: 0,
     complete: 0,
@@ -319,6 +391,15 @@ export function summarizeBatch(
     p.sequence.steps.forEach((info, i) => {
       if (info.state === "sent") s.sentByStep[i]++;
       if (info.state === "due") s.dueByStep[i]++;
+      if (info.state === "due" && !info.unconfirmed) s.readyByStep[i]++;
+      if (info.state === "scheduled") s.scheduledByStep[i]++;
+    });
+    p.engagementByStep?.forEach((e, i) => {
+      if (i > 2) return;
+      if (e.opened) s.openedByStep[i]++;
+      if (e.clicked) s.clickedByStep[i]++;
+      if (e.replied) s.repliedByStep[i]++;
+      if (e.bounced) s.bouncedByStep[i]++;
     });
     if (p.sequence.status === "not_started") s.notStarted++;
     if (p.sequence.status === "in_progress") s.inProgress++;
