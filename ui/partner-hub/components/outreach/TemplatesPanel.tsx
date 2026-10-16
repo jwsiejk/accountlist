@@ -309,8 +309,10 @@ export function TemplatesPanel({
         onChange={handleImportFile}
       />
 
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground/80">Templates</h3>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-foreground/60">
+          Tag a template as Email 1, 2 or 3 and it&apos;s picked automatically when you send that email.
+        </p>
         {!isEditorOpen ? (
           <div className="flex gap-2">
             <Button size="sm" variant="secondary" onClick={() => importInputRef.current?.click()} disabled={importing}>
@@ -552,18 +554,29 @@ export function TemplatesPanel({
         {templates.map((t) => (
           <div
             key={t.id}
-            className="flex items-center justify-between gap-3 rounded-lg border border-border/60 p-3"
+            className="group flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-card px-4 py-3 transition hover:border-border hover:shadow-sm"
           >
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium">
-                {t.name}
-                {t.sequenceStep ? (
-                  <span className="ml-2 rounded-full bg-muted px-2 py-0.5 align-middle text-[11px] font-medium text-foreground/70">
-                    Email {t.sequenceStep}
+            <div className="flex min-w-0 items-center gap-3">
+              <span
+                className={
+                  t.sequenceStep
+                    ? "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-button-primary text-xs font-semibold text-button-primary-foreground"
+                    : "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-foreground/50"
+                }
+                title={t.sequenceStep ? `Used for Email ${t.sequenceStep}` : "Not part of the sequence"}
+              >
+                {t.sequenceStep ? t.sequenceStep : <FileText className="h-4 w-4" />}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-foreground">
+                  {t.name}
+                  <span className="ml-2 text-xs font-normal text-foreground/45">
+                    {t.sequenceStep ? `Email ${t.sequenceStep}` : "Not in sequence"} · updated{" "}
+                    {new Date(t.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                   </span>
-                ) : null}
-              </p>
-              <p className="truncate text-xs text-foreground/60">{t.subject}</p>
+                </p>
+                <p className="truncate text-xs text-foreground/60">Subject: {t.subject}</p>
+              </div>
             </div>
             <div className="flex shrink-0 gap-2">
               <Button variant="ghost" size="sm" onClick={() => startCopy(t)} title="Copy into a new template">

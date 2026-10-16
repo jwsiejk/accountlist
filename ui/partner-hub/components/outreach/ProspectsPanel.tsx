@@ -2,7 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { clsx } from "clsx";
-import { Download, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { Download, Eye, History, MousePointerClick, Pencil, Plus, Reply, Send, Trash2, Upload, XCircle } from "lucide-react";
 
 import { withBasePath } from "@/lib/basePath";
 import { Button } from "@/components/ui/button";
@@ -19,18 +19,7 @@ import {
   type Contact,
   type ContactHealth,
   type Overview,
-  type ProspectStatus,
 } from "./types";
-
-const STATUS_STYLES: Record<ProspectStatus, string> = {
-  PENDING: "bg-muted text-foreground/60",
-  SENDING: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
-  SENT: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300",
-  OPENED: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
-  CLICKED: "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300",
-  REPLIED: "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300",
-  BOUNCED: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
-};
 
 type SendStep = 1 | 2 | 3;
 /** Which batch is on screen: one batch's id, the Unassigned bucket, or everything. */
@@ -53,6 +42,7 @@ function viewOfContact(c: Contact): Exclude<HealthView, "all"> {
 }
 
 const HEALTH_VIEWS: { id: HealthView; label: string; hint: string }[] = [
+  { id: "all", label: "All", hint: "" },
   {
     id: "attention",
     label: "Needs attention",
@@ -60,17 +50,16 @@ const HEALTH_VIEWS: { id: HealthView; label: string; hint: string }[] = [
   },
   {
     id: "resend",
-    label: "Reset — ready to resend",
-    hint: "Contacts you reset to Pending. Select them and send — once the send-flow confirms, they move to \"Sent — all good\".",
+    label: "Ready to resend",
+    hint: "Contacts you reset to Pending. Select them and send — once the send-flow confirms, they move to \"Sent\".",
   },
-  { id: "in_flight", label: "Sending now", hint: "Requested in the last hour, waiting for the send-flow to confirm." },
+  { id: "in_flight", label: "Sending", hint: "Requested in the last hour, waiting for the send-flow to confirm." },
   {
     id: "on_track",
-    label: "Sent — all good",
+    label: "Sent",
     hint: "Every email requested so far went out. These contacts can't be sent the same email again.",
   },
   { id: "not_started", label: "Not started", hint: "Nothing sent yet." },
-  { id: "all", label: "Everyone", hint: "" },
 ];
 
 /**
@@ -83,29 +72,6 @@ const SEND_CHUNK_SIZE = 5;
 const SEND_CHUNK_PAUSE_MS = 60_000;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-/**
- * The status of one email for a contact, for the Status column: what
- * happened with the email selected above (Email 1/2/3), not the contact's
- * best result across all emails -- otherwise an Email 1 open shows as
- * "OPENED" while you're looking at Email 2. null = that email wasn't sent.
- */
-function statusForEmail(c: Contact, step: SendStep): ProspectStatus | null {
-  const info = c.sequence.steps[step - 1];
-  const e = c.engagementByStep?.[step - 1];
-  if (info?.state === "sent") {
-    if (e?.replied) return "REPLIED";
-    if (e?.bounced) return "BOUNCED";
-    if (e?.clicked) return "CLICKED";
-    if (e?.opened) return "OPENED";
-    // Older data without per-email engagement: fall back to the overall status.
-    return e ? "SENT" : c.status;
-  }
-  if (info?.state === "queued") return "SENDING";
-  // Not sent: a reply/bounce on an earlier email is why it was stopped -- worth showing.
-  if (c.status === "REPLIED" || c.status === "BOUNCED") return c.status;
-  return null;
-}
 
 /**
  * An untagged template that is the only template, or that is the one Email 1
@@ -157,6 +123,7 @@ export function ProspectsPanel({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const didPickInitialView = useRef(false);
 
+  const [importOpen, setImportOpen] = useState(false);
   const [importTarget, setImportTarget] = useState<string>("new"); // "new" or a batch id
   const [newBatchName, setNewBatchName] = useState("");
   const [creatingBatch, setCreatingBatch] = useState(false);
@@ -173,6 +140,13 @@ export function ProspectsPanel({
   const [reviewOpen, setReviewOpen] = useState(false);
   const [draftSubject, setDraftSubject] = useState("");
   const [draftHtml, setDraftHtml] = useState("");
+  const reviewRef = useRef<HTMLDivElement>(null);
+
+  // The review step can be opened from the toolbar, the sequence cards or the
+  // selection bar at the bottom of the screen -- bring it into view either way.
+  useEffect(() => {
+    if (reviewOpen) reviewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [reviewOpen]);
 
   async function toggleHistory(prospectId: number) {
     if (expandedId === prospectId) {
@@ -227,16 +201,26 @@ export function ProspectsPanel({
         return kept.size === prev.size ? prev : kept;
       });
 
-      // First load: open on the newest real batch (that's the one being worked on).
+      // First load: if anything needs attention (or is waiting to be resent),
+      // open on that view across all batches -- opening on the newest batch
+      // could otherwise land on an empty "Needs attention" list while the
+      // contacts that need it sit in an older batch. Otherwise open on the
+      // newest real batch (that's the one being worked on).
       if (!didPickInitialView.current) {
         didPickInitialView.current = true;
-        // ...and if anything needs attention, start on that view, so it's
-        // dealt with apart from the contacts that are fine.
         const all = next.batches.flatMap((b) => b.contacts);
-        if (all.some((c) => viewOfContact(c) === "attention")) setHealthView("attention");
-        else if (all.some((c) => viewOfContact(c) === "resend")) setHealthView("resend");
+        const troubled = all.some((c) => viewOfContact(c) === "attention")
+          ? "attention"
+          : all.some((c) => viewOfContact(c) === "resend")
+            ? "resend"
+            : null;
         const real = next.batches.filter((b) => b.id !== null);
-        if (real.length > 0) setView(real[real.length - 1].id as number);
+        if (troubled) {
+          setHealthView(troubled);
+          setView("all");
+        } else if (real.length > 0) {
+          setView(real[real.length - 1].id as number);
+        }
       }
       // A batch that vanished (deleted) shouldn't leave the view pointing at nothing.
       setView((v) => (v === "all" || next.batches.some((b) => viewOf(b) === v) ? v : "all"));
@@ -271,6 +255,7 @@ export function ProspectsPanel({
     setHistoryById({});
     setReviewOpen(false);
     setImportTarget("new");
+    setImportOpen(false);
     setMoveTarget("");
     setEditingTiming(false);
     setMessage(null);
@@ -489,6 +474,7 @@ export function ProspectsPanel({
           }${data.skipped?.length ? `, ${data.skipped.length} skipped` : ""}.`
         );
         setNewBatchName("");
+        setImportOpen(false);
         await refresh();
         if (data.batch?.id) {
           // Keep importing into the batch just created unless the person picks another.
@@ -823,15 +809,33 @@ export function ProspectsPanel({
     return withBasePath(`/api/outreach/report?${params.toString()}`);
   }
 
-  const columnCount = 9;
+  const columnCount = 6;
   const hasContacts = allContacts.length > 0;
+  const activeHealthHint = HEALTH_VIEWS.find((h) => h.id === healthView)?.hint;
+
+  /** Pill-style toggle used for the batch picker. */
+  const chipClass = (active: boolean) =>
+    clsx(
+      "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1 text-sm font-medium transition",
+      active
+        ? "border-button-primary bg-button-primary text-button-primary-foreground dark:border-foreground/40"
+        : "border-border/60 bg-card text-foreground/70 hover:border-border hover:text-foreground"
+    );
+  const countClass = (active: boolean) => clsx("text-xs tabular-nums", active ? "opacity-70" : "text-foreground/40");
+  const linkButton =
+    "inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs font-medium text-foreground/55 transition hover:bg-muted/70 hover:text-foreground disabled:opacity-50";
+  const selectClass =
+    "h-9 rounded-md border border-border/70 bg-card px-2.5 text-sm text-foreground disabled:opacity-50";
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {toast ? (
         <div
           role="status"
-          className="fixed bottom-6 left-1/2 z-50 flex max-w-[90vw] -translate-x-1/2 items-center gap-3 rounded-lg bg-foreground px-4 py-3 text-sm text-background shadow-lg"
+          className={clsx(
+            "fixed left-1/2 z-50 flex max-w-[90vw] -translate-x-1/2 items-center gap-3 rounded-lg bg-foreground px-4 py-3 text-sm text-background shadow-lg",
+            selected.size > 0 ? "bottom-24" : "bottom-6"
+          )}
         >
           <span>{toast}</span>
           {healthView !== "resend" ? (
@@ -848,288 +852,620 @@ export function ProspectsPanel({
           ) : null}
         </div>
       ) : null}
-      {/* Batch picker */}
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => changeView("all")}
-          className={clsx(
-            "rounded-full border px-3 py-1.5 text-sm font-medium transition",
-            view === "all"
-              ? "border-button-primary bg-button-primary text-button-primary-foreground"
-              : "border-border/60 text-foreground/70 hover:bg-muted/60"
-          )}
-        >
-          All batches
-          <span className={clsx("ml-1.5 text-xs", view === "all" ? "opacity-80" : "text-foreground/40")}>
-            {allContacts.length}
-          </span>
-        </button>
-        {batches.map((b) => (
-          <button
-            key={String(b.id)}
-            type="button"
-            onClick={() => changeView(viewOf(b))}
-            className={clsx(
-              "rounded-full border px-3 py-1.5 text-sm font-medium transition",
-              view === viewOf(b)
-                ? "border-button-primary bg-button-primary text-button-primary-foreground"
-                : "border-border/60 text-foreground/70 hover:bg-muted/60",
-              b.id === null && "italic"
-            )}
-          >
-            {b.name}
-            <span className={clsx("ml-1.5 text-xs", view === viewOf(b) ? "opacity-80" : "text-foreground/40")}>
-              {b.contacts.length}
-            </span>
-          </button>
-        ))}
-        {creatingBatch ? (
-          <span className="inline-flex items-center gap-2">
-            <input
-              type="text"
-              value={newBatchInput}
-              onChange={(e) => setNewBatchInput(e.target.value)}
-              placeholder={`Batch ${realBatches.length + 1}`}
-              className="w-40 rounded-lg border border-border/60 px-3 py-1.5 text-sm"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleCreateBatch();
-                if (e.key === "Escape") setCreatingBatch(false);
-              }}
-            />
-            <Button size="sm" onClick={handleCreateBatch} disabled={busy}>
-              Create
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setCreatingBatch(false)}>
-              Cancel
-            </Button>
-          </span>
-        ) : (
-          <Button size="sm" variant="secondary" onClick={() => setCreatingBatch(true)}>
-            <Plus className="h-4 w-4" /> New batch
-          </Button>
-        )}
-      </div>
 
-      {/* Health views: keep contacts that are fine apart from the ones being troubleshot */}
-      <div className="space-y-1.5">
-        <div className="inline-flex flex-wrap gap-1 rounded-lg border border-border/60 bg-muted/30 p-1">
-          {HEALTH_VIEWS.map((h) => (
+      {/* ── Batches + import ─────────────────────────────────────────── */}
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-foreground/45">Batch</span>
+          <button type="button" onClick={() => changeView("all")} className={chipClass(view === "all")}>
+            All <span className={countClass(view === "all")}>{allContacts.length}</span>
+          </button>
+          {batches.map((b) => (
             <button
-              key={h.id}
+              key={String(b.id)}
               type="button"
-              onClick={() => changeHealthView(h.id)}
-              title={h.hint || undefined}
-              className={clsx(
-                "rounded-md px-3 py-1.5 text-sm font-medium transition",
-                healthView === h.id ? "bg-background text-foreground shadow-sm" : "text-foreground/60 hover:text-foreground",
-                h.id === "attention" && healthCounts.attention > 0 && healthView !== h.id && "text-amber-700 dark:text-amber-400"
-              )}
+              onClick={() => changeView(viewOf(b))}
+              className={clsx(chipClass(view === viewOf(b)), b.id === null && "italic")}
             >
-              {h.label}
-              <span className="ml-1.5 text-xs opacity-70">{healthCounts[h.id]}</span>
+              {b.name} <span className={countClass(view === viewOf(b))}>{b.contacts.length}</span>
             </button>
           ))}
+          {creatingBatch ? (
+            <span className="inline-flex items-center gap-2">
+              <input
+                type="text"
+                value={newBatchInput}
+                onChange={(e) => setNewBatchInput(e.target.value)}
+                placeholder={`Batch ${realBatches.length + 1}`}
+                className="h-8 w-40 rounded-md border border-border/70 bg-card px-2.5 text-sm"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleCreateBatch();
+                  if (e.key === "Escape") setCreatingBatch(false);
+                }}
+              />
+              <Button size="sm" onClick={handleCreateBatch} disabled={busy}>
+                Create
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setCreatingBatch(false)}>
+                Cancel
+              </Button>
+            </span>
+          ) : (
+            <button type="button" onClick={() => setCreatingBatch(true)} className={linkButton}>
+              <Plus className="h-3.5 w-3.5" /> New batch
+            </button>
+          )}
+          <div className="flex-1" />
+          <Button size="sm" variant={importOpen ? "primary" : "secondary"} onClick={() => setImportOpen((o) => !o)}>
+            <Upload className="h-4 w-4" /> Import contacts
+          </Button>
         </div>
-        {healthView !== "all" ? (
-          <p className="text-xs text-foreground/60">{HEALTH_VIEWS.find((h) => h.id === healthView)?.hint}</p>
+
+        {importOpen ? (
+          <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border/60 bg-muted/30 p-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-foreground/60">Add to</label>
+              <select value={importTarget} onChange={(e) => setImportTarget(e.target.value)} className={selectClass}>
+                <option value="new">A new batch</option>
+                {realBatches.map((b) => (
+                  <option key={String(b.id)} value={String(b.id)}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {importTarget === "new" ? (
+              <div>
+                <label className="mb-1 block text-xs font-medium text-foreground/60">New batch name (optional)</label>
+                <input
+                  type="text"
+                  value={newBatchName}
+                  onChange={(e) => setNewBatchName(e.target.value)}
+                  placeholder={`Batch ${realBatches.length + 1}`}
+                  className="h-9 w-52 rounded-md border border-border/70 bg-card px-2.5 text-sm"
+                />
+              </div>
+            ) : null}
+            <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md bg-button-primary px-4 text-sm font-medium text-button-primary-foreground shadow-sm transition hover:bg-button-primary/90">
+              <Upload className="h-4 w-4" />
+              Choose CSV…
+              <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleUpload} />
+            </label>
+            <p className="basis-full text-xs text-foreground/55">
+              CSV columns: <span className="font-medium">email</span>, <span className="font-medium">first_name</span>{" "}
+              (both required), last_name, company, title. Contacts already in this campaign keep their current batch.
+            </p>
+          </div>
         ) : null}
       </div>
 
-      {/* Email 1 / 2 / 3 for the batch on screen: per-email tracking + send the next email in place */}
+      {/* ── Email 1 / 2 / 3 for the batch on screen ───────────────────── */}
       {overview && batchViewSummary && batchViewSummary.total > 0 ? (
-        <SequenceBar
-          summary={batchViewSummary}
-          scopeLabel={batchViewLabel}
-          activeStep={sendStep}
-          templates={templates}
-          delays={overview.campaign}
-          busy={sending || reviewOpen}
-          onPickStep={pickStep}
-          onSendReady={sendReady}
-          onCreateTemplate={(step) => onCreateTemplate?.(step)}
-        />
-      ) : null}
-
-      {/* One-click resend for contacts reset to Pending */}
-      {healthView === "resend" && readyInView.length > 0 && !reviewOpen ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-button-primary/40 bg-muted/30 px-4 py-3">
-          <div className="text-sm">
-            <span className="font-semibold">
-              {readyInView.length} reset contact{readyInView.length === 1 ? "" : "s"} ready for Email {sendStep}
-            </span>
-            <span className="ml-2 text-foreground/60">
-              Only these get it — nobody in Needs attention or Sent is included.
-            </span>
+        <div className="space-y-2">
+          <SequenceBar
+            summary={batchViewSummary}
+            scopeLabel={batchViewLabel}
+            activeStep={sendStep}
+            templates={templates}
+            delays={overview.campaign}
+            busy={sending || reviewOpen}
+            onPickStep={pickStep}
+            onSendReady={sendReady}
+            onCreateTemplate={(step) => onCreateTemplate?.(step)}
+          />
+          <div className="flex flex-wrap items-center gap-2 text-xs text-foreground/55">
+            {editingTiming ? (
+              <>
+                <span>Email 2 due</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={60}
+                  value={timing.e2}
+                  onChange={(e) => setTiming((t) => ({ ...t, e2: Number(e.target.value) }))}
+                  className="h-7 w-14 rounded border border-border/70 bg-card px-2"
+                />
+                <span>days after Email 1 · Email 3 due</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={60}
+                  value={timing.e3}
+                  onChange={(e) => setTiming((t) => ({ ...t, e3: Number(e.target.value) }))}
+                  className="h-7 w-14 rounded border border-border/70 bg-card px-2"
+                />
+                <span>days after Email 2</span>
+                <Button size="sm" onClick={handleSaveTiming} disabled={busy}>
+                  Save
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setEditingTiming(false)}>
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              <>
+                <span>
+                  Follow-ups are suggested {overview.campaign.email2DelayDays} and {overview.campaign.email3DelayDays} day
+                  {overview.campaign.email3DelayDays === 1 ? "" : "s"} apart. Nothing sends automatically.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTiming({ e2: overview.campaign.email2DelayDays, e3: overview.campaign.email3DelayDays });
+                    setEditingTiming(true);
+                  }}
+                  className="font-medium text-foreground/70 underline decoration-dotted underline-offset-2 hover:text-foreground"
+                >
+                  Change timing
+                </button>
+              </>
+            )}
           </div>
-          <div className="flex-1" />
-          <Button size="md" onClick={reviewAllReset} disabled={!selectedTemplate || sending}>
-            Review &amp; send Email {sendStep} to these {readyInView.length}
-          </Button>
         </div>
       ) : null}
 
-      {/* Sequence timing */}
-      {overview ? (
-        <div className="flex flex-wrap items-center gap-2 text-xs text-foreground/60">
-          {editingTiming ? (
-            <>
-              <span>Email 2 due</span>
-              <input
-                type="number"
-                min={0}
-                max={60}
-                value={timing.e2}
-                onChange={(e) => setTiming((t) => ({ ...t, e2: Number(e.target.value) }))}
-                className="w-14 rounded border border-border/60 px-2 py-1"
-              />
-              <span>days after Email 1; Email 3 due</span>
-              <input
-                type="number"
-                min={0}
-                max={60}
-                value={timing.e3}
-                onChange={(e) => setTiming((t) => ({ ...t, e3: Number(e.target.value) }))}
-                className="w-14 rounded border border-border/60 px-2 py-1"
-              />
-              <span>days after Email 2.</span>
-              <Button size="sm" onClick={handleSaveTiming} disabled={busy}>
-                Save
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setEditingTiming(false)}>
-                Cancel
-              </Button>
-            </>
-          ) : (
-            <>
-              <span>
-                Suggested timing: Email 2 is due {overview.campaign.email2DelayDays} day
-                {overview.campaign.email2DelayDays === 1 ? "" : "s"} after Email 1, Email 3 {overview.campaign.email3DelayDays} day
-                {overview.campaign.email3DelayDays === 1 ? "" : "s"} after Email 2. Nothing sends automatically.
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setTiming({ e2: overview.campaign.email2DelayDays, e3: overview.campaign.email3DelayDays });
-                  setEditingTiming(true);
-                }}
-                className="underline decoration-dotted hover:text-foreground"
+      {/* ── Contacts ─────────────────────────────────────────────────── */}
+      <section className="overflow-hidden rounded-xl border border-border/60 bg-card">
+        {/* Toolbar: which contacts are on screen, and what to send them */}
+        <div className="space-y-2 border-b border-border/60 bg-muted/20 px-4 py-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="inline-flex flex-wrap gap-0.5 rounded-lg border border-border/60 bg-card p-0.5">
+              {HEALTH_VIEWS.map((h) => {
+                const active = healthView === h.id;
+                const warn = (h.id === "attention" || h.id === "resend") && healthCounts[h.id] > 0;
+                return (
+                  <button
+                    key={h.id}
+                    type="button"
+                    onClick={() => changeHealthView(h.id)}
+                    title={h.hint || undefined}
+                    className={clsx(
+                      "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm font-medium transition",
+                      active
+                        ? "bg-button-primary text-button-primary-foreground shadow-sm dark:ring-1 dark:ring-foreground/40"
+                        : "text-foreground/60 hover:text-foreground",
+                      !active && warn && "text-amber-700 dark:text-amber-400"
+                    )}
+                  >
+                    {warn && !active ? <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden /> : null}
+                    {h.label}
+                    <span className={clsx("text-xs tabular-nums", active ? "opacity-70" : "opacity-60")}>{healthCounts[h.id]}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex-1" />
+
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={sendStep}
+                onChange={(e) => setSendStep(Number(e.target.value) as SendStep)}
+                disabled={reviewOpen}
+                className={clsx(selectClass, "font-medium")}
+                aria-label="Which email to send"
               >
-                Change
-              </button>
-            </>
-          )}
-        </div>
-      ) : null}
+                <option value={1}>Email 1</option>
+                <option value={2}>Email 2</option>
+                <option value={3}>Email 3</option>
+              </select>
+              <select
+                value={templateId}
+                onChange={(e) => setTemplateId(e.target.value === "" ? "" : Number(e.target.value))}
+                disabled={reviewOpen || templates.length === 0}
+                className={clsx(selectClass, "max-w-[14rem]")}
+                aria-label="Template"
+                title="Template to send. Tag a template as Email 1/2/3 on the Templates tab and it's picked automatically."
+              >
+                {templates.length === 0 ? <option value="">No templates yet</option> : null}
+                {templates.length > 0 && templateId === "" ? <option value="">Choose Email {sendStep} template…</option> : null}
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                    {t.sequenceStep ? ` (Email ${t.sequenceStep})` : ""}
+                  </option>
+                ))}
+              </select>
+              <Button variant="secondary" size="sm" className="h-9" onClick={selectAllReady} disabled={readyInView.length === 0}>
+                Select {healthView === "resend" ? "reset" : "ready"} ({readyInView.length})
+              </Button>
+              <Button
+                size="sm"
+                className="h-9"
+                onClick={openReview}
+                disabled={sendable.length === 0 || !selectedTemplate || templateWrongStep || reviewOpen}
+              >
+                <Send className="h-4 w-4" />
+                {sendable.length > 0 ? `Review & send to ${sendable.length}` : "Review & send"}
+              </Button>
+            </div>
+          </div>
 
-      {/* Import + send controls */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 px-3 py-2">
-          <span className="text-xs font-medium text-foreground/70">Import CSV into</span>
-          <select
-            value={importTarget}
-            onChange={(e) => setImportTarget(e.target.value)}
-            className="rounded-lg border border-border/60 px-2 py-1 text-sm"
-          >
-            <option value="new">a new batch</option>
-            {realBatches.map((b) => (
-              <option key={String(b.id)} value={String(b.id)}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-          {importTarget === "new" ? (
-            <input
-              type="text"
-              value={newBatchName}
-              onChange={(e) => setNewBatchName(e.target.value)}
-              placeholder={`Batch ${realBatches.length + 1} (name optional)`}
-              className="w-44 rounded-lg border border-border/60 px-2 py-1 text-sm"
-            />
+          {activeHealthHint ? <p className="text-xs text-foreground/55">{activeHealthHint}</p> : null}
+
+          {/* One-click resend for contacts reset to Pending */}
+          {healthView === "resend" && readyInView.length > 0 && !reviewOpen ? (
+            <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border/60 bg-card px-3 py-2">
+              <span className="text-sm">
+                <span className="font-semibold">
+                  {readyInView.length} reset contact{readyInView.length === 1 ? "" : "s"} ready for Email {sendStep}.
+                </span>{" "}
+                <span className="text-foreground/60">Only these get it — nobody in Needs attention or Sent is included.</span>
+              </span>
+              <div className="flex-1" />
+              <Button size="sm" onClick={reviewAllReset} disabled={!selectedTemplate || sending}>
+                Review &amp; send to these {readyInView.length}
+              </Button>
+            </div>
           ) : null}
-          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border/60 px-3 py-1.5 text-sm font-medium hover:bg-muted/60">
-            <Upload className="h-4 w-4" />
-            Upload CSV
-            <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleUpload} />
-          </label>
-        </div>
-        <span className="text-xs text-foreground/60">Columns: email, first_name (required), last_name, company, title</span>
-        <div className="flex-1" />
-        <label className="text-xs font-medium text-foreground/70">Send</label>
-        <select
-          value={sendStep}
-          onChange={(e) => setSendStep(Number(e.target.value) as SendStep)}
-          disabled={reviewOpen}
-          className="rounded-lg border border-border/60 px-3 py-2 text-sm font-medium disabled:opacity-50"
-        >
-          <option value={1}>Email 1</option>
-          <option value={2}>Email 2</option>
-          <option value={3}>Email 3</option>
-        </select>
-        <select
-          value={templateId}
-          onChange={(e) => setTemplateId(e.target.value === "" ? "" : Number(e.target.value))}
-          disabled={reviewOpen || templates.length === 0}
-          className="rounded-lg border border-border/60 px-3 py-2 text-sm font-medium disabled:opacity-50"
-          title="Template to send. Tag a template as Email 1/2/3 on the Templates tab and it's picked automatically."
-        >
-          {templates.length === 0 ? <option value="">No templates yet</option> : null}
-          {templates.length > 0 && templateId === "" ? <option value="">Choose Email {sendStep} template…</option> : null}
-          {templates.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-              {t.sequenceStep ? ` (Email ${t.sequenceStep})` : ""}
-            </option>
-          ))}
-        </select>
-        <Button variant="secondary" size="md" onClick={selectAllReady} disabled={readyInView.length === 0}>
-          {healthView === "resend" ? "Select all reset" : "Select all ready"} for Email {sendStep} ({readyInView.length})
-        </Button>
-        <Button
-          size="md"
-          onClick={openReview}
-          disabled={sendable.length === 0 || !selectedTemplate || templateWrongStep || reviewOpen}
-        >
-          Review & send Email {sendStep} to {sendable.length || ""}
-        </Button>
-      </div>
 
-      {/* Template guard for follow-ups */}
-      {sendStep > 1 && !stepTemplate && !reviewOpen ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-400 bg-amber-50 px-3 py-2 text-sm dark:bg-amber-950/40">
-          <span className="text-amber-900 dark:text-amber-200">
-            No template is tagged as Email {sendStep} yet. Create one (or tag an existing one on the Templates tab) so the
-            follow-up isn&apos;t a copy of Email {sendStep - 1}.
-          </span>
-          {onCreateTemplate ? (
-            <Button size="sm" variant="secondary" onClick={() => onCreateTemplate(sendStep)}>
-              Create Email {sendStep} template
-            </Button>
+          {/* Template guard for follow-ups */}
+          {sendStep > 1 && !stepTemplate && !reviewOpen ? (
+            <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm dark:border-amber-700 dark:bg-amber-950/40">
+              <span className="text-amber-900 dark:text-amber-200">
+                No template is tagged as Email {sendStep} yet, so the follow-up could repeat Email {sendStep - 1}.
+              </span>
+              {onCreateTemplate ? (
+                <Button size="sm" variant="secondary" onClick={() => onCreateTemplate(sendStep)}>
+                  Create Email {sendStep} template
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+          {templateWrongStep && !reviewOpen ? (
+            <p className="text-sm text-amber-800 dark:text-amber-300">
+              &quot;{selectedTemplate?.name}&quot; is tagged as Email {selectedTemplate?.sequenceStep}. Pick an Email {sendStep} template to send Email {sendStep}.
+            </p>
           ) : null}
         </div>
-      ) : null}
-      {templateWrongStep && !reviewOpen ? (
-        <p className="text-sm text-amber-800 dark:text-amber-300">
-          &quot;{selectedTemplate?.name}&quot; is tagged as Email {selectedTemplate?.sequenceStep}. Pick an Email {sendStep} template to send Email {sendStep}.
-        </p>
-      ) : null}
 
-      {/* Selection actions */}
-      {selected.size > 0 ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-sm">
-          <span className="font-medium">{selected.size} selected</span>
+        {message ? (
+          <div className="border-b border-border/60 bg-muted/30 px-4 py-2 text-sm text-foreground/80" role="status">
+            {message}
+          </div>
+        ) : null}
+
+        {/* Review step */}
+        {reviewOpen && selectedTemplate ? (
+          <div ref={reviewRef} className="scroll-mt-24 space-y-4 border-b border-border/60 bg-muted/10 p-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h3 className="text-base font-semibold">
+                Review Email {sendStep} · {sendable.length} recipient{sendable.length === 1 ? "" : "s"}
+              </h3>
+              <span className="text-xs text-foreground/55">Template: {selectedTemplate.name}</span>
+            </div>
+            {templateUntaggedFollowUp ? (
+              <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+                This template isn&apos;t tagged as Email {sendStep}. Make sure this is your follow-up and not Email 1 again.
+              </p>
+            ) : null}
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-foreground/60">Subject</label>
+              <input
+                type="text"
+                value={draftSubject}
+                onChange={(e) => setDraftSubject(e.target.value)}
+                className="h-9 w-full rounded-md border border-border/70 bg-card px-3 text-sm"
+              />
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-foreground/60">
+                  Preview — as {previewContact ? previewContact.firstName : "a sample contact"} will see it
+                </label>
+                <iframe
+                  title="Email preview"
+                  srcDoc={previewHtml}
+                  sandbox=""
+                  className="h-[420px] w-full rounded-lg border border-border/60 bg-white"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-foreground/60">HTML (edit for this send only)</label>
+                <textarea
+                  value={draftHtml}
+                  onChange={(e) => setDraftHtml(e.target.value)}
+                  rows={16}
+                  spellCheck={false}
+                  className="h-[420px] w-full rounded-lg border border-border/60 bg-card p-2 font-mono text-xs"
+                />
+                <p className="mt-1 text-[11px] leading-snug text-foreground/45">{PLACEHOLDER_HINT}</p>
+              </div>
+            </div>
+
+            {unverifiedResends.length > 0 ? (
+              <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-700 dark:bg-amber-950/40">
+                <p className="font-medium text-amber-900 dark:text-amber-200">
+                  {unverifiedResends.length} of these had an earlier Email {sendStep} request that was never confirmed
+                </p>
+                <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
+                  Nothing shows it arrived (no confirmation, open or click), but the app can&apos;t be certain. Check the DDN
+                  mailbox&apos;s Sent Items first; for anyone you find there, cancel and use &quot;Mark as sent&quot; instead.
+                </p>
+                <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
+                  {unverifiedResends
+                    .slice(0, 12)
+                    .map((c) => contactName(c))
+                    .join(", ")}
+                  {unverifiedResends.length > 12 ? `, and ${unverifiedResends.length - 12} more` : ""}
+                </p>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={unverifiedChecked} onChange={(e) => setUnverifiedChecked(e.target.checked)} />
+                  I checked Sent Items — these did not go out{healthView === "resend" ? " (that's why I reset them)" : ""}
+                </label>
+              </div>
+            ) : null}
+
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {sendProgress ? (
+                <span className="mr-auto text-xs font-medium text-foreground/70">{sendProgress}</span>
+              ) : sendRounds > 1 ? (
+                <span className="mr-auto max-w-xl text-xs text-foreground/55">
+                  Goes out in {sendRounds} rounds of up to {SEND_CHUNK_SIZE} (never two people from the same company in one
+                  round), {SEND_CHUNK_PAUSE_MS / 60_000} min apart — about{" "}
+                  {Math.ceil(((sendRounds - 1) * SEND_CHUNK_PAUSE_MS) / 60_000)} min. Keep this page open.
+                </span>
+              ) : null}
+              {sending ? (
+                <Button variant="ghost" size="md" onClick={() => (cancelSendRef.current = true)}>
+                  Stop after this round
+                </Button>
+              ) : (
+                <Button variant="ghost" size="md" onClick={() => setReviewOpen(false)}>
+                  Cancel
+                </Button>
+              )}
+              <Button
+                size="md"
+                onClick={handleConfirmSend}
+                disabled={sending || sendable.length === 0 || templateWrongStep || (unverifiedResends.length > 0 && !unverifiedChecked)}
+              >
+                <Send className="h-4 w-4" />
+                {sending ? "Sending…" : `Send Email ${sendStep} to ${sendable.length}`}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-left text-xs font-medium text-foreground/50">
+              <tr className="border-b border-border/60">
+                <th className="w-10 px-4 py-2.5" aria-label="Select"></th>
+                <th className="px-3 py-2.5 font-medium">Contact</th>
+                {([1, 2, 3] as const).map((n) => (
+                  <th
+                    key={n}
+                    className={clsx("whitespace-nowrap px-3 py-2.5 font-medium", n === sendStep && "bg-muted/50 text-foreground")}
+                  >
+                    Email {n}
+                  </th>
+                ))}
+                <th className="w-px px-3 py-2.5" aria-label="Actions"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleBatches.map((b) => {
+                const s = b.summary;
+                const groupAllOn = b.contacts.length > 0 && b.contacts.every((c) => selected.has(c.id));
+                return (
+                  <Fragment key={String(b.id)}>
+                    <tr className="border-b border-border/60 bg-muted/40">
+                      <td className="px-4 py-2">
+                        <input
+                          type="checkbox"
+                          checked={groupAllOn}
+                          onChange={() => toggleGroup(b.contacts)}
+                          disabled={b.contacts.length === 0}
+                          aria-label={`Select all in ${b.name}`}
+                        />
+                      </td>
+                      <td colSpan={columnCount - 1} className="px-3 py-2">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                          <span className={clsx("text-sm font-semibold text-foreground", b.id === null && "italic")}>{b.name}</span>
+                          <span className="text-xs tabular-nums text-foreground/55">
+                            {s.total} contact{s.total === 1 ? "" : "s"}
+                            <span className="mx-1.5 text-foreground/25">|</span>
+                            Sent {s.sentByStep[0]} / {s.sentByStep[1]} / {s.sentByStep[2]}
+                            <span className="mx-1.5 text-foreground/25">|</span>
+                            {s.opened} opened · {s.replied} replied
+                            {s.bounced ? ` · ${s.bounced} bounced` : ""}
+                          </span>
+                          <span className="flex-1" />
+                          {b.contacts.length > 0 ? (
+                            <a
+                              href={reportHref(b.id === null ? "unassigned" : b.id)}
+                              className={clsx(linkButton, "no-underline hover:no-underline")}
+                              title="Download this batch as a CSV"
+                              aria-label={`Download ${b.name} as CSV`}
+                            >
+                              <Download className="h-4 w-4" />
+                            </a>
+                          ) : null}
+                          {b.id !== null ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleRenameBatch(b)}
+                                disabled={busy}
+                                className={linkButton}
+                                title="Rename batch"
+                                aria-label={`Rename ${b.name}`}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteBatch(b)}
+                                disabled={busy}
+                                className={clsx(linkButton, "hover:text-red-600")}
+                                title="Delete batch (its contacts become Unassigned)"
+                                aria-label={`Delete ${b.name}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                    {b.contacts.map((p) => {
+                      const isSelected = selected.has(p.id);
+                      return (
+                        <Fragment key={p.id}>
+                          <tr
+                            className={clsx(
+                              "border-b border-border/40 transition-colors",
+                              isSelected ? "bg-primary/5" : "hover:bg-muted/30"
+                            )}
+                          >
+                            <td className="px-4 py-2.5 align-top">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggle(p.id)}
+                                aria-label={`Select ${contactName(p)}`}
+                                className="mt-0.5"
+                              />
+                            </td>
+                            <td className="max-w-[16rem] px-3 py-2.5 align-top">
+                              <div className="flex min-w-0 items-baseline gap-1.5">
+                                <span className="shrink-0 font-medium text-foreground">{contactName(p)}</span>
+                                {p.company ? (
+                                  <span className="min-w-0 truncate text-foreground/55" title={p.title ? `${p.company} · ${p.title}` : p.company}>
+                                    · {p.company}
+                                  </span>
+                                ) : null}
+                              </div>
+                              <div className="truncate text-xs text-foreground/50" title={p.title ? `${p.email} · ${p.title}` : p.email}>
+                                {p.email}
+                                {p.title ? <span className="text-foreground/35"> · {p.title}</span> : null}
+                              </div>
+                            </td>
+                            {p.sequence.steps.map((info) => (
+                              <td key={info.step} className={clsx("px-3 py-2.5 align-top", info.step === sendStep && "bg-muted/30")}>
+                                <StepCell info={info} engagement={p.engagementByStep?.[info.step - 1]} />
+                              </td>
+                            ))}
+                            <td className="whitespace-nowrap px-3 py-2 text-right align-top">
+                              {p.health === "attention" ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMarkSent(p)}
+                                    title="Found it in Sent Items? Record it as sent so it's never sent again."
+                                    className={linkButton}
+                                  >
+                                    Mark sent
+                                  </button>
+                                  {p.status !== "PENDING" ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleReset(p.id)}
+                                      disabled={resettingIds.has(p.id)}
+                                      title="Changes the status label back to Pending. It can't make an email that went out, or a contact who replied or bounced, sendable again -- those are decided from the history."
+                                      className={linkButton}
+                                    >
+                                      {resettingIds.has(p.id) ? "Resetting…" : "Reset"}
+                                    </button>
+                                  ) : null}
+                                </>
+                              ) : null}
+                              <button
+                                type="button"
+                                onClick={() => toggleHistory(p.id)}
+                                className={clsx(linkButton, expandedId === p.id && "bg-muted/70 text-foreground")}
+                                aria-expanded={expandedId === p.id}
+                                aria-label={`${expandedId === p.id ? "Hide" : "Show"} history for ${contactName(p)}`}
+                                title={expandedId === p.id ? "Hide history" : "Show history"}
+                              >
+                                <History className="h-4 w-4" />
+                              </button>
+                            </td>
+                          </tr>
+                          {expandedId === p.id ? (
+                            <tr className="border-b border-border/40 bg-muted/20">
+                              <td colSpan={columnCount} className="px-6 py-4">
+                                <HistoryTimeline state={historyById[p.id]} />
+                              </td>
+                            </tr>
+                          ) : null}
+                        </Fragment>
+                      );
+                    })}
+                    {b.contacts.length === 0 ? (
+                      <tr className="border-b border-border/40">
+                        <td colSpan={columnCount} className="px-4 py-5 text-center text-xs text-foreground/50">
+                          This batch is empty — import a CSV into it, or move contacts here from another batch.
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
+                );
+              })}
+              {hasContacts && healthView !== "all" && visibleContacts.length === 0 ? (
+                <tr>
+                  <td colSpan={columnCount} className="px-4 py-10 text-center text-sm text-foreground/50">
+                    {healthView === "attention"
+                      ? "Nothing needs attention. 👍"
+                      : healthView === "resend"
+                        ? "No reset contacts waiting — use \"Reset\" under Needs attention once you've checked Sent Items."
+                        : "No contacts in this view."}
+                  </td>
+                </tr>
+              ) : null}
+              {!loading && !hasContacts && batches.length === 0 ? (
+                <tr>
+                  <td colSpan={columnCount} className="px-4 py-12 text-center text-sm text-foreground/50">
+                    No contacts yet.{" "}
+                    <button
+                      type="button"
+                      onClick={() => setImportOpen(true)}
+                      className="font-medium text-foreground underline decoration-dotted underline-offset-2"
+                    >
+                      Import a CSV
+                    </button>{" "}
+                    to start your first batch.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+        {hasContacts ? (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/60 bg-muted/20 px-4 py-2 text-[11px] text-foreground/50">
+            <span className="inline-flex items-center gap-1">
+              <Eye className="h-3 w-3 text-amber-600 dark:text-amber-400" /> opened
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <MousePointerClick className="h-3 w-3 text-purple-600 dark:text-purple-400" /> clicked
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Reply className="h-3 w-3 text-green-600 dark:text-green-400" /> replied
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <XCircle className="h-3 w-3 text-red-600 dark:text-red-400" /> bounced
+            </span>
+            <span>Opens and clicks exclude suspected link scanners. Hover any badge for details.</span>
+          </div>
+        ) : null}
+      </section>
+
+      {/* Selection actions: stays in view at the bottom of the screen while scrolling */}
+      {selected.size > 0 && !reviewOpen ? (
+        <div className="sticky bottom-4 z-40 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm shadow-lg">
+          <span className="font-semibold">{selected.size} selected</span>
           {skippedCount > 0 ? (
-            <span className="text-xs text-foreground/60">
-              {skippedCount} can&apos;t receive Email {sendStep} right now (already sent, waiting on an earlier email, or stopped) — skipped when sending.
+            <span className="text-xs text-foreground/55">
+              {skippedCount} can&apos;t get Email {sendStep} right now (already sent, waiting on an earlier email, or stopped) and
+              will be skipped.
             </span>
           ) : null}
           <div className="flex-1" />
-          <select
-            value={moveTarget}
-            onChange={(e) => setMoveTarget(e.target.value)}
-            className="rounded-lg border border-border/60 px-2 py-1.5 text-sm"
-          >
+          <select value={moveTarget} onChange={(e) => setMoveTarget(e.target.value)} className={clsx(selectClass, "h-8")}>
             <option value="">Move to…</option>
             {realBatches.map((b) => (
               <option key={String(b.id)} value={String(b.id)}>
@@ -1145,8 +1481,13 @@ export function ProspectsPanel({
               value={moveNewName}
               onChange={(e) => setMoveNewName(e.target.value)}
               placeholder={`Batch ${realBatches.length + 1} (name optional)`}
-              className="w-44 rounded-lg border border-border/60 px-2 py-1.5 text-sm"
+              className="h-8 w-44 rounded-md border border-border/70 bg-card px-2.5 text-sm"
             />
+          ) : null}
+          {moveTarget ? (
+            <Button size="sm" variant="secondary" onClick={handleMove} disabled={busy}>
+              Move
+            </Button>
           ) : null}
           {resettableSelected.length > 0 ? (
             <Button
@@ -1154,314 +1495,26 @@ export function ProspectsPanel({
               variant="secondary"
               onClick={handleResetSelected}
               disabled={busy}
-              title={'Only do this after checking Sent Items -- they\'ll move to "Reset — ready to resend".'}
+              title={'Only do this after checking Sent Items -- they\'ll move to "Ready to resend".'}
             >
               Reset {resettableSelected.length} to Pending
             </Button>
           ) : null}
-          <Button size="sm" variant="secondary" onClick={handleMove} disabled={!moveTarget || busy}>
-            Move
-          </Button>
           <Button size="sm" variant="secondary" onClick={handleRemove} disabled={busy}>
             <Trash2 className="h-4 w-4" /> Remove
+          </Button>
+          <Button
+            size="sm"
+            onClick={openReview}
+            disabled={sendable.length === 0 || !selectedTemplate || templateWrongStep || reviewOpen}
+          >
+            <Send className="h-4 w-4" /> {sendable.length > 0 ? `Send Email ${sendStep} to ${sendable.length}` : `Send Email ${sendStep}`}
           </Button>
           <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
             Clear
           </Button>
         </div>
       ) : null}
-
-      {message ? <p className="text-sm text-foreground/70">{message}</p> : null}
-
-      {reviewOpen && selectedTemplate ? (
-        <div className="space-y-3 rounded-lg border border-border/60 p-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">
-              Review & edit Email {sendStep} before sending to {sendable.length}
-            </h3>
-            <span className="text-xs text-foreground/60">Template: {selectedTemplate.name}</span>
-          </div>
-          <p className="text-xs text-foreground/60">{PLACEHOLDER_HINT}</p>
-          {templateUntaggedFollowUp ? (
-            <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
-              This template isn&apos;t tagged as Email {sendStep}. Make sure this is your follow-up and not Email 1 again.
-            </p>
-          ) : null}
-
-          <div>
-            <label className="mb-1 block text-xs font-medium text-foreground/70">Subject</label>
-            <input
-              type="text"
-              value={draftSubject}
-              onChange={(e) => setDraftSubject(e.target.value)}
-              className="w-full rounded-lg border border-border/60 px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-foreground/70">HTML body</label>
-              <textarea
-                value={draftHtml}
-                onChange={(e) => setDraftHtml(e.target.value)}
-                rows={16}
-                spellCheck={false}
-                className="w-full rounded-lg border border-border/60 p-2 font-mono text-xs"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-foreground/70">
-                Preview ({previewContact ? previewContact.firstName : "sample data"})
-              </label>
-              <iframe
-                title="Email preview"
-                srcDoc={previewHtml}
-                sandbox=""
-                className="h-[420px] w-full rounded-lg border border-border/60 bg-white"
-              />
-            </div>
-          </div>
-
-          {unverifiedResends.length > 0 ? (
-            <div className="space-y-2 rounded-lg border border-amber-400 bg-amber-50 p-3 text-sm dark:bg-amber-950/40">
-              <p className="font-medium text-amber-900 dark:text-amber-200">
-                {unverifiedResends.length} of these had an earlier Email {sendStep} request that was never confirmed
-              </p>
-              <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
-                Nothing shows it arrived (no confirmation, open or click), but the app can&apos;t be certain. Check the DDN
-                mailbox&apos;s Sent Items first; for anyone you find there, cancel and use &quot;Mark as sent&quot; instead.
-              </p>
-              <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
-                {unverifiedResends
-                  .slice(0, 12)
-                  .map((c) => contactName(c))
-                  .join(", ")}
-                {unverifiedResends.length > 12 ? `, and ${unverifiedResends.length - 12} more` : ""}
-              </p>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={unverifiedChecked} onChange={(e) => setUnverifiedChecked(e.target.checked)} />
-                I checked Sent Items — these did not go out{healthView === "resend" ? " (that's why I reset them)" : ""}
-              </label>
-            </div>
-          ) : null}
-
-          {sendRounds > 1 ? (
-            <p className="text-xs text-foreground/60">
-              Sends in {sendRounds} rounds of up to {SEND_CHUNK_SIZE}, {SEND_CHUNK_PAUSE_MS / 60_000} minute apart, with never two
-              people from the same company in one round — about {Math.ceil(((sendRounds - 1) * SEND_CHUNK_PAUSE_MS) / 60_000)} min.
-              Keep this page open until it finishes; &quot;Stop after this round&quot; stops it any time.
-            </p>
-          ) : null}
-
-          <div className="flex items-center justify-end gap-2">
-            {sendProgress ? <span className="mr-auto text-xs text-foreground/70">{sendProgress}</span> : null}
-            {sending ? (
-              <Button variant="ghost" size="md" onClick={() => (cancelSendRef.current = true)}>
-                Stop after this round
-              </Button>
-            ) : (
-              <Button variant="ghost" size="md" onClick={() => setReviewOpen(false)}>
-                Cancel
-              </Button>
-            )}
-            <Button
-              size="md"
-              onClick={handleConfirmSend}
-              disabled={sending || sendable.length === 0 || templateWrongStep || (unverifiedResends.length > 0 && !unverifiedChecked)}
-            >
-              {sending ? "Sending…" : `Send Email ${sendStep} to ${sendable.length}`}
-            </Button>
-          </div>
-        </div>
-      ) : null}
-
-      <div className="overflow-x-auto rounded-lg border border-border/60">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-foreground/60">
-            <tr>
-              <th className="w-8 px-3 py-2"></th>
-              <th className="px-3 py-2">Name</th>
-              <th className="px-3 py-2">Email</th>
-              <th className="px-3 py-2">Company</th>
-              {([1, 2, 3] as const).map((n) => (
-                <th key={n} className={clsx("px-3 py-2", n === sendStep && "bg-muted/60 text-foreground")}>
-                  Email {n}
-                </th>
-              ))}
-              <th className="px-3 py-2" title="How this contact responded to the email selected above. Hover a badge for their overall status.">
-                Email {sendStep} status
-              </th>
-              <th className="px-3 py-2"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibleBatches.map((b) => {
-              const s = b.summary;
-              const groupAllOn = b.contacts.length > 0 && b.contacts.every((c) => selected.has(c.id));
-              return (
-                <Fragment key={String(b.id)}>
-                  <tr className="border-t border-border/60 bg-muted/30">
-                    <td className="px-3 py-2">
-                      <input
-                        type="checkbox"
-                        checked={groupAllOn}
-                        onChange={() => toggleGroup(b.contacts)}
-                        disabled={b.contacts.length === 0}
-                        aria-label={`Select all in ${b.name}`}
-                      />
-                    </td>
-                    <td colSpan={columnCount - 1} className="px-3 py-2">
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                        <span className={clsx("text-sm font-semibold", b.id === null && "italic")}>{b.name}</span>
-                        <span className="text-xs text-foreground/60">
-                          {s.total} contact{s.total === 1 ? "" : "s"} · Email 1 sent {s.sentByStep[0]} · Email 2 sent {s.sentByStep[1]}
-                          {s.dueByStep[1] > 0 ? ` (${s.dueByStep[1]} ready)` : ""} · Email 3 sent {s.sentByStep[2]}
-                          {s.dueByStep[2] > 0 ? ` (${s.dueByStep[2]} ready)` : ""} · Opened {s.opened} · Replied {s.replied} · Bounced{" "}
-                          {s.bounced}
-                        </span>
-                        <span className="flex-1" />
-                        {b.contacts.length > 0 ? (
-                          <a
-                            href={reportHref(b.id === null ? "unassigned" : b.id)}
-                            className="inline-flex items-center gap-1 text-xs font-medium text-foreground/60 underline decoration-dotted hover:text-foreground"
-                            title="Download this batch as a CSV"
-                          >
-                            <Download className="h-3.5 w-3.5" /> CSV
-                          </a>
-                        ) : null}
-                        {b.id !== null ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handleRenameBatch(b)}
-                              disabled={busy}
-                              className="inline-flex items-center gap-1 text-xs font-medium text-foreground/60 underline decoration-dotted hover:text-foreground disabled:opacity-50"
-                            >
-                              <Pencil className="h-3.5 w-3.5" /> Rename
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteBatch(b)}
-                              disabled={busy}
-                              className="inline-flex items-center gap-1 text-xs font-medium text-foreground/60 underline decoration-dotted hover:text-foreground disabled:opacity-50"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" /> Delete batch
-                            </button>
-                          </>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
-                  {b.contacts.map((p) => (
-                    <Fragment key={p.id}>
-                      <tr className="border-t border-border/40">
-                        <td className="px-3 py-2">
-                          <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggle(p.id)} />
-                        </td>
-                        <td className="px-3 py-2">
-                          {contactName(p)}
-                          {p.title ? <div className="text-xs text-foreground/50">{p.title}</div> : null}
-                        </td>
-                        <td className="px-3 py-2">{p.email}</td>
-                        <td className="px-3 py-2">{p.company ?? "—"}</td>
-                        {p.sequence.steps.map((info) => (
-                          <td key={info.step} className={clsx("px-3 py-2", info.step === sendStep && "bg-muted/30")}>
-                            <StepCell info={info} engagement={p.engagementByStep?.[info.step - 1]} />
-                          </td>
-                        ))}
-                        <td className="px-3 py-2">
-                          {(() => {
-                            const st = statusForEmail(p, sendStep);
-                            return st ? (
-                              <span
-                                className={clsx("rounded-full px-2 py-0.5 text-xs font-medium", STATUS_STYLES[st])}
-                                title={`Email ${sendStep}: ${st.toLowerCase()}. Overall (any email): ${p.status.toLowerCase()}.`}
-                              >
-                                {st}
-                              </span>
-                            ) : (
-                              <span
-                                className="text-xs text-foreground/40"
-                                title={`Email ${sendStep} not sent yet. Overall (any email): ${p.status.toLowerCase()}.`}
-                              >
-                                Not sent
-                              </span>
-                            );
-                          })()}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-2">
-                          <button
-                            type="button"
-                            onClick={() => toggleHistory(p.id)}
-                            className="text-xs font-medium text-foreground/60 underline decoration-dotted hover:text-foreground"
-                          >
-                            {expandedId === p.id ? "Hide history" : "History"}
-                          </button>
-                          {p.health === "attention" ? (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => handleMarkSent(p)}
-                                title="Found it in Sent Items? Record it as sent so it's never sent again."
-                                className="ml-3 text-xs font-medium text-foreground/60 underline decoration-dotted hover:text-foreground"
-                              >
-                                Mark as sent
-                              </button>
-                              {p.status !== "PENDING" ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleReset(p.id)}
-                                  disabled={resettingIds.has(p.id)}
-                                  title="Changes the status label back to Pending. It can't make an email that went out, or a contact who replied or bounced, sendable again -- those are decided from the history."
-                                  className="ml-3 text-xs font-medium text-foreground/60 underline decoration-dotted hover:text-foreground disabled:opacity-50"
-                                >
-                                  {resettingIds.has(p.id) ? "Resetting…" : "Reset to Pending"}
-                                </button>
-                              ) : null}
-                            </>
-                          ) : null}
-                        </td>
-                      </tr>
-                      {expandedId === p.id ? (
-                        <tr className="border-t border-border/40 bg-muted/20">
-                          <td colSpan={columnCount} className="px-3 py-3">
-                            <HistoryTimeline state={historyById[p.id]} />
-                          </td>
-                        </tr>
-                      ) : null}
-                    </Fragment>
-                  ))}
-                  {b.contacts.length === 0 ? (
-                    <tr className="border-t border-border/40">
-                      <td colSpan={columnCount} className="px-3 py-4 text-center text-xs text-foreground/50">
-                        This batch is empty — import a CSV into it, or move contacts here from another batch.
-                      </td>
-                    </tr>
-                  ) : null}
-                </Fragment>
-              );
-            })}
-            {hasContacts && healthView !== "all" && visibleContacts.length === 0 ? (
-              <tr>
-                <td colSpan={columnCount} className="px-3 py-6 text-center text-foreground/50">
-                  {healthView === "attention"
-                    ? "Nothing needs attention."
-                    : healthView === "resend"
-                      ? "No reset contacts waiting — use \"Reset to Pending\" under Needs attention once you've checked Sent Items."
-                      : "No contacts in this view."}
-                </td>
-              </tr>
-            ) : null}
-            {!loading && !hasContacts && batches.length === 0 ? (
-              <tr>
-                <td colSpan={columnCount} className="px-3 py-6 text-center text-foreground/50">
-                  No contacts yet — upload a CSV above. It will be placed in a new batch.
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
     </div>
   );
 }

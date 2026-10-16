@@ -39,11 +39,12 @@ export function SequenceBar({
 }) {
   const steps: Step[] = [1, 2, 3];
   return (
-    <div className="space-y-1.5">
-      <div className="text-xs font-medium text-foreground/60">
-        Sequence — {scopeLabel}. Each email is tracked on its own; earlier emails&apos; history stays as it is.
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-baseline gap-x-2 text-xs text-foreground/55">
+        <span className="font-semibold uppercase tracking-wide text-foreground/45">Sequence</span>
+        <span>{scopeLabel} · pick an email to work on it below; each email is tracked on its own.</span>
       </div>
-      <div className="grid gap-2 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-3">
         {steps.map((step) => {
           const i = step - 1;
           const sent = summary.sentByStep[i];
@@ -69,12 +70,24 @@ export function SequenceBar({
               }}
               aria-pressed={active}
               className={clsx(
-                "flex cursor-pointer flex-col gap-2 rounded-lg border p-3 text-left transition",
-                active ? "border-button-primary bg-muted/40 ring-1 ring-button-primary" : "border-border/60 hover:bg-muted/30"
+                "flex cursor-pointer flex-col gap-2 rounded-xl border bg-card p-4 text-left transition",
+                active
+                  ? "border-button-primary shadow-sm ring-1 ring-button-primary"
+                  : "border-border/60 hover:border-border hover:shadow-sm"
               )}
             >
               <div className="flex items-baseline justify-between gap-2">
-                <span className="text-sm font-semibold">Email {step}</span>
+                <span className="inline-flex items-center gap-2 text-sm font-semibold">
+                  <span
+                    className={clsx(
+                      "inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] tabular-nums",
+                      active ? "bg-button-primary text-button-primary-foreground" : "bg-muted text-foreground/60"
+                    )}
+                  >
+                    {step}
+                  </span>
+                  Email {step}
+                </span>
                 <span className="truncate text-xs text-foreground/50" title={template?.name}>
                   {template ? template.name : step === 1 ? "" : "No template yet"}
                 </span>
@@ -84,10 +97,22 @@ export function SequenceBar({
                 <span className="text-2xl font-semibold tabular-nums">{sent}</span>
                 <span className="text-xs text-foreground/60">sent</span>
               </div>
-              <div className="text-xs text-foreground/60">
-                Opened {summary.openedByStep[i]}
-                {pct(summary.openedByStep[i])} · Clicked {summary.clickedByStep[i]} · Replied {summary.repliedByStep[i]}
-                {summary.bouncedByStep[i] ? ` · Bounced ${summary.bouncedByStep[i]}` : ""}
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-foreground/60">
+                <span>
+                  <span className="font-medium text-foreground/80 tabular-nums">{summary.openedByStep[i]}</span> opened
+                  {pct(summary.openedByStep[i])}
+                </span>
+                <span>
+                  <span className="font-medium text-foreground/80 tabular-nums">{summary.clickedByStep[i]}</span> clicked
+                </span>
+                <span>
+                  <span className="font-medium text-foreground/80 tabular-nums">{summary.repliedByStep[i]}</span> replied
+                </span>
+                {summary.bouncedByStep[i] ? (
+                  <span className="text-red-700 dark:text-red-400">
+                    <span className="font-medium tabular-nums">{summary.bouncedByStep[i]}</span> bounced
+                  </span>
+                ) : null}
               </div>
 
               <div className="mt-auto flex flex-wrap items-center gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
@@ -112,7 +137,7 @@ export function SequenceBar({
                   </button>
                 ) : null}
                 {ready === 0 && scheduled === 0 ? (
-                  <span className="text-xs text-foreground/40">{waitingOn ?? "Nobody waiting for this email"}</span>
+                  <span className="text-xs text-foreground/40">{waitingOn ?? "Nobody waiting"}</span>
                 ) : null}
               </div>
             </div>

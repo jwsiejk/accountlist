@@ -52,7 +52,7 @@ export function StepCell({ info, engagement }: { info: StepInfo; engagement?: St
     case "queued":
       return (
         <span
-          className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+          className="inline-flex whitespace-nowrap rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300"
           title="Send requested; waiting for the send-flow to confirm it went out."
         >
           Queued…
@@ -62,24 +62,30 @@ export function StepCell({ info, engagement }: { info: StepInfo; engagement?: St
       return (
         <span
           className={clsx(
-            "inline-flex rounded-full border px-2 py-0.5 text-xs font-medium",
+            "inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-medium",
             info.unconfirmed
-              ? "border-amber-400 text-amber-800 dark:text-amber-300"
-              : "border-button-primary text-foreground"
+              ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+              : "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
           )}
           title={
             info.unconfirmed
-              ? "An earlier send request for this email was never confirmed, so it probably didn't go out. It can be sent again."
+              ? "An earlier send request for this email was never confirmed, so it probably didn't go out. Check Sent Items, then mark as sent or resend."
               : "Ready to send now."
           }
         >
-          {info.unconfirmed ? "Retry — not confirmed" : "Ready"}
+          {info.unconfirmed ? (
+            <>
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden /> Not confirmed
+            </>
+          ) : (
+            "Ready"
+          )}
         </span>
       );
     case "scheduled":
       return (
         <span
-          className="inline-flex rounded-full border border-border/60 px-2 py-0.5 text-xs text-foreground/60"
+          className="inline-flex whitespace-nowrap rounded-full border border-dashed border-border px-2 py-0.5 text-xs text-foreground/60"
           title={`Suggested send date ${fullWhen(info.dueAt)}. You can still send it earlier.`}
         >
           Due {shortDay(info.dueAt)}
