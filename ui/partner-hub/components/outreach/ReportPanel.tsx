@@ -33,8 +33,8 @@ function nextLabel(c: Contact): string {
 
 function Tile({ label, value, sub }: { label: string; value: number; sub?: string }) {
   return (
-    <div className="rounded-lg border border-border/60 px-3 py-2">
-      <div className="text-xl font-semibold tabular-nums">{value}</div>
+    <div className="rounded-lg border border-border/60 bg-card px-3 py-2.5">
+      <div className="text-xl font-semibold tabular-nums text-foreground">{value}</div>
       <div className="text-xs text-foreground/60">{label}</div>
       {sub ? <div className="text-[11px] text-foreground/40">{sub}</div> : null}
     </div>
@@ -100,7 +100,7 @@ function SummaryTiles({ s }: { s: BatchSummary }) {
 
 function BatchSection({ batch, reportHref }: { batch: BatchOverview; reportHref: string }) {
   return (
-    <section className="space-y-2">
+    <section className="space-y-3 border-t border-border/60 pt-6">
       <div className="flex flex-wrap items-center gap-3">
         <h3 className="text-base font-semibold">{batch.name}</h3>
         <span className="text-xs text-foreground/60">
@@ -118,7 +118,16 @@ function BatchSection({ batch, reportHref }: { batch: BatchOverview; reportHref:
       </div>
       <SummaryTiles s={batch.summary} />
       {batch.contacts.length > 0 ? (
-        <div className="overflow-x-auto rounded-lg border border-border/60">
+        <details className="group rounded-lg border border-border/60 [&_summary::-webkit-details-marker]:hidden">
+          <summary className="flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-xs font-medium text-foreground/60 hover:text-foreground">
+            <span className="inline-block transition-transform group-open:rotate-90" aria-hidden>
+              ›
+            </span>
+            <span className="group-open:hidden">Show</span>
+            <span className="hidden group-open:inline">Hide</span> {batch.contacts.length} contact
+            {batch.contacts.length === 1 ? "" : "s"}
+          </summary>
+        <div className="overflow-x-auto border-t border-border/60">
           <table className="w-full text-sm">
             <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-foreground/60">
               <tr>
@@ -163,6 +172,7 @@ function BatchSection({ batch, reportHref }: { batch: BatchOverview; reportHref:
             </tbody>
           </table>
         </div>
+        </details>
       ) : (
         <p className="text-xs text-foreground/50">No contacts in this batch.</p>
       )}

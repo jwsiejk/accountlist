@@ -26,7 +26,7 @@ const LAST_CAMPAIGN_KEY = "outreach.lastCampaignId";
  * Top-level shell: a campaign switcher (each campaign is a fully separate
  * prospect list + template library, sharing only the one send/reply
  * infrastructure -- see docs/OUTREACH_SETUP.md) and, below it, the
- * Batches / Report / Templates tabs scoped to whichever campaign is selected.
+ * Contacts & sending / Report / Templates tabs scoped to whichever campaign is selected.
  * Within a campaign, contacts are organised into batches (one per round of
  * outreach) and tracked through the Email 1 -> 2 -> 3 sequence.
  */
@@ -116,112 +116,142 @@ export function OutreachDashboard() {
 
   const selectedCampaign = campaigns.find((c) => c.id === selectedId) ?? null;
 
+  const tabs = [
+    { id: "prospects" as const, label: "Contacts & sending", count: selectedCampaign?.prospectCount },
+    { id: "report" as const, label: "Report" },
+    { id: "templates" as const, label: "Templates", count: selectedCampaign?.templateCount },
+  ];
+
   return (
-    <Card>
-      <CardHeader className="gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <CardTitle>Campaigns</CardTitle>
-          {!creating ? (
-            <Button size="sm" variant="secondary" onClick={() => setCreating(true)}>
-              <Plus className="h-4 w-4" /> New campaign
-            </Button>
-          ) : null}
-        </div>
-
-        {creating ? (
-          <div className="flex flex-col gap-2 rounded-lg border border-border/60 p-3 sm:flex-row sm:items-end">
-            <div className="flex-1">
-              <label className="mb-1 block text-xs font-medium text-foreground/70">Campaign name</label>
-              <input
-                type="text"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="e.g. RE:Invent 2026"
-                className="w-full rounded-lg border border-border/60 px-3 py-2 text-sm"
-                autoFocus
-              />
-            </div>
-            <div className="flex-1">
-              <label className="mb-1 block text-xs font-medium text-foreground/70">Description (optional)</label>
-              <input
-                type="text"
-                value={newDescription}
-                onChange={(e) => setNewDescription(e.target.value)}
-                className="w-full rounded-lg border border-border/60 px-3 py-2 text-sm"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button variant="ghost" size="md" onClick={() => setCreating(false)}>
-                Cancel
-              </Button>
-              <Button size="md" onClick={handleCreateCampaign} disabled={creatingBusy}>
-                {creatingBusy ? "Creating…" : "Create"}
-              </Button>
-            </div>
-          </div>
-        ) : null}
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
-
-        {!loading && campaigns.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-2">
-            {campaigns.map((c) => (
+    <div className="space-y-5">
+      {/* Campaign switcher */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-foreground/45">Campaign</span>
+        {!loading
+          ? campaigns.map((c) => (
               <button
                 key={c.id}
                 type="button"
                 onClick={() => setSelectedId(c.id)}
                 className={clsx(
-                  "rounded-full border px-3 py-1.5 text-sm font-medium transition",
+                  "inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition",
                   c.id === selectedId
-                    ? "border-button-primary bg-button-primary text-button-primary-foreground"
-                    : "border-border/60 text-foreground/70 hover:bg-muted/60"
+                    ? "border-button-primary bg-button-primary text-button-primary-foreground shadow-sm dark:border-foreground/40"
+                    : "border-border/60 bg-card text-foreground/70 hover:border-border hover:text-foreground"
                 )}
               >
                 {c.name}
-                <span className={clsx("ml-1.5 text-xs", c.id === selectedId ? "opacity-80" : "text-foreground/40")}>
+                <span className={clsx("text-xs tabular-nums", c.id === selectedId ? "opacity-70" : "text-foreground/40")}>
                   {c.prospectCount}
                 </span>
               </button>
-            ))}
-          </div>
+            ))
+          : null}
+        <div className="flex-1" />
+        {!creating ? (
+          <Button size="sm" variant="secondary" onClick={() => setCreating(true)}>
+            <Plus className="h-4 w-4" /> New campaign
+          </Button>
         ) : null}
-      </CardHeader>
+      </div>
 
-      <CardContent>
-        {loading ? (
-          <p className="text-sm text-foreground/60">Loading campaigns…</p>
-        ) : campaigns.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border/60 p-8 text-center text-sm text-foreground/60">
-            <Users className="mx-auto mb-2 h-6 w-6 text-foreground/30" />
-            No campaigns yet. Create one above to start importing prospects and sending outreach.
+      {creating ? (
+        <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card p-4 shadow-sm sm:flex-row sm:items-end">
+          <div className="flex-1">
+            <label className="mb-1 block text-xs font-medium text-foreground/60">Campaign name</label>
+            <input
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="e.g. RE:Invent 2026"
+              className="h-10 w-full rounded-md border border-border/70 bg-card px-3 text-sm"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCreateCampaign();
+                if (e.key === "Escape") setCreating(false);
+              }}
+            />
           </div>
-        ) : selectedCampaign ? (
-          <div className="space-y-4">
-            {selectedCampaign.description ? (
-              <p className="text-sm text-foreground/60">{selectedCampaign.description}</p>
-            ) : null}
+          <div className="flex-1">
+            <label className="mb-1 block text-xs font-medium text-foreground/60">Description (optional)</label>
+            <input
+              type="text"
+              value={newDescription}
+              onChange={(e) => setNewDescription(e.target.value)}
+              className="h-10 w-full rounded-md border border-border/70 bg-card px-3 text-sm"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button variant="ghost" size="md" onClick={() => setCreating(false)}>
+              Cancel
+            </Button>
+            <Button size="md" onClick={handleCreateCampaign} disabled={creatingBusy}>
+              {creatingBusy ? "Creating…" : "Create campaign"}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+      {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-            <div className="flex gap-1 border-b border-border/60">
-              {(["prospects", "report", "templates"] as const).map((t) => (
+      {loading ? (
+        <Card>
+          <CardContent>
+            <p className="text-sm text-foreground/60">Loading campaigns…</p>
+          </CardContent>
+        </Card>
+      ) : campaigns.length === 0 ? (
+        <Card>
+          <CardContent>
+            <div className="py-8 text-center">
+              <Users className="mx-auto mb-3 h-8 w-8 text-foreground/25" />
+              <p className="text-base font-medium text-foreground">No campaigns yet</p>
+              <p className="mt-1 text-sm text-foreground/60">
+                A campaign holds its own contact list and email templates. Create one to start.
+              </p>
+              <Button className="mt-4" size="md" onClick={() => setCreating(true)}>
+                <Plus className="h-4 w-4" /> New campaign
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : selectedCampaign ? (
+        <Card className="!p-0">
+          <CardHeader className="!mb-0 !gap-0 border-b border-border/60 px-6 pt-5">
+            <CardTitle className="text-xl">{selectedCampaign.name}</CardTitle>
+            {selectedCampaign.description ? (
+              <p className="mt-0.5 text-sm text-foreground/60">{selectedCampaign.description}</p>
+            ) : null}
+            <nav className="-mb-px mt-4 flex gap-5" aria-label="Campaign sections">
+              {tabs.map((t) => (
                 <button
-                  key={t}
+                  key={t.id}
                   type="button"
-                  onClick={() => setTab(t)}
+                  onClick={() => setTab(t.id)}
+                  aria-current={tab === t.id ? "page" : undefined}
                   className={clsx(
-                    "-mb-px border-b-2 px-3 py-2 text-sm font-medium capitalize transition",
-                    tab === t
+                    "inline-flex items-center gap-1.5 border-b-2 pb-3 text-sm font-medium transition",
+                    tab === t.id
                       ? "border-button-primary text-foreground"
-                      : "border-transparent text-foreground/50 hover:text-foreground"
+                      : "border-transparent text-foreground/50 hover:border-border hover:text-foreground"
                   )}
                 >
-                  {t === "templates"
-                    ? `Templates (${selectedCampaign.templateCount})`
-                    : t === "report"
-                      ? "Report"
-                      : "Batches"}
+                  {t.label}
+                  {t.count !== undefined ? (
+                    <span
+                      className={clsx(
+                        "rounded-full px-1.5 py-px text-[11px] tabular-nums",
+                        tab === t.id ? "bg-button-primary text-button-primary-foreground" : "bg-muted text-foreground/55"
+                      )}
+                    >
+                      {t.count}
+                    </span>
+                  ) : null}
                 </button>
               ))}
-            </div>
+            </nav>
+          </CardHeader>
 
+          <CardContent className="p-6">
             {tab === "prospects" ? (
               <ProspectsPanel
                 key={selectedCampaign.id}
@@ -242,9 +272,9 @@ export function OutreachDashboard() {
                 onSaved={() => refresh(selectedCampaign.id)}
               />
             )}
-          </div>
-        ) : null}
-      </CardContent>
-    </Card>
+          </CardContent>
+        </Card>
+      ) : null}
+    </div>
   );
 }
