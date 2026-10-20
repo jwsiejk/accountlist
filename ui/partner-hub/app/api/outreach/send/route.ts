@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/db";
 import { dispatchSendRequest } from "@/lib/outreach/relay-send";
-import { generateTrackingToken } from "@/lib/outreach/tokens";
-import { trackingPixelUrl, trackingClickUrl } from "@/lib/outreach/urls";
+import { generateTrackingToken, signTrackedLink } from "@/lib/outreach/tokens";
+import { rewriteLinksForTracking } from "@/lib/outreach/linkTracking";
+import { trackingPixelUrl, trackingClickBase, trackingClickUrl } from "@/lib/outreach/urls";
 import { markStatus } from "@/lib/outreach/prospects";
 import { escapeHtml, mergeTemplateText } from "@/lib/outreach/merge";
 import { getTemplate } from "@/lib/outreach/templates";
@@ -205,13 +206,18 @@ export async function POST(req: Request) {
       SENDER_NAME: senderName,
       ...trackingMarkup,
     });
-    const html = mergeTemplateText(htmlSource, {
+    const mergedHtml = mergeTemplateText(htmlSource, {
       FIRST_NAME: escapeHtml(prospect.firstName),
       LAST_NAME: escapeHtml(prospect.lastName ?? ""),
       COMPANY: escapeHtml(prospect.company ?? ""),
       SENDER_NAME: escapeHtml(senderName),
       ...trackingMarkup,
     });
+    // Every other http(s) link (newsletter sources, etc.) becomes a signed,
+    // per-recipient tracked link too, so clicks on it are recorded. The
+    // {{BOOKING_LINK}} anchor already points at the click route and is left
+    // as is. See lib/outreach/linkTracking.ts.
+    const { html } = rewriteLinksForTracking(mergedHtml, token, trackingClickBase(), signTrackedLink);
 
     try {
       // Throws (and skips the DB writes below) if the request never reached

@@ -15,8 +15,13 @@ export function trackingPixelUrl(token: string): string {
   return `${appBaseUrl()}/api/outreach/track/open/${token}`;
 }
 
+/** Click route without the token -- tracked links are `${trackingClickBase()}/<token>?u=...&s=...`. */
+export function trackingClickBase(): string {
+  return `${appBaseUrl()}/api/outreach/track/click`;
+}
+
 export function trackingClickUrl(token: string): string {
-  return `${appBaseUrl()}/api/outreach/track/click/${token}`;
+  return `${trackingClickBase()}/${token}`;
 }
 
 export function bookingDestinationUrl(): string {

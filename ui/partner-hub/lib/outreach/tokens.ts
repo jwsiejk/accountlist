@@ -22,6 +22,14 @@ export function generateTrackingToken(): string {
   return `${id}.${sig}`;
 }
 
+/**
+ * HMAC used to sign tracked links (see lib/outreach/linkTracking.ts), so the
+ * click route only ever redirects to destinations this app put in an email.
+ */
+export function signTrackedLink(data: string): string {
+  return crypto.createHmac("sha256", getSecret()).update(data).digest("base64url").slice(0, 22);
+}
+
 export function verifyTrackingToken(token: string): boolean {
   const [id, sig] = token.split(".");
   if (!id || !sig) return false;

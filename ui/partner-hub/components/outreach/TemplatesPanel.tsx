@@ -297,7 +297,11 @@ export function TemplatesPanel({
     if (next.size === 0) setSaveError(null);
   }
   const missingPixel = !/\{\{\s*TRACKING_PIXEL\s*\}\}/.test(draft.html);
-  const missingBooking = !/\{\{\s*BOOKING_LINK\s*\}\}/.test(draft.html);
+  // Clicks are tracked on {{BOOKING_LINK}} and on every other http(s) link
+  // (see lib/outreach/linkTracking.ts), so only an email with no links at
+  // all has nothing to track clicks on.
+  const missingBooking =
+    !/\{\{\s*BOOKING_LINK\s*\}\}/.test(draft.html) && !/<a\b[^>]*\bhref\s*=\s*["']https?:/i.test(draft.html);
 
   return (
     <div className="space-y-4">
@@ -484,10 +488,10 @@ export function TemplatesPanel({
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-amber-800 dark:text-amber-300">
                   <span>
                     {missingPixel && missingBooking
-                      ? "No {{TRACKING_PIXEL}} or {{BOOKING_LINK}} — opens and clicks won't be tracked."
+                      ? "No {{TRACKING_PIXEL}} and no links — opens won't be tracked and there's nothing to click."
                       : missingPixel
                         ? "No {{TRACKING_PIXEL}} — opens won't be tracked."
-                        : "No {{BOOKING_LINK}} — clicks won't be tracked."}
+                        : "No links in this email — add one (or {{BOOKING_LINK}}) to track clicks."}
                   </span>
                   <button
                     type="button"

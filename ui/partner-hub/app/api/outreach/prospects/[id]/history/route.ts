@@ -50,6 +50,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
           reason: typeof meta?.reason === "string" ? meta.reason : undefined,
           userAgent: typeof meta?.userAgent === "string" ? meta.userAgent : undefined,
           manual: meta?.source === "manual",
+          url: typeof meta?.url === "string" ? meta.url : undefined,
+          link: meta?.link === "content" || meta?.link === "booking" ? meta.link : undefined,
         };
       }),
     }));

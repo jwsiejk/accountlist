@@ -326,7 +326,9 @@ export function prepareForSending(html: string, notes: string[] = []): string {
         'Replaced the booking link with {{BOOKING_LINK}} so clicks are tracked. It shows as "book a meeting with DDN here" — check the sentence around it reads well.'
       );
     } else {
-      notes.push("No booking link found. Add {{BOOKING_LINK}} where you want it, or clicks won't be tracked.");
+      notes.push(
+        "No booking link found. Add {{BOOKING_LINK}} if this email should offer one; clicks on any other links are tracked automatically."
+      );
     }
   }
 
