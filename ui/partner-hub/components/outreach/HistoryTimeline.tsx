@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { Bot, CheckCircle2, Eye, Mail, MousePointerClick, Reply, XCircle } from "lucide-react";
 import { clsx } from "clsx";
+import { linkLabel } from "@/lib/outreach/linkTracking";
 
 export interface TrackingEventRow {
   id: number;
@@ -13,6 +14,9 @@ export interface TrackingEventRow {
   userAgent?: string;
   /** A send confirmation recorded by hand ("Mark as sent"), not by the send-flow. */
   manual?: boolean;
+  /** For a CLICK: where the click went, and whether it was the booking link or another link in the email. */
+  url?: string;
+  link?: "content" | "booking";
 }
 
 export interface MessageHistory {
@@ -62,7 +66,7 @@ const EVENT_META: Record<
 > = {
   SEND_CONFIRMED: { label: "Send confirmed", icon: CheckCircle2, dot: "bg-blue-500" },
   OPEN: { label: "Opened", icon: Eye, dot: "bg-amber-500" },
-  CLICK: { label: "Clicked booking link", icon: MousePointerClick, dot: "bg-purple-500" },
+  CLICK: { label: "Clicked", icon: MousePointerClick, dot: "bg-purple-500" },
   REPLY: { label: "Replied", icon: Reply, dot: "bg-green-500" },
   BOUNCE: { label: "Bounced", icon: XCircle, dot: "bg-red-500" },
 };
@@ -160,7 +164,13 @@ export function HistoryTimeline({ state }: { state?: HistoryState }) {
               <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5">
                 <span className={clsx("flex items-center gap-1.5 text-sm font-medium", entry.event.automated && "text-foreground/50")}>
                   <Icon className="h-3.5 w-3.5" />
-                  {entry.event.type === "SEND_CONFIRMED" && entry.event.manual ? "Marked as sent by hand" : meta.label}
+                  {entry.event.type === "SEND_CONFIRMED" && entry.event.manual
+                    ? "Marked as sent by hand"
+                    : entry.event.type === "CLICK"
+                      ? entry.event.link === "content" && entry.event.url
+                        ? <span title={entry.event.url}>Clicked link: {linkLabel(entry.event.url)}</span>
+                        : "Clicked booking link"
+                      : meta.label}
                   {entry.message.step ? <span className="font-normal text-foreground/50">· Email {entry.message.step}</span> : null}
                   {entry.event.automated ? (
                     <span

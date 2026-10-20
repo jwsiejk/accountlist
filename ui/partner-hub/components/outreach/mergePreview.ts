@@ -34,4 +34,4 @@ export function previewMerge(source: string, prospect?: PreviewFields): string {
 // need an awkward {"{{FIRST_NAME}}"} escape at every occurrence.
 export const PLACEHOLDER_HINT =
   "Placeholders: {{FIRST_NAME}}, {{LAST_NAME}}, {{COMPANY}}, {{SENDER_NAME}}, {{TRACKING_PIXEL}}, {{BOOKING_LINK}}. " +
-  "Keep {{TRACKING_PIXEL}} and {{BOOKING_LINK}} somewhere in the HTML, or opens/clicks for this send won't be tracked.";
+  "Keep {{TRACKING_PIXEL}} in the HTML so opens are tracked. Clicks are tracked on {{BOOKING_LINK}} and on every other link automatically.";

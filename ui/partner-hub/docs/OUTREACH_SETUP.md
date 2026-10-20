@@ -212,3 +212,22 @@ Keep the `alt="DDN"`: Outlook and many corporate gateways block images from unkn
 senders until the reader allows them, so prospects often see the alt text first.
 `ddn-logo.png` was made from `ddn-logo-white.png` by recoloring the lettering dark slate
 (#1F2937). Replace it with marketing's official dark-lettering file if one exists.
+
+## Click tracking on every link
+
+Clicks are tracked on `{{BOOKING_LINK}}` **and** on every other `http(s)` link in an
+email (newsletter sources, product pages, etc.). At send time, after the merge, the send
+route rewrites each such `<a href>` to
+
+```
+{APP_BASE_URL}/api/outreach/track/click/{token}?u={destination}&s={signature}
+```
+
+where `token` is that recipient's tracking token and `signature` is an HMAC
+(`TRACKING_TOKEN_SECRET`) over the token and destination. The click route logs the click
+(the same automated-scanner checks as before) with the destination in the event's `meta`,
+then redirects to `u`. It only does that when the signature is valid: an unsigned or
+tampered `u` falls back to the booking page, so the route can't be used as an open
+redirect. `mailto:`/`tel:`/`#` links and anything inside HTML comments are left alone.
+The prospect's History shows "Clicked link: gartner.com/…" or "Clicked booking link".
+Code and tests are in `lib/outreach/linkTracking.ts`.
