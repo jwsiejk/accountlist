@@ -190,3 +190,25 @@ are the reliable signals.
   prospects and templates, not the underlying send/reply infrastructure or the "From" address.
 - **Sending limits** are whatever the real DDN mailbox's normal Exchange/Outlook sending limits
   allow — this app has no visibility into or control over that.
+
+## Images in templates (DDN logo)
+
+Email templates can only show images from a public URL; email clients won't load
+anything else. Files in `public/` are served by the app itself, so the DDN logo lives at:
+
+| File | Use it on | URL |
+| --- | --- | --- |
+| `public/brand/ddn-logo.png` | white or light backgrounds (dark "ddn" lettering) | `https://outreach-bg3g.onrender.com/partner-hub/brand/ddn-logo.png` |
+| `public/brand/ddn-logo-white.png` | dark backgrounds (white "ddn" lettering) | `https://outreach-bg3g.onrender.com/partner-hub/brand/ddn-logo-white.png` |
+
+Paste into a template's HTML:
+
+```html
+<img src="https://outreach-bg3g.onrender.com/partner-hub/brand/ddn-logo.png"
+     alt="DDN" width="110" style="display:block;border:0;height:auto;">
+```
+
+Keep the `alt="DDN"`: Outlook and many corporate gateways block images from unknown
+senders until the reader allows them, so prospects often see the alt text first.
+`ddn-logo.png` was made from `ddn-logo-white.png` by recoloring the lettering dark slate
+(#1F2937). Replace it with marketing's official dark-lettering file if one exists.
